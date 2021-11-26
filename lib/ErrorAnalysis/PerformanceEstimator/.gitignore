@@ -1,0 +1,4 @@
+*.pyc
+*.bin
+data
+results

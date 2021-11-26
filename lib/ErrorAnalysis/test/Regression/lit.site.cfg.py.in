@@ -1,0 +1,20 @@
+
+import os
+import lit.formats
+
+config.name = "ErrorPropagator Regression Tests"
+config.test_format = lit.formats.ShTest(True)
+config.test_source_root = "@CMAKE_CURRENT_SOURCE_DIR@"
+config.test_exec_root = "@CMAKE_CURRENT_BINARY_DIR@"
+config.suffixes = ['.ll', '.c', '.cpp', '.test', '.txt', '.s']
+config.excludes = ['CMakeCache.txt', 'CMakeFiles', 'CMakeLists.txt']
+config.substitutions.append(('%epbindir', '@CMAKE_BINARY_DIR@'))
+config.substitutions.append(('%shlibext', '@CMAKE_SHARED_LIBRARY_SUFFIX@'))
+config.substitutions.append(('%exeext', '@CMAKE_EXECUTABLE_SUFFIX@'))
+config.substitutions.append(('%errorproplib',
+                             os.path.join('@CMAKE_BINARY_DIR@',
+                                          'ErrorAnalysis',
+                                          'ErrorPropagator',
+                                          'LLVMErrorPropagator@CMAKE_SHARED_LIBRARY_SUFFIX@')))
+config.substitutions.append(('opt', os.path.join('@LLVM_TOOLS_BINARY_DIR@',
+                                                 'opt')))

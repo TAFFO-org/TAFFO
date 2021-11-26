@@ -1,0 +1,16 @@
+build*
+.idea
+
+build.log
+*.zip
+dist
+*.magiclangtmp.ll
+*.magiclangtmp.s
+.vscode
+*.out
+*.log
+working-dist
+test/simple-test-cases-FOR-REGRESSION
+working-dist-llvm6
+*~
+test/jpeg-decoder-no-external-fft

@@ -1,0 +1,11 @@
+*.magiclangtmp.ll
+*.magiclangtmp.s
+*.out
+*.log
+_backup
+*.dSYM
+*~
+*.taffotmp.ll
+*.taffotmp.s
+*.taffotmp.txt
+simple-test-cases/build

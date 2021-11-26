@@ -1,0 +1,12 @@
+gemver
+- u1[i] = i;
++ u1[i] = i / fn;
+
+durbin
+-      r[i] = (n+1-i);
++      r[i] = (DATA_TYPE)(n+1-i) / (n*100.0) + 1.5;
+
+correlation
+-      data[i][j] = (DATA_TYPE)(i*j)/M + i;
++      data[i][j] = ((DATA_TYPE)(i*j)/M + i)/N;
+
