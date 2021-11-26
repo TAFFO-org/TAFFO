@@ -1,4 +1,4 @@
-<img src="_logo/TAFFO-logo-black.png" alt="TAFFO" width=30%>
+<img src="doc/logo/TAFFO-logo-black.png" alt="TAFFO" width=30%>
 
 *(Tuning Assistant for Floating Point to Fixed Point Optimization)*
 
