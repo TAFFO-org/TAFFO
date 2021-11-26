@@ -59,7 +59,7 @@ void analyze_basic_block(InstructionMix& imix, BasicBlock *bb, std::unordered_se
     
     int delim = isDelimiterInstruction(&inst);
     eval += delim;
-    if (delim > 0)
+    if (delim != 0)
       continue;
     
     if (isSkippableInstruction(&inst))

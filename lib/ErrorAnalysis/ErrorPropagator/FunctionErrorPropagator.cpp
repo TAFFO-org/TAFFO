@@ -15,10 +15,12 @@
 #include "FunctionErrorPropagator.h"
 
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/CallSite.h"
+#include "CallSiteVersions.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include <llvm/IR/InstrTypes.h>
 
 #include "Propagators.h"
 #include "MemSSAUtils.h"
@@ -216,10 +218,12 @@ FunctionErrorPropagator::dispatchInstruction(Instruction &I) {
 
 void
 FunctionErrorPropagator::prepareErrorsForCall(Instruction &I) {
-  CallSite CS(&I);
-  Function *CalledF = CS.getCalledFunction();
+
+  auto CS = dyn_cast<CallBase>(&I);
+  Function *CalledF = CS->getCalledFunction();
   SmallVector<Value *, 0U> Args;
-  for (Use &U : CS.args()) {
+
+  for (Use &U : CS->args()) {
     Value *Arg = U.get();
     if (Arg->getType()->isPointerTy()
 	&& !taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy()) {
@@ -319,8 +323,8 @@ bool FunctionErrorPropagator::checkOverflow(Instruction &I) {
       || (Type = Range->getTType()) == nullptr)
     return false;
 
-  return Range->Min < Type->getMinValueBound()
-    || Range->Max > Type->getMaxValueBound();
+  return Range->Min < (Type->getMinValueBound()).convertToDouble()
+    || Range->Max > (Type->getMaxValueBound()).convertToDouble();
 }
 
 void BBScheduler::enqueueChildren(BasicBlock *BB) {

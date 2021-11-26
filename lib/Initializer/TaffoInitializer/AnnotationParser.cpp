@@ -1,5 +1,5 @@
 #include <cctype>
-#include <climits>
+#include <limits.h>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "AnnotationParser.h"
@@ -22,7 +22,7 @@ void AnnotationParser::reset()
 bool AnnotationParser::parseAnnotationString(StringRef annstr)
 {
   reset();
-  sstream = std::istringstream(annstr.substr(0, annstr.size()));
+  sstream = std::istringstream((annstr.substr(0, annstr.size())).str());
   
   bool res;
   if (annstr.find('(') == StringRef::npos)
@@ -57,7 +57,7 @@ bool AnnotationParser::parseOldSyntax()
       backtracking = false;
     } else {
       backtracking = true;
-      backtrackingDepth = UINT_MAX;
+      backtrackingDepth =  std::numeric_limits<unsigned int>::max();
     }
     sstream >> head;
   }
@@ -136,7 +136,7 @@ bool AnnotationParser::parseNewSyntax()
         if (!expect(")")) return false;
       } else {
         backtracking = true;
-        backtrackingDepth = UINT_MAX;
+        backtrackingDepth = std::numeric_limits<unsigned int>::max();
       }
       
     } else if (peek("struct")) {
@@ -279,7 +279,7 @@ bool AnnotationParser::expect(std::string kw)
   error = "Expected " + kw + " at character index " + std::to_string((int)(sstream.tellg())-1);
   if (next == '\0')
     return false;
-  int i = 0;
+  size_t i = 0;
   while (i < kw.size() && next != '\0' && next == kw[i]) {
     i++;
     sstream >> next;

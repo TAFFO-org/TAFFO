@@ -26,6 +26,7 @@ public:
   virtual void setNode(const llvm::Value* V, NodePtrT Node);
   virtual NodePtrT loadNode(const NodePtrT Node) const;
   virtual void storeNode(NodePtrT Dst, const NodePtrT Src);
+  virtual ~VRAStore() = default;
 
   enum VRAStoreKind { VRASK_VRAGlobalStore, VRASK_VRAnalyzer, VRASK_VRAFunctionStore };
   VRAStoreKind getKind() const { return Kind; }
@@ -44,7 +45,7 @@ protected:
   RangeNodePtrT fetchRange(const NodePtrT Node, llvm::SmallVectorImpl<unsigned>& Offset) const;
 
   VRAStore(VRAStoreKind K, std::shared_ptr<VRALogger> L)
-    : Kind(K), DerivedRanges(), Logger(L) {}
+    : DerivedRanges(), Logger(L), Kind(K) {}
 
 private:
   const VRAStoreKind Kind;

@@ -16,6 +16,41 @@ using namespace llvm;
 using namespace taffo;
 
 
+Function *TaffoInitializer::findStartingPointFunctionGlobal(Module& M)
+{
+  GlobalVariable *StartFuncGlob = nullptr;
+
+  for (GlobalVariable& Global: M.globals()) {
+    if (Global.getName() == "__taffo_vra_starting_function") {
+      StartFuncGlob = &Global;
+      break;
+    }
+  }
+  if (!StartFuncGlob)
+    return nullptr;
+
+  Constant *Init = StartFuncGlob->getInitializer();
+  ConstantExpr *ValCExpr = dyn_cast_or_null<ConstantExpr>(Init);
+  if (!ValCExpr)
+    report_fatal_error("__taffo_vra_starting_function not initialized to anything or initialized incorrectly!");
+
+  Function *Res = nullptr;
+  while (ValCExpr && ValCExpr->getOpcode() == Instruction::BitCast) {
+    if (isa<Function>(ValCExpr->getOperand(0))) {
+      Res = dyn_cast<Function>(ValCExpr->getOperand(0));
+      break;
+    }
+    ValCExpr = dyn_cast<ConstantExpr>(ValCExpr->getOperand(0));
+  }
+  if (!ValCExpr || !Res)
+    report_fatal_error("__taffo_vra_starting_function initialized incorrectly!");
+
+  StartFuncGlob->eraseFromParent();
+
+  return Res;
+}
+
+
 void TaffoInitializer::readGlobalAnnotations(Module &m,
     MultiValueMap<Value *, ValueInfo>& variables,
 		bool functionAnnotation)

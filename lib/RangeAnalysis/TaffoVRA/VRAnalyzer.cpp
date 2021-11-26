@@ -168,7 +168,7 @@ VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const {
     if (!CB->isIndirectCall()) {
       llvm::Function *Called = CB->getCalledFunction();
       return Called && !(Called->isIntrinsic()
-                         || isMathCallInstruction(Called->getName())
+                         || isMathCallInstruction(Called->getName().str())
                          || isMallocLike(Called));
     }
     return true;
@@ -241,13 +241,13 @@ VRAnalyzer::handleSpecialCall(const llvm::Instruction* I) {
   }
 
   const llvm::StringRef FunctionName = Callee->getName();
-  if (isMathCallInstruction(FunctionName)) {
+  if (isMathCallInstruction(FunctionName.str())) {
     // fetch ranges of arguments
     std::list<range_ptr_t> ArgScalarRanges;
     for (Value *Arg : CB->args()) {
       ArgScalarRanges.push_back(fetchRange(Arg));
     }
-    range_ptr_t Res = handleMathCallInstruction(ArgScalarRanges, FunctionName);
+    range_ptr_t Res = handleMathCallInstruction(ArgScalarRanges, FunctionName.str());
     saveValueRange(I, Res);
     LLVM_DEBUG(Logger->logInfo("whitelisted"));
     LLVM_DEBUG(Logger->logRangeln(Res));

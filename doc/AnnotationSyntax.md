@@ -67,7 +67,7 @@ In this document, when the syntax expects a real-number literal, the word
 
 At the topmost level, an annotation string is composed by zero or more top-level
 attributes, and exactly one data type pattern except for `void`. The order of these
-elements are irrelevant, and they are optionally separed by any amount of whitespace.
+elements are irrelevant, and they are optionally separated by any amount of whitespace.
 
 Example:
 
@@ -84,14 +84,26 @@ TAFFO which do not depend on the data type of the variable.
 Note that when multiple such attributes of the same type are present, only the last
 ones of each type are evaluated.
 
+### *errtarget*
+
+```
+errtarget(<string>)
+```
+
+The `errtarget` attribute sets the specified string as the name to use to
+display the error computed by the Error Propagation TAFFO pass.
+
 ### *target*
 
 ```
 target(<string>)
 ```
 
-The `target` attribute sets the specified string as the name to use to
+The `target` attribute does the same as `errtarget`,
+i.e., it sets the specified string as the name to use to
 display the error computed by the Error Propagation TAFFO pass.
+Additionally, it also sets the function containing the annotated variable
+as a _starting-point_ (see the related section at the end of this page).
 
 ### *backtracking*
 
@@ -212,3 +224,40 @@ final
 
 The `final` keyword prevents the value range analysis stage from widening the initial range supplied for this variable.
 Note that this can be done as far as TAFFO is able to keep track of the annotated variable in LLVM IR, so this works best for arrays and structs.
+
+
+## Starting-Point
+
+Some of the modules contained in TAFFO (namely, the value-range and error analyses)
+perform a static analysis of the input code by propagating data
+(such as variable ranges) through the data-flow of the program,
+roughly simulating its execution.
+Thus, they need to know where the execution of the program normally starts from.
+This is accomplished by marking one or more functions as _starting-points_.
+TAFFO then performs its static analyses by assuming the program's execution
+could start from any of such functions.
+Typically, the `main` function is marked as a starting-point.
+
+Note that at least one starting-point should always be specified
+in a program, unless the `-propagate-all` command-line flag for
+the value-range analysis is set.
+Otherwise, TAFFO will not be able to infer value ranges correctly,
+causing issues with the data-type allocation module.
+
+There are two ways of defining the starting-points of a program.
+
+### Through annotations
+
+The `target` annotation has the effect of marking as a _starting-point_
+the function containing the variable it refers to.
+This annotation allows for defining multiple starting-point functions
+in the same program.
+
+### Through a special variable
+
+If TAFFO finds a global variable named
+```
+__taffo_vra_starting_function
+```
+that is initialized with a pointer to a function,
+it will mark that function as a _starting-point_.

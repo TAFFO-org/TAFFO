@@ -50,6 +50,7 @@ void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned Max
     DominatorTree &DomTree = P.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     AssumptionCache &AssC = P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     OptimizationRemarkEmitter &ORE = P.getAnalysis<OptimizationRemarkEmitterWrapperPass>(F).getORE();
+    TargetTransformInfo& TTI = P.getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
     UnrollLoopOptions ULO = {
       .Count = UnrollCount,
       .TripCount = TripCount,
@@ -64,7 +65,7 @@ void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned Max
       .ForgetAllSCEV = false
     };
 
-    LoopUnrollResult URes = UnrollLoop(L, ULO, &LInfo, &SE, &DomTree, &AssC, &ORE, false);
+    LoopUnrollResult URes = UnrollLoop(L, ULO, &LInfo, &SE, &DomTree, &AssC, &TTI, &ORE, false);
 
     switch (URes) {
       case LoopUnrollResult::Unmodified:

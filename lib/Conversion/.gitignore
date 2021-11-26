@@ -55,3 +55,7 @@ test/polybench-c-4.2.1-beta/*_multiconf_results
 test/*.1.ll
 test/*.2.ll
 test/*.s
+
+test/*.ll
+test/*.txt
+

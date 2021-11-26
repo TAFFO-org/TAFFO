@@ -285,7 +285,7 @@ VRAStore::extractGEPOffset(const llvm::Type* source_element_type,
   LLVM_DEBUG(dbgs() << "indices: ");
   for (auto idx_it = indices.begin() + 1; // skip first index
        idx_it != indices.end(); ++idx_it) {
-    if (isa<SequentialType>(source_element_type))
+    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type) )
       continue;
     const llvm::ConstantInt* int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
     if (int_i) {

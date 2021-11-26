@@ -1,5 +1,5 @@
 #include <limits>
-#include "llvm/IR/CallSite.h"
+#include "CallSiteVersions.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -48,6 +48,7 @@ struct TaffoInitializer : public llvm::ModulePass {
   TaffoInitializer(): ModulePass(ID) { }
   bool runOnModule(llvm::Module &M) override;
   
+  llvm::Function *findStartingPointFunctionGlobal(llvm::Module &M);
   void readGlobalAnnotations(llvm::Module &m, ConvQueueT& res, bool functionAnnotation = false);
   void readLocalAnnotations(llvm::Function &f, ConvQueueT& res);
   void readAllLocalAnnotations(llvm::Module &m, ConvQueueT& res);
@@ -62,7 +63,7 @@ struct TaffoInitializer : public llvm::ModulePass {
 						       std::shared_ptr<mdutils::MDInfo> user_mdi,
 						       std::shared_ptr<mdutils::MDInfo> used_mdi);
   void generateFunctionSpace(ConvQueueT& vals, ConvQueueT& global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue);
+  llvm::Function *createFunctionAndQueue(CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue);
   void printConversionQueue(ConvQueueT& vals);
   void removeAnnotationCalls(ConvQueueT& vals);
   

@@ -1,7 +1,7 @@
 file(
   WRITE
   ${CMAKE_CURRENT_BINARY_DIR}/taffo-config.sh
-  "printf '#!/bin/bash\\nLLVM_DIR=\"%s\"\\n\' \"${LLVM_INSTALL_PREFIX}\" | cat - \"${CMAKE_CURRENT_SOURCE_DIR}/taffo.sh\" > taffo"
+  "printf '#!/usr/bin/env bash\\nLLVM_DIR=\"%s\"\\n\' \"${LLVM_INSTALL_PREFIX}\" | cat - \"${CMAKE_CURRENT_SOURCE_DIR}/taffo.sh\" > taffo"
   )
 add_custom_command(
   OUTPUT
@@ -34,3 +34,10 @@ install(
   GROUP_EXECUTE GROUP_READ
   WORLD_EXECUTE WORLD_READ
   )
+
+
+  install(DIRECTORY
+  ILP
+
+  TYPE 
+  DATA)

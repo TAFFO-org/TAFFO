@@ -19,189 +19,235 @@ using namespace mdutils;
 using namespace taffo;
 
 
-FixedPointType::FixedPointType()
-{
-  structData = nullptr;
-  scalarData = {false, 0, 0};
+FixedPointType::FixedPointType() {
+    structData = nullptr;
+    scalarData = {false, 0, 0, FloatStandard::Float_NotFloat};
 }
 
 
-FixedPointType::FixedPointType(bool s, int f, int b)
-{
-  structData = nullptr;
-  scalarData = {s, f, b};
+FixedPointType::FixedPointType(bool s, int f, int b) {
+    structData = nullptr;
+    scalarData = {s, f, b, FloatStandard::Float_NotFloat};
 }
 
 
-FixedPointType::FixedPointType(Type *llvmtype, bool signd)
-{
-  structData = nullptr;
-  scalarData.isSigned = signd;
-  if (isFloatType(llvmtype)) {
-    scalarData.fracBitsAmt = 0;
-    scalarData.bitsAmt = 0;
-  } else if (llvmtype->isIntegerTy()) {
-    scalarData.fracBitsAmt = 0;
-    scalarData.bitsAmt = llvmtype->getIntegerBitWidth();
-  } else {
-    scalarData.isSigned = false;
-    scalarData.fracBitsAmt = 0;
-    scalarData.bitsAmt = 0;
-  }
+FixedPointType::FixedPointType(Type *llvmtype, bool signd) {
+    structData = nullptr;
+    scalarData.isSigned = signd;
+    if (isFloatType(llvmtype)) {
+        scalarData.fracBitsAmt = 0;
+        scalarData.bitsAmt = 0;
+
+        if (llvmtype->getTypeID() == Type::TypeID::HalfTyID) {
+            scalarData.floatStandard = FloatStandard::Float_half;
+        } else if (llvmtype->getTypeID() == Type::TypeID::DoubleTyID) {
+            scalarData.floatStandard = FloatStandard::Float_double;
+        } else if (llvmtype->getTypeID() == Type::TypeID::FloatTyID) {
+            scalarData.floatStandard = FloatStandard::Float_float;
+        } else if (llvmtype->getTypeID() == Type::TypeID::FP128TyID) {
+            scalarData.floatStandard = FloatStandard::Float_fp128;
+        } else if (llvmtype->getTypeID() == Type::TypeID::PPC_FP128TyID) {
+            scalarData.floatStandard = FloatStandard::Float_ppc_fp128;
+        } else if (llvmtype->getTypeID() == Type::TypeID::X86_FP80TyID) {
+            scalarData.floatStandard = FloatStandard::Float_x86_fp80;
+        } else if (llvmtype->getTypeID() == Type::TypeID::BFloatTyID) {
+            scalarData.floatStandard = FloatStandard::Float_bfloat;        
+        } else {
+            //Invalid...
+            scalarData.floatStandard = FloatStandard::Float_NotFloat;
+        }
+
+    } else if (llvmtype->isIntegerTy()) {
+        scalarData.fracBitsAmt = 0;
+        scalarData.bitsAmt = llvmtype->getIntegerBitWidth();
+        scalarData.floatStandard = FloatStandard::Float_NotFloat;
+    } else {
+        scalarData.isSigned = false;
+        scalarData.fracBitsAmt = 0;
+        scalarData.bitsAmt = 0;
+        scalarData.floatStandard = FloatStandard::Float_NotFloat;
+    }
 }
 
 
-FixedPointType::FixedPointType(const ArrayRef<FixedPointType>& elems)
-{
-  structData.reset(new SmallVector<FixedPointType, 2>(elems.begin(), elems.end()));
+FixedPointType::FixedPointType(const ArrayRef<FixedPointType> &elems) {
+    structData.reset(new SmallVector<FixedPointType, 2>(elems.begin(), elems.end()));
 }
 
 
-FixedPointType::FixedPointType(TType *mdtype)
-{
-  structData = nullptr;
-  FPType *fpt;
-  if (mdtype && (fpt = dyn_cast<FPType>(mdtype))) {
-    scalarData.bitsAmt = fpt->getWidth();
-    scalarData.fracBitsAmt = fpt->getPointPos();
-    scalarData.isSigned = fpt->isSigned();
-  } else {
-    scalarData = {false, 0, 0};
-  }
+FixedPointType::FixedPointType(TType *mdtype) {
+    structData = nullptr;
+    FPType *fpt;
+    FloatType *flt;
+    if (mdtype && (fpt = dyn_cast<FPType>(mdtype))) {
+        scalarData.bitsAmt = fpt->getWidth();
+        scalarData.fracBitsAmt = fpt->getPointPos();
+        scalarData.isSigned = fpt->isSigned();
+        scalarData.floatStandard = FloatStandard::Float_NotFloat;
+    } else if (mdtype && (flt = dyn_cast<FloatType>(mdtype))) {
+        scalarData.bitsAmt = 0;
+        scalarData.fracBitsAmt = 0;
+        scalarData.isSigned = true;
+        scalarData.floatStandard = static_cast<FloatStandard>(flt->getStandard());
+
+    } else {
+        scalarData = {false, 0, 0, FloatStandard::Float_NotFloat};
+    }
 }
 
 
-FixedPointType FixedPointType::get(MDInfo *mdnfo, int *enableConversion)
-{
-  if (mdnfo == nullptr) {
+FixedPointType FixedPointType::get(MDInfo *mdnfo, int *enableConversion) {
+    if (mdnfo == nullptr) {
+        return FixedPointType();
+
+    } else if (InputInfo *ii = dyn_cast<InputInfo>(mdnfo)) {
+        if (ii->IEnableConversion) {
+            if (enableConversion) (*enableConversion)++;
+            return FixedPointType(ii->IType.get());
+        } else {
+            return FixedPointType();
+        }
+
+    } else if (StructInfo *si = dyn_cast<StructInfo>(mdnfo)) {
+        SmallVector<FixedPointType, 2> elems;
+        for (auto i = si->begin(); i != si->end(); i++) {
+            elems.push_back(FixedPointType::get(i->get(), enableConversion));
+        }
+        return FixedPointType(elems);
+
+    }
+    assert("unknown type of MDInfo");
     return FixedPointType();
-    
-  } else if (InputInfo *ii = dyn_cast<InputInfo>(mdnfo)) {
-    if (ii->IEnableConversion) {
-      if (enableConversion) (*enableConversion)++;
-      return FixedPointType(ii->IType.get());
+}
+
+
+Type *FixedPointType::scalarToLLVMType(LLVMContext &ctxt) const {
+    assert(!structData && "fixed point type not a scalar");
+    if (scalarData.floatStandard == Float_NotFloat) {
+        return Type::getIntNTy(ctxt, scalarData.bitsAmt);
     } else {
-      return FixedPointType();
+        switch (scalarData.floatStandard) {
+            case Float_half: /*16-bit floating-point value*/
+                return Type::getHalfTy(ctxt);
+            case Float_float:    /*32-bit floating-point value*/
+                return Type::getFloatTy(ctxt);
+            case Float_double:    /*64-bit floating-point value*/
+                return Type::getDoubleTy(ctxt);
+            case Float_fp128:    /*128-bit floating-point value (112-bit mantissa)*/
+                return Type::getFP128Ty(ctxt);
+            case Float_x86_fp80:    /*80-bit floating-point value (X87)*/
+                return Type::getX86_FP80Ty(ctxt);
+            case Float_ppc_fp128:    /*128-bit floating-point value (two 64-bits)*/
+                return Type::getPPC_FP128Ty(ctxt);
+            case Float_bfloat:    /*128-bit floating-point value (two 64-bits)*/
+                return Type::getBFloatTy(ctxt);
+            case Float_NotFloat:
+            default:
+                dbgs() << "getting LLVMType of " << scalarData.floatStandard << "\n";
+                llvm_unreachable("This should've been handled before");
+        }
     }
-    
-  } else if (StructInfo *si = dyn_cast<StructInfo>(mdnfo)) {
-    SmallVector<FixedPointType, 2> elems;
-    for (auto i = si->begin(); i != si->end(); i++) {
-      elems.push_back(FixedPointType::get(i->get(), enableConversion));
-    }
-    return FixedPointType(elems);
-    
-  }
-  assert("unknown type of MDInfo");
-  return FixedPointType();
+
 }
 
 
-Type *FixedPointType::scalarToLLVMType(LLVMContext& ctxt) const
-{
-  assert(!structData && "fixed point type not a scalar");
-  return Type::getIntNTy(ctxt, scalarData.bitsAmt);
-}
+std::string FixedPointType::Primitive::toString() const {
+    std::stringstream stm;
+    if (floatStandard == Float_NotFloat) {
+        if (isSigned)
+            stm << "s";
+        else
+            stm << "u";
 
-
-std::string FixedPointType::Primitive::toString() const
-{
-  std::stringstream stm;
-  if (isSigned)
-    stm << "s";
-  else
-    stm << "u";
-  stm << bitsAmt - fracBitsAmt << "_" << fracBitsAmt << "fixp";
-  return stm.str();
-}
-
-
-std::string FixedPointType::toString() const
-{
-  std::stringstream stm;
-  
-  if (!structData) {
-    stm << scalarData.toString();
-  } else {
-    stm << '<';
-    for (int i=0; i<structData->size(); i++) {
-      stm << (*structData)[i].toString();
-      if (i != structData->size()-1)
-        stm << ',';
-    }
-    stm << '>';
-  }
-  
-  return stm.str();
-}
-
-
-FixedPointType FixedPointType::unwrapIndexList(Type *valType, const iterator_range<const Use *> indices)
-{
-  Type *resolvedType = valType;
-  FixedPointType tempFixpt = *this;
-  for (Value *a : indices) {
-    if (resolvedType->isPointerTy()) {
-      resolvedType = resolvedType->getPointerElementType();
-    } else if (resolvedType->isArrayTy()) {
-      resolvedType = resolvedType->getArrayElementType();
-    } else if (resolvedType->isVectorTy()) {
-      resolvedType = resolvedType->getVectorElementType();
-    } else if (resolvedType->isStructTy()) {
-      ConstantInt *val = dyn_cast<ConstantInt>(a);
-      assert(val && "non-constant index for struct in GEP");
-      int n = val->getZExtValue();
-      resolvedType = resolvedType->getStructElementType(n);
-      tempFixpt = tempFixpt.structItem(n);
+        stm << bitsAmt - fracBitsAmt << "_" << fracBitsAmt << "fixp";
     } else {
-      assert("unsupported type in GEP");
+        stm << floatStandard << "flp";
     }
-  }
-  return tempFixpt;
+    return stm.str();
 }
 
 
-FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned> indices)
-{
-  Type *resolvedType = valType;
-  FixedPointType tempFixpt = *this;
-  for (unsigned n : indices) {
-    if (resolvedType->isPointerTy()) {
-      resolvedType = resolvedType->getPointerElementType();
-    } else if (resolvedType->isArrayTy()) {
-      resolvedType = resolvedType->getArrayElementType();
-    } else if (resolvedType->isVectorTy()) {
-      resolvedType = resolvedType->getVectorElementType();
-    } else if (resolvedType->isStructTy()) {
-      resolvedType = resolvedType->getStructElementType(n);
-      tempFixpt = tempFixpt.structItem(n);
+std::string FixedPointType::toString() const {
+    std::stringstream stm;
+
+    if (!structData) {
+        stm << scalarData.toString();
     } else {
-      assert("unsupported type in GEP");
+        stm << '<';
+        for (int i = 0; i < structData->size(); i++) {
+            stm << (*structData)[i].toString();
+            if (i != structData->size() - 1)
+                stm << ',';
+        }
+        stm << '>';
     }
-  }
-  return tempFixpt;
+
+    return stm.str();
 }
 
 
-raw_ostream& operator<<(raw_ostream& stm, const FixedPointType& f)
-{
-  stm << f.toString();
-  return stm;
+FixedPointType FixedPointType::unwrapIndexList(Type *valType, const iterator_range<const Use *> indices) {
+    Type *resolvedType = valType;
+    FixedPointType tempFixpt = *this;
+    for (Value *a : indices) {
+        if (resolvedType->isPointerTy()) {
+            resolvedType = resolvedType->getPointerElementType();
+        } else if (resolvedType->isArrayTy()) {
+            resolvedType = resolvedType->getArrayElementType();
+        } else if (resolvedType->isVectorTy()) {
+            resolvedType = resolvedType->getContainedType(0);
+        } else if (resolvedType->isStructTy()) {
+            ConstantInt *val = dyn_cast<ConstantInt>(a);
+            assert(val && "non-constant index for struct in GEP");
+            int n = val->getZExtValue();
+            resolvedType = resolvedType->getStructElementType(n);
+            tempFixpt = tempFixpt.structItem(n);
+        } else {
+            assert("unsupported type in GEP");
+        }
+    }
+    return tempFixpt;
 }
 
 
-bool FixedPointType::operator==(const FixedPointType& rhs) const
-{
-  if (!structData) {
-    return scalarData == rhs.scalarData;
-  } else {
-    if (structData->size() != rhs.structData->size())
-      return false;
-    for (int i=0; i<structData->size(); i++) {
-      if (!((*structData)[i] == (*rhs.structData)[i]))
-        return false;
+FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned> indices) {
+    Type *resolvedType = valType;
+    FixedPointType tempFixpt = *this;
+    for (unsigned n : indices) {
+        if (resolvedType->isPointerTy()) {
+            resolvedType = resolvedType->getPointerElementType();
+        } else if (resolvedType->isArrayTy()) {
+            resolvedType = resolvedType->getArrayElementType();
+        } else if (resolvedType->isVectorTy()) {
+            resolvedType = resolvedType->getContainedType(0);
+        } else if (resolvedType->isStructTy()) {
+            resolvedType = resolvedType->getStructElementType(n);
+            tempFixpt = tempFixpt.structItem(n);
+        } else {
+            assert("unsupported type in GEP");
+        }
     }
-  }
-  return true;
+    return tempFixpt;
+}
+
+
+raw_ostream &operator<<(raw_ostream &stm, const FixedPointType &f) {
+    stm << f.toString();
+    return stm;
+}
+
+
+bool FixedPointType::operator==(const FixedPointType &rhs) const {
+    if (!structData) {
+        return scalarData == rhs.scalarData;
+    } else {
+        if (structData->size() != rhs.structData->size())
+            return false;
+        for (int i = 0; i < structData->size(); i++) {
+            if (!((*structData)[i] == (*rhs.structData)[i]))
+                return false;
+        }
+    }
+    return true;
 }
 

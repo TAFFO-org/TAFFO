@@ -21,6 +21,7 @@ public:
   virtual void logBasicBlock(const llvm::BasicBlock *BB) const = 0;
   virtual void logStartFunction(const llvm::Function *F) = 0;
   virtual void logEndFunction(const llvm::Function *F) = 0;
+  virtual ~CILogger() = default;
 
   enum CILoggerKind { CILK_VRALogger };
   CILoggerKind getKind() const { return Kind; }
@@ -39,6 +40,7 @@ public:
   virtual std::shared_ptr<AnalysisStore> newFunctionStore(CodeInterpreter &CI) = 0;
   virtual bool hasValue(const llvm::Value *V) const = 0;
   virtual std::shared_ptr<CILogger> getLogger() const = 0;
+  virtual ~AnalysisStore() = default;
 
   enum AnalysisStoreKind { ASK_VRAGlobalStore, ASK_VRAnalyzer, ASK_VRAFunctionStore };
   AnalysisStoreKind getKind() const { return Kind; }

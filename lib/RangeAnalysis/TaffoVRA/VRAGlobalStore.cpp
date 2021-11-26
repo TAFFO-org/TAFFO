@@ -433,7 +433,7 @@ VRAGlobalStore::fetchConstant(const llvm::Constant* kval) {
   if (const llvm::ConstantFP* fp_i = dyn_cast<llvm::ConstantFP>(kval)) {
     APFloat tmp = fp_i->getValueAPF();
     bool losesInfo;
-    tmp.convert(APFloatBase::IEEEdouble(), APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
+    tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
     const num_t k = static_cast<num_t>(tmp.convertToDouble());
     return std::make_shared<VRAScalarNode>(make_range(k, k));
   }
@@ -459,7 +459,11 @@ VRAGlobalStore::fetchConstant(const llvm::Constant* kval) {
         Fields.push_back(fetchConstant(agg_zero_i->getElementValue(i)));
       }
       return std::make_shared<VRAStructNode>(Fields);
-    } else if (dyn_cast<llvm::SequentialType>(zero_type)) {
+    } else if (dyn_cast<llvm::ArrayType>(zero_type)) {
+      // arrayType or VectorType
+      const unsigned any_value = 0U;
+      return fetchConstant(agg_zero_i->getElementValue(any_value));
+    }else if (dyn_cast<llvm::VectorType>(zero_type)) {
       // arrayType or VectorType
       const unsigned any_value = 0U;
       return fetchConstant(agg_zero_i->getElementValue(any_value));

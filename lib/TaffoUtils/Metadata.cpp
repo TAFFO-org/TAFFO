@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Metadata.h"
+//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
 
 #include <sstream>
 
@@ -160,7 +161,7 @@ setArgumentInputInfoMetadata(Function &F, const ArrayRef<MDInfo *> AInfo) {
       tid = 2;
       val = SInfo->toMetadata(Context);
     } else {
-      assert("invalid MDInfo in array");
+      llvm_unreachable("invalid MDInfo in array");
     }
     ConstantInt *ctid = ConstantInt::get(IntegerType::getInt32Ty(Context), tid);
     ConstantAsMetadata *mdtid = ConstantAsMetadata::get(ctid);
@@ -598,5 +599,6 @@ createStructInfoFromMetadata(MDNode *MDN) {
 
   return std::unique_ptr<StructInfo>(new StructInfo(Fields));
 }
+
 
 }

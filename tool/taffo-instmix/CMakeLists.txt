@@ -19,7 +19,7 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   Passes
-  InstructionMix
+#InstructionMix
   )
 
 add_llvm_tool(${SELF}

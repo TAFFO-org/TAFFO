@@ -1,5 +1,6 @@
 #include <sstream>
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/InlineAsm.h"
 #include "InstructionMix.h"
 
 using namespace llvm;
@@ -81,19 +82,29 @@ int isDelimiterInstruction(llvm::Instruction *instr)
   CallBase *call = dyn_cast<CallBase>(instr);
   if (!call)
     return 0;
-  Function *opnd = call->getCalledFunction();
-  if (!opnd) {
-    Value *v = call->getOperand(0);
-    if (ConstantExpr *cexp = dyn_cast<ConstantExpr>(v)) {
-      if (cexp->getOpcode() == Instruction::BitCast) {
-        opnd = dyn_cast<Function>(cexp->getOperand(0));
-      }
+
+  Value *opnd = call->getCalledOperand();
+  if (Function *func = dyn_cast_or_null<Function>(opnd)) {
+    return isDelimiterFunction(func);
+
+  } else if (InlineAsm *iasm = dyn_cast_or_null<InlineAsm>(opnd)) {
+    StringRef asmstr = iasm->getAsmString();
+    if (asmstr.contains("LLVM-MCA-BEGIN"))
+      return +1;
+    else if (asmstr.contains("LLVM-MCA-END"))
+      return -1;
+    else
+      return 0;
+
+  } else if (ConstantExpr *cexp = dyn_cast_or_null<ConstantExpr>(opnd)) {
+    if (cexp->getOpcode() == Instruction::BitCast) {
+      Function *func = dyn_cast<Function>(cexp->getOperand(0));
+      if (func)
+        return isDelimiterFunction(func);
     }
   }
   
-  if (!opnd)
-    return 0;
-  return isDelimiterFunction(opnd);
+  return 0;
 }
 
 

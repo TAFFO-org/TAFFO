@@ -1,24 +1,28 @@
-#include <cmath>
 #include <climits>
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include <cmath>
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include <llvm/Transforms/Utils/ValueMapper.h>
-#include <llvm/Transforms/Utils/Cloning.h>
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "IndirectCallPatcher.h"
+#include "Metadata.h"
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
 #include "Metadata.h"
+#include "llvm/IR/DerivedTypes.h"
 
 
 using namespace llvm;
@@ -42,11 +46,19 @@ bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
 
+  manageIndirectCalls(m);
+
   ConvQueueT local;
   ConvQueueT global;
   readAllLocalAnnotations(m, local);
   readGlobalAnnotations(m, global, true);
   readGlobalAnnotations(m, global, false);
+
+  Function *startingPoint = findStartingPointFunctionGlobal(m);
+  if (startingPoint) {
+    LLVM_DEBUG(dbgs() << "Found starting point using global __taffo_vra_starting_function: " << startingPoint->getName() << "\n");
+    mdutils::MetadataManager::setStartingPoint(*startingPoint);
+  }
   
   ConvQueueT rootsa;
   rootsa.insert(rootsa.end(), global.begin(), global.end());
@@ -104,7 +116,11 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo& vi)
     if (vi.target.hasValue())
       mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
 
-    if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+    if (auto *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
+      if (inst->getMetadata(OMP_DISABLED_METADATA)) {
+        LLVM_DEBUG(dbgs() << "Blocking conversion for shared variable" << *inst << "\n");
+        ii->IEnableConversion = false;
+      }
       mdutils::MetadataManager::setInputInfoMetadata(*inst, *ii);
     } else if (mdutils::StructInfo *si = dyn_cast<mdutils::StructInfo>(md.get())) {
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
@@ -379,7 +395,7 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
   for (auto idx_it = gepi->idx_begin() + 1; // skip first index
        idx_it != gepi->idx_end(); ++idx_it) {
     LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] source_element_type=" << *source_element_type << "\n");
-    if (isa<SequentialType>(source_element_type))
+    if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type))
       continue;
 
     if (const llvm::ConstantInt* int_i = dyn_cast<llvm::ConstantInt>(*idx_it)) {
@@ -411,7 +427,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     Value *v = VVI->first;
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
-    CallSite *call = new CallSite(v);
+    CallSite *call = dyn_cast<CallSite>(v);
     
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
@@ -434,10 +450,10 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
     enabledFunctions.insert(newF);
 
     //Attach metadata
-    MDNode *newFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(newF));
-    MDNode *oldFRef = MDNode::get(call->getInstruction()->getContext(),ValueAsMetadata::get(oldF));
+    MDNode *newFRef = MDNode::get(call->getContext(),ValueAsMetadata::get(newF));
+    MDNode *oldFRef = MDNode::get(call->getContext(),ValueAsMetadata::get(oldF));
 
-    call->getInstruction()->setMetadata(ORIGINAL_FUN_METADATA, oldFRef);
+    call->setMetadata(ORIGINAL_FUN_METADATA, oldFRef);
     if (MDNode *cloned = oldF->getMetadata(CLONED_FUN_METADATA)) {
       cloned = cloned->concatenate(cloned, newFRef);
       oldF->setMetadata(CLONED_FUN_METADATA, cloned);
@@ -477,7 +493,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT& vals,
 }
 
 
-Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue)
+Function* TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT& vals, ConvQueueT& global, std::vector<llvm::Value*> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
   
@@ -506,10 +522,16 @@ Function* TaffoInitializer::createFunctionAndQueue(llvm::CallSite *call, ConvQue
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
-  LLVM_DEBUG(dbgs() << "  callsite instr " << *call->getInstruction() << " [" << call->getInstruction()->getFunction()->getName() << "]\n");
+  LLVM_DEBUG(dbgs() << "  callsite instr " << *call << " [" << call->getFunction()->getName() << "]\n");
   for (int i=0; oldArgumentI != oldF->arg_end() ; oldArgumentI++, newArgumentI++, i++) {
-    Value *callOperand = call->getInstruction()->getOperand(i);
-    Value *allocaOfArgument = newArgumentI->user_begin()->getOperand(1);
+    auto user_begin = newArgumentI->user_begin();
+    if (user_begin == newArgumentI->user_end()) {
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
+      continue;
+    }
+
+    Value *callOperand = call->getOperand(i);
+    Value *allocaOfArgument = user_begin->getOperand(1);
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
     

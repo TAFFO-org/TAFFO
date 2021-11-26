@@ -1,4 +1,5 @@
 #include "MemSSAUtils.hpp"
+#include "llvm/IR/Instructions.h"
 
 namespace taffo {
 

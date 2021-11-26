@@ -15,15 +15,15 @@ class VRALogger : public CILogger {
 public:
   VRALogger() : CILogger(CILK_VRALogger), IndentLevel(0U) {}
 
-  const char *getDebugType() const { return DEBUG_TYPE; }
+  const char *getDebugType() const override { return DEBUG_TYPE; }
 
-  void logBasicBlock(const llvm::BasicBlock *BB) const {
+  void logBasicBlock(const llvm::BasicBlock *BB) const override {
     assert(BB);
     lineHead();
     llvm::dbgs() << BB->getName() << "\n";
   }
 
-  void logStartFunction(const llvm::Function *F) {
+  void logStartFunction(const llvm::Function *F) override {
     assert(F);
     ++IndentLevel;
     llvm::dbgs() << "\n";
@@ -31,7 +31,7 @@ public:
     llvm::dbgs() << "Interpreting function " << F->getName() << "\n";
   }
 
-  void logEndFunction(const llvm::Function *F) {
+  void logEndFunction(const llvm::Function *F) override {
     assert(F);
     lineHead();
     llvm::dbgs() << "Finished interpreting function " << F->getName() << "\n\n";

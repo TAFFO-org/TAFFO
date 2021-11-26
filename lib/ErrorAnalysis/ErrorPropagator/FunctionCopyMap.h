@@ -40,8 +40,8 @@ public:
 		      unsigned MaxUnroll)
     : P(P),
       MaxRecursionCount(MaxRecursionCount),
-      MaxUnroll(MaxUnroll),
-      DefaultUnrollCount(DefaultUnrollCount) {}
+      DefaultUnrollCount(DefaultUnrollCount),
+      MaxUnroll(MaxUnroll) {}
 
   llvm::Function *getFunctionCopy(llvm::Function *F) {
     FunctionCopyCount *FCData = prepareFunctionData(F);

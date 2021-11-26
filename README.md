@@ -1,4 +1,4 @@
-<img src="doc/logo/TAFFO-logo-black.png" alt="TAFFO" width=30%>
+<img src="_logo/TAFFO-logo-black.png" alt="TAFFO" width=30%>
 
 *(Tuning Assistant for Floating Point to Fixed Point Optimization)*
 
@@ -55,3 +55,15 @@ taffo -O3 -o program-taffo program.c
 See the annotation syntax documentation or the examples in `test/simple-test-cases` to get an idea on how to write annotations. You can also test TAFFO without adding annotations, which will produce the same results as using `clang` as a compiler/linker instead of `taffo`.
 
 Note that there is no `taffo++`; C++ source files are autodetected by the file extension instead.
+
+## How to run unit tests
+
+Unit tests are located in `unittests` directory.
+
+```shell
+mkdir build
+cd build
+cmake ..
+cmake --build .
+ctest -VV
+```

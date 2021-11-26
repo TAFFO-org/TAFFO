@@ -379,10 +379,10 @@ taffo::handleTrunc(const range_ptr_t &op,
   APSInt imin(64U, true), imax(64U, true);
   bool isExact;
   APFloat(op->min()).convertToInteger(imin,
-                                      llvm::APFloatBase::roundingMode::rmTowardNegative,
+                                      llvm::APFloatBase::roundingMode::TowardNegative,
                                       &isExact);
   APFloat(op->max()).convertToInteger(imax,
-                                      llvm::APFloatBase::roundingMode::rmTowardPositive,
+                                      llvm::APFloatBase::roundingMode::TowardPositive,
                                       &isExact);
   APSInt new_imin(imin.trunc(itype->getBitWidth()));
   APSInt new_imax(imax.trunc(itype->getBitWidth()));
@@ -427,18 +427,18 @@ taffo::handleFPTrunc(const range_ptr_t &gop,
   // Convert with most conservative rounding mode
   bool losesInfo;
   apmin.convert(dest->getFltSemantics(),
-                llvm::APFloatBase::roundingMode::rmTowardNegative,
+                llvm::APFloatBase::rmTowardNegative,
                 &losesInfo);
   apmax.convert(dest->getFltSemantics(),
-                llvm::APFloatBase::roundingMode::rmTowardPositive,
+                llvm::APFloatBase::rmTowardPositive,
                 &losesInfo);
 
   // Convert back to double
   apmin.convert(llvm::APFloat::IEEEdouble(),
-                llvm::APFloatBase::roundingMode::rmTowardNegative,
+                llvm::APFloatBase::rmTowardNegative,
                 &losesInfo);
   apmax.convert(llvm::APFloat::IEEEdouble(),
-                llvm::APFloatBase::roundingMode::rmTowardPositive,
+                llvm::APFloatBase::rmTowardPositive,
                 &losesInfo);
   return make_range(apmin.convertToDouble(), apmax.convertToDouble());
 }

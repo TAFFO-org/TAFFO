@@ -83,8 +83,9 @@ StructType *StructNode::getElementStructType(Type *T) {
   while (!T->isStructTy()) {
     if (PointerType *PT = dyn_cast<PointerType>(T))
       T = PT->getElementType();
-    else if (SequentialType *ST = dyn_cast<SequentialType>(T))
-      T = ST->getElementType();
+    else if (isa<ArrayType>(T) || isa<VectorType>(T)){
+      T = T->getContainedType(0);
+    }
     else
       return nullptr;
   }
@@ -207,9 +208,9 @@ StructError *StructTreeWalker::navigateStructTree(StructTree *Root, bool Create)
   }
   else if (Create) {
     Type *ChildType = RN->getStructType()->getElementType(ChildIdx);
-    while (SequentialType *STy = dyn_cast<SequentialType>(ChildType)) {
+    while (isa<ArrayType>(ChildType) || isa<VectorType>(ChildType) ) {
       // Just discard array indices.
-      ChildType = STy->getElementType();
+      ChildType = ChildType->getContainedType(0);
       if (IndexStack.size() == 0) {
 	LLVM_DEBUG(dbgs() << "WARNING: struct tree shape mismatch.\n");
 	return nullptr;

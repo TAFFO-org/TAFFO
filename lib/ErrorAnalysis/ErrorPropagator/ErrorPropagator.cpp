@@ -21,6 +21,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "Metadata.h"
 #include "FunctionErrorPropagator.h"
@@ -87,6 +88,7 @@ void ErrorPropagator::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<OptimizationRemarkEmitterWrapperPass>();
   AU.addRequiredTransitive<MemorySSAWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.setPreservesAll();
 }
 

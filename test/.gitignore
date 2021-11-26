@@ -9,3 +9,11 @@ _backup
 *.taffotmp.s
 *.taffotmp.txt
 simple-test-cases/build
+polybench-c-4.2.1-beta-ilp/.idea
+polybench-c-4.2.1-beta-ilp/embedded_src/bench_obj*
+polybench-c-4.2.1-beta-ilp/embedded_src/obj
+bench_main.c.in
+bench_main.h
+polybench-c-4.2.1-beta-ilp/embedded_src/*.bin
+polybench-c-4.2.1-beta-ilp/embedded_src/*.elf
+polybench-c-4.2.1-beta-ilp/embedded_src/*.map

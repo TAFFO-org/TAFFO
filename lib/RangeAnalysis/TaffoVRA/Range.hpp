@@ -63,10 +63,10 @@ private:
   bool _is_final;
 
 public:
-  inline const num_t min() const {return _min;}
-  inline const num_t max() const {return _max;}
-  inline const bool isConstant() const {return min() == max();}
-  inline const bool cross(const num_t val = 0.0) const {
+  inline  num_t min() const {return _min;}
+  inline  num_t max() const {return _max;}
+  inline bool isConstant() const {return min() == max();}
+  inline bool cross(const num_t val = 0.0) const {
     return min() <= val && max() >= val;
   }
   inline bool isFinal() const override { return _is_final; }

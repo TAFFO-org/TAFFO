@@ -1,0 +1,725 @@
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/datamining/covariance/covariance.c ./datamining/covariance/covariance.c
+--- ../polybench-c-openmp-original/datamining/covariance/covariance.c	2021-03-11 08:55:18.000000000 +0100
++++ ./datamining/covariance/covariance.c	2021-03-11 10:19:56.000000000 +0100
+@@ -26,7 +26,8 @@
+ 		 DATA_TYPE *float_n,
+ 		 DATA_TYPE POLYBENCH_2D(data,M,N,m,n))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ")) final")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) ")) final")));
+ 
+   *float_n = 1.2;
+ 
+@@ -63,8 +64,12 @@
+ 		       DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m),
+ 		       DATA_TYPE POLYBENCH_1D(mean,M,m))
+ {
+-  int i, j, j1, j2;
+-  
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ")) final")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) ")) final")));
++
++  int j1 __attribute__((annotate("scalar(range(0, " PB_XSTR(M) ")) final")));
++  int j2 __attribute__((annotate("scalar(range(0, " PB_XSTR(M) ")) final")));
++
+   #pragma scop
+   /* Determine mean of column vectors of input data matrix */
+   #pragma omp parallel
+@@ -73,16 +78,16 @@
+     for (j = 0; j < _PB_M; j++)
+       {
+         mean[j] = 0.0;
+-	for (i = 0; i < _PB_N; i++)
+-	  mean[j] += data[i][j];
+-	mean[j] /= float_n;
++        for (i = 0; i < _PB_N; i++)
++          mean[j] += data[i][j];
++        mean[j] /= float_n;
+       }
+       
+     /* Center the column vectors. */
+     #pragma omp for private (j)
+     for (i = 0; i < _PB_N; i++)
+       for (j = 0; j < _PB_M; j++)
+-	data[i][j] -= mean[j];
++        data[i][j] -= mean[j];
+       
+     /* Calculate the m * m covariance matrix. */
+     #pragma omp for private (j2, i)
+@@ -105,10 +110,10 @@
+   int m = M;
+ 
+   /* Variable declaration/allocation. */
+-  DATA_TYPE float_n;
+-  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE,M,N,m,n);
+-  POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE,M,M,m,m);
+-  POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE,M,m);
++  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(0,8))"))) float_n;
++  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("target('data') scalar(range(0,1000))"))),M,N,m,n);
++  POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE __attribute((annotate("target('cov') scalar(range(0,1000000000))"))),M,M,m,m);
++  POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("target('mean') scalar(range(0,1000000))"))),M,m);
+   
+   /* Initialize array(s). */
+   init_array (m, n, &float_n, POLYBENCH_ARRAY(data));
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/datamining/covariance/covariance.h ./datamining/covariance/covariance.h
+--- ../polybench-c-openmp-original/datamining/covariance/covariance.h	2021-03-11 08:55:18.000000000 +0100
++++ ./datamining/covariance/covariance.h	2021-03-11 10:19:56.000000000 +0100
+@@ -9,7 +9,7 @@
+ # define COVARIANCE_H
+ 
+ /* Default to STANDARD_DATASET. */
+-# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
++# if !defined(MINI_DATASET) && !defined(STANDARD_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+ #  define STANDARD_DATASET
+ # endif
+ 
+@@ -17,8 +17,8 @@
+ # if !defined(N) && !defined(M)
+ /* Define the possible dataset sizes. */
+ #  ifdef MINI_DATASET
+-#   define N 32
+-#   define M 32
++#   define N 80
++#   define M 100
+ #  endif
+ 
+ #  ifdef SMALL_DATASET
+@@ -26,11 +26,12 @@
+ #   define M 500
+ #  endif
+ 
+-#  ifdef STANDARD_DATASET /* Default if unspecified. */
+-#   define N 1000
++#  ifdef STANDARD_DATASET
+ #   define M 1000
++#   define N 1000
+ #  endif
+ 
++
+ #  ifdef LARGE_DATASET
+ #   define N 2000
+ #   define M 2000
+@@ -47,7 +48,7 @@
+ 
+ # ifndef DATA_TYPE
+ #  define DATA_TYPE double
+-#  define DATA_PRINTF_MODIFIER "%0.2lf "
++#  define DATA_PRINTF_MODIFIER "%0.16lf "
+ # endif
+ 
+ 
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/2mm/2mm.c ./linear-algebra/kernels/2mm/2mm.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/2mm/2mm.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/2mm/2mm.c	2021-03-11 10:19:56.000000000 +0100
+@@ -30,7 +30,8 @@
+ 		DATA_TYPE POLYBENCH_2D(C,NL,NJ,nl,nj),
+ 		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
+ 
+   *alpha = 32412;
+   *beta = 2123;
+@@ -113,13 +114,14 @@
+   int nl = NL;
+ 
+   /* Variable declaration/allocation. */
+-  DATA_TYPE alpha;
+-  DATA_TYPE beta;
+-  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE,NI,NJ,ni,nj);
+-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NK,ni,nk);
+-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NK,NJ,nk,nj);
+-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NL,NJ,nl,nj);
+-  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE,NI,NL,ni,nl);
++  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
++  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
++  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("target('tmp') scalar(range(0, 30000000000000) final)"))),NI,NJ,ni,nj);
++  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar()"))),NI,NK,ni,nk);
++  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar()"))),NK,NJ,nk,nj);
++  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar()"))),NL,NJ,nl,nj);
++  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(0, 16000000000000000000) final)"))),NI,NL,ni,nl);
++
+ 
+   /* Initialize array(s). */
+   init_array (ni, nj, nk, nl, &alpha, &beta,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/2mm/2mm.h ./linear-algebra/kernels/2mm/2mm.h
+--- ../polybench-c-openmp-original/linear-algebra/kernels/2mm/2mm.h	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/2mm/2mm.h	2021-03-11 10:19:56.000000000 +0100
+@@ -30,11 +30,11 @@
+ #   define NL 128
+ #  endif
+ 
+-#  ifdef STANDARD_DATASET /* Default if unspecified. */
++#  ifdef STANDARD_DATASET
+ #   define NI 1024
+ #   define NJ 1024
+ #   define NK 1024
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/2mm/2mm.opts ./linear-algebra/kernels/2mm/2mm.opts
+--- ../polybench-c-openmp-original/linear-algebra/kernels/2mm/2mm.opts	1970-01-01 01:00:00.000000000 +0100
++++ ./linear-algebra/kernels/2mm/2mm.opts	2021-03-11 10:19:56.000000000 +0100
+@@ -0,0 +1 @@
++-Xerr -startonly -Xerr -dunroll=2
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/3mm/3mm.c ./linear-algebra/kernels/3mm/3mm.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/3mm/3mm.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/3mm/3mm.c	2021-03-11 10:19:56.000000000 +0100
+@@ -28,9 +28,10 @@
+ 		DATA_TYPE POLYBENCH_2D(C,NJ,NM,nj,nm),
+ 		DATA_TYPE POLYBENCH_2D(D,NM,NL,nm,nl))
+ {
+-  int i, j;
++int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
++int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
+ 
+-  for (i = 0; i < ni; i++)
++for (i = 0; i < ni; i++)
+     for (j = 0; j < nk; j++)
+       A[i][j] = ((DATA_TYPE) i*j) / ni;
+   for (i = 0; i < nk; i++)
+@@ -118,13 +119,13 @@
+   int nm = NM;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_2D_ARRAY_DECL(E, DATA_TYPE, NI, NJ, ni, nj);
+-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, NI, NK, ni, nk);
+-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, NK, NJ, nk, nj);
+-  POLYBENCH_2D_ARRAY_DECL(F, DATA_TYPE, NJ, NL, nj, nl);
+-  POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE, NJ, NM, nj, nm);
+-  POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE, NM, NL, nm, nl);
+-  POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE, NI, NL, ni, nl);
++  POLYBENCH_2D_ARRAY_DECL(E, DATA_TYPE __attribute__((annotate("target('E') scalar(range(0, 10000000000) final)"))), NI, NJ, ni, nj);
++  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), NI, NK, ni, nk);
++  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("target('B') scalar()"))), NK, NJ, nk, nj);
++  POLYBENCH_2D_ARRAY_DECL(F, DATA_TYPE __attribute__((annotate("target('F') scalar(range(0, 10000000000) final)"))), NJ, NL, nj, nl);
++  POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE __attribute__((annotate("target('C') scalar()"))), NJ, NM, nj, nm);
++  POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE  __attribute__((annotate("target('D') scalar()"))), NM, NL, nm, nl);
++  POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE __attribute__((annotate("target('G') scalar(range(0, 5000000000000000000) final)"))), NI, NL, ni, nl);
+ 
+   /* Initialize array(s). */
+   init_array (ni, nj, nk, nl, nm,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/3mm/3mm.h ./linear-algebra/kernels/3mm/3mm.h
+--- ../polybench-c-openmp-original/linear-algebra/kernels/3mm/3mm.h	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/3mm/3mm.h	2021-03-11 10:19:56.000000000 +0100
+@@ -33,11 +33,11 @@
+ #  endif
+ 
+ #  ifdef STANDARD_DATASET /* Default if unspecified. */
+-#   define NI 1024
+-#   define NJ 1024
+-#   define NK 1024
+-#   define NL 1024
+-#   define NM 1024
++#   define NI 768
++#   define NJ 768
++#   define NK 768
++#   define NL 768
++#   define NM 768
+ #  endif
+ 
+ #  ifdef LARGE_DATASET
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/doitgen/doitgen.c ./linear-algebra/kernels/doitgen/doitgen.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/doitgen/doitgen.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/doitgen/doitgen.c	2021-03-11 10:19:56.000000000 +0100
+@@ -26,7 +26,9 @@
+ 		DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np),
+ 		DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np))
+ {
+-  int i, j, k;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NR) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NQ) ") final)")));
++  int k __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) ") final)")));
+ 
+   for (i = 0; i < nr; i++)
+     for (j = 0; j < nq; j++)
+@@ -93,9 +95,9 @@
+   int np = NP;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE,NR,NQ,NP,nr,nq,np);
+-  POLYBENCH_3D_ARRAY_DECL(sum,DATA_TYPE,NR,NQ,NP,nr,nq,np);
+-  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE,NP,NP,np,np);
++  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(0, 1000000) final)"))),NR,NQ,NP,nr,nq,np);
++  POLYBENCH_3D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("target('sum') scalar(range(0, 1000000) final)"))),NR,NQ,NP,nr,nq,np);
++  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("target('C4') scalar()"))),NP,NP,np,np);
+ 
+   /* Initialize array(s). */
+   init_array (nr, nq, np,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/gemm/gemm.c ./linear-algebra/kernels/gemm/gemm.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/gemm/gemm.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/gemm/gemm.c	2021-03-11 10:19:56.000000000 +0100
+@@ -29,7 +29,8 @@
+ 		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+ 		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NI) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NJ) ") final)")));
+ 
+   *alpha = 32412;
+   *beta = 2123;
+@@ -98,11 +99,11 @@
+   int nk = NK;
+ 
+   /* Variable declaration/allocation. */
+-  DATA_TYPE alpha;
+-  DATA_TYPE beta;
+-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NI,NJ,ni,nj);
+-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NK,ni,nk);
+-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NK,NJ,nk,nj);
++  DATA_TYPE alpha __attribute__((annotate("target('alpha') scalar()")));
++  DATA_TYPE beta __attribute__((annotate("target('beta') scalar()")));
++  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(0, 20000000000000) final)"))),NI,NJ,ni,nj);
++  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar()"))),NI,NK,ni,nk);
++  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar()"))),NK,NJ,nk,nj);
+ 
+   /* Initialize array(s). */
+   init_array (ni, nj, nk, &alpha, &beta,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/symm/symm.c ./linear-algebra/kernels/symm/symm.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/symm/symm.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/symm/symm.c	2021-03-11 10:19:56.000000000 +0100
+@@ -29,7 +29,8 @@
+ 		DATA_TYPE POLYBENCH_2D(A,NJ,NJ,nj,nj),
+ 		DATA_TYPE POLYBENCH_2D(B,NI,NJ,ni,nj))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NI) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NJ) ") final)")));
+ 
+   *alpha = 32412;
+   *beta = 2123;
+@@ -72,7 +73,7 @@
+ 		 DATA_TYPE POLYBENCH_2D(B,NI,NJ,ni,nj))
+ {
+   int i, j, k;
+-  DATA_TYPE acc;
++  DATA_TYPE acc __attribute__((annotate("target('acc') scalar(range(0, 100000000) final)")));
+   #pragma scop
+   #pragma omp parallel
+   {
+@@ -101,11 +102,11 @@
+   int nj = NJ;
+ 
+   /* Variable declaration/allocation. */
+-  DATA_TYPE alpha;
+-  DATA_TYPE beta;
+-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NI,NJ,ni,nj);
+-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NJ,NJ,nj,nj);
+-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NI,NJ,ni,nj);
++  DATA_TYPE alpha __attribute__((annotate("target('alpha') scalar()")));
++  DATA_TYPE beta __attribute__((annotate("target('beta') scalar()")));
++  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(0, 12000000000000000) final)"))),NI,NJ,ni,nj);
++  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar()"))),NJ,NJ,nj,nj);
++  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar()"))),NI,NJ,ni,nj);
+ 
+   /* Initialize array(s). */
+   init_array (ni, nj, &alpha, &beta,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/syr2k/syr2k.c ./linear-algebra/kernels/syr2k/syr2k.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/syr2k/syr2k.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/syr2k/syr2k.c	2021-03-11 10:19:56.000000000 +0100
+@@ -29,7 +29,8 @@
+ 		DATA_TYPE POLYBENCH_2D(A,NI,NJ,ni,nj),
+ 		DATA_TYPE POLYBENCH_2D(B,NI,NJ,ni,nj))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NI) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NJ) ") final)")));
+ 
+   *alpha = 32412;
+   *beta = 2123;
+@@ -100,11 +101,11 @@
+   int nj = NJ;
+ 
+   /* Variable declaration/allocation. */
+-  DATA_TYPE alpha;
+-  DATA_TYPE beta;
+-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NI,NI,ni,ni);
+-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NJ,ni,nj);
+-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NI,NJ,ni,nj);
++  DATA_TYPE alpha __attribute__((annotate("target('alpha') scalar()")));
++  DATA_TYPE beta __attribute__((annotate("target('beta') scalar()")));
++  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(0, 120000000000000) final)"))),NI,NI,ni,ni);
++  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar()"))),NI,NJ,ni,nj);
++  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar()"))),NI,NJ,ni,nj);
+ 
+   /* Initialize array(s). */
+   init_array (ni, nj, &alpha, &beta,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/linear-algebra/kernels/syrk/syrk.c ./linear-algebra/kernels/syrk/syrk.c
+--- ../polybench-c-openmp-original/linear-algebra/kernels/syrk/syrk.c	2021-03-11 08:55:18.000000000 +0100
++++ ./linear-algebra/kernels/syrk/syrk.c	2021-03-11 10:19:56.000000000 +0100
+@@ -28,7 +28,8 @@
+ 		DATA_TYPE POLYBENCH_2D(C,NI,NI,ni,ni),
+ 		DATA_TYPE POLYBENCH_2D(A,NI,NJ,ni,nj))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NI) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NJ) ") final)")));
+ 
+   *alpha = 32412;
+   *beta = 2123;
+@@ -93,10 +94,10 @@
+   int nj = NJ;
+ 
+   /* Variable declaration/allocation. */
+-  DATA_TYPE alpha;
+-  DATA_TYPE beta;
+-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NI,NI,ni,ni);
+-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NJ,ni,nj);
++  DATA_TYPE alpha __attribute__((annotate("target('alpha') scalar()")));
++  DATA_TYPE beta __attribute__((annotate("target('beta') scalar()")));
++  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(0, 12000000000000) final)"))),NI,NI,ni,ni);
++  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar()"))),NI,NJ,ni,nj);
+ 
+   /* Initialize array(s). */
+   init_array (ni, nj, &alpha, &beta, POLYBENCH_ARRAY(C), POLYBENCH_ARRAY(A));
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/medley/floyd-warshall/floyd-warshall.c ./medley/floyd-warshall/floyd-warshall.c
+--- ../polybench-c-openmp-original/medley/floyd-warshall/floyd-warshall.c	2021-03-11 08:55:18.000000000 +0100
++++ ./medley/floyd-warshall/floyd-warshall.c	2021-03-11 10:19:56.000000000 +0100
+@@ -25,7 +25,8 @@
+ void init_array (int n,
+ 		 DATA_TYPE POLYBENCH_2D(path,N,N,n,n))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ")) final")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ")) final")));
+ 
+   for (i = 0; i < n; i++)
+     for (j = 0; j < n; j++)
+@@ -58,27 +59,21 @@
+ 			   DATA_TYPE POLYBENCH_2D(path,N,N,n,n))
+ {
+   int i, j, k;
+-  DATA_TYPE path_new, path_old;
+   #pragma scop
+-  #pragma omp parallel
+-  {
+-    #pragma omp master
+-    {
+       for (k = 0; k < _PB_N; k++)
+-      { 
+-        #pragma omp for shared (k) private (j)
++      {
++        #pragma omp parallel for shared (k) private (j)
+         for(i = 0; i < _PB_N; i++)
+           for (j = 0; j < _PB_N; j++)
+           {
+-            path_old = path[i][j];
+-            path_new = path[i][k] + path[k][j];
++            DATA_TYPE __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))"))) path_old = path[i][j];
++            DATA_TYPE __attribute__((annotate("scalar(range(0, " PB_XSTR(2*N) "))"))) path_new = path[i][k] + path[k][j];
+             #pragma omp critical
+             path[i][j] = (path[i][j] < path_new)
+               ? path[i][j]
+               : path_new;
++          }
+       }
+-    }
+-  }
+   #pragma endscop
+ }
+ 
+@@ -89,7 +84,7 @@
+   int n = N;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE, N, N, n, n);
++  POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE __attribute__((annotate("target('path') scalar(range(0, " PB_XSTR(N) "))"))), N, N, n, n);
+ 
+ 
+   /* Initialize array(s). */
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/medley/floyd-warshall/floyd-warshall.h ./medley/floyd-warshall/floyd-warshall.h
+--- ../polybench-c-openmp-original/medley/floyd-warshall/floyd-warshall.h	2021-03-11 08:55:18.000000000 +0100
++++ ./medley/floyd-warshall/floyd-warshall.h	2021-03-11 10:19:56.000000000 +0100
+@@ -39,9 +39,32 @@
+ 
+ # define _PB_N POLYBENCH_LOOP_BOUND(N,n)
+ 
+-# ifndef DATA_TYPE
++/* Default data type */
++# if !defined(DATA_TYPE_IS_INT) && !defined(DATA_TYPE_IS_FLOAT) && !defined(DATA_TYPE_IS_DOUBLE)
++#  define DATA_TYPE_IS_DOUBLE
++# endif
++
++#ifdef DATA_TYPE_IS_INT
++#  define DATA_TYPE int
++#  define DATA_PRINTF_MODIFIER "%d "
++#endif
++
++#ifdef DATA_TYPE_IS_FLOAT
++#  define DATA_TYPE float
++#  define DATA_PRINTF_MODIFIER "%0.16f "
++#  define SCALAR_VAL(x) x##f
++#  define SQRT_FUN(x) sqrtf(x)
++#  define EXP_FUN(x) expf(x)
++#  define POW_FUN(x,y) powf(x,y)
++# endif
++
++#ifdef DATA_TYPE_IS_DOUBLE
+ #  define DATA_TYPE double
+-#  define DATA_PRINTF_MODIFIER "%0.2lf "
++#  define DATA_PRINTF_MODIFIER "%0.16lf "
++#  define SCALAR_VAL(x) x
++#  define SQRT_FUN(x) sqrt(x)
++#  define EXP_FUN(x) exp(x)
++#  define POW_FUN(x,y) pow(x,y)
+ # endif
+ 
+ 
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/medley/floyd-warshall/floyd-warshall.opts ./medley/floyd-warshall/floyd-warshall.opts
+--- ../polybench-c-openmp-original/medley/floyd-warshall/floyd-warshall.opts	1970-01-01 01:00:00.000000000 +0100
++++ ./medley/floyd-warshall/floyd-warshall.opts	2021-03-11 10:19:56.000000000 +0100
+@@ -0,0 +1 @@
++-Xerr -startonly
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/medley/reg_detect/reg_detect.c ./medley/reg_detect/reg_detect.c
+--- ../polybench-c-openmp-original/medley/reg_detect/reg_detect.c	2021-03-11 08:55:18.000000000 +0100
++++ ./medley/reg_detect/reg_detect.c	2021-03-11 10:19:56.000000000 +0100
+@@ -27,7 +27,8 @@
+ 		DATA_TYPE POLYBENCH_2D(mean,MAXGRID,MAXGRID,maxgrid,maxgrid),
+ 		DATA_TYPE POLYBENCH_2D(path,MAXGRID,MAXGRID,maxgrid,maxgrid))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(MAXGRID) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(MAXGRID) ") final)")));
+ 
+   for (i = 0; i < maxgrid; i++)
+     for (j = 0; j < maxgrid; j++) {
+@@ -75,12 +76,12 @@
+     {
+       for (t = 0; t < _PB_NITER; t++)
+       {
+-        #pragma omp for private (i, cnt) collapse(2) schedule(static)
++        #pragma omp parallel for private (i, cnt) collapse(2) schedule(static)
+         for (j = 0; j <= _PB_MAXGRID - 1; j++)
+           for (i = j; i <= _PB_MAXGRID - 1; i++)
+             for (cnt = 0; cnt <= _PB_LENGTH - 1; cnt++)
+               diff[j][i][cnt] = sum_tang[j][i];
+-        #pragma omp for private (i, cnt) collapse(2) schedule(static)
++        #pragma omp parallel for private (i, cnt) collapse(2) schedule(static)
+         for (j = 0; j <= _PB_MAXGRID - 1; j++)
+         {
+           for (i = j; i <= _PB_MAXGRID - 1; i++)
+@@ -91,10 +92,10 @@
+             mean[j][i] = sum_diff[j][i][_PB_LENGTH - 1];
+ 	        }
+         }
+-        #pragma omp for
++        #pragma omp parallel for
+         for (i = 0; i <= _PB_MAXGRID - 1; i++)
+           path[0][i] = mean[0][i];
+-        #pragma omp for private (i) collapse(2) schedule(static)
++        #pragma omp parallel for private (i) collapse(2) schedule(static)
+         for (j = 1; j <= _PB_MAXGRID - 1; j++)
+           for (i = j; i <= _PB_MAXGRID - 1; i++)
+             path[j][i] = path[j - 1][i - 1] + mean[j][i];
+@@ -112,11 +113,11 @@
+   int length = LENGTH;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_2D_ARRAY_DECL(sum_tang, DATA_TYPE, MAXGRID, MAXGRID, maxgrid, maxgrid);
+-  POLYBENCH_2D_ARRAY_DECL(mean, DATA_TYPE, MAXGRID, MAXGRID, maxgrid, maxgrid);
+-  POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE, MAXGRID, MAXGRID, maxgrid, maxgrid);
+-  POLYBENCH_3D_ARRAY_DECL(diff, DATA_TYPE, MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length);
+-  POLYBENCH_3D_ARRAY_DECL(sum_diff, DATA_TYPE, MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length);
++  POLYBENCH_2D_ARRAY_DECL(sum_tang, DATA_TYPE __attribute__((annotate("target('sum_tang') scalar()"))), MAXGRID, MAXGRID, maxgrid, maxgrid);
++  POLYBENCH_2D_ARRAY_DECL(mean, DATA_TYPE __attribute__((annotate("target('mean') scalar(range(0, 5000) final)"))), MAXGRID, MAXGRID, maxgrid, maxgrid);
++  POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE __attribute__((annotate("target('path') scalar(range(0, 5000) final)"))), MAXGRID, MAXGRID, maxgrid, maxgrid);
++  POLYBENCH_3D_ARRAY_DECL(diff, DATA_TYPE __attribute__((annotate("target('diff') scalar(range(0, 5000) final)"))), MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length);
++  POLYBENCH_3D_ARRAY_DECL(sum_diff, DATA_TYPE __attribute__((annotate("target('sum_diff') scalar(range(0, 5000) final)"))), MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length);
+   
+   /* Initialize array(s). */
+   init_array (maxgrid,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/medley/reg_detect/reg_detect.h ./medley/reg_detect/reg_detect.h
+--- ../polybench-c-openmp-original/medley/reg_detect/reg_detect.h	2021-03-11 08:55:18.000000000 +0100
++++ ./medley/reg_detect/reg_detect.h	2021-03-11 10:19:56.000000000 +0100
+@@ -52,8 +52,8 @@
+ # define _PB_MAXGRID POLYBENCH_LOOP_BOUND(MAXGRID,maxgrid)
+ 
+ # ifndef DATA_TYPE
+-#  define DATA_TYPE int
+-#  define DATA_PRINTF_MODIFIER "%d "
++#  define DATA_TYPE double
++#  define DATA_PRINTF_MODIFIER "%0.16lf "
+ # endif
+ 
+ 
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/stencils/fdtd-2d/fdtd-2d.c ./stencils/fdtd-2d/fdtd-2d.c
+--- ../polybench-c-openmp-original/stencils/fdtd-2d/fdtd-2d.c	2021-03-11 08:55:18.000000000 +0100
++++ ./stencils/fdtd-2d/fdtd-2d.c	2021-03-11 10:19:56.000000000 +0100
+@@ -30,7 +30,8 @@
+ 		 DATA_TYPE POLYBENCH_2D(hz,NX,NY,nx,ny),
+ 		 DATA_TYPE POLYBENCH_1D(_fict_,TMAX,tmax))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NX) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NY) ") final)")));
+ 
+   for (i = 0; i < tmax; i++)
+     _fict_[i] = (DATA_TYPE) i;
+@@ -85,25 +86,21 @@
+     {
+       for (t = 0; t < _PB_TMAX; t++)
+       {
+-        #pragma omp for
++        #pragma omp parallel for
+         for (j = 0; j < _PB_NY; j++)
+           ey[0][j] = _fict_[t];
+-        #pragma omp barrier
+-        #pragma omp for collapse(2) schedule(static)
++        #pragma omp parallel for collapse(2) schedule(static)
+         for (i = 1; i < _PB_NX; i++)
+           for (j = 0; j < _PB_NY; j++)
+             ey[i][j] = ey[i][j] - 0.5*(hz[i][j]-hz[i-1][j]);
+-        #pragma omp barrier
+-        #pragma omp for collapse(2) schedule(static)
++        #pragma omp parallel for collapse(2) schedule(static)
+         for (i = 0; i < _PB_NX; i++)
+           for (j = 1; j < _PB_NY; j++)
+             ex[i][j] = ex[i][j] - 0.5*(hz[i][j]-hz[i][j-1]);
+-        #pragma omp barrier
+-        #pragma omp for collapse(2) schedule(static)
++        #pragma omp parallel for collapse(2) schedule(static)
+         for (i = 0; i < _PB_NX - 1; i++)
+           for (j = 0; j < _PB_NY - 1; j++)
+             hz[i][j] = hz[i][j] - 0.7*  (ex[i][j+1] - ex[i][j] + ey[i+1][j] - ey[i][j]);
+-        #pragma omp barrier
+       }
+     }
+   }
+@@ -119,10 +116,10 @@
+   int ny = NY;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_2D_ARRAY_DECL(ex,DATA_TYPE,NX,NY,nx,ny);
+-  POLYBENCH_2D_ARRAY_DECL(ey,DATA_TYPE,NX,NY,nx,ny);
+-  POLYBENCH_2D_ARRAY_DECL(hz,DATA_TYPE,NX,NY,nx,ny);
+-  POLYBENCH_1D_ARRAY_DECL(_fict_,DATA_TYPE,TMAX,tmax);
++  POLYBENCH_2D_ARRAY_DECL(ex,DATA_TYPE __attribute__((annotate("target('ex') scalar(range(-1000,1000) final)"))),NX,NY,nx,ny);
++  POLYBENCH_2D_ARRAY_DECL(ey,DATA_TYPE __attribute__((annotate("target('ey') scalar(range(-1000,1000) final)"))),NX,NY,nx,ny);
++  POLYBENCH_2D_ARRAY_DECL(hz,DATA_TYPE __attribute__((annotate("target('hz') scalar(range(-1000,1000) final)"))),NX,NY,nx,ny);
++  POLYBENCH_1D_ARRAY_DECL(_fict_,DATA_TYPE __attribute__((annotate("target('_fict_') scalar()"))),TMAX,tmax);
+ 
+   /* Initialize array(s). */
+   init_array (tmax, nx, ny,
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/stencils/jacobi-1d-imper/jacobi-1d-imper.c ./stencils/jacobi-1d-imper/jacobi-1d-imper.c
+--- ../polybench-c-openmp-original/stencils/jacobi-1d-imper/jacobi-1d-imper.c	2021-03-11 08:55:18.000000000 +0100
++++ ./stencils/jacobi-1d-imper/jacobi-1d-imper.c	2021-03-11 10:19:56.000000000 +0100
+@@ -26,7 +26,7 @@
+ 		 DATA_TYPE POLYBENCH_1D(A,N,n),
+ 		 DATA_TYPE POLYBENCH_1D(B,N,n))
+ {
+-  int i;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
+ 
+   for (i = 0; i < n; i++)
+       {
+@@ -71,15 +71,13 @@
+     {
+       for (t = 0; t < _PB_TSTEPS; t++)
+       {
+-        #pragma omp for schedule(static)
++        #pragma omp parallel for schedule(static)
+         for (i = 1; i < _PB_N - 1; i++)
+           B[i] = 0.33333 * (A[i-1] + A[i] + A[i + 1]);
+-        #pragma omp barrier
+-        
+-        #pragma omp for schedule(static)
++
++        #pragma omp parallel for schedule(static)
+         for (j = 1; j < _PB_N - 1; j++)
+           A[j] = B[j];
+-        #pragma omp barrier
+       }
+     }
+   }
+@@ -94,8 +92,8 @@
+   int tsteps = TSTEPS;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_1D_ARRAY_DECL(A, DATA_TYPE, N, n);
+-  POLYBENCH_1D_ARRAY_DECL(B, DATA_TYPE, N, n);
++  POLYBENCH_1D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), N, n);
++  POLYBENCH_1D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("target('B') scalar()"))), N, n);
+ 
+ 
+   /* Initialize array(s). */
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/stencils/jacobi-1d-imper/jacobi-1d-imper.h ./stencils/jacobi-1d-imper/jacobi-1d-imper.h
+--- ../polybench-c-openmp-original/stencils/jacobi-1d-imper/jacobi-1d-imper.h	2021-03-11 08:55:18.000000000 +0100
++++ ./stencils/jacobi-1d-imper/jacobi-1d-imper.h	2021-03-11 10:19:56.000000000 +0100
+@@ -47,7 +47,7 @@
+ 
+ # ifndef DATA_TYPE
+ #  define DATA_TYPE double
+-#  define DATA_PRINTF_MODIFIER "%0.2lf "
++#  define DATA_PRINTF_MODIFIER "%0.16lf "
+ # endif
+ 
+ 
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/stencils/jacobi-2d-imper/jacobi-2d-imper.c ./stencils/jacobi-2d-imper/jacobi-2d-imper.c
+--- ../polybench-c-openmp-original/stencils/jacobi-2d-imper/jacobi-2d-imper.c	2021-03-11 08:55:18.000000000 +0100
++++ ./stencils/jacobi-2d-imper/jacobi-2d-imper.c	2021-03-11 10:19:56.000000000 +0100
+@@ -26,7 +26,8 @@
+ 		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
+ 		 DATA_TYPE POLYBENCH_2D(B,N,N,n,n))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
+ 
+   for (i = 0; i < n; i++)
+     for (j = 0; j < n; j++)
+@@ -73,11 +74,11 @@
+     {
+       for (t = 0; t < _PB_TSTEPS; t++)
+       {
+-        #pragma omp for schedule(static) 
++        #pragma omp parallel for schedule(static)
+         for (i = 1; i < _PB_N - 1; i++)
+           for (j = 1; j < _PB_N - 1; j++)
+             B[i][j] = 0.2 * (A[i][j] + A[i][j-1] + A[i][1+j] + A[1+i][j] + A[i-1][j]);
+-	      #pragma omp for schedule(static) 
++	      #pragma omp parallel for schedule(static)
+         for (i = 1; i < _PB_N-1; i++)
+           for (j = 1; j < _PB_N-1; j++)
+             A[i][j] = B[i][j];
+@@ -95,8 +96,8 @@
+   int tsteps = TSTEPS;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
+-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
++  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(0,1000) final)"))), N, N, n, n);
++  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("target('A') scalar(range(0,1000) final)"))), N, N, n, n);
+ 
+ 
+   /* Initialize array(s). */
+diff -ruN --exclude=utilities --exclude='*.py' --exclude='*.sh' --exclude='*.md' ../polybench-c-openmp-original/stencils/seidel-2d/seidel-2d.c ./stencils/seidel-2d/seidel-2d.c
+--- ../polybench-c-openmp-original/stencils/seidel-2d/seidel-2d.c	2021-03-11 08:55:18.000000000 +0100
++++ ./stencils/seidel-2d/seidel-2d.c	2021-03-11 10:19:56.000000000 +0100
+@@ -25,7 +25,8 @@
+ void init_array (int n,
+ 		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
+ {
+-  int i, j;
++  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
++  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
+ 
+   for (i = 0; i < n; i++)
+     for (j = 0; j < n; j++)
+@@ -66,7 +67,7 @@
+     #pragma omp master
+     {
+       for (t = 0; t <= _PB_TSTEPS - 1; t++) {
+-        #pragma omp for schedule(static) collapse (2)
++        #pragma omp parallel for schedule(static) collapse (2)
+         for (i = 1; i<= _PB_N - 2; i++) {
+           for (j = 1; j <= _PB_N - 2; j++) {
+             A[i][j] = (A[i-1][j-1] + A[i-1][j] + A[i-1][j+1]
+@@ -88,7 +89,7 @@
+   int tsteps = TSTEPS;
+ 
+   /* Variable declaration/allocation. */
+-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
++  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), N, N, n, n);
+ 
+ 
+   /* Initialize array(s). */
