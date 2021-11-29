@@ -326,18 +326,77 @@ taffo::handleDiv(const range_ptr_t op1, const range_ptr_t op2) {
   return make_range(r1,r2);
 }
 
+num_t getRemMin(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max);
+num_t getRemMax(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max);
+
 /** operator% */
 range_ptr_t
 taffo::handleRem(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
-  const bool alwaysNeg = op1->max() <= 0;
-  const bool alwaysPos = op1->min() >= 0;
-  const num_t bound = fabs(op2->max()) - std::numeric_limits<num_t>::epsilon();
-  const num_t r1 = (alwaysNeg) ? - bound : (alwaysPos) ? 0 : -bound;
-  const num_t r2 = (alwaysNeg) ? 0 : (alwaysPos) ? bound : bound;
-  return make_range(r1,r2);
+  const num_t min_value = getRemMin(op1->min(), op1->max(), op2->min(), op2->max());
+  const num_t max_value = getRemMax(op1->min(), op1->max(), op2->min(), op2->max());
+  return make_range(min_value, max_value);
+}
+
+num_t getRemMin(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max) {
+  // the sign of the second operand does not affect the result, we always mirror negative into positive
+  if (op2_max < 0) return getRemMin(op1_min, op1_max, -op2_max, -op2_min);
+  if (op2_min < 0) {
+    // we have to split second operand range into negative and positive parts and calculate min separately
+    num_t neg = getRemMin(op1_min, op1_max, 1, -op2_min);
+    num_t pos = getRemMin(op1_min, op1_max, 0, op2_max);
+    return std::min(neg, pos);
+  }
+  if (op1_min >= 0) {
+    // this is the case when remainder will always return a non-negative result
+    // if any of the limits are 0, the min will always be 0
+    if (op1_min == 0.0 || op1_max == 0.0) return 0.0;
+    // the intervals are intersecting, there is always going to be n % n = 0
+    if (op1_max >= op2_min && op1_min <= op2_max) return 0.0;
+    // the first argument range is strictly lower than the second,
+    // the mod is always going to return values from the first interval, just take the lowest
+    if (op1_max < op2_min) return op1_min;
+    // the first range is strictly higher that the second
+    // we cannot tell the exact min, so return 0 as this is the lowest it can be
+    return 0.0;
+  } else {
+    if (op1_max < 0) {
+      // this is the case when % will always return negative result
+      // mirror the interval into positives and calculate max with "-" sign as the minimum
+      num_t neg = -getRemMax(-op1_max, -op1_min, op2_min, op2_max);
+      return neg;
+    } else {
+      // we need to split the interval into the negative and positive parts
+      // first, we take the negative part of the interval [op1_min, -1]
+      // we mirror it to [1, -op1_min], which is going to be positive
+      // we calculate the max and take it with the "-" sign as the minimum value
+      num_t neg = -getRemMax(1.0, -op1_min, op2_min, op2_max);
+      // for the positive part we calculate it the standard way
+      num_t pos = getRemMin(0.0, op1_max, op2_min, op2_max);
+      return std::min(neg, pos);
+    }
+  }
+}
+
+num_t getRemMax(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max) {
+  if (op1_min >= 0) {
+    // this is the case when % will always return non-negative result
+    // the range might include n*op2_max+(op2_max-1) value that will be the max
+    if (op1_max >= op2_max) return op2_max - 1;
+    // op1_max < op2_max, so op1_max % op2_max = op1_max
+    return op1_max;
+  } else {
+    if (op1_max < 0) {
+      // this is the case when remainder will always return a negative result, we need to choose the highest max
+      // mirror the interval and calculate the min, take it with "-" sign as max
+      return -getRemMin(-op1_max, -op1_min, op2_min, op2_max);
+    } else {
+      // we can ignore the negative part of the interval as it always will be lower than the positive
+      return getRemMax(0.0, op1_max, op2_min, op2_max);
+    }
+  }
 }
 
 range_ptr_t
