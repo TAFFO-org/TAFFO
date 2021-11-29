@@ -15,8 +15,8 @@ using namespace taffo;
 
 /** Handle binary instructions */
 range_ptr_t
-taffo::handleBinaryInstruction(const range_ptr_t &op1,
-                               const range_ptr_t &op2,
+taffo::handleBinaryInstruction(const range_ptr_t op1,
+                               const range_ptr_t op2,
                                const unsigned OpCode) {
   switch (OpCode) {
     case llvm::Instruction::Add:
@@ -58,7 +58,7 @@ taffo::handleBinaryInstruction(const range_ptr_t &op1,
 }
 
 range_ptr_t
-taffo::handleUnaryInstruction(const range_ptr_t &op,
+taffo::handleUnaryInstruction(const range_ptr_t op,
                               const unsigned OpCode) {
   if (!op)
     return nullptr;
@@ -255,7 +255,7 @@ taffo::handleCompare(const std::list<range_ptr_t>& ops,
 
 /** operator+ */
 range_ptr_t
-taffo::handleAdd(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleAdd(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -266,7 +266,7 @@ taffo::handleAdd(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator- */
 range_ptr_t
-taffo::handleSub(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleSub(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -277,7 +277,7 @@ taffo::handleSub(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator* */
 range_ptr_t
-taffo::handleMul(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleMul(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -300,7 +300,7 @@ taffo::handleMul(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator/ */
 range_ptr_t
-taffo::handleDiv(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleDiv(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -328,7 +328,7 @@ taffo::handleDiv(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator% */
 range_ptr_t
-taffo::handleRem(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleRem(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -341,7 +341,7 @@ taffo::handleRem(const range_ptr_t &op1, const range_ptr_t &op2) {
 }
 
 range_ptr_t
-taffo::handleShl(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleShl(const range_ptr_t op1, const range_ptr_t op2) {
   // FIXME: it only works if no overflow occurs.
   if (!op1 || !op2) {
     return nullptr;
@@ -355,7 +355,7 @@ taffo::handleShl(const range_ptr_t &op1, const range_ptr_t &op2) {
 }
 
 range_ptr_t
-taffo::handleAShr(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleAShr(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -369,7 +369,7 @@ taffo::handleAShr(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** Trunc */
 range_ptr_t
-taffo::handleTrunc(const range_ptr_t &op,
+taffo::handleTrunc(const range_ptr_t op,
                    const llvm::Type *dest) {
   using namespace llvm;
   if (!op)
@@ -392,7 +392,7 @@ taffo::handleTrunc(const range_ptr_t &op,
 
 /** CastToUInteger */
 range_ptr_t
-taffo::handleCastToUI(const range_ptr_t &op) {
+taffo::handleCastToUI(const range_ptr_t op) {
   if (!op) {
     return nullptr;
   }
@@ -403,7 +403,7 @@ taffo::handleCastToUI(const range_ptr_t &op) {
 
 /** CastToUInteger */
 range_ptr_t
-taffo::handleCastToSI(const range_ptr_t &op) {
+taffo::handleCastToSI(const range_ptr_t op) {
   if (!op) {
     return nullptr;
   }
@@ -414,7 +414,7 @@ taffo::handleCastToSI(const range_ptr_t &op) {
 
 /** FPTrunc */
 range_ptr_t
-taffo::handleFPTrunc(const range_ptr_t &gop,
+taffo::handleFPTrunc(const range_ptr_t gop,
                      const llvm::Type *dest) {
   if (!gop) {
     return nullptr;
@@ -445,8 +445,8 @@ taffo::handleFPTrunc(const range_ptr_t &gop,
 
 /** boolean Xor instruction */
 range_ptr_t
-taffo::handleBooleanXor(const range_ptr_t &op1,
-                        const range_ptr_t &op2) {
+taffo::handleBooleanXor(const range_ptr_t op1,
+                        const range_ptr_t op2) {
   if (!op1 || !op2) {
     return getGenericBoolRange();
   }
@@ -461,8 +461,8 @@ taffo::handleBooleanXor(const range_ptr_t &op1,
 
 /** boolean And instruction */
 range_ptr_t
-taffo::handleBooleanAnd(const range_ptr_t &op1,
-                        const range_ptr_t &op2) {
+taffo::handleBooleanAnd(const range_ptr_t op1,
+                        const range_ptr_t op2) {
   if (!op1 || !op2) {
     return getGenericBoolRange();
   }
@@ -477,8 +477,8 @@ taffo::handleBooleanAnd(const range_ptr_t &op1,
 
 /** boolean Or instruction */
 range_ptr_t
-taffo::handleBooleanOr(const range_ptr_t &op1,
-                       const range_ptr_t &op2) {
+taffo::handleBooleanOr(const range_ptr_t op1,
+                       const range_ptr_t op2) {
   if (!op1 || !op2) {
     return getGenericBoolRange();
   }
@@ -552,7 +552,7 @@ taffo::getAlwaysTrue() {
 
 /** create a union between ranges */
 range_ptr_t
-taffo::getUnionRange(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::getUnionRange(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1) {
     return copyRange(op2);
   }
