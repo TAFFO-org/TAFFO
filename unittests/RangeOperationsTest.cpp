@@ -142,27 +142,27 @@ namespace {
 
   // ASHR
   TEST(RangeOperationsTest, AShrPositive) {
-    auto op1 = make_range(2.0, 2e20);
+    auto op1 = make_range(2.0, 2L << 20);
     auto op2 = make_range(1.0, 16.0);
     auto result = handleAShr(op1, op2);
     EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 2e4);
+    EXPECT_EQ(result->max(), 2L << 19);
   }
 
   TEST(RangeOperationsTest, AShrNegative) {
-    auto op1 = make_range(-2.0, -2e20);
+    auto op1 = make_range(-(2L << 20), -2.0);
     auto op2 = make_range(1.0, 16.0);
     auto result = handleAShr(op1, op2);
-    EXPECT_EQ(result->min(), static_cast<double>(static_cast<long>(-2e20) >> 16));
+    EXPECT_EQ(result->min(), static_cast<double>((-(2L << 20)) >> 1));
     EXPECT_EQ(result->max(), -1.0);
   }
 
   TEST(RangeOperationsTest, AShrMixed) {
-    auto op1 = make_range(-2.0, 2e20);
+    auto op1 = make_range(-2.0, (2L << 20));
     auto op2 = make_range(1.0, 16.0);
     auto result = handleAShr(op1, op2);
     EXPECT_EQ(result->min(), -1.0);
-    EXPECT_EQ(result->max(), 2e19);
+    EXPECT_EQ(result->max(), 2L << 19);
   }
 
 };

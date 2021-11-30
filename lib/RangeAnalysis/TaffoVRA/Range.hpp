@@ -104,7 +104,7 @@ public:
   {
     _ranges = {nullptr};
   }
-  VRA_Structured_Range(const generic_range_ptr_t& r)
+  VRA_Structured_Range(const generic_range_ptr_t r)
     : VRA_Generic_Range(kind_structured)
   {
     _ranges = {r};
@@ -143,7 +143,7 @@ public:
     return std::dynamic_ptr_cast<VRA_Structured_Range>(getRangeAt(index));
   }
 
-  inline void setRangeAt(unsigned index, const generic_range_ptr_t& range) {
+  inline void setRangeAt(unsigned index, const generic_range_ptr_t range) {
     if (index >= _ranges.size())
       _ranges.resize(index + 1, nullptr);
 

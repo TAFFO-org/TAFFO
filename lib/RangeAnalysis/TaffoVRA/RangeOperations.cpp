@@ -15,8 +15,8 @@ using namespace taffo;
 
 /** Handle binary instructions */
 range_ptr_t
-taffo::handleBinaryInstruction(const range_ptr_t &op1,
-                               const range_ptr_t &op2,
+taffo::handleBinaryInstruction(const range_ptr_t op1,
+                               const range_ptr_t op2,
                                const unsigned OpCode) {
   switch (OpCode) {
     case llvm::Instruction::Add:
@@ -58,7 +58,7 @@ taffo::handleBinaryInstruction(const range_ptr_t &op1,
 }
 
 range_ptr_t
-taffo::handleUnaryInstruction(const range_ptr_t &op,
+taffo::handleUnaryInstruction(const range_ptr_t op,
                               const unsigned OpCode) {
   if (!op)
     return nullptr;
@@ -255,7 +255,7 @@ taffo::handleCompare(const std::list<range_ptr_t>& ops,
 
 /** operator+ */
 range_ptr_t
-taffo::handleAdd(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleAdd(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -266,7 +266,7 @@ taffo::handleAdd(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator- */
 range_ptr_t
-taffo::handleSub(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleSub(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -277,7 +277,7 @@ taffo::handleSub(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator* */
 range_ptr_t
-taffo::handleMul(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleMul(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -300,7 +300,7 @@ taffo::handleMul(const range_ptr_t &op1, const range_ptr_t &op2) {
 
 /** operator/ */
 range_ptr_t
-taffo::handleDiv(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleDiv(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
@@ -326,50 +326,109 @@ taffo::handleDiv(const range_ptr_t &op1, const range_ptr_t &op2) {
   return make_range(r1,r2);
 }
 
+num_t getRemMin(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max);
+num_t getRemMax(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max);
+
 /** operator% */
 range_ptr_t
-taffo::handleRem(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleRem(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
-  const bool alwaysNeg = op1->max() <= 0;
-  const bool alwaysPos = op1->min() >= 0;
-  const num_t bound = fabs(op2->max()) - std::numeric_limits<num_t>::epsilon();
-  const num_t r1 = (alwaysNeg) ? - bound : (alwaysPos) ? 0 : -bound;
-  const num_t r2 = (alwaysNeg) ? 0 : (alwaysPos) ? bound : bound;
-  return make_range(r1,r2);
+  const num_t min_value = getRemMin(op1->min(), op1->max(), op2->min(), op2->max());
+  const num_t max_value = getRemMax(op1->min(), op1->max(), op2->min(), op2->max());
+  return make_range(min_value, max_value);
+}
+
+num_t getRemMin(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max) {
+  // the sign of the second operand does not affect the result, we always mirror negative into positive
+  if (op2_max < 0) return getRemMin(op1_min, op1_max, -op2_max, -op2_min);
+  if (op2_min < 0) {
+    // we have to split second operand range into negative and positive parts and calculate min separately
+    num_t neg = getRemMin(op1_min, op1_max, 1, -op2_min);
+    num_t pos = getRemMin(op1_min, op1_max, 0, op2_max);
+    return std::min(neg, pos);
+  }
+  if (op1_min >= 0) {
+    // this is the case when remainder will always return a non-negative result
+    // if any of the limits are 0, the min will always be 0
+    if (op1_min == 0.0 || op1_max == 0.0) return 0.0;
+    // the intervals are intersecting, there is always going to be n % n = 0
+    if (op1_max >= op2_min && op1_min <= op2_max) return 0.0;
+    // the first argument range is strictly lower than the second,
+    // the mod is always going to return values from the first interval, just take the lowest
+    if (op1_max < op2_min) return op1_min;
+    // the first range is strictly higher that the second
+    // we cannot tell the exact min, so return 0 as this is the lowest it can be
+    return 0.0;
+  } else {
+    if (op1_max < 0) {
+      // this is the case when % will always return negative result
+      // mirror the interval into positives and calculate max with "-" sign as the minimum
+      num_t neg = -getRemMax(-op1_max, -op1_min, op2_min, op2_max);
+      return neg;
+    } else {
+      // we need to split the interval into the negative and positive parts
+      // first, we take the negative part of the interval [op1_min, -1]
+      // we mirror it to [1, -op1_min], which is going to be positive
+      // we calculate the max and take it with the "-" sign as the minimum value
+      num_t neg = -getRemMax(1.0, -op1_min, op2_min, op2_max);
+      // for the positive part we calculate it the standard way
+      num_t pos = getRemMin(0.0, op1_max, op2_min, op2_max);
+      return std::min(neg, pos);
+    }
+  }
+}
+
+num_t getRemMax(num_t op1_min, num_t op1_max, num_t op2_min, num_t op2_max) {
+  if (op1_min >= 0) {
+    // this is the case when % will always return non-negative result
+    // the range might include n*op2_max+(op2_max-1) value that will be the max
+    if (op1_max >= op2_max) return op2_max - 1;
+    // op1_max < op2_max, so op1_max % op2_max = op1_max
+    return op1_max;
+  } else {
+    if (op1_max < 0) {
+      // this is the case when remainder will always return a negative result, we need to choose the highest max
+      // mirror the interval and calculate the min, take it with "-" sign as max
+      return -getRemMin(-op1_max, -op1_min, op2_min, op2_max);
+    } else {
+      // we can ignore the negative part of the interval as it always will be lower than the positive
+      return getRemMax(0.0, op1_max, op2_min, op2_max);
+    }
+  }
 }
 
 range_ptr_t
-taffo::handleShl(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleShl(const range_ptr_t op1, const range_ptr_t op2) {
   // FIXME: it only works if no overflow occurs.
   if (!op1 || !op2) {
     return nullptr;
   }
-  const unsigned sh_min = static_cast<unsigned>(op1->min());
-  const unsigned sh_max = static_cast<unsigned>(op1->max());
-  const long op_min = static_cast<long>(op2->min());
-  const long op_max = static_cast<long>(op2->max());
+  const unsigned sh_min = static_cast<unsigned>(op2->min());
+  const unsigned sh_max = static_cast<unsigned>(op2->max());
+  const long op_min = static_cast<long>(op1->min());
+  const long op_max = static_cast<long>(op1->max());
   return make_range(static_cast<num_t>(op_min << ((op_min < 0) ? sh_max : sh_min)),
                     static_cast<num_t>(op_max << ((op_max < 0) ? sh_min : sh_max)));
 }
 
 range_ptr_t
-taffo::handleAShr(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::handleAShr(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
-  const unsigned sh_min = static_cast<unsigned>(op1->min());
-  const unsigned sh_max = static_cast<unsigned>(op1->max());
-  const long op_min = static_cast<long>(op2->min());
-  const long op_max = static_cast<long>(op2->max());
+  const unsigned sh_min = static_cast<unsigned>(op2->min());
+  const unsigned sh_max = static_cast<unsigned>(op2->max());
+  const long op_min = static_cast<long>(op1->min());
+  const long op_max = static_cast<long>(op1->max());
   return make_range(static_cast<num_t>(op_min >> ((op_min > 0) ? sh_max : sh_min)),
                     static_cast<num_t>(op_max >> ((op_max > 0) ? sh_min : sh_max)));
 }
 
 /** Trunc */
 range_ptr_t
-taffo::handleTrunc(const range_ptr_t &op,
+taffo::handleTrunc(const range_ptr_t op,
                    const llvm::Type *dest) {
   using namespace llvm;
   if (!op)
@@ -392,7 +451,7 @@ taffo::handleTrunc(const range_ptr_t &op,
 
 /** CastToUInteger */
 range_ptr_t
-taffo::handleCastToUI(const range_ptr_t &op) {
+taffo::handleCastToUI(const range_ptr_t op) {
   if (!op) {
     return nullptr;
   }
@@ -403,7 +462,7 @@ taffo::handleCastToUI(const range_ptr_t &op) {
 
 /** CastToUInteger */
 range_ptr_t
-taffo::handleCastToSI(const range_ptr_t &op) {
+taffo::handleCastToSI(const range_ptr_t op) {
   if (!op) {
     return nullptr;
   }
@@ -414,7 +473,7 @@ taffo::handleCastToSI(const range_ptr_t &op) {
 
 /** FPTrunc */
 range_ptr_t
-taffo::handleFPTrunc(const range_ptr_t &gop,
+taffo::handleFPTrunc(const range_ptr_t gop,
                      const llvm::Type *dest) {
   if (!gop) {
     return nullptr;
@@ -445,8 +504,8 @@ taffo::handleFPTrunc(const range_ptr_t &gop,
 
 /** boolean Xor instruction */
 range_ptr_t
-taffo::handleBooleanXor(const range_ptr_t &op1,
-                        const range_ptr_t &op2) {
+taffo::handleBooleanXor(const range_ptr_t op1,
+                        const range_ptr_t op2) {
   if (!op1 || !op2) {
     return getGenericBoolRange();
   }
@@ -461,8 +520,8 @@ taffo::handleBooleanXor(const range_ptr_t &op1,
 
 /** boolean And instruction */
 range_ptr_t
-taffo::handleBooleanAnd(const range_ptr_t &op1,
-                        const range_ptr_t &op2) {
+taffo::handleBooleanAnd(const range_ptr_t op1,
+                        const range_ptr_t op2) {
   if (!op1 || !op2) {
     return getGenericBoolRange();
   }
@@ -477,8 +536,8 @@ taffo::handleBooleanAnd(const range_ptr_t &op1,
 
 /** boolean Or instruction */
 range_ptr_t
-taffo::handleBooleanOr(const range_ptr_t &op1,
-                       const range_ptr_t &op2) {
+taffo::handleBooleanOr(const range_ptr_t op1,
+                       const range_ptr_t op2) {
   if (!op1 || !op2) {
     return getGenericBoolRange();
   }
@@ -552,7 +611,7 @@ taffo::getAlwaysTrue() {
 
 /** create a union between ranges */
 range_ptr_t
-taffo::getUnionRange(const range_ptr_t &op1, const range_ptr_t &op2) {
+taffo::getUnionRange(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1) {
     return copyRange(op2);
   }
