@@ -405,10 +405,10 @@ taffo::handleShl(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
-  const unsigned sh_min = static_cast<unsigned>(op1->min());
-  const unsigned sh_max = static_cast<unsigned>(op1->max());
-  const long op_min = static_cast<long>(op2->min());
-  const long op_max = static_cast<long>(op2->max());
+  const unsigned sh_min = static_cast<unsigned>(op2->min());
+  const unsigned sh_max = static_cast<unsigned>(op2->max());
+  const long op_min = static_cast<long>(op1->min());
+  const long op_max = static_cast<long>(op1->max());
   return make_range(static_cast<num_t>(op_min << ((op_min < 0) ? sh_max : sh_min)),
                     static_cast<num_t>(op_max << ((op_max < 0) ? sh_min : sh_max)));
 }
@@ -418,10 +418,10 @@ taffo::handleAShr(const range_ptr_t op1, const range_ptr_t op2) {
   if (!op1 || !op2) {
     return nullptr;
   }
-  const unsigned sh_min = static_cast<unsigned>(op1->min());
-  const unsigned sh_max = static_cast<unsigned>(op1->max());
-  const long op_min = static_cast<long>(op2->min());
-  const long op_max = static_cast<long>(op2->max());
+  const unsigned sh_min = static_cast<unsigned>(op2->min());
+  const unsigned sh_max = static_cast<unsigned>(op2->max());
+  const long op_min = static_cast<long>(op1->min());
+  const long op_max = static_cast<long>(op1->max());
   return make_range(static_cast<num_t>(op_min >> ((op_min > 0) ? sh_max : sh_min)),
                     static_cast<num_t>(op_max >> ((op_max > 0) ? sh_min : sh_max)));
 }
