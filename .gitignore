@@ -15,4 +15,4 @@ working-dist-llvm6
 *~
 test/jpeg-decoder-no-external-fft
 .cache
-
+.envrc
