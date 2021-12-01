@@ -220,6 +220,15 @@ CodeInterpreter::updateLoopInfo(llvm::Function *F) {
   LoopInfo = &Pass.getAnalysis<llvm::LoopInfoWrapperPass>(*F).getLoopInfo();
 }
 
+ /// Get the latch condition instruction.
+ static llvm::ICmpInst * getLatchCmpInst(llvm::BasicBlock *BB) {
+     if ( llvm::BranchInst *BI = llvm::dyn_cast_or_null< llvm::BranchInst>(BB->getTerminator()))
+       if (BI->isConditional())
+         return llvm::dyn_cast< llvm::ICmpInst>(BI->getCondition());
+  
+   return nullptr;
+ }
+
 void
 CodeInterpreter::retrieveLoopTripCount(llvm::Function *F) {
   assert(LoopInfo && F);
@@ -238,6 +247,47 @@ CodeInterpreter::retrieveLoopTripCount(llvm::Function *F) {
           if (!SE)
             SE = &Pass.getAnalysis<llvm::ScalarEvolutionWrapperPass>(*F).getSE();
           TripCount = SE->getSmallConstantTripCount(L);
+          //Handle OMP load of boundary with external call
+            if (TripCount == 0) {
+            auto branch = L->getLoopLatch();
+            //Get the true latch beacouse the default is not correct
+            while (getLatchCmpInst(branch) == nullptr) {
+              auto end_block = llvm::dyn_cast_or_null<llvm::BranchInst>(
+                  branch->getTerminator());
+              branch = end_block->getSuccessor(0);
+            }
+
+            auto cmpinst = getLatchCmpInst(branch);
+            auto second_operand = cmpinst->getOperand(1);
+            //The second operand of the comparison is always a load
+            if (auto load =
+                    llvm::dyn_cast_or_null<llvm::LoadInst>(second_operand)) {
+
+              for (auto i = load->getOperand(0)->use_begin();
+                   i != load->getOperand(0)->use_end(); i++) {
+                  //Search if it is used in one of the omp static init
+                if (auto call =
+                        llvm::dyn_cast_or_null<llvm::CallInst>(i->getUser())) {
+                  if (call->getCalledFunction()->getName().find(
+                          "__kmpc_for_static_init") == 0) {
+                            //If it is a omp loop search the constant value loaded in the ub
+                    for (auto s = load->getOperand(0)->use_begin();
+                         s != load->getOperand(0)->use_end(); s++) {
+                      if (auto store = llvm::dyn_cast_or_null<llvm::StoreInst>(
+                              s->getUser())) {
+                        store->dump();
+                        if (auto constant_value =
+                                llvm::dyn_cast_or_null<llvm::ConstantInt>(
+                                    store->getOperand(0))) {
+                          TripCount = constant_value->getSExtValue() + 1;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
         TripCount = (TripCount > 0U) ? TripCount : DefaultTripCount;
         LoopTripCount[Latch] = (TripCount > MaxTripCount) ? MaxTripCount : TripCount;
