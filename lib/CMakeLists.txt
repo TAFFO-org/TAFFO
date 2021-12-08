@@ -17,10 +17,13 @@ add_llvm_library(Taffo MODULE
 
   LINK_LIBS
   TaffoUtils
-  ortools::ortools
   stdc++
   m
 
   PLUGIN_TOOL
   opt
 )
+
+if (TAFFO_BUILD_ILP_DTA)
+  target_link_libraries(Taffo PRIVATE ortools::ortools)
+endif ()

@@ -8,12 +8,14 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Debug.h"
-#include "Optimizer.h"
 #include "llvm/IR/IRBuilder.h"
-#include "MetricBase.h"
 #include "TaffoDTA.h"
 #include "Metadata.h"
 #include "DTAConfig.h"
+#ifdef TAFFO_BUILD_ILP_DTA
+#include "ILP/MetricBase.h"
+#include "ILP/Optimizer.h"
+#endif // TAFFO_BUILD_ILP_DTA
 
 
 using namespace llvm;
@@ -39,31 +41,34 @@ void TaffoTuner::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 
-bool TaffoTuner::runOnModule(Module &m) {
-    std::vector<llvm::Value *> vals;
-    llvm::SmallPtrSet<llvm::Value *, 8U> valset;
-    retrieveAllMetadata(m, vals, valset);
+bool TaffoTuner::runOnModule(Module &m)
+{
+  std::vector<llvm::Value *> vals;
+  llvm::SmallPtrSet<llvm::Value *, 8U> valset;
+  retrieveAllMetadata(m, vals, valset);
 
+  #ifdef TAFFO_BUILD_ILP_DTA
+  if (MixedMode) {
     LLVM_DEBUG(llvm::dbgs() << "Model " << CostModelFilename << "\n");
     LLVM_DEBUG(llvm::dbgs() << "Inst " << InstructionSet << "\n");
+    buildModelAndOptimze(m, vals, valset);
+  } else {
+    mergeFixFormat(vals, valset);
+  }
+  #else
+  mergeFixFormat(vals, valset);
+  #endif
 
+  std::vector<Function *> toDel;
+  toDel = collapseFunction(m);
 
-    if (MixedMode) {
-        buildModelAndOptimze(m, vals, valset);
-    } else {
-        mergeFixFormat(vals, valset);
-    }
+  attachFPMetaData(vals);
+  attachFunctionMetaData(m);
 
-    std::vector<Function *> toDel;
-    toDel = collapseFunction(m);
+  for (Function *f : toDel)
+    f->eraseFromParent();
 
-    attachFPMetaData(vals);
-    attachFunctionMetaData(m);
-
-    for (Function *f : toDel)
-        f->eraseFromParent();
-
-    return true;
+  return true;
 }
 
 
@@ -661,7 +666,7 @@ void TaffoTuner::attachFunctionMetaData(llvm::Module &m) {
     }
 }
 
-
+#ifdef TAFFO_BUILD_ILP_DTA
 void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &vals,
                                       const SmallPtrSetImpl<llvm::Value *> &valset) {
     assert(vals.size() == valset.size() && "They must contain the same elements.");
@@ -798,17 +803,6 @@ bool TaffoTuner::mergeDataTypes(shared_ptr<mdutils::MDInfo> old, shared_ptr<mdut
     llvm_unreachable("unknown data type");
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
+#endif // TAFFO_BUILD_ILP_DTA
 
 

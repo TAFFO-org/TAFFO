@@ -3,7 +3,7 @@
 #include <cassert>
 #include <sstream>
 #include <vector>
-#include <llvm/Support/Debug.h>
+#include "llvm/Support/Debug.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"

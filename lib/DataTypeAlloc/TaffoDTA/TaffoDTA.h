@@ -1,20 +1,17 @@
-#include "InputInfo.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "Metadata.h"
-#include "TypeUtils.h"
-
 #ifndef __TAFFO_TUNER_PASS_H__
 #define __TAFFO_TUNER_PASS_H__
 
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/Pass.h"
+#include "InputInfo.h"
+#include "Metadata.h"
+#include "TypeUtils.h"
+
 #define DEBUG_TYPE "taffo-dta"
 #define DEBUG_FUN  "tunerfunction"
-
-
-
-
 
 namespace tuner {
 
@@ -59,9 +56,11 @@ struct TaffoTuner : public llvm::ModulePass {
   void mergeFixFormat(const std::vector<llvm::Value *> &vals,
                       const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
 
+  #ifdef TAFFO_BUILD_ILP_DTA
   void buildModelAndOptimze(llvm::Module &m,
                             const std::vector<llvm::Value *> &vals,
                             const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
+  #endif // TAFFO_BUILD_ILP_DTA
 
   void getAnalysisUsage(llvm::AnalysisUsage &) const override;
 
@@ -134,9 +133,12 @@ struct TaffoTuner : public llvm::ModulePass {
     }
   }
 
+  #ifdef TAFFO_BUILD_ILP_DTA
   bool mergeDataTypes(std::shared_ptr<mdutils::MDInfo> old,
                       std::shared_ptr<mdutils::MDInfo> model);
-    };
+  #endif // TAFFO_BUILD_ILP_DTA
+};
+  
 }
 
 

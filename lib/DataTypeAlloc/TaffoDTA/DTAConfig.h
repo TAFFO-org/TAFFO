@@ -1,11 +1,13 @@
+#ifndef DTACONFIG
+#define DTACONFIG
+
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Pass.h"
-#include "string"
+#include <string>
+
 #define DEBUG_TYPE "taffo-dta"
 
-#ifndef DTACONFIG
-#define DTACONFIG
 /*
 llvm::cl::opt<bool> hasHalf("hasHalf", llvm::cl::desc("target support half"),
                             llvm::cl::init(false));
@@ -39,6 +41,8 @@ llvm::cl::opt<bool> DisableTypeMerging("notypemerge",
 llvm::cl::opt<bool> IterativeMerging("iterative",
                                      llvm::cl::desc("Enables old iterative merging"), llvm::cl::init(false));
 
+#ifdef TAFFO_BUILD_ILP_DTA
+
 llvm::cl::opt<bool> MixedMode("mixedmode",
                                      llvm::cl::desc("Enable or disable the experimental mixed-precision mode"), llvm::cl::init(false));
 
@@ -66,7 +70,9 @@ llvm::cl::opt<std::string> CostModelFilename("costmodelfilename", llvm::cl::valu
 std::string InstructionSet;
 static llvm::cl::opt<std::string, true> InstructionSetFlag("instructionsetfile", llvm::cl::value_desc("Instruction file name"),
                                        llvm::cl::desc("Set the filename to load wich instruction set are allowed"),
-                                       llvm::cl::location(InstructionSet), llvm::cl::init("DOES-NOT-EXIST") );                                       
+                                       llvm::cl::location(InstructionSet), llvm::cl::init("DOES-NOT-EXIST") );    
+         
+#endif // TAFFO_BUILD_ILP_DTA
 
 STATISTIC(FixCast, "Number of fixed point format cast");
 #endif

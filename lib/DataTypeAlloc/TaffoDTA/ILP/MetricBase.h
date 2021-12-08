@@ -5,10 +5,10 @@
 #include "Model.h"
 #include "OptimizerInfo.h"
 #include "TaffoDTA.h"
-#include "unordered_map"
+#include <unordered_map>
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Support/Casting.h"
-#include "stdio.h"
+#include <cstdio>
 
 namespace tuner {
 class Optimizer;
