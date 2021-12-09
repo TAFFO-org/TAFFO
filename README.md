@@ -67,3 +67,30 @@ cmake ..
 cmake --build .
 ctest -VV
 ```
+
+## How to run integration tests
+
+```shell
+mkdir build
+cd build
+cmake -G Ninja -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=1 -DCMAKE_BUILD_TYPE=Debug ..
+cmake --build . --target install
+```
+
+This will have your build of taffo installed in `<project_dir>/dist` directory.
+Next, you need to export the taffo binaries paths to PATH.
+You also need to set LLVM_DIR env variable to the PATH of your LLVM installation.
+A good way to do that is to use https://github.com/direnv/direnv .
+This way you can save your local configuration in a `.envrc` file 
+that will be loaded automatically in the directory of the tests.
+An example of `.envrc` file:
+
+```shell
+# tests/simple-test-cases/.envrc
+PATH_add /<path-to-your-project-dir>/dist/bin
+PATH_add /<path-to-your-project-dir>/dist/lib
+export LLVM_DIR=/usr/lib/llvm-12
+```
+
+Then you can follow the instructions given in the test suite readme. 
+Integration tests and benchmarks are located in `test` directory.
