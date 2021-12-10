@@ -1,16 +1,16 @@
 #include "VRAnalyzer.hpp"
 
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Debug.h"
+#include "MemSSAUtils.hpp"
 #include "RangeOperations.hpp"
 #include "TypeUtils.h"
-#include "MemSSAUtils.hpp"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace taffo;
 
-void
-VRAnalyzer::convexMerge(const AnalysisStore &Other) {
+void VRAnalyzer::convexMerge(const AnalysisStore &Other)
+{
   // Since llvm::dyn_cast<T>() does not do cross-casting, we must do this:
   if (llvm::isa<VRAnalyzer>(Other)) {
     VRAStore::convexMerge(llvm::cast<VRAStore>(llvm::cast<VRAnalyzer>(Other)));
@@ -22,43 +22,43 @@ VRAnalyzer::convexMerge(const AnalysisStore &Other) {
 }
 
 std::shared_ptr<CodeAnalyzer>
-VRAnalyzer::newCodeAnalyzer(CodeInterpreter &CI) {
+VRAnalyzer::newCodeAnalyzer(CodeInterpreter &CI)
+{
   return std::make_shared<VRAnalyzer>(CI);
 }
 
 std::shared_ptr<AnalysisStore>
-VRAnalyzer::newFunctionStore(CodeInterpreter &CI) {
+VRAnalyzer::newFunctionStore(CodeInterpreter &CI)
+{
   return std::make_shared<VRAFunctionStore>(CI);
 }
 
 std::shared_ptr<CodeAnalyzer>
-VRAnalyzer::clone() {
+VRAnalyzer::clone()
+{
   return std::make_shared<VRAnalyzer>(*this);
 }
 
-void
-VRAnalyzer::analyzeInstruction(llvm::Instruction *I) {
+void VRAnalyzer::analyzeInstruction(llvm::Instruction *I)
+{
   assert(I);
   Instruction &i = *I;
   const unsigned OpCode = i.getOpcode();
-  if (OpCode == Instruction::Call
-      || OpCode == Instruction::Invoke) {
+  if (OpCode == Instruction::Call || OpCode == Instruction::Invoke) {
     handleSpecialCall(&i);
-  }
-  else if (Instruction::isCast(OpCode) && OpCode != llvm::Instruction::BitCast) {
+  } else if (Instruction::isCast(OpCode) && OpCode != llvm::Instruction::BitCast) {
     LLVM_DEBUG(Logger->logInstruction(&i));
-    const llvm::Value* op = i.getOperand(0);
+    const llvm::Value *op = i.getOperand(0);
     const range_ptr_t info = fetchRange(op);
     const range_ptr_t res = handleCastInstruction(info, OpCode, i.getType());
     saveValueRange(&i, res);
 
     LLVM_DEBUG(if (!info) Logger->logInfo("operand range is null"));
     LLVM_DEBUG(logRangeln(&i));
-  }
-  else if (Instruction::isBinaryOp(OpCode)) {
+  } else if (Instruction::isBinaryOp(OpCode)) {
     LLVM_DEBUG(Logger->logInstruction(&i));
-    const llvm::Value* op1 = i.getOperand(0);
-    const llvm::Value* op2 = i.getOperand(1);
+    const llvm::Value *op1 = i.getOperand(0);
+    const llvm::Value *op2 = i.getOperand(1);
     const range_ptr_t info1 = fetchRange(op1);
     const range_ptr_t info2 = fetchRange(op2);
     const range_ptr_t res = handleBinaryInstruction(info1, info2, OpCode);
@@ -67,109 +67,105 @@ VRAnalyzer::analyzeInstruction(llvm::Instruction *I) {
     LLVM_DEBUG(if (!info1) Logger->logInfo("first range is null"));
     LLVM_DEBUG(if (!info2) Logger->logInfo("second range is null"));
     LLVM_DEBUG(logRangeln(&i));
-  }
-  else if (OpCode == llvm::Instruction::FNeg) {
+  } else if (OpCode == llvm::Instruction::FNeg) {
     LLVM_DEBUG(Logger->logInstruction(&i));
-    const llvm::Value* op1 = i.getOperand(0);
+    const llvm::Value *op1 = i.getOperand(0);
     const range_ptr_t info1 = fetchRange(op1);
     const auto res = handleUnaryInstruction(info1, OpCode);
     saveValueRange(&i, res);
 
     LLVM_DEBUG(if (!info1) Logger->logInfo("operand range is null"));
     LLVM_DEBUG(logRangeln(&i));
-  }
-  else {
+  } else {
     switch (OpCode) {
-      // memory operations
-      case llvm::Instruction::Alloca:
-        handleAllocaInstr(I);
-        break;
-      case llvm::Instruction::Load:
-        handleLoadInstr(&i);
-        break;
-      case llvm::Instruction::Store:
-        handleStoreInstr(&i);
-        break;
-      case llvm::Instruction::GetElementPtr:
-        handleGEPInstr(&i);
-        break;
-      case llvm::Instruction::BitCast:
-        handleBitCastInstr(I);
-        break;
-      case llvm::Instruction::Fence:
-        LLVM_DEBUG(Logger->logErrorln("Handling of Fence not supported yet"));
-        break; // TODO implement
-      case llvm::Instruction::AtomicCmpXchg:
-        LLVM_DEBUG(Logger->logErrorln("Handling of AtomicCmpXchg not supported yet"));
-        break; // TODO implement
-      case llvm::Instruction::AtomicRMW:
-        LLVM_DEBUG(Logger->logErrorln("Handling of AtomicRMW not supported yet"));
-        break; // TODO implement
+    // memory operations
+    case llvm::Instruction::Alloca:
+      handleAllocaInstr(I);
+      break;
+    case llvm::Instruction::Load:
+      handleLoadInstr(&i);
+      break;
+    case llvm::Instruction::Store:
+      handleStoreInstr(&i);
+      break;
+    case llvm::Instruction::GetElementPtr:
+      handleGEPInstr(&i);
+      break;
+    case llvm::Instruction::BitCast:
+      handleBitCastInstr(I);
+      break;
+    case llvm::Instruction::Fence:
+      LLVM_DEBUG(Logger->logErrorln("Handling of Fence not supported yet"));
+      break; // TODO implement
+    case llvm::Instruction::AtomicCmpXchg:
+      LLVM_DEBUG(Logger->logErrorln("Handling of AtomicCmpXchg not supported yet"));
+      break; // TODO implement
+    case llvm::Instruction::AtomicRMW:
+      LLVM_DEBUG(Logger->logErrorln("Handling of AtomicRMW not supported yet"));
+      break; // TODO implement
 
-        // other operations
-      case llvm::Instruction::Ret:
-        handleReturn(I);
-        break;
-      case llvm::Instruction::Br:
-        // do nothing
-        break;
-      case llvm::Instruction::ICmp:
-      case llvm::Instruction::FCmp:
-        handleCmpInstr(&i);
-        break;
-      case llvm::Instruction::PHI:
-        handlePhiNode(&i);
-        break;
-      case llvm::Instruction::Select:
-        handleSelect(&i);
-        break;
-      case llvm::Instruction::UserOp1: // TODO implement
-      case llvm::Instruction::UserOp2: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of UserOp not supported yet"));
-        break;
-      case llvm::Instruction::VAArg: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of VAArg not supported yet"));
-        break;
-      case llvm::Instruction::ExtractElement: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of ExtractElement not supported yet"));
-        break;
-      case llvm::Instruction::InsertElement: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of InsertElement not supported yet"));
-        break;
-      case llvm::Instruction::ShuffleVector: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of ShuffleVector not supported yet"));
-        break;
-      case llvm::Instruction::ExtractValue: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of ExtractValue not supported yet"));
-        break;
-      case llvm::Instruction::InsertValue: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of InsertValue not supported yet"));
-        break;
-      case llvm::Instruction::LandingPad: // TODO implement
-        LLVM_DEBUG(Logger->logErrorln("Handling of LandingPad not supported yet"));
-        break;
-      default:
-        LLVM_DEBUG(Logger->logErrorln("unhandled instruction " + std::to_string(OpCode)));
-        break;
+      // other operations
+    case llvm::Instruction::Ret:
+      handleReturn(I);
+      break;
+    case llvm::Instruction::Br:
+      // do nothing
+      break;
+    case llvm::Instruction::ICmp:
+    case llvm::Instruction::FCmp:
+      handleCmpInstr(&i);
+      break;
+    case llvm::Instruction::PHI:
+      handlePhiNode(&i);
+      break;
+    case llvm::Instruction::Select:
+      handleSelect(&i);
+      break;
+    case llvm::Instruction::UserOp1: // TODO implement
+    case llvm::Instruction::UserOp2: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of UserOp not supported yet"));
+      break;
+    case llvm::Instruction::VAArg: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of VAArg not supported yet"));
+      break;
+    case llvm::Instruction::ExtractElement: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of ExtractElement not supported yet"));
+      break;
+    case llvm::Instruction::InsertElement: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of InsertElement not supported yet"));
+      break;
+    case llvm::Instruction::ShuffleVector: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of ShuffleVector not supported yet"));
+      break;
+    case llvm::Instruction::ExtractValue: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of ExtractValue not supported yet"));
+      break;
+    case llvm::Instruction::InsertValue: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of InsertValue not supported yet"));
+      break;
+    case llvm::Instruction::LandingPad: // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of LandingPad not supported yet"));
+      break;
+    default:
+      LLVM_DEBUG(Logger->logErrorln("unhandled instruction " + std::to_string(OpCode)));
+      break;
     }
   } // end else
 }
 
-void
-VRAnalyzer::setPathLocalInfo(std::shared_ptr<CodeAnalyzer> SuccAnalyzer,
-                             llvm::Instruction *TermInstr, unsigned SuccIdx) {
+void VRAnalyzer::setPathLocalInfo(std::shared_ptr<CodeAnalyzer> SuccAnalyzer,
+                                  llvm::Instruction *TermInstr, unsigned SuccIdx)
+{
   // TODO extract more specific ranges from cmp
 }
 
-bool
-VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const {
+bool VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const
+{
   assert(I);
   if (llvm::CallBase *CB = llvm::dyn_cast<llvm::CallBase>(I)) {
     if (!CB->isIndirectCall()) {
       llvm::Function *Called = CB->getCalledFunction();
-      return Called && !(Called->isIntrinsic()
-                         || isMathCallInstruction(Called->getName().str())
-                         || isMallocLike(Called));
+      return Called && !(Called->isIntrinsic() || isMathCallInstruction(Called->getName().str()) || isMallocLike(Called));
     }
     return true;
   }
@@ -177,9 +173,9 @@ VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const {
   return false;
 }
 
-void
-VRAnalyzer::prepareForCall(llvm::Instruction *I,
-                           std::shared_ptr<AnalysisStore> FunctionStore) {
+void VRAnalyzer::prepareForCall(llvm::Instruction *I,
+                                std::shared_ptr<AnalysisStore> FunctionStore)
+{
   llvm::CallBase *CB = llvm::cast<llvm::CallBase>(I);
   assert(!CB->isIndirectCall());
 
@@ -197,20 +193,20 @@ VRAnalyzer::prepareForCall(llvm::Instruction *I,
   LLVM_DEBUG(llvm::dbgs() << "\n");
 
   std::shared_ptr<VRAFunctionStore> FStore =
-    std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
+      std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
   FStore->setArgumentRanges(*CB->getCalledFunction(), ArgRanges);
 }
 
-void
-VRAnalyzer::returnFromCall(llvm::Instruction *I,
-                           std::shared_ptr<AnalysisStore> FunctionStore) {
+void VRAnalyzer::returnFromCall(llvm::Instruction *I,
+                                std::shared_ptr<AnalysisStore> FunctionStore)
+{
   llvm::CallBase *CB = llvm::cast<llvm::CallBase>(I);
   assert(!CB->isIndirectCall());
 
   LLVM_DEBUG(Logger->logInstruction(I); Logger->logInfo("returning from call"));
 
   std::shared_ptr<VRAFunctionStore> FStore =
-    std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
+      std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
   NodePtrT Ret = FStore->getRetVal();
   if (!Ret) {
     LLVM_DEBUG(Logger->logInfoln("function returns nothing"));
@@ -228,13 +224,13 @@ VRAnalyzer::returnFromCall(llvm::Instruction *I,
 // Instruction Handlers
 ////////////////////////////////////////////////////////////////////////////////
 
-void
-VRAnalyzer::handleSpecialCall(const llvm::Instruction* I) {
-  const CallBase* CB = llvm::cast<CallBase>(I);
+void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
+{
+  const CallBase *CB = llvm::cast<CallBase>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
 
   // fetch function name
-  llvm::Function* Callee = CB->getCalledFunction();
+  llvm::Function *Callee = CB->getCalledFunction();
   if (Callee == nullptr) {
     LLVM_DEBUG(Logger->logInfo("indirect calls not supported"));
     return;
@@ -256,55 +252,53 @@ VRAnalyzer::handleSpecialCall(const llvm::Instruction* I) {
   } else if (Callee->isIntrinsic()) {
     const auto IntrinsicsID = Callee->getIntrinsicID();
     switch (IntrinsicsID) {
-      case llvm::Intrinsic::memcpy:
-        handleMemCpyIntrinsics(CB);
-        break;
-      default:
-        LLVM_DEBUG(Logger->logInfoln("skipping intrinsic " + std::string(FunctionName)));
+    case llvm::Intrinsic::memcpy:
+      handleMemCpyIntrinsics(CB);
+      break;
+    default:
+      LLVM_DEBUG(Logger->logInfoln("skipping intrinsic " + std::string(FunctionName)));
     }
-  }
-  else {
+  } else {
     LLVM_DEBUG(Logger->logInfo("unsupported call"));
   }
 }
 
-void
-VRAnalyzer::handleMemCpyIntrinsics(const llvm::Instruction* memcpy) {
+void VRAnalyzer::handleMemCpyIntrinsics(const llvm::Instruction *memcpy)
+{
   assert(isa<CallInst>(memcpy) || isa<InvokeInst>(memcpy));
   LLVM_DEBUG(Logger->logInfo("llvm.memcpy"));
-  const BitCastInst* dest_bitcast =
-    dyn_cast<BitCastInst>(memcpy->getOperand(0U));
-  const BitCastInst* src_bitcast =
-    dyn_cast<BitCastInst>(memcpy->getOperand(1U));
+  const BitCastInst *dest_bitcast =
+      dyn_cast<BitCastInst>(memcpy->getOperand(0U));
+  const BitCastInst *src_bitcast =
+      dyn_cast<BitCastInst>(memcpy->getOperand(1U));
   if (!(dest_bitcast && src_bitcast)) {
     LLVM_DEBUG(Logger->logInfo("operand is not bitcast, aborting"));
     return;
   }
-  const Value* dest = dest_bitcast->getOperand(0U);
-  const Value* src = src_bitcast->getOperand(0U);
+  const Value *dest = dest_bitcast->getOperand(0U);
+  const Value *src = src_bitcast->getOperand(0U);
 
   const NodePtrT src_node = loadNode(getNode(src));
   storeNode(getNode(dest), src_node);
   LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(src)));
 }
 
-bool
-VRAnalyzer::isMallocLike(const llvm::Function *F) const {
+bool VRAnalyzer::isMallocLike(const llvm::Function *F) const
+{
   const llvm::StringRef FName = F->getName();
   // TODO make sure this works in other platforms
-  return FName == "malloc" || FName == "calloc"
-    || FName == "_Znwm" || FName == "_Znam";
+  return FName == "malloc" || FName == "calloc" || FName == "_Znwm" || FName == "_Znam";
 }
 
-bool
-VRAnalyzer::isCallocLike(const llvm::Function *F) const {
+bool VRAnalyzer::isCallocLike(const llvm::Function *F) const
+{
   const llvm::StringRef FName = F->getName();
   // TODO make sure this works in other platforms
   return FName == "calloc";
 }
 
-void
-VRAnalyzer::handleMallocCall(const llvm::CallBase *CB) {
+void VRAnalyzer::handleMallocCall(const llvm::CallBase *CB)
+{
   LLVM_DEBUG(Logger->logInfo("malloc-like"));
   const llvm::Type *AllocatedType = nullptr;
   for (const llvm::Value *User : CB->users()) {
@@ -328,7 +322,7 @@ VRAnalyzer::handleMallocCall(const llvm::CallBase *CB) {
         DerivedRanges[CB] = std::make_shared<VRAPtrNode>(InputRange);
       } else if (isCallocLike(CB->getCalledFunction())) {
         DerivedRanges[CB] =
-          std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(make_range(0,0)));
+            std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(make_range(0, 0)));
       } else {
         DerivedRanges[CB] = std::make_shared<VRAPtrNode>();
       }
@@ -339,16 +333,16 @@ VRAnalyzer::handleMallocCall(const llvm::CallBase *CB) {
   }
 }
 
-void
-VRAnalyzer::handleReturn(const llvm::Instruction* ret) {
-  const llvm::ReturnInst* ret_i = cast<llvm::ReturnInst>(ret);
+void VRAnalyzer::handleReturn(const llvm::Instruction *ret)
+{
+  const llvm::ReturnInst *ret_i = cast<llvm::ReturnInst>(ret);
   LLVM_DEBUG(Logger->logInstruction(ret));
-  if (const llvm::Value* ret_val = ret_i->getReturnValue()) {
-    const llvm::Function* ret_fun = ret_i->getFunction();
+  if (const llvm::Value *ret_val = ret_i->getReturnValue()) {
+    const llvm::Function *ret_fun = ret_i->getFunction();
     NodePtrT range = getNode(ret_val);
 
     std::shared_ptr<VRAFunctionStore> FStore =
-      std::static_ptr_cast<VRAFunctionStore>(CodeInt.getFunctionStore());
+        std::static_ptr_cast<VRAFunctionStore>(CodeInt.getFunctionStore());
     FStore->setRetVal(range);
 
     LLVM_DEBUG(Logger->logRangeln(range));
@@ -357,8 +351,8 @@ VRAnalyzer::handleReturn(const llvm::Instruction* ret) {
   }
 }
 
-void
-VRAnalyzer::handleAllocaInstr(const llvm::Instruction *I) {
+void VRAnalyzer::handleAllocaInstr(const llvm::Instruction *I)
+{
   const llvm::AllocaInst *AI = llvm::cast<AllocaInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
   const RangeNodePtrT InputRange = getGlobalStore()->getUserInput(I);
@@ -379,12 +373,12 @@ VRAnalyzer::handleAllocaInstr(const llvm::Instruction *I) {
   }
 }
 
-void
-VRAnalyzer::handleStoreInstr(const llvm::Instruction* I) {
-  const llvm::StoreInst* Store = llvm::cast<llvm::StoreInst>(I);
+void VRAnalyzer::handleStoreInstr(const llvm::Instruction *I)
+{
+  const llvm::StoreInst *Store = llvm::cast<llvm::StoreInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
-  const llvm::Value* AddressParam = Store->getPointerOperand();
-  const llvm::Value* ValueParam = Store->getValueOperand();
+  const llvm::Value *AddressParam = Store->getPointerOperand();
+  const llvm::Value *ValueParam = Store->getValueOperand();
 
   if (llvm::isa<llvm::ConstantPointerNull>(ValueParam))
     return;
@@ -401,8 +395,8 @@ VRAnalyzer::handleStoreInstr(const llvm::Instruction* I) {
   LLVM_DEBUG(Logger->logRangeln(ValueNode));
 }
 
-void
-VRAnalyzer::handleLoadInstr(llvm::Instruction* I) {
+void VRAnalyzer::handleLoadInstr(llvm::Instruction *I)
+{
   llvm::LoadInst *Load = llvm::cast<llvm::LoadInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
   const llvm::Value *PointerOp = Load->getPointerOperand();
@@ -410,11 +404,12 @@ VRAnalyzer::handleLoadInstr(llvm::Instruction* I) {
   NodePtrT Loaded = loadNode(getNode(PointerOp));
 
   if (std::shared_ptr<VRAScalarNode> Scalar =
-      std::dynamic_ptr_cast_or_null<VRAScalarNode>(Loaded)) {
-    MemorySSA& memssa = CodeInt.getPass().getAnalysis<MemorySSAWrapperPass>(
-                          *I->getFunction()).getMSSA();
+          std::dynamic_ptr_cast_or_null<VRAScalarNode>(Loaded)) {
+    MemorySSA &memssa = CodeInt.getPass().getAnalysis<MemorySSAWrapperPass>(
+                                             *I->getFunction())
+                            .getMSSA();
     MemSSAUtils memssa_utils(memssa);
-    SmallVectorImpl<Value*>& def_vals = memssa_utils.getDefiningValues(Load);
+    SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(Load);
 
     Type *load_ty = fullyUnwrapPointerOrArrayType(Load->getType());
     range_ptr_t res = Scalar->getRange();
@@ -433,9 +428,9 @@ VRAnalyzer::handleLoadInstr(llvm::Instruction* I) {
   }
 }
 
-void
-VRAnalyzer::handleGEPInstr(const llvm::Instruction* I) {
-  const llvm::GetElementPtrInst* Gep = llvm::cast<llvm::GetElementPtrInst>(I);
+void VRAnalyzer::handleGEPInstr(const llvm::Instruction *I)
+{
+  const llvm::GetElementPtrInst *Gep = llvm::cast<llvm::GetElementPtrInst>(I);
   LLVM_DEBUG(Logger->logInstruction(Gep));
 
   NodePtrT Node = getNode(Gep);
@@ -448,14 +443,14 @@ VRAnalyzer::handleGEPInstr(const llvm::Instruction* I) {
                         iterator_range<User::const_op_iterator>(Gep->idx_begin(),
                                                                 Gep->idx_end()),
                         Offset)) {
-      return;
+    return;
   }
   Node = std::make_shared<VRAGEPNode>(getNode(Gep->getPointerOperand()), Offset);
   setNode(I, Node);
 }
 
-void
-VRAnalyzer::handleBitCastInstr(const llvm::Instruction* I) {
+void VRAnalyzer::handleBitCastInstr(const llvm::Instruction *I)
+{
   LLVM_DEBUG(Logger->logInstruction(I));
   if (NodePtrT Node = getNode(I->getOperand(0U))) {
     setNode(I, Node);
@@ -465,16 +460,16 @@ VRAnalyzer::handleBitCastInstr(const llvm::Instruction* I) {
   }
 }
 
-void
-VRAnalyzer::handleCmpInstr(const llvm::Instruction* cmp) {
-  const llvm::CmpInst* cmp_i = llvm::cast<llvm::CmpInst>(cmp);
+void VRAnalyzer::handleCmpInstr(const llvm::Instruction *cmp)
+{
+  const llvm::CmpInst *cmp_i = llvm::cast<llvm::CmpInst>(cmp);
   LLVM_DEBUG(Logger->logInstruction(cmp));
   const llvm::CmpInst::Predicate pred = cmp_i->getPredicate();
   std::list<range_ptr_t> ranges;
   for (unsigned index = 0; index < cmp_i->getNumOperands(); index++) {
-    const llvm::Value* op = cmp_i->getOperand(index);
+    const llvm::Value *op = cmp_i->getOperand(index);
     if (std::shared_ptr<VRAScalarNode> op_range =
-        std::dynamic_ptr_cast_or_null<VRAScalarNode>(getNode(op))) {
+            std::dynamic_ptr_cast_or_null<VRAScalarNode>(getNode(op))) {
       ranges.push_back(op_range->getRange());
     } else {
       ranges.push_back(nullptr);
@@ -485,21 +480,21 @@ VRAnalyzer::handleCmpInstr(const llvm::Instruction* cmp) {
   saveValueRange(cmp, result);
 }
 
-void
-VRAnalyzer::handlePhiNode(const llvm::Instruction* phi) {
-  const llvm::PHINode* phi_n = llvm::cast<llvm::PHINode>(phi);
+void VRAnalyzer::handlePhiNode(const llvm::Instruction *phi)
+{
+  const llvm::PHINode *phi_n = llvm::cast<llvm::PHINode>(phi);
   if (phi_n->getNumIncomingValues() == 0U) {
     return;
   }
   LLVM_DEBUG(Logger->logInstruction(phi));
   RangeNodePtrT res = nullptr;
   for (unsigned index = 0U; index < phi_n->getNumIncomingValues(); index++) {
-    const llvm::Value* op = phi_n->getIncomingValue(index);
+    const llvm::Value *op = phi_n->getIncomingValue(index);
     NodePtrT op_node = getNode(op);
     if (!op_node)
       continue;
     if (RangeNodePtrT op_range =
-        std::dynamic_ptr_cast<VRAScalarNode>(op_node)) {
+            std::dynamic_ptr_cast<VRAScalarNode>(op_node)) {
       res = getUnionRange(res, op_range);
     } else {
       setNode(phi, op_node);
@@ -511,9 +506,9 @@ VRAnalyzer::handlePhiNode(const llvm::Instruction* phi) {
   LLVM_DEBUG(Logger->logRangeln(res));
 }
 
-void
-VRAnalyzer::handleSelect(const llvm::Instruction* i) {
-  const llvm::SelectInst* sel = cast<llvm::SelectInst>(i);
+void VRAnalyzer::handleSelect(const llvm::Instruction *i)
+{
+  const llvm::SelectInst *sel = cast<llvm::SelectInst>(i);
   // TODO handle pointer select
   LLVM_DEBUG(Logger->logInstruction(sel));
   RangeNodePtrT res = getUnionRange(fetchRangeNode(sel->getFalseValue()),
@@ -528,14 +523,15 @@ VRAnalyzer::handleSelect(const llvm::Instruction* i) {
 ////////////////////////////////////////////////////////////////////////////////
 
 const range_ptr_t
-VRAnalyzer::fetchRange(const llvm::Value *V) {
+VRAnalyzer::fetchRange(const llvm::Value *V)
+{
   if (const range_ptr_t Derived = VRAStore::fetchRange(V)) {
     return Derived;
   }
 
   if (const RangeNodePtrT InputRange = getGlobalStore()->getUserInput(V)) {
     if (const std::shared_ptr<VRAScalarNode> InputScalar =
-        std::dynamic_ptr_cast<VRAScalarNode>(InputRange)) {
+            std::dynamic_ptr_cast<VRAScalarNode>(InputRange)) {
       return InputScalar->getRange();
     }
   }
@@ -544,7 +540,8 @@ VRAnalyzer::fetchRange(const llvm::Value *V) {
 }
 
 const RangeNodePtrT
-VRAnalyzer::fetchRangeNode(const llvm::Value* V) {
+VRAnalyzer::fetchRangeNode(const llvm::Value *V)
+{
   if (const RangeNodePtrT Derived = VRAStore::fetchRangeNode(V)) {
     if (std::isa_ptr<VRAStructNode>(Derived)) {
       if (RangeNodePtrT InputRange = getGlobalStore()->getUserInput(V)) {
@@ -563,7 +560,8 @@ VRAnalyzer::fetchRangeNode(const llvm::Value* V) {
 }
 
 NodePtrT
-VRAnalyzer::getNode(const llvm::Value* v) {
+VRAnalyzer::getNode(const llvm::Value *v)
+{
   NodePtrT Node = VRAStore::getNode(v);
 
   if (!Node) {
@@ -575,7 +573,7 @@ VRAnalyzer::getNode(const llvm::Value* v) {
 
   if (Node && Node->getKind() == VRANode::VRAScalarNodeK) {
     auto UserInput =
-      std::dynamic_ptr_cast_or_null<VRAScalarNode>(getGlobalStore()->getUserInput(v));
+        std::dynamic_ptr_cast_or_null<VRAScalarNode>(getGlobalStore()->getUserInput(v));
     if (UserInput && UserInput->isFinal()) {
       Node = UserInput;
     }
@@ -584,16 +582,16 @@ VRAnalyzer::getNode(const llvm::Value* v) {
   return Node;
 }
 
-void
-VRAnalyzer::setNode(const llvm::Value* V, NodePtrT Node) {
+void VRAnalyzer::setNode(const llvm::Value *V, NodePtrT Node)
+{
   if (isa<GlobalVariable>(V)) {
-      // set node in global analyzer
-      getGlobalStore()->setNode(V, Node);
-      return;
+    // set node in global analyzer
+    getGlobalStore()->setNode(V, Node);
+    return;
   }
   if (isa<Argument>(V)) {
     std::shared_ptr<VRAFunctionStore> FStore =
-      std::static_ptr_cast<VRAFunctionStore>(CodeInt.getFunctionStore());
+        std::static_ptr_cast<VRAFunctionStore>(CodeInt.getFunctionStore());
     FStore->setNode(V, Node);
     return;
   }
@@ -601,8 +599,8 @@ VRAnalyzer::setNode(const llvm::Value* V, NodePtrT Node) {
   VRAStore::setNode(V, Node);
 }
 
-void
-VRAnalyzer::logRangeln(const llvm::Value* v) {
+void VRAnalyzer::logRangeln(const llvm::Value *v)
+{
   LLVM_DEBUG(if (getGlobalStore()->getUserInput(v)) dbgs() << "(possibly from metadata) ");
   LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(v)));
 }

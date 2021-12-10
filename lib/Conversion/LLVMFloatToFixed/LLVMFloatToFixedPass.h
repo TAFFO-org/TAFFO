@@ -1,3 +1,4 @@
+#include "CallSiteVersions.h"
 #include "FixedPointType.h"
 #include "InputInfo.h"
 #include "Metadata.h"
@@ -7,7 +8,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "CallSiteVersions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueMap.h"
@@ -37,7 +37,8 @@ STATISTIC(FunctionCreated, "Number of fixed point function inserted");
 /* flags in conversionPool */
 extern llvm::Value *ConversionError;
 extern llvm::Value *Unsupported;
-namespace flttofix {
+namespace flttofix
+{
 struct ValueInfo {
   bool isBacktrackingNode;
   bool isRoot;
@@ -88,17 +89,17 @@ struct FloatToFixed : public llvm::ModulePass {
   void printAnnotatedObj(llvm::Module &m);
   void openPhiLoop(llvm::PHINode *phi);
   void closePhiLoops();
-  void sortQueue(std::vector<llvm::Value*> &vals);
-  void cleanup(const std::vector<llvm::Value*>& queue);
-  void insertOpenMPIndirection(llvm::Module& m);
+  void sortQueue(std::vector<llvm::Value *> &vals);
+  void cleanup(const std::vector<llvm::Value *> &queue);
+  void insertOpenMPIndirection(llvm::Module &m);
   void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global);
-  llvm::Function *createFixFun(CallSite* call, bool *old);
-  void printConversionQueue(std::vector<llvm::Value*> vals);
-  void performConversion(llvm::Module& m, std::vector<llvm::Value*>& q);
-  llvm::Value *convertSingleValue(llvm::Module& m, llvm::Value *val, FixedPointType& fixpt);
-  
+  llvm::Function *createFixFun(CallSite *call, bool *old);
+  void printConversionQueue(std::vector<llvm::Value *> vals);
+  void performConversion(llvm::Module &m, std::vector<llvm::Value *> &q);
+  llvm::Value *convertSingleValue(llvm::Module &m, llvm::Value *val, FixedPointType &fixpt);
+
   llvm::Value *createPlaceholder(llvm::Type *type, llvm::BasicBlock *where, llvm::StringRef name);
-  
+
   enum class TypeMatchPolicy {
     RangeOverHintMaxFrac = 0, /// Minimize extra conversions
     RangeOverHintMaxInt,
@@ -107,15 +108,18 @@ struct FloatToFixed : public llvm::ModulePass {
     HintOverRangeMaxInt,
     ForceHint /// Always use the hint for the type
   };
-  bool isMaxFracPolicy(TypeMatchPolicy tmp) {
+  bool isMaxFracPolicy(TypeMatchPolicy tmp)
+  {
     return tmp == TypeMatchPolicy::RangeOverHintMaxFrac ||
            tmp == TypeMatchPolicy::HintOverRangeMaxFrac;
   };
-  bool isMaxIntPolicy(TypeMatchPolicy tmp) {
+  bool isMaxIntPolicy(TypeMatchPolicy tmp)
+  {
     return tmp == TypeMatchPolicy::RangeOverHintMaxInt ||
            tmp == TypeMatchPolicy::HintOverRangeMaxInt;
   };
-  bool isHintPreferredPolicy(TypeMatchPolicy tmp) {
+  bool isHintPreferredPolicy(TypeMatchPolicy tmp)
+  {
     return tmp == TypeMatchPolicy::HintOverRangeMaxInt ||
            tmp == TypeMatchPolicy::HintOverRangeMaxFrac ||
            tmp == TypeMatchPolicy::ForceHint;
@@ -159,14 +163,15 @@ struct FloatToFixed : public llvm::ModulePass {
   llvm::Value *convertBinOp(llvm::Instruction *instr,
                             const FixedPointType &fixpt);
   llvm::Value *convertUnaryOp(llvm::Instruction *instr,
-                                  const FixedPointType &fixpt);
+                              const FixedPointType &fixpt);
   llvm::Value *convertCmp(llvm::FCmpInst *fcmp);
   llvm::Value *convertCast(llvm::CastInst *cast, const FixedPointType &fixpt);
   llvm::Value *fallback(llvm::Instruction *unsupp, FixedPointType &fixpt);
   /** Returns if a function is a library function which shall not
    *  be cloned.
    *  @param f The function to check */
-  bool isSpecialFunction(const llvm::Function *f) {
+  bool isSpecialFunction(const llvm::Function *f)
+  {
     llvm::StringRef fName = f->getName();
     return fName.startswith("llvm.") || f->getBasicBlockList().size() == 0;
   };
@@ -175,7 +180,8 @@ struct FloatToFixed : public llvm::ModulePass {
    *  @returns nullptr if the value has not been converted properly,
    *    the converted value if the original value was converted,
    *    or the original value itself if it does not require conversion. */
-  llvm::Value *matchOp(llvm::Value *val) {
+  llvm::Value *matchOp(llvm::Value *val)
+  {
     llvm::Value *res = operandPool[val];
     return res == ConversionError ? nullptr : (res ? res : val);
   };
@@ -217,7 +223,8 @@ struct FloatToFixed : public llvm::ModulePass {
   llvm::Value *translateOrMatchAnyOperand(
       llvm::Value *val, FixedPointType &iofixpt,
       llvm::Instruction *ip = nullptr,
-      TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac) {
+      TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac)
+  {
     llvm::Value *res;
     if (val->getType()->getNumContainedTypes() > 0) {
       if (llvm::Constant *cst = llvm::dyn_cast<llvm::Constant>(val)) {
@@ -251,7 +258,8 @@ struct FloatToFixed : public llvm::ModulePass {
    *    or nullptr if val was to be converted but its conversion failed.  */
   llvm::Value *translateOrMatchOperandAndType(llvm::Value *val,
                                               const FixedPointType &fixpt,
-                                              llvm::Instruction *ip = nullptr) {
+                                              llvm::Instruction *ip = nullptr)
+  {
     FixedPointType iofixpt = fixpt;
     return translateOrMatchOperand(val, iofixpt, ip,
                                    TypeMatchPolicy::ForceHint);
@@ -271,26 +279,29 @@ struct FloatToFixed : public llvm::ModulePass {
   llvm::Value *
   translateOrMatchAnyOperandAndType(llvm::Value *val,
                                     const FixedPointType &fixpt,
-                                    llvm::Instruction *ip = nullptr) {
+                                    llvm::Instruction *ip = nullptr)
+  {
     FixedPointType iofixpt = fixpt;
     return translateOrMatchAnyOperand(val, iofixpt, ip,
                                       TypeMatchPolicy::ForceHint);
   };
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
-                                  llvm::Instruction *ip = nullptr) {
-    
-      LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(fallval) == operandPool.end())<< "\n");
-      llvm::Value *cvtfallval = operandPool[fallval];
+                                  llvm::Instruction *ip = nullptr)
+  {
 
-      LLVM_DEBUG({
-        llvm::dbgs() << "check\n" << *fallval << "\nwas converted\n";
-        if (cvtfallval == nullptr){
-        llvm::dbgs() <<  "nullptr" << "\n";
-        } else
-        {
-          llvm::dbgs() <<  *cvtfallval << "\n";
-        }
-      });
+    LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
+    llvm::Value *cvtfallval = operandPool[fallval];
+
+    LLVM_DEBUG({
+      llvm::dbgs() << "check\n"
+                   << *fallval << "\nwas converted\n";
+      if (cvtfallval == nullptr) {
+        llvm::dbgs() << "nullptr"
+                     << "\n";
+      } else {
+        llvm::dbgs() << *cvtfallval << "\n";
+      }
+    });
 
     if (cvtfallval == ConversionError) {
       LLVM_DEBUG(llvm::dbgs()
@@ -375,7 +386,8 @@ struct FloatToFixed : public llvm::ModulePass {
   llvm::Type *getLLVMFixedPointTypeForFloatType(llvm::Type *ftype,
                                                 const FixedPointType &baset,
                                                 bool *hasfloats = nullptr);
-  llvm::Instruction *getFirstInsertionPointAfter(llvm::Instruction *i) {
+  llvm::Instruction *getFirstInsertionPointAfter(llvm::Instruction *i)
+  {
     llvm::Instruction *ip = i->getNextNode();
     if (!ip) {
       LLVM_DEBUG(
@@ -388,7 +400,8 @@ struct FloatToFixed : public llvm::ModulePass {
     return ip;
   }
   llvm::Type *getLLVMFixedPointTypeForFloatValue(llvm::Value *val);
-  std::shared_ptr<ValueInfo> newValueInfo(llvm::Value *val) {
+  std::shared_ptr<ValueInfo> newValueInfo(llvm::Value *val)
+  {
     LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
     auto vi = info.find(val);
     if (vi == info.end()) {
@@ -399,7 +412,8 @@ struct FloatToFixed : public llvm::ModulePass {
     }
   }
   std::shared_ptr<ValueInfo> demandValueInfo(llvm::Value *val,
-                                             bool *isNew = nullptr) {
+                                             bool *isNew = nullptr)
+  {
     LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
     auto vi = info.find(val);
     if (vi == info.end()) {
@@ -413,18 +427,21 @@ struct FloatToFixed : public llvm::ModulePass {
       return vi->getSecond();
     }
   }
-  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val) {
+  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val)
+  {
     auto vi = info.find(val);
     assert((vi != info.end()) && "value with no info");
     return vi->getSecond();
   };
-  FixedPointType &fixPType(llvm::Value *val) {
+  FixedPointType &fixPType(llvm::Value *val)
+  {
     auto vi = info.find(val);
     assert((vi != info.end()) && "value with no info");
     return vi->getSecond()->fixpType;
   };
   bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); };
-  bool isConvertedFixedPoint(llvm::Value *val) {
+  bool isConvertedFixedPoint(llvm::Value *val)
+  {
     if (!hasInfo(val))
       return false;
     std::shared_ptr<ValueInfo> vi = valueInfo(val);
@@ -441,7 +458,8 @@ struct FloatToFixed : public llvm::ModulePass {
       return false;
     return true;
   }
-  bool isFloatingPointToConvert(llvm::Value *val) {
+  bool isFloatingPointToConvert(llvm::Value *val)
+  {
     if (llvm::isa<llvm::Argument>(val))
       // function arguments to be converted are substituted by placeholder
       // values in the function cloning stage.
@@ -469,7 +487,8 @@ struct FloatToFixed : public llvm::ModulePass {
     return true;
   }
   llvm::Value *cpMetaData(llvm::Value *dst, llvm::Value *src,
-                          llvm::Instruction *target = nullptr) {
+                          llvm::Instruction *target = nullptr)
+  {
     using namespace llvm;
     MDNode *md = nullptr;
     MDNode *targetMD = nullptr;
@@ -528,7 +547,8 @@ struct FloatToFixed : public llvm::ModulePass {
     return dst;
   }
   void updateFPTypeMetadata(llvm::Value *v, bool isSigned, int fracBitsAmt,
-                            int bitsAmt) {
+                            int bitsAmt)
+  {
     using namespace llvm;
     using namespace mdutils;
     MetadataManager &mdmgr = MetadataManager::getMetadataManager();
@@ -540,7 +560,8 @@ struct FloatToFixed : public llvm::ModulePass {
     mdmgr.setMDInfoMetadata(v, newII);
   }
   void updateConstTypeMetadata(llvm::Value *v, unsigned opIdx,
-                               const FixedPointType &t) {
+                               const FixedPointType &t)
+  {
     using namespace llvm;
     using namespace mdutils;
     Instruction *i = dyn_cast<Instruction>(v);
@@ -569,7 +590,7 @@ struct FloatToFixed : public llvm::ModulePass {
   int getLoopNestingLevelOfValue(llvm::Value *v);
   template <class T>
   llvm::Constant *createConstantDataSequentialFP(llvm::ConstantDataSequential *cds,
-                                           const FixedPointType &fixpt);
+                                                 const FixedPointType &fixpt);
   mdutils::InputInfo *getInputInfo(llvm::Value *v);
   bool associateFixFormat(mdutils::InputInfo *II, FixedPointType &iofixpt);
 

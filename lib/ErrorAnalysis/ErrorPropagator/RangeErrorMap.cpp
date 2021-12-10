@@ -16,18 +16,20 @@
 
 #include "RangeErrorMap.h"
 
-#include <utility>
-#include "llvm/Support/Debug.h"
 #include "TypeUtils.h"
+#include "llvm/Support/Debug.h"
+#include <utility>
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 using namespace llvm;
 using namespace mdutils;
 
 #define DEBUG_TYPE "errorprop"
 
-const FPInterval *RangeErrorMap::getRange(const Value *I) const {
+const FPInterval *RangeErrorMap::getRange(const Value *I) const
+{
   auto RError = REMap.find(I);
   if (RError == REMap.end()) {
     return nullptr;
@@ -35,20 +37,22 @@ const FPInterval *RangeErrorMap::getRange(const Value *I) const {
   return &((RError->second).first);
 }
 
-const AffineForm<inter_t> *RangeErrorMap::getError(const Value *I) const {
+const AffineForm<inter_t> *RangeErrorMap::getError(const Value *I) const
+{
   auto RError = REMap.find(I);
   if (RError == REMap.end()) {
     return nullptr;
   }
-  const Optional<AffineForm<inter_t> > &Error = RError->second.second;
+  const Optional<AffineForm<inter_t>> &Error = RError->second.second;
   if (Error.hasValue())
     return Error.getPointer();
   else
     return nullptr;
 }
 
-const RangeErrorMap::RangeError*
-RangeErrorMap::getRangeError(const Value *I) const {
+const RangeErrorMap::RangeError *
+RangeErrorMap::getRangeError(const Value *I) const
+{
   auto RE = REMap.find(I);
   if (RE == REMap.end()) {
     return nullptr;
@@ -56,15 +60,15 @@ RangeErrorMap::getRangeError(const Value *I) const {
   return &(RE->second);
 }
 
-void RangeErrorMap::setError(const Value *I, const AffineForm<inter_t> &E) {
+void RangeErrorMap::setError(const Value *I, const AffineForm<inter_t> &E)
+{
   // If Range does not exist, the default is created.
   auto RE = REMap.find(I);
   if (RE == REMap.end()) {
     REMap[I] = std::make_pair(Interval<inter_t>(std::numeric_limits<double>::quiet_NaN(),
-						std::numeric_limits<double>::quiet_NaN()),
-			      E);
-  }
-  else
+                                                std::numeric_limits<double>::quiet_NaN()),
+                              E);
+  } else
     RE->second.second = E;
 
   double OutError = getOutputError(I);
@@ -73,7 +77,8 @@ void RangeErrorMap::setError(const Value *I, const AffineForm<inter_t> &E) {
 }
 
 void RangeErrorMap::setRangeError(const Value *I,
-				  const RangeError &RE) {
+                                  const RangeError &RE)
+{
   REMap[I] = RE;
 
   if (RE.second.hasValue()) {
@@ -83,7 +88,8 @@ void RangeErrorMap::setRangeError(const Value *I,
   }
 }
 
-bool RangeErrorMap::retrieveRangeError(Instruction &I) {
+bool RangeErrorMap::retrieveRangeError(Instruction &I)
+{
   retrieveConstRanges(I);
 
   if (const StructInfo *SI = MDMgr->retrieveStructInfo(I)) {
@@ -98,14 +104,14 @@ bool RangeErrorMap::retrieveRangeError(Instruction &I) {
   if (II->IError == nullptr) {
     REMap[&I] = std::make_pair(FPInterval(II), NoneType());
     return false;
-  }
-  else {
+  } else {
     REMap[&I] = std::make_pair(FPInterval(II), AffineForm<inter_t>(0.0, *II->IError));
     return true;
   }
 }
 
-void RangeErrorMap::retrieveRangeErrors(Function &F) {
+void RangeErrorMap::retrieveRangeErrors(Function &F)
+{
   SmallVector<MDInfo *, 1U> REs;
   MDMgr->retrieveArgumentInputInfo(F, REs);
 
@@ -117,29 +123,26 @@ void RangeErrorMap::retrieveRangeErrors(Function &F) {
 
     if (const InputInfo *II = dyn_cast<InputInfo>(*REIt)) {
       if (II->IRange == nullptr)
-	continue;
+        continue;
 
       FPInterval FPI(II);
 
       LLVM_DEBUG(dbgs() << "Retrieving data for Argument " << Arg->getName() << "... "
-	    << "Range: [" << static_cast<double>(FPI.Min) << ", "
-	    << static_cast<double>(FPI.Max) << "], Error: ");
+                        << "Range: [" << static_cast<double>(FPI.Min) << ", "
+                        << static_cast<double>(FPI.Max) << "], Error: ");
 
       if (FPI.hasInitialError()) {
-	AffineForm<inter_t> Err(0.0, FPI.getInitialError());
-	this->setRangeError(Arg, std::make_pair(FPI, Err));
+        AffineForm<inter_t> Err(0.0, FPI.getInitialError());
+        this->setRangeError(Arg, std::make_pair(FPI, Err));
 
-	LLVM_DEBUG(dbgs() << FPI.getInitialError() << ".\n");
-      }
-      else {
-	this->setRangeError(Arg, std::make_pair(FPI, NoneType()));
+        LLVM_DEBUG(dbgs() << FPI.getInitialError() << ".\n");
+      } else {
+        this->setRangeError(Arg, std::make_pair(FPI, NoneType()));
 
-	LLVM_DEBUG(dbgs() << "none.\n");
+        LLVM_DEBUG(dbgs() << "none.\n");
       }
-    }
-    else {
-      assert(taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy()
-	     && "Must be a Struct Argument.");
+    } else {
+      assert(taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy() && "Must be a Struct Argument.");
       const StructInfo *SI = cast<StructInfo>(*REIt);
       SEMap.createStructTreeFromMetadata(Arg, SI);
     }
@@ -147,7 +150,8 @@ void RangeErrorMap::retrieveRangeErrors(Function &F) {
 }
 
 void RangeErrorMap::applyArgumentErrors(Function &F,
-					SmallVectorImpl<Value *> *Args) {
+                                        SmallVectorImpl<Value *> *Args)
+{
   if (Args == nullptr)
     return;
 
@@ -160,24 +164,24 @@ void RangeErrorMap::applyArgumentErrors(Function &F,
     const AffineForm<inter_t> *Err = this->getError(AArgV);
     if (Err == nullptr) {
       LLVM_DEBUG(
-	    dbgs() << "[taffo-err] No pre-computed error available for formal parameter (" << *FArg << ")";
-	    if (AArgV != nullptr)
-	      dbgs() << "from actual parameter (" << *AArgV << ").\n";
-	    else
-	      dbgs() << ".\n";
-	    );
+          dbgs() << "[taffo-err] No pre-computed error available for formal parameter (" << *FArg << ")";
+          if (AArgV != nullptr)
+              dbgs()
+          << "from actual parameter (" << *AArgV << ").\n";
+          else dbgs() << ".\n";);
       continue;
     }
 
     this->setError(&*FArg, *Err);
 
     LLVM_DEBUG(dbgs() << "[taffo-err] Pre-computed error applied to formal parameter (" << *FArg
-	  << ") from actual parameter (" << *AArgV
-	  << "): " << static_cast<double>(Err->noiseTermsAbsSum()) << ".\n");
+                      << ") from actual parameter (" << *AArgV
+                      << "): " << static_cast<double>(Err->noiseTermsAbsSum()) << ".\n");
   }
 }
 
-void RangeErrorMap::retrieveRangeError(GlobalObject &V) {
+void RangeErrorMap::retrieveRangeError(GlobalObject &V)
+{
   if (V.getValueType()->isStructTy()) {
     const StructInfo *SI = MDMgr->retrieveStructInfo(V);
     if (SI == nullptr) {
@@ -199,14 +203,13 @@ void RangeErrorMap::retrieveRangeError(GlobalObject &V) {
   FPInterval FPI(II);
 
   LLVM_DEBUG(dbgs() << "Range: [" << static_cast<double>(FPI.Min) << ", "
-	<< static_cast<double>(FPI.Max) << "], Error: ");
+                    << static_cast<double>(FPI.Max) << "], Error: ");
 
   if (FPI.hasInitialError()) {
     REMap[&V] = std::make_pair(FPI, AffineForm<inter_t>(0.0, FPI.getInitialError()));
 
     LLVM_DEBUG(dbgs() << FPI.getInitialError() << ".\n");
-  }
-  else {
+  } else {
     REMap[&V] = std::make_pair(FPI, NoneType());
 
     LLVM_DEBUG(dbgs() << "none.\n");
@@ -214,19 +217,23 @@ void RangeErrorMap::retrieveRangeError(GlobalObject &V) {
 }
 
 const RangeErrorMap::RangeError *
-RangeErrorMap::getStructRangeError(Value *V) const {
+RangeErrorMap::getStructRangeError(Value *V) const
+{
   return SEMap.getFieldError(V);
 }
 
-void RangeErrorMap::setStructRangeError(Value *V, const RangeError &RE) {
+void RangeErrorMap::setStructRangeError(Value *V, const RangeError &RE)
+{
   SEMap.setFieldError(V, RE);
 }
 
-void RangeErrorMap::updateTargets(const RangeErrorMap &Other) {
+void RangeErrorMap::updateTargets(const RangeErrorMap &Other)
+{
   this->TErrs.updateAllTargets(Other.TErrs);
 }
 
-double RangeErrorMap::computeRelativeError(const RangeError &RE) {
+double RangeErrorMap::computeRelativeError(const RangeError &RE)
+{
   double divisor = std::max(std::abs(RE.first.Min), std::abs(RE.first.Max));
   if (divisor != 0)
     return RE.second->noiseTermsAbsSum() / divisor;
@@ -234,7 +241,8 @@ double RangeErrorMap::computeRelativeError(const RangeError &RE) {
     return std::numeric_limits<double>::quiet_NaN();
 }
 
-double RangeErrorMap::getOutputError(const llvm::Value *V) const {
+double RangeErrorMap::getOutputError(const llvm::Value *V) const
+{
   const RangeError *RE = getRangeError(V);
   if (RE && RE->second.hasValue()) {
     return getOutputError(*RE);
@@ -243,43 +251,50 @@ double RangeErrorMap::getOutputError(const llvm::Value *V) const {
   }
 }
 
-double RangeErrorMap::getOutputError(const RangeError &RE) const {
+double RangeErrorMap::getOutputError(const RangeError &RE) const
+{
   return (OutputAbsolute) ? RE.second->noiseTermsAbsSum() : computeRelativeError(RE);
 }
 
-void TargetErrors::updateTarget(const Value *V, const inter_t &Error) {
+void TargetErrors::updateTarget(const Value *V, const inter_t &Error)
+{
   if (isa<Instruction>(V))
     updateTarget(cast<Instruction>(V), Error);
   else if (isa<GlobalVariable>(V))
     updateTarget(cast<GlobalVariable>(V), Error);
 }
 
-void TargetErrors::updateTarget(const Instruction *I, const inter_t &Error) {
+void TargetErrors::updateTarget(const Instruction *I, const inter_t &Error)
+{
   assert(I != nullptr);
   Optional<StringRef> Target = MetadataManager::retrieveTargetMetadata(*I);
   if (Target.hasValue())
     updateTarget(Target.getValue(), Error);
 }
 
-void TargetErrors::updateTarget(const GlobalVariable *V, const inter_t &Error) {
+void TargetErrors::updateTarget(const GlobalVariable *V, const inter_t &Error)
+{
   assert(V != nullptr);
   Optional<StringRef> Target = MetadataManager::retrieveTargetMetadata(*V);
   if (Target.hasValue())
     updateTarget(Target.getValue(), Error);
 }
 
-void TargetErrors::updateTarget(StringRef T, const inter_t &Error) {
+void TargetErrors::updateTarget(StringRef T, const inter_t &Error)
+{
   Targets[T] = std::max(Targets[T], Error);
   LLVM_DEBUG(dbgs() << "(Target " << T << " updated with "
-	     << static_cast<double>(Error) << ") ");
+                    << static_cast<double>(Error) << ") ");
 }
 
-void TargetErrors::updateAllTargets(const TargetErrors &Other) {
+void TargetErrors::updateAllTargets(const TargetErrors &Other)
+{
   for (auto &T : Other.Targets)
     this->updateTarget(T.first, T.second);
 }
 
-inter_t TargetErrors::getErrorForTarget(StringRef T) const {
+inter_t TargetErrors::getErrorForTarget(StringRef T) const
+{
   auto Error = Targets.find(T);
   if (Error == Targets.end())
     return 0;
@@ -287,14 +302,16 @@ inter_t TargetErrors::getErrorForTarget(StringRef T) const {
   return Error->second;
 }
 
-void TargetErrors::printTargetErrors(raw_ostream &OS) const {
+void TargetErrors::printTargetErrors(raw_ostream &OS) const
+{
   for (auto &T : Targets) {
     OS << "Computed error for target " << T.first << ": "
        << static_cast<double>(T.second) << "\n";
   }
 }
 
-void RangeErrorMap::retrieveConstRanges(const Instruction &I) {
+void RangeErrorMap::retrieveConstRanges(const Instruction &I)
+{
   SmallVector<InputInfo *, 2U> CII;
   MDMgr->retrieveConstInfo(I, CII);
   if (CII.empty())
@@ -305,8 +322,8 @@ void RangeErrorMap::retrieveConstRanges(const Instruction &I) {
     InputInfo *II = CII[Idx];
     if (II != nullptr && isa<Constant>(I.getOperand(Idx))) {
       AffineForm<inter_t> Error = (!ExactConst && II->IType && cast<FPType>(II->IType.get())->getPointPos() != 0)
-	? AffineForm<inter_t>(0.0, II->IType->getRoundingError())
-	: AffineForm<inter_t>();
+                                      ? AffineForm<inter_t>(0.0, II->IType->getRoundingError())
+                                      : AffineForm<inter_t>();
       REMap[I.getOperand(Idx)] = std::make_pair(FPInterval(II), Error);
     }
   }

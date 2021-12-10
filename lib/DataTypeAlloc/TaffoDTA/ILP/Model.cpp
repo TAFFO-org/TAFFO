@@ -1,63 +1,65 @@
 
-#include <cassert>
-#include <cmath>
 #include "Model.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
+#include "DebugUtils.h"
+#include "Infos.h"
+#include "InputInfo.h"
+#include "Metadata.h"
+#include "OptimizerInfo.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "InputInfo.h"
-#include "Metadata.h"
-#include "TypeUtils.h"
-#include "Infos.h"
-#include "OptimizerInfo.h"
-#include "DebugUtils.h"
+#include <cassert>
+#include <cmath>
 
 
-#define M_BIG 1000000 
+#define M_BIG 1000000
 
 
 #define DEBUG_TYPE "taffo-dta"
 
 using namespace tuner;
 using namespace llvm;
-void Model::insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide/*, string&  comment*/) {
-    //modelFile << "inserting constraint: ";
-    //solver.Add(x + 7 * y <= 17.5)
-    //Example of
+void Model::insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide /*, string&  comment*/)
+{
+  // modelFile << "inserting constraint: ";
+  // solver.Add(x + 7 * y <= 17.5)
+  // Example of
 
-     auto constraint = solver->MakeRowConstraint();
-    switch (constraintType) {
-        case EQ:
-            constraint->SetBounds(rightSide, rightSide);
-            break;
-        case LE:
-            constraint->SetUB(rightSide);
-            break;
-        case GE:
-            constraint->SetLB(rightSide);
-            break;
+  auto constraint = solver->MakeRowConstraint();
+  switch (constraintType) {
+  case EQ:
+    constraint->SetBounds(rightSide, rightSide);
+    break;
+  case LE:
+    constraint->SetUB(rightSide);
+    break;
+  case GE:
+    constraint->SetLB(rightSide);
+    break;
+  }
+
+  for (auto p : variables) {
+    assert(isVariableDeclared(p.first) || VARIABLE_NOT_DECLARED(p.first));
+    if (p.second == HUGE_VAL || p.second == -HUGE_VAL) {
+      constraint->SetCoefficient(variablesPool.at(p.first), p.second > 0 ? M_BIG : -M_BIG);
+      continue;
     }
+    constraint->SetCoefficient(variablesPool.at(p.first), p.second);
+  }
 
-    for (auto p : variables) {
-        assert(isVariableDeclared(p.first) || VARIABLE_NOT_DECLARED(p.first));
-        if(p.second==HUGE_VAL || p.second == -HUGE_VAL){
-            constraint->SetCoefficient(variablesPool.at(p.first), p.second>0 ? M_BIG: -M_BIG );
-            continue;
-        }
-        constraint->SetCoefficient(variablesPool.at(p.first), p.second );
-    }
+  // TODO what to do about comment
 
-    //TODO what to do about comment
-
-  IF_TAFFO_DEBUG {
+  IF_TAFFO_DEBUG
+  {
     dbgs() << "constraint: ";
     bool first = true;
-    for (auto v: variables) {
+    for (auto v : variables) {
       if (first)
         first = false;
       else
@@ -73,36 +75,37 @@ void Model::insertLinearConstraint(const vector<pair<string, double>> &variables
 //     assert(!isVariableDeclared(varName) && "Variable already declared!");
 //     variablesPool.insert(varName);
 
-    
-
 
 //     modelFile<<varName<<" = solver.IntVar('"<<varName<<"')\n";
 // }
 
-void Model::createVariable(const string& varName, double min, double max) {
-    llvm::dbgs() <<"Creating variable: " << varName << "\n";
-    assert(!isVariableDeclared(varName) && "Variable already declared!");
-    variablesPool.insert({varName,solver->MakeIntVar(min, max, varName)});
+void Model::createVariable(const string &varName, double min, double max)
+{
+  llvm::dbgs() << "Creating variable: " << varName << "\n";
+  assert(!isVariableDeclared(varName) && "Variable already declared!");
+  variablesPool.insert({varName, solver->MakeIntVar(min, max, varName)});
 }
 
-Model::Model(ProblemType type): solver(operations_research::MPSolver::CreateSolver("CBC_MIXED_INTEGER_PROGRAMMING")){
-        this->problemType=type;
-        if (!solver){    
-        llvm_unreachable("CBC solver unavailable.");
-        }
+Model::Model(ProblemType type) : solver(operations_research::MPSolver::CreateSolver("CBC_MIXED_INTEGER_PROGRAMMING"))
+{
+  this->problemType = type;
+  if (!solver) {
+    llvm_unreachable("CBC solver unavailable.");
+  }
 }
 
-bool Model::finalizeAndSolve() {
+bool Model::finalizeAndSolve()
+{
 
   writeOutObjectiveFunction();
 
   LLVM_DEBUG(
 
-    std::string tmp;
-    solver->ExportModelAsLpFormat(false, &tmp);
-    llvm::dbgs() << "####LP Format####\n" <<tmp;
-    llvm::dbgs() << "\n\n";
-
+      std::string tmp;
+      solver->ExportModelAsLpFormat(false, &tmp);
+      llvm::dbgs() << "####LP Format####\n"
+                   << tmp;
+      llvm::dbgs() << "\n\n";
 
 
   );
@@ -117,7 +120,6 @@ bool Model::finalizeAndSolve() {
   }
 
 
-
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
@@ -127,19 +129,19 @@ bool Model::finalizeAndSolve() {
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-    for(auto& v : variablesPool){
-        variableValues.insert(make_pair(v.first, v.second->solution_value()));
-                LLVM_DEBUG(dbgs() << v.first << " = " << v.second->solution_value() << "\n";);
+  for (auto &v : variablesPool) {
+    variableValues.insert(make_pair(v.first, v.second->solution_value()));
+    LLVM_DEBUG(dbgs() << v.first << " = " << v.second->solution_value() << "\n";);
+  }
 
-    }
-
-  IF_TAFFO_DEBUG {
+  IF_TAFFO_DEBUG
+  {
     dbgs() << "\n************* < TRUMPETS HERE > *************\n";
     dbgs() << "**** THE HOLY OBJECTIVE FUNCTION MEMBERS ****\n";
     dbgs() << "*********************************************\n";
     double castcost = 0, mathcost = 0, enob = 0;
-    for(auto& coefficient_id_and_variables: objDeclarationOccoured) {
-      for(auto& variable: coefficient_id_and_variables.second){
+    for (auto &coefficient_id_and_variables : objDeclarationOccoured) {
+      for (auto &variable : coefficient_id_and_variables.second) {
         std::string coefficient_id = coefficient_id_and_variables.first;
         if (coefficient_id == MODEL_OBJ_CASTCOST) {
           castcost += variable.first->solution_value() * variable.second;
@@ -156,19 +158,15 @@ bool Model::finalizeAndSolve() {
     dbgs() << " Math Cost = " << mathcost << "\n";
     dbgs() << " ENOB      = " << enob << "\n";
     dbgs() << "*********************************************\n\n";
-
-
-
   }
 
-    if(variableValues.size() != variablesPool.size()){
-        LLVM_DEBUG(dbgs() << "[ERROR] The number of variables in the file and in the model does not match!\n";);
-        return false;
-    }
+  if (variableValues.size() != variablesPool.size()) {
+    LLVM_DEBUG(dbgs() << "[ERROR] The number of variables in the file and in the model does not match!\n";);
+    return false;
+  }
 
 
-    return true;
-
+  return true;
 }
 
 // bool Model::loadResultsFromFile(string modelFile) {
@@ -256,93 +254,94 @@ bool Model::finalizeAndSolve() {
 //     return true;
 // }
 
-bool Model::isVariableDeclared(const string& variable) {
-    return variablesPool.count(variable)!=0;
+bool Model::isVariableDeclared(const string &variable)
+{
+  return variablesPool.count(variable) != 0;
 }
 
 
-void Model::insertObjectiveElement(const pair<string, double> &p, string costName, double maxVal) {
-    assert(isVariableDeclared(p.first) && "Variable not declared!");
+void Model::insertObjectiveElement(const pair<string, double> &p, string costName, double maxVal)
+{
+  assert(isVariableDeclared(p.first) && "Variable not declared!");
 
 
+  if (objDeclarationOccoured.find(costName) == objDeclarationOccoured.end() /*!objDeclarationOccoured[costName].second*/) {
+    objDeclarationOccoured.insert(std::make_pair(costName, std::vector<std::pair<operations_research::MPVariable *, double>>{}));
+  }
 
-    if(objDeclarationOccoured.find(costName) == objDeclarationOccoured.end() /*!objDeclarationOccoured[costName].second*/){         
-        objDeclarationOccoured.insert(std::make_pair(costName, std::vector<std::pair<operations_research::MPVariable*,double>>{}));
-    }
+  // We use this to normalize the objective value against program complexity changes
+  objMaxCosts[costName] = objMaxCosts[costName] + maxVal;
 
-    //We use this to normalize the objective value against program complexity changes
-    objMaxCosts[costName] = objMaxCosts[costName] + maxVal;
+  if (p.second == HUGE_VAL || p.second == -HUGE_VAL) {
 
-    if(p.second==HUGE_VAL || p.second == -HUGE_VAL){
-        
-        objDeclarationOccoured[costName].push_back({variablesPool.at(p.first),  p.second>0 ? M_BIG : -M_BIG});
+    objDeclarationOccoured[costName].push_back({variablesPool.at(p.first), p.second > 0 ? M_BIG : -M_BIG});
 
-    }else {
-        objDeclarationOccoured[costName].push_back({variablesPool.at(p.first),  p.second});
-    }
-
-
+  } else {
+    objDeclarationOccoured[costName].push_back({variablesPool.at(p.first), p.second});
+  }
 }
 
-void Model::writeOutObjectiveFunction() {
-    //solver.Minimize(x + 10 * y)    
-    auto obj = solver->MutableObjective();
+void Model::writeOutObjectiveFunction()
+{
+  // solver.Minimize(x + 10 * y)
+  auto obj = solver->MutableObjective();
 
-    switch (problemType) {
-        case MIN:
-            obj->SetMinimization();
-            break;
-        case MAX:
-            obj->SetMaximization();
-            break;
+  switch (problemType) {
+  case MIN:
+    obj->SetMinimization();
+    break;
+  case MAX:
+    obj->SetMaximization();
+    break;
+  }
+
+
+  for (auto &objectives : objDeclarationOccoured) {
+    for (auto &a : objectives.second) {
+      obj->SetCoefficient(a.first, a.second * getMultiplier(objectives.first) / objMaxCosts[objectives.first]);
     }
-
-
-    for(auto& objectives : objDeclarationOccoured){
-        for(auto& a : objectives.second){
-            obj->SetCoefficient(a.first, a.second * getMultiplier(objectives.first) / objMaxCosts[objectives.first]);
-        }
-    }
-
-
+  }
 }
 
-double Model::getMultiplier(string var){
-    if(var == MODEL_OBJ_CASTCOST){
-        return MixedTuningCastingTime;
-    }
+double Model::getMultiplier(string var)
+{
+  if (var == MODEL_OBJ_CASTCOST) {
+    return MixedTuningCastingTime;
+  }
 
-    if(var == MODEL_OBJ_ENOB){
-        return MixedTuningENOB;
-    }
+  if (var == MODEL_OBJ_ENOB) {
+    return MixedTuningENOB;
+  }
 
-    if(var == MODEL_OBJ_MATHCOST){
-        return MixedTuningTime;
-    }
+  if (var == MODEL_OBJ_MATHCOST) {
+    return MixedTuningTime;
+  }
 
-    llvm_unreachable("Cost variable not declared.");
+  llvm_unreachable("Cost variable not declared.");
 }
 
-bool Model::VARIABLE_NOT_DECLARED(string var){
-    LLVM_DEBUG(dbgs() << "THIS VARIABLE WAS NOT DECLARED >>" << var <<"<<\n";);
-    LLVM_DEBUG(dbgs() << "Here is a list of declared vars:\n";);
+bool Model::VARIABLE_NOT_DECLARED(string var)
+{
+  LLVM_DEBUG(dbgs() << "THIS VARIABLE WAS NOT DECLARED >>" << var << "<<\n";);
+  LLVM_DEBUG(dbgs() << "Here is a list of declared vars:\n";);
 
-    for(auto& a : variablesPool){
-        LLVM_DEBUG(dbgs() << ">>"<<a.first<<"<<\n";);
-    }
+  for (auto &a : variablesPool) {
+    LLVM_DEBUG(dbgs() << ">>" << a.first << "<<\n";);
+  }
 
-    assert(false);
+  assert(false);
 }
 
-double Model::getVariableValue(string variable){
-    if(!isVariableDeclared(variable)){
-        VARIABLE_NOT_DECLARED(variable);
-    }
+double Model::getVariableValue(string variable)
+{
+  if (!isVariableDeclared(variable)) {
+    VARIABLE_NOT_DECLARED(variable);
+  }
 
-    auto res = variableValues.find(variable);
-    assert(res!=variableValues.end() && "The value of this variable was not found in the model!");
+  auto res = variableValues.find(variable);
+  assert(res != variableValues.end() && "The value of this variable was not found in the model!");
 
-    return res->second;
+  return res->second;
 }
 
 // void Model::insertComment(string comment, int spaceBefore, int spaceAfter) {

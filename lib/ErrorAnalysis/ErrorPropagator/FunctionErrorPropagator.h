@@ -15,32 +15,35 @@
 #ifndef ERRORPROPAGATOR_FUNCTIONERRORPROPAGATOR_H
 #define ERRORPROPAGATOR_FUNCTIONERRORPROPAGATOR_H
 
-#include "RangeErrorMap.h"
 #include "FunctionCopyMap.h"
+#include "RangeErrorMap.h"
 
-#include "llvm/Pass.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SmallSet.h"
+#include "llvm/Pass.h"
 #include <vector>
-#include "llvm/Analysis/MemorySSA.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 /// Propagates errors of fixed point computations in a single function.
-class FunctionErrorPropagator {
+class FunctionErrorPropagator
+{
 public:
   FunctionErrorPropagator(llvm::Pass &EPPass,
-			  llvm::Function &F,
-			  FunctionCopyManager &FCMap,
-			  mdutils::MetadataManager &MDManager,
+                          llvm::Function &F,
+                          FunctionCopyManager &FCMap,
+                          mdutils::MetadataManager &MDManager,
                           bool SloppyAA)
-    : EPPass(EPPass), F(F), FCMap(FCMap),
-      FCopy(FCMap.getFunctionCopy(&F)), RMap(MDManager),
-      CmpMap(CMPERRORMAP_NUMINITBUCKETS), MemSSA(nullptr),
-      Cloned(true), SloppyAA(SloppyAA) {
+      : EPPass(EPPass), F(F), FCMap(FCMap),
+        FCopy(FCMap.getFunctionCopy(&F)), RMap(MDManager),
+        CmpMap(CMPERRORMAP_NUMINITBUCKETS), MemSSA(nullptr),
+        Cloned(true), SloppyAA(SloppyAA)
+  {
     if (FCopy == nullptr) {
       FCopy = &F;
       Cloned = false;
@@ -54,8 +57,8 @@ public:
   /// if GenMetadata is true, computed errors are attached
   /// to each instruction as metadata.
   void computeErrorsWithCopy(RangeErrorMap &GlobRMap,
-			     llvm::SmallVectorImpl<llvm::Value *> *Args = nullptr,
-			     bool GenMetadata = false);
+                             llvm::SmallVectorImpl<llvm::Value *> *Args = nullptr,
+                             bool GenMetadata = false);
 
   RangeErrorMap &getRMap() { return RMap; }
 
@@ -76,7 +79,7 @@ protected:
   /// Transfer the errors computed locally to the actual parameters of the function call,
   /// but only if they are pointers.
   void applyActualParametersErrors(RangeErrorMap &GlobRMap,
-				   llvm::SmallVectorImpl<llvm::Value *> *Args);
+                                   llvm::SmallVectorImpl<llvm::Value *> *Args);
 
   /// Attach error metadata to the original function.
   void attachErrorMetadata();
@@ -99,26 +102,31 @@ protected:
 /// Schedules basic blocks of a function so that all BBs
 /// that could be executed before another BB come before it in the ordering.
 /// This is a sort of topological ordering that takes loops into account.
-class BBScheduler {
+class BBScheduler
+{
 public:
   typedef std::vector<llvm::BasicBlock *> queue_type;
   typedef queue_type::reverse_iterator iterator;
 
   BBScheduler(llvm::Function &F, llvm::LoopInfo &LI)
-    : Queue(), Set(), LInfo(LI) {
+      : Queue(), Set(), LInfo(LI)
+  {
     Queue.reserve(F.size());
     enqueueChildren(&F.getEntryBlock());
   }
 
-  bool empty() const {
+  bool empty() const
+  {
     return Queue.empty();
   }
 
-  iterator begin() {
+  iterator begin()
+  {
     return Queue.rbegin();
   }
 
-  iterator end() {
+  iterator end()
+  {
     return Queue.rend();
   }
 

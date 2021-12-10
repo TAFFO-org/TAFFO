@@ -2,8 +2,8 @@
 #define DTACONFIG
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include <string>
 
 #define DEBUG_TYPE "taffo-dta"
@@ -44,34 +44,34 @@ llvm::cl::opt<bool> IterativeMerging("iterative",
 #ifdef TAFFO_BUILD_ILP_DTA
 
 llvm::cl::opt<bool> MixedMode("mixedmode",
-                                     llvm::cl::desc("Enable or disable the experimental mixed-precision mode"), llvm::cl::init(false));
+                              llvm::cl::desc("Enable or disable the experimental mixed-precision mode"), llvm::cl::init(false));
 
 llvm::cl::opt<double> MixedTuningENOB("mixedtuningenob", llvm::cl::value_desc("Enob importance"),
-                               llvm::cl::desc("Set the importance given to the best ENOB preservation in mixed precision mode"),
-                               llvm::cl::init(1));
+                                      llvm::cl::desc("Set the importance given to the best ENOB preservation in mixed precision mode"),
+                                      llvm::cl::init(1));
 
 llvm::cl::opt<double> MixedTuningTime("mixedtuningtime", llvm::cl::value_desc("Time importance"),
                                       llvm::cl::desc("Set the importance to keep down the computation time in mixed precision mode"),
                                       llvm::cl::init(1));
 llvm::cl::opt<double> MixedTuningCastingTime("mixedtuningcastingtime", llvm::cl::value_desc("Casting time importance"),
-                                      llvm::cl::desc("Set the importance to keep down the computation  casting time in mixed precision mode"),
-                                      llvm::cl::init(1));
+                                             llvm::cl::desc("Set the importance to keep down the computation  casting time in mixed precision mode"),
+                                             llvm::cl::init(1));
 
 llvm::cl::opt<bool> MixedDoubleEnabled("mixeddoubleenabled", llvm::cl::value_desc("Double enabled"),
-                                             llvm::cl::desc("Set if the double dataype can be used in the resulting mix"),
-                                             llvm::cl::init(true));
+                                       llvm::cl::desc("Set if the double dataype can be used in the resulting mix"),
+                                       llvm::cl::init(true));
 
 
 llvm::cl::opt<std::string> CostModelFilename("costmodelfilename", llvm::cl::value_desc("Cost model filename"),
-                                       llvm::cl::desc("Set the filename to load optimization constant parameter i.e. operation costs"),
-                                       llvm::cl::init("DOES-NOT-EXIST"));
+                                             llvm::cl::desc("Set the filename to load optimization constant parameter i.e. operation costs"),
+                                             llvm::cl::init("DOES-NOT-EXIST"));
 
 
 std::string InstructionSet;
 static llvm::cl::opt<std::string, true> InstructionSetFlag("instructionsetfile", llvm::cl::value_desc("Instruction file name"),
-                                       llvm::cl::desc("Set the filename to load wich instruction set are allowed"),
-                                       llvm::cl::location(InstructionSet), llvm::cl::init("DOES-NOT-EXIST") );    
-         
+                                                           llvm::cl::desc("Set the filename to load wich instruction set are allowed"),
+                                                           llvm::cl::location(InstructionSet), llvm::cl::init("DOES-NOT-EXIST"));
+
 #endif // TAFFO_BUILD_ILP_DTA
 
 STATISTIC(FixCast, "Number of fixed point format cast");

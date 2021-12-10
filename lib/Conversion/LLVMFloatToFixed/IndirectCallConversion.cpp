@@ -1,3 +1,5 @@
+#include "LLVMFloatToFixedPass.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -7,8 +9,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -19,9 +19,9 @@ using namespace flttofix;
 void FloatToFixed::convertIndirectCalls(llvm::Module &m)
 {
   using handler_function = void (FloatToFixed::*)(
-          llvm::CallInst *patchedDirectCall, llvm::Function *indirectFunction);
+      llvm::CallInst * patchedDirectCall, llvm::Function * indirectFunction);
   const std::map<const std::string, handler_function> indirectCallFunctions = {
-          {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}};
+      {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}};
 
   std::vector<llvm::CallInst *> trampolineCalls;
 

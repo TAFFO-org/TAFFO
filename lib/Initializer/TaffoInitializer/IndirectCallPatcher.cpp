@@ -1,4 +1,7 @@
-#include <unordered_set>
+#include "IndirectCallPatcher.h"
+#include "Metadata.h"
+#include "TaffoInitializerPass.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -11,10 +14,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "IndirectCallPatcher.h"
-#include "Metadata.h"
-#include "TaffoInitializerPass.h"
-#include "TypeUtils.h"
+#include <unordered_set>
 
 using namespace taffo;
 using namespace llvm;
@@ -62,9 +62,9 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
 
   assert(
-          microTaskFunction != nullptr &&
-          "The microtask function must be present in the __kmpc_fork_call as a "
-          "third argument");
+      microTaskFunction != nullptr &&
+      "The microtask function must be present in the __kmpc_fork_call as a "
+      "third argument");
 
   if (containsUnsupportedFunctions(microTaskFunction, {})) {
     LLVM_DEBUG(dbgs() << "Blocking conversion for shared variables in "
@@ -171,8 +171,7 @@ void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                                     const CallSite *curCall,
                                     llvm::Function *indirectFunction);
   const static std::map<const std::string, handler_function> indirectCallFunctions = {
-          {"__kmpc_fork_call", &handleKmpcFork}
-  };
+      {"__kmpc_fork_call", &handleKmpcFork}};
 
   auto indirectCallHandler =
       indirectCallFunctions.find((std::string)indirectFunction->getName());

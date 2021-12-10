@@ -9,11 +9,12 @@
 #define TAFFO_LOOPANALYZERUTIL_H
 
 using namespace llvm;
-class LoopAnalyzerUtil {
+class LoopAnalyzerUtil
+{
 public:
-    static unsigned computeFullTripCount(ModulePass *tuner, Instruction *instruction);
-    static unsigned computeFullTripCount(ModulePass *tuner, Loop *bb);
+  static unsigned computeFullTripCount(ModulePass *tuner, Instruction *instruction);
+  static unsigned computeFullTripCount(ModulePass *tuner, Loop *bb);
 };
 
 
-#endif //TAFFO_LOOPANALYZERUTIL_H
+#endif // TAFFO_LOOPANALYZERUTIL_H

@@ -1,13 +1,13 @@
 #include "VRAFunctionStore.hpp"
 
+#include "RangeOperations.hpp"
 #include "VRAGlobalStore.hpp"
 #include "VRAnalyzer.hpp"
-#include "RangeOperations.hpp"
 
 using namespace taffo;
 
-void
-VRAFunctionStore::convexMerge(const AnalysisStore &Other) {
+void VRAFunctionStore::convexMerge(const AnalysisStore &Other)
+{
   // Since llvm::dyn_cast<T>() does not do cross-casting, we must do this:
   if (llvm::isa<VRAnalyzer>(Other)) {
     VRAStore::convexMerge(llvm::cast<VRAStore>(llvm::cast<VRAnalyzer>(Other)));
@@ -19,17 +19,19 @@ VRAFunctionStore::convexMerge(const AnalysisStore &Other) {
 }
 
 std::shared_ptr<CodeAnalyzer>
-VRAFunctionStore::newCodeAnalyzer(CodeInterpreter &CI) {
+VRAFunctionStore::newCodeAnalyzer(CodeInterpreter &CI)
+{
   return std::make_shared<VRAnalyzer>(CI);
 }
 
 std::shared_ptr<AnalysisStore>
-VRAFunctionStore::newFunctionStore(CodeInterpreter &CI) {
+VRAFunctionStore::newFunctionStore(CodeInterpreter &CI)
+{
   return std::make_shared<VRAFunctionStore>(CI);
 }
 
-void
-VRAFunctionStore::setRetVal(NodePtrT RetVal) {
+void VRAFunctionStore::setRetVal(NodePtrT RetVal)
+{
   if (!RetVal)
     return;
 
@@ -41,11 +43,10 @@ VRAFunctionStore::setRetVal(NodePtrT RetVal) {
   }
 }
 
-void
-VRAFunctionStore::setArgumentRanges(const llvm::Function &F,
-                                    const std::list<NodePtrT> &AARanges) {
-  assert(AARanges.size() == F.arg_size()
-         && "Mismatch between number of actual and formal parameters.");
+void VRAFunctionStore::setArgumentRanges(const llvm::Function &F,
+                                         const std::list<NodePtrT> &AARanges)
+{
+  assert(AARanges.size() == F.arg_size() && "Mismatch between number of actual and formal parameters.");
   auto derived_info_it = AARanges.begin();
   auto derived_info_end = AARanges.end();
 

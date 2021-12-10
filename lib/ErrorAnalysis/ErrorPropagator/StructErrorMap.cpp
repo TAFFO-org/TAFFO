@@ -14,13 +14,14 @@
 
 #include "StructErrorMap.h"
 
-#include <memory>
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/Support/Debug.h"
 #include "TypeUtils.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/Debug.h"
+#include <memory>
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 using namespace llvm;
 using namespace mdutils;
@@ -28,7 +29,8 @@ using namespace mdutils;
 #define DEBUG_TYPE "errorprop"
 
 StructNode::StructNode(const StructInfo *SI, StructType *ST, StructTree *Parent)
-  : StructTree(STK_Node, Parent), Fields(), SType(ST) {
+    : StructTree(STK_Node, Parent), Fields(), SType(ST)
+{
   assert(ST != nullptr);
   Fields.resize(ST->getNumElements());
 
@@ -42,13 +44,11 @@ StructNode::StructNode(const StructInfo *SI, StructType *ST, StructTree *Parent)
 
     if (const StructInfo *FieldSI = dyn_cast<StructInfo>(FieldMDI)) {
       Fields[Idx].reset(new StructNode(FieldSI,
-				       getElementStructType(ST->getElementType(Idx)),
-				       this));
-    }
-    else if (const InputInfo *FieldII = dyn_cast<InputInfo>(FieldMDI)) {
+                                       getElementStructType(ST->getElementType(Idx)),
+                                       this));
+    } else if (const InputInfo *FieldII = dyn_cast<InputInfo>(FieldMDI)) {
       Fields[Idx].reset(new StructError(FieldII, this));
-    }
-    else {
+    } else {
       llvm_unreachable("Unhandled MDInfo kind.");
     }
     LLVM_DEBUG(dbgs() << ", ");
@@ -57,7 +57,8 @@ StructNode::StructNode(const StructInfo *SI, StructType *ST, StructTree *Parent)
 }
 
 StructNode::StructNode(const StructNode &SN)
-  : StructTree(SN), Fields(), SType(SN.SType) {
+    : StructTree(SN), Fields(), SType(SN.SType)
+{
   this->Fields.reserve(SN.Fields.size());
   for (const std::unique_ptr<StructTree> &STPtr : SN.Fields) {
     std::unique_ptr<StructTree> New;
@@ -67,7 +68,8 @@ StructNode::StructNode(const StructNode &SN)
   }
 }
 
-StructNode &StructNode::operator=(const StructNode &O) {
+StructNode &StructNode::operator=(const StructNode &O)
+{
   this->SType = O.SType;
   this->Fields.clear();
   this->Fields.reserve(O.Fields.size());
@@ -79,58 +81,63 @@ StructNode &StructNode::operator=(const StructNode &O) {
   return *this;
 }
 
-StructType *StructNode::getElementStructType(Type *T) {
+StructType *StructNode::getElementStructType(Type *T)
+{
   while (!T->isStructTy()) {
     if (PointerType *PT = dyn_cast<PointerType>(T))
       T = PT->getElementType();
-    else if (isa<ArrayType>(T) || isa<VectorType>(T)){
+    else if (isa<ArrayType>(T) || isa<VectorType>(T)) {
       T = T->getContainedType(0);
-    }
-    else
+    } else
       return nullptr;
   }
   return cast<StructType>(T);
 }
 
 StructError::StructError(const InputInfo *II, StructTree *Parent)
-  : StructTree(STK_Error, Parent), Error() {
+    : StructTree(STK_Error, Parent), Error()
+{
   FPInterval FPI(II);
 
   LLVM_DEBUG(dbgs() << "{Range: [" << static_cast<double>(FPI.Min) << ", "
-	<< static_cast<double>(FPI.Max) << "], Error: ");
+                    << static_cast<double>(FPI.Max) << "], Error: ");
 
   if (FPI.hasInitialError()) {
     AffineForm<inter_t> Err(0.0, FPI.getInitialError());
     Error = std::make_pair(FPI, Err);
 
     LLVM_DEBUG(dbgs() << FPI.getInitialError() << "} ");
-  }
-  else {
+  } else {
     Error = std::make_pair(FPI, NoneType());
 
     LLVM_DEBUG(dbgs() << "none}");
   }
 }
 
-Value *StructTreeWalker::retrieveRootPointer(Value *P) {
+Value *StructTreeWalker::retrieveRootPointer(Value *P)
+{
   IndexStack.clear();
   return navigatePointerTreeToRoot(P);
 }
 
-StructError *StructTreeWalker::getOrCreateFieldNode(StructTree *Root) {
+StructError *StructTreeWalker::getOrCreateFieldNode(StructTree *Root)
+{
   return navigateStructTree(Root, true);
 }
 
-StructError *StructTreeWalker::getFieldNode(StructTree *Root) {
+StructError *StructTreeWalker::getFieldNode(StructTree *Root)
+{
   return navigateStructTree(Root, false);
 }
 
-StructTree *StructTreeWalker::makeRoot(Value *P) {
+StructTree *StructTreeWalker::makeRoot(Value *P)
+{
   StructType *ST = cast<StructType>(cast<PointerType>(P->getType())->getElementType());
   return new StructNode(ST);
 }
 
-Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P) {
+Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P)
+{
   assert(P != nullptr);
   if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(P)) {
     auto IdxIt = GEPI->idx_begin();
@@ -139,8 +146,7 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P) {
       IndexStack.push_back(parseIndex(*IdxIt));
 
     return navigatePointerTreeToRoot(GEPI->getPointerOperand());
-  }
-  else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(P)) {
+  } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(P)) {
     if (CE->isGEPWithNoNotionalOverIndexing()) {
       auto OpIt = CE->op_begin();
 
@@ -156,36 +162,29 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P) {
 
       // Push other indices.
       for (; OpIt != CE->op_end(); ++OpIt)
-	IndexStack.push_back(parseIndex(*OpIt));
+        IndexStack.push_back(parseIndex(*OpIt));
 
       return navigatePointerTreeToRoot(PointerOp);
-    }
-    else
+    } else
       return nullptr;
-  }
-  else if (LoadInst *LI = dyn_cast<LoadInst>(P)) {
+  } else if (LoadInst *LI = dyn_cast<LoadInst>(P)) {
     return navigatePointerTreeToRoot(LI->getPointerOperand());
-  }
-  else if (Argument *A = dyn_cast<Argument>(P)) {
+  } else if (Argument *A = dyn_cast<Argument>(P)) {
     auto AArg = ArgBindings.find(A);
     if (AArg != ArgBindings.end() && AArg->second != nullptr)
       return navigatePointerTreeToRoot(AArg->second);
     else
       return (isa<StructType>(cast<PointerType>(A->getType())->getElementType())) ? P : nullptr;
-  }
-  else if (AllocaInst *AI = dyn_cast<AllocaInst>(P)) {
+  } else if (AllocaInst *AI = dyn_cast<AllocaInst>(P)) {
     return (isa<StructType>(AI->getAllocatedType())) ? P : nullptr;
-  }
-  else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(P)) {
+  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(P)) {
     return (GV->getValueType()->isStructTy()) ? P : nullptr;
-  }
-  else if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(P)) {
+  } else if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(P)) {
     for (unsigned Idx : EVI->indices())
       IndexStack.push_back(Idx);
 
     return EVI->getAggregateOperand();
-  }
-  else if (InsertValueInst *IVI = dyn_cast<InsertValueInst>(P)) {
+  } else if (InsertValueInst *IVI = dyn_cast<InsertValueInst>(P)) {
     for (unsigned Idx : IVI->indices())
       IndexStack.push_back(Idx);
 
@@ -194,7 +193,8 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P) {
   return nullptr;
 }
 
-StructError *StructTreeWalker::navigateStructTree(StructTree *Root, bool Create) {
+StructError *StructTreeWalker::navigateStructTree(StructTree *Root, bool Create)
+{
   if (isa<StructError>(Root))
     return cast<StructError>(Root);
 
@@ -205,15 +205,14 @@ StructError *StructTreeWalker::navigateStructTree(StructTree *Root, bool Create)
   StructTree *Child = RN->getStructElement(ChildIdx);
   if (Child != nullptr) {
     return navigateStructTree(Child, Create);
-  }
-  else if (Create) {
+  } else if (Create) {
     Type *ChildType = RN->getStructType()->getElementType(ChildIdx);
-    while (isa<ArrayType>(ChildType) || isa<VectorType>(ChildType) ) {
+    while (isa<ArrayType>(ChildType) || isa<VectorType>(ChildType)) {
       // Just discard array indices.
       ChildType = ChildType->getContainedType(0);
       if (IndexStack.size() == 0) {
-	LLVM_DEBUG(dbgs() << "WARNING: struct tree shape mismatch.\n");
-	return nullptr;
+        LLVM_DEBUG(dbgs() << "WARNING: struct tree shape mismatch.\n");
+        return nullptr;
       }
       IndexStack.pop_back();
     }
@@ -221,17 +220,16 @@ StructError *StructTreeWalker::navigateStructTree(StructTree *Root, bool Create)
     if (StructType *ChildST = dyn_cast<StructType>(ChildType)) {
       RN->setStructElement(ChildIdx, new StructNode(ChildST, Root));
       return navigateStructTree(RN->getStructElement(ChildIdx), Create);
-    }
-    else {
+    } else {
       RN->setStructElement(ChildIdx, new StructError(Root));
       return cast<StructError>(RN->getStructElement(ChildIdx));
     }
-  }
-  else
+  } else
     return nullptr;
 }
 
-unsigned StructTreeWalker::parseIndex(const Use &U) const {
+unsigned StructTreeWalker::parseIndex(const Use &U) const
+{
   if (ConstantInt *CIdx = dyn_cast<ConstantInt>(U.get()))
     return CIdx->getZExtValue();
   else
@@ -239,14 +237,16 @@ unsigned StructTreeWalker::parseIndex(const Use &U) const {
 }
 
 StructErrorMap::StructErrorMap(const StructErrorMap &M)
-  : StructMap(), ArgBindings(M.ArgBindings) {
+    : StructMap(), ArgBindings(M.ArgBindings)
+{
   for (auto &KV : M.StructMap) {
     std::unique_ptr<StructTree> New(KV.second->clone());
     this->StructMap.insert(std::make_pair(KV.first, std::move(New)));
   }
 }
 
-StructErrorMap &StructErrorMap::operator=(const StructErrorMap &O) {
+StructErrorMap &StructErrorMap::operator=(const StructErrorMap &O)
+{
   StructErrorMap Tmp(O);
   std::swap(this->StructMap, Tmp.StructMap);
   std::swap(this->ArgBindings, Tmp.ArgBindings);
@@ -255,19 +255,21 @@ StructErrorMap &StructErrorMap::operator=(const StructErrorMap &O) {
 }
 
 void StructErrorMap::initArgumentBindings(Function &F,
-					  const ArrayRef<Value *> AArgs) {
+                                          const ArrayRef<Value *> AArgs)
+{
   auto AArgIt = AArgs.begin();
   for (Argument &FArg : F.args()) {
-    if (AArgIt == AArgs.end()) break;
-    if (FArg.getType()->isPointerTy()
-	&& cast<PointerType>(FArg.getType())->getElementType()->isStructTy())
+    if (AArgIt == AArgs.end())
+      break;
+    if (FArg.getType()->isPointerTy() && cast<PointerType>(FArg.getType())->getElementType()->isStructTy())
       ArgBindings.insert(std::make_pair(&FArg, *AArgIt));
 
     ++AArgIt;
   }
 }
 
-void StructErrorMap::setFieldError(Value *P, const StructTree::RangeError &Err) {
+void StructErrorMap::setFieldError(Value *P, const StructTree::RangeError &Err)
+{
   StructTreeWalker STW(ArgBindings);
   Value *RootP = STW.retrieveRootPointer(P);
   if (RootP == nullptr)
@@ -286,7 +288,8 @@ void StructErrorMap::setFieldError(Value *P, const StructTree::RangeError &Err) 
   }
 }
 
-const StructTree::RangeError *StructErrorMap::getFieldError(Value *P) const {
+const StructTree::RangeError *StructErrorMap::getFieldError(Value *P) const
+{
   StructTreeWalker STW(ArgBindings);
   Value *RootP = STW.retrieveRootPointer(P);
   if (RootP == nullptr)
@@ -303,7 +306,8 @@ const StructTree::RangeError *StructErrorMap::getFieldError(Value *P) const {
     return nullptr;
 }
 
-void StructErrorMap::updateStructTree(const StructErrorMap &O, const ArrayRef<Value *> Pointers) {
+void StructErrorMap::updateStructTree(const StructErrorMap &O, const ArrayRef<Value *> Pointers)
+{
   StructTreeWalker STW(this->ArgBindings);
   for (Value *P : Pointers) {
     if (P == nullptr || !P->getType()->isPointerTy())
@@ -311,15 +315,15 @@ void StructErrorMap::updateStructTree(const StructErrorMap &O, const ArrayRef<Va
 
     if (Value *Root = STW.retrieveRootPointer(P)) {
       auto OTreeIt = O.StructMap.find(Root);
-      if (OTreeIt != O.StructMap.end()
-	  && OTreeIt->second != nullptr)
-	this->StructMap[Root].reset(OTreeIt->second->clone());
+      if (OTreeIt != O.StructMap.end() && OTreeIt->second != nullptr)
+        this->StructMap[Root].reset(OTreeIt->second->clone());
     }
   }
 }
 
 void StructErrorMap::createStructTreeFromMetadata(Value *V,
-						  const mdutils::MDInfo *MDI) {
+                                                  const mdutils::MDInfo *MDI)
+{
   LLVM_DEBUG(dbgs() << "[taffo-err] Retrieving data for struct [" << *V << "]: ");
 
   StructType *ST = nullptr;

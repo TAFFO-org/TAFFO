@@ -1,19 +1,20 @@
 #ifndef __TAFFO_TUNER_PASS_H__
 #define __TAFFO_TUNER_PASS_H__
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 #define DEBUG_TYPE "taffo-dta"
-#define DEBUG_FUN  "tunerfunction"
+#define DEBUG_FUN "tunerfunction"
 
-namespace tuner {
+namespace tuner
+{
 
 
 struct ValueInfo {
@@ -27,7 +28,6 @@ struct FunInfo {
    * argument idx is -1 for return value */
   std::vector<std::pair<int, std::shared_ptr<mdutils::MDInfo>>> fixArgs;
 };
-
 
 
 struct TaffoTuner : public llvm::ModulePass {
@@ -56,11 +56,11 @@ struct TaffoTuner : public llvm::ModulePass {
   void mergeFixFormat(const std::vector<llvm::Value *> &vals,
                       const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
 
-  #ifdef TAFFO_BUILD_ILP_DTA
+#ifdef TAFFO_BUILD_ILP_DTA
   void buildModelAndOptimze(llvm::Module &m,
                             const std::vector<llvm::Value *> &vals,
                             const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
-  #endif // TAFFO_BUILD_ILP_DTA
+#endif // TAFFO_BUILD_ILP_DTA
 
   void getAnalysisUsage(llvm::AnalysisUsage &) const override;
 
@@ -86,7 +86,8 @@ struct TaffoTuner : public llvm::ModulePass {
 
   void attachFunctionMetaData(llvm::Module &m);
 
-  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val) {
+  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val)
+  {
     auto vi = info.find(val);
     if (vi == info.end()) {
       LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
@@ -99,7 +100,8 @@ struct TaffoTuner : public llvm::ModulePass {
 
   bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); }
 
-  bool conversionDisabled(llvm::Value *val) {
+  bool conversionDisabled(llvm::Value *val)
+  {
     if (llvm::isa<llvm::Constant>(val))
       return false;
     if (llvm::isa<llvm::Argument>(val)) {
@@ -114,7 +116,8 @@ struct TaffoTuner : public llvm::ModulePass {
     return !(mdi && mdi->getEnableConversion()) && incomingValuesDisabled(val);
   }
 
-  bool incomingValuesDisabled(llvm::Value *v) {
+  bool incomingValuesDisabled(llvm::Value *v)
+  {
     using namespace llvm;
     if (!taffo::isFloatType(v->getType()))
       return true;
@@ -133,14 +136,13 @@ struct TaffoTuner : public llvm::ModulePass {
     }
   }
 
-  #ifdef TAFFO_BUILD_ILP_DTA
+#ifdef TAFFO_BUILD_ILP_DTA
   bool mergeDataTypes(std::shared_ptr<mdutils::MDInfo> old,
                       std::shared_ptr<mdutils::MDInfo> model);
-  #endif // TAFFO_BUILD_ILP_DTA
+#endif // TAFFO_BUILD_ILP_DTA
 };
-  
-}
+
+} // namespace tuner
 
 
 #endif
-

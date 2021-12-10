@@ -14,30 +14,31 @@
 
 #include "FunctionErrorPropagator.h"
 
-#include "llvm/IR/InstIterator.h"
 #include "CallSiteVersions.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 #include <llvm/IR/InstrTypes.h>
 
-#include "Propagators.h"
 #include "MemSSAUtils.h"
 #include "Metadata.h"
+#include "Propagators.h"
 #include "TypeUtils.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 using namespace llvm;
 using namespace mdutils;
 
 #define DEBUG_TYPE "errorprop"
 
-void
-FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
-					       SmallVectorImpl<Value *> *Args,
-					       bool GenMetadata) {
+void FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
+                                                    SmallVectorImpl<Value *> *Args,
+                                                    bool GenMetadata)
+{
   if (F.empty() || FCopy == nullptr) {
     LLVM_DEBUG(dbgs() << "[taffo-err] Function " << F.getName() << " could not be processed.\n");
     return;
@@ -49,7 +50,7 @@ FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
   Function &CF = *FCopy;
 
   LLVM_DEBUG(dbgs() << "\n[taffo-err] *** Processing function " << CF.getName()
-	<< " (iteration " << OldRecCount + 1 << ")... ***\n");
+                    << " (iteration " << OldRecCount + 1 << ")... ***\n");
 
   CmpMap.clear();
   RMap = GlobRMap;
@@ -94,8 +95,8 @@ FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
   LLVM_DEBUG(dbgs() << "[taffo-err] Finished processing function " << CF.getName() << ".\n\n");
 }
 
-void
-FunctionErrorPropagator::computeFunctionErrors(SmallVectorImpl<Value *> *ArgErrs) {
+void FunctionErrorPropagator::computeFunctionErrors(SmallVectorImpl<Value *> *ArgErrs)
+{
   assert(FCopy != nullptr);
 
   if (ArgErrs)
@@ -105,7 +106,7 @@ FunctionErrorPropagator::computeFunctionErrors(SmallVectorImpl<Value *> *ArgErrs
   RMap.applyArgumentErrors(*FCopy, ArgErrs);
 
   LoopInfo &LInfo =
-    EPPass.getAnalysis<LoopInfoWrapperPass>(*FCopy).getLoopInfo();
+      EPPass.getAnalysis<LoopInfoWrapperPass>(*FCopy).getLoopInfo();
 
   // Compute errors for all instructions in the function
   BBScheduler BBSched(*FCopy, LInfo);
@@ -119,8 +120,8 @@ FunctionErrorPropagator::computeFunctionErrors(SmallVectorImpl<Value *> *ArgErrs
       computeInstructionErrors(I);
 }
 
-void
-FunctionErrorPropagator::computeInstructionErrors(Instruction &I) {
+void FunctionErrorPropagator::computeInstructionErrors(Instruction &I)
+{
   bool HasInitialError = RMap.retrieveRangeError(I);
 
   double InitialError;
@@ -147,20 +148,20 @@ FunctionErrorPropagator::computeInstructionErrors(Instruction &I) {
 
   if (!ComputedError && HasInitialError) {
     LLVM_DEBUG(dbgs() << "[taffo-err] WARNING: metadata error "
-	  << InitialError << " attached to instruction ("
-	  << I << ").\n");
+                      << InitialError << " attached to instruction ("
+                      << I << ").\n");
     RMap.setError(&I, AffineForm<inter_t>(0.0, InitialError));
   }
 
   LLVM_DEBUG(
-	if(checkOverflow(I))
-	  dbgs() << "[taffo-err] Possible overflow detected for instruction ("
-		 << I << ").\n";
-	);
+      if (checkOverflow(I))
+              dbgs()
+          << "[taffo-err] Possible overflow detected for instruction ("
+          << I << ").\n";);
 }
 
-bool
-FunctionErrorPropagator::dispatchInstruction(Instruction &I) {
+bool FunctionErrorPropagator::dispatchInstruction(Instruction &I)
+{
   assert(MemSSA != nullptr);
 
   InstructionPropagator IP(RMap, *MemSSA, SloppyAA);
@@ -169,55 +170,55 @@ FunctionErrorPropagator::dispatchInstruction(Instruction &I) {
     return IP.propagateBinaryOp(I);
 
   switch (I.getOpcode()) {
-    case Instruction::Store:
-      return IP.propagateStore(I);
-    case Instruction::Load:
-      return IP.propagateLoad(I);
-    case Instruction::FPExt:
-      // Fall-through.
-    case Instruction::SExt:
-      // Fall-through.
-    case Instruction::ZExt:
-      return IP.propagateExt(I);
-    case Instruction::FPTrunc:
-      // Fall-through.
-    case Instruction::Trunc:
-      return IP.propagateTrunc(I);
-    case Instruction::FNeg:
-      return IP.propagateFNeg(I);
-    case Instruction::Select:
-      return IP.propagateSelect(I);
-    case Instruction::PHI:
-      return IP.propagatePhi(I);
-    case Instruction::FCmp:
-      // Fall-through.
-    case Instruction::ICmp:
-      return IP.checkCmp(CmpMap, I);
-    case Instruction::Ret:
-      return IP.propagateRet(I);
-    case Instruction::Call:
-     // Fall-through.
-    case Instruction::Invoke:
-      prepareErrorsForCall(I);
-      return IP.propagateCall(I);
-    case Instruction::UIToFP:
-      // Fall-through.
-    case Instruction::SIToFP:
-      return IP.propagateIToFP(I);
-    case Instruction::FPToUI:
-      // Fall-through.
-    case Instruction::FPToSI:
-      return IP.propagateFPToI(I);
-    default:
-      LLVM_DEBUG(InstructionPropagator::logInstruction(I);
-		 InstructionPropagator::logInfoln("unhandled."));
-      return false;
+  case Instruction::Store:
+    return IP.propagateStore(I);
+  case Instruction::Load:
+    return IP.propagateLoad(I);
+  case Instruction::FPExt:
+    // Fall-through.
+  case Instruction::SExt:
+    // Fall-through.
+  case Instruction::ZExt:
+    return IP.propagateExt(I);
+  case Instruction::FPTrunc:
+    // Fall-through.
+  case Instruction::Trunc:
+    return IP.propagateTrunc(I);
+  case Instruction::FNeg:
+    return IP.propagateFNeg(I);
+  case Instruction::Select:
+    return IP.propagateSelect(I);
+  case Instruction::PHI:
+    return IP.propagatePhi(I);
+  case Instruction::FCmp:
+    // Fall-through.
+  case Instruction::ICmp:
+    return IP.checkCmp(CmpMap, I);
+  case Instruction::Ret:
+    return IP.propagateRet(I);
+  case Instruction::Call:
+    // Fall-through.
+  case Instruction::Invoke:
+    prepareErrorsForCall(I);
+    return IP.propagateCall(I);
+  case Instruction::UIToFP:
+    // Fall-through.
+  case Instruction::SIToFP:
+    return IP.propagateIToFP(I);
+  case Instruction::FPToUI:
+    // Fall-through.
+  case Instruction::FPToSI:
+    return IP.propagateFPToI(I);
+  default:
+    LLVM_DEBUG(InstructionPropagator::logInstruction(I);
+               InstructionPropagator::logInfoln("unhandled."));
+    return false;
   }
   llvm_unreachable("No return statement.");
 }
 
-void
-FunctionErrorPropagator::prepareErrorsForCall(Instruction &I) {
+void FunctionErrorPropagator::prepareErrorsForCall(Instruction &I)
+{
 
   auto CS = dyn_cast<CallBase>(&I);
   Function *CalledF = CS->getCalledFunction();
@@ -225,27 +226,24 @@ FunctionErrorPropagator::prepareErrorsForCall(Instruction &I) {
 
   for (Use &U : CS->args()) {
     Value *Arg = U.get();
-    if (Arg->getType()->isPointerTy()
-	&& !taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy()) {
+    if (Arg->getType()->isPointerTy() && !taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy()) {
       auto RE = RMap.getRangeError(Arg);
       if (RE != nullptr && RE->second.hasValue())
-	Args.push_back(Arg);
+        Args.push_back(Arg);
       else {
-	Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, Arg);
-	Args.push_back(OrigPointer);
+        Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, Arg);
+        Args.push_back(OrigPointer);
       }
-    }
-    else {
+    } else {
       Args.push_back(Arg);
     }
   }
 
-  if (CalledF == nullptr
-      || InstructionPropagator::isSpecialFunction(*CalledF))
+  if (CalledF == nullptr || InstructionPropagator::isSpecialFunction(*CalledF))
     return;
 
   LLVM_DEBUG(dbgs() << "[taffo-err] Preparing errors for function call/invoke "
-	<< I.getName() << "...\n");
+                    << I.getName() << "...\n");
 
   // Stop if we have reached the maximum recursion count.
   if (FCMap.maxRecursionCountReached(CalledF))
@@ -253,7 +251,7 @@ FunctionErrorPropagator::prepareErrorsForCall(Instruction &I) {
 
   // Now propagate the errors for this call.
   FunctionErrorPropagator CFEP(EPPass, *CalledF,
-			       FCMap, RMap.getMetadataManager(), SloppyAA);
+                               FCMap, RMap.getMetadataManager(), SloppyAA);
   CFEP.computeErrorsWithCopy(RMap, &Args, false);
 
   // Restore MemorySSA
@@ -261,9 +259,9 @@ FunctionErrorPropagator::prepareErrorsForCall(Instruction &I) {
   MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(*FCopy).getMSSA());
 }
 
-void
-FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMap,
-						     SmallVectorImpl<Value *> *Args) {
+void FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMap,
+                                                          SmallVectorImpl<Value *> *Args)
+{
   assert(FCopy != nullptr);
   if (Args == nullptr)
     return;
@@ -283,11 +281,11 @@ FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMap,
       Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, &*FArg);
       Err = RMap.getError(OrigPointer);
       if (Err == nullptr)
-	continue;
+        continue;
     }
 
     LLVM_DEBUG(dbgs() << "[taffo-err] Setting actual parameter (" << **AArg
-	  << ") error " << static_cast<double>(Err->noiseTermsAbsSum()) << "\n");
+                      << ") error " << static_cast<double>(Err->noiseTermsAbsSum()) << "\n");
     GlobRMap.setError(*AArg, *Err);
   }
 
@@ -295,8 +293,8 @@ FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMap,
   GlobRMap.updateStructErrors(RMap, *Args);
 }
 
-void
-FunctionErrorPropagator::attachErrorMetadata() {
+void FunctionErrorPropagator::attachErrorMetadata()
+{
   ValueToValueMapTy *VMap = FCMap.getValueToValueMap(&F);
   assert(VMap != nullptr);
 
@@ -316,18 +314,18 @@ FunctionErrorPropagator::attachErrorMetadata() {
   }
 }
 
-bool FunctionErrorPropagator::checkOverflow(Instruction &I) {
+bool FunctionErrorPropagator::checkOverflow(Instruction &I)
+{
   const FPInterval *Range = RMap.getRange(&I);
   const TType *Type;
-  if (Range == nullptr
-      || (Type = Range->getTType()) == nullptr)
+  if (Range == nullptr || (Type = Range->getTType()) == nullptr)
     return false;
 
-  return Range->Min < (Type->getMinValueBound()).convertToDouble()
-    || Range->Max > (Type->getMaxValueBound()).convertToDouble();
+  return Range->Min < (Type->getMinValueBound()).convertToDouble() || Range->Max > (Type->getMaxValueBound()).convertToDouble();
 }
 
-void BBScheduler::enqueueChildren(BasicBlock *BB) {
+void BBScheduler::enqueueChildren(BasicBlock *BB)
+{
   assert(BB != nullptr && "Null basic block.");
 
   // Do nothing if already visited.
@@ -344,35 +342,35 @@ void BBScheduler::enqueueChildren(BasicBlock *BB) {
     if (L == nullptr) {
       // Not part of a loop, just visit all unvisited successors.
       int c = TI->getNumSuccessors();
-      for (int i=0; i<c; i++)
+      for (int i = 0; i < c; i++)
         enqueueChildren(TI->getSuccessor(i));
-    }
-    else {
+    } else {
       // Part of a loop:
       // visit exiting blocks first, so they are scheduled at the end.
       SmallVector<BasicBlock *, 2U> BodyQueue;
       int c = TI->getNumSuccessors();
-      for (int i=0; i<c; i++) {
+      for (int i = 0; i < c; i++) {
         BasicBlock *DestBB = TI->getSuccessor(i);
-	if (isExiting(DestBB, L))
-	  enqueueChildren(DestBB);
-	else
-	  BodyQueue.push_back(DestBB);
+        if (isExiting(DestBB, L))
+          enqueueChildren(DestBB);
+        else
+          BodyQueue.push_back(DestBB);
       }
 
       // If the header is also the exit, but not a latch,
       // it is visited also after the loop body
       if (L->isLoopExiting(BB) && !L->isLoopLatch(BB))
-	Queue.push_back(BB);
+        Queue.push_back(BB);
 
       for (BasicBlock *BodyBB : BodyQueue)
-	enqueueChildren(BodyBB);
+        enqueueChildren(BodyBB);
     }
   }
   Queue.push_back(BB);
 }
 
-bool BBScheduler::isExiting(BasicBlock *Dst, Loop *L) const {
+bool BBScheduler::isExiting(BasicBlock *Dst, Loop *L) const
+{
   assert(L != nullptr);
 
   if (!L->contains(Dst))

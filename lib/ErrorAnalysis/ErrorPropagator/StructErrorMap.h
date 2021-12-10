@@ -15,27 +15,29 @@
 #ifndef ERRORPROPAGATOR_STRUCTERRORMAP_H
 #define ERRORPROPAGATOR_STRUCTERRORMAP_H
 
-#include <map>
-#include "llvm/Support/Casting.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/Argument.h"
 #include "FixedPoint.h"
 #include "Metadata.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Casting.h"
+#include <map>
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
-class StructTree {
+class StructTree
+{
 public:
-  typedef std::pair<FPInterval, llvm::Optional<AffineForm<inter_t> > > RangeError;
+  typedef std::pair<FPInterval, llvm::Optional<AffineForm<inter_t>>> RangeError;
   enum StructTreeKind {
     STK_Node,
     STK_Error
   };
 
   StructTree(StructTreeKind K, StructTree *P = nullptr)
-    : Parent(P), Kind(K) {}
+      : Parent(P), Kind(K) {}
 
   virtual StructTree *clone() const = 0;
   StructTree *getParent() const { return Parent; }
@@ -43,6 +45,7 @@ public:
   virtual ~StructTree() = default;
 
   StructTreeKind getKind() const { return Kind; }
+
 protected:
   StructTree *Parent;
 
@@ -50,10 +53,12 @@ private:
   StructTreeKind Kind;
 };
 
-class StructNode : public StructTree {
+class StructNode : public StructTree
+{
 public:
   StructNode(llvm::StructType *ST, StructTree *Parent = nullptr)
-    : StructTree(STK_Node, Parent), Fields(), SType(ST) {
+      : StructTree(STK_Node, Parent), Fields(), SType(ST)
+  {
     assert(ST != nullptr);
     Fields.resize(ST->getNumElements());
   }
@@ -64,13 +69,15 @@ public:
 
   StructTree *clone() const override { return new StructNode(*this); }
   llvm::StructType *getStructType() const { return SType; }
-  StructTree *getStructElement(unsigned I) {
+  StructTree *getStructElement(unsigned I)
+  {
     return (I < Fields.size()) ? Fields[I].get() : nullptr;
   }
 
   void setStructElement(unsigned I, StructTree *NewEl) { Fields[I].reset(NewEl); }
 
   static bool classof(const StructTree *ST) { return ST->getKind() == STK_Node; }
+
 private:
   llvm::SmallVector<std::unique_ptr<StructTree>, 2U> Fields;
   llvm::StructType *SType;
@@ -78,29 +85,32 @@ private:
   static llvm::StructType *getElementStructType(llvm::Type *T);
 };
 
-class StructError : public StructTree {
+class StructError : public StructTree
+{
 public:
   StructError(StructTree *Parent = nullptr)
-    : StructTree(STK_Error, Parent), Error() {}
+      : StructTree(STK_Error, Parent), Error() {}
 
   StructError(const RangeError &Err, StructTree *Parent = nullptr)
-    : StructTree(STK_Error, Parent), Error(Err) {}
+      : StructTree(STK_Error, Parent), Error(Err) {}
 
-  StructError(const mdutils::InputInfo *MDI,  StructTree *Parent = nullptr);
+  StructError(const mdutils::InputInfo *MDI, StructTree *Parent = nullptr);
 
   StructTree *clone() const override { return new StructError(*this); }
-  const RangeError& getError() const { return Error; }
-  void setError (const RangeError &Err) { Error = Err; }
+  const RangeError &getError() const { return Error; }
+  void setError(const RangeError &Err) { Error = Err; }
 
   static bool classof(const StructTree *ST) { return ST->getKind() == STK_Error; }
+
 private:
   RangeError Error;
 };
 
-class StructTreeWalker {
+class StructTreeWalker
+{
 public:
   StructTreeWalker(const llvm::DenseMap<llvm::Argument *, llvm::Value *> &ArgBindings)
-    : IndexStack(), ArgBindings(ArgBindings) {}
+      : IndexStack(), ArgBindings(ArgBindings) {}
 
   llvm::Value *retrieveRootPointer(llvm::Value *P);
   StructError *getOrCreateFieldNode(StructTree *Root);
@@ -116,7 +126,8 @@ protected:
   unsigned parseIndex(const llvm::Use &U) const;
 };
 
-class StructErrorMap {
+class StructErrorMap
+{
 public:
   StructErrorMap() = default;
   StructErrorMap(const StructErrorMap &M);
@@ -127,10 +138,10 @@ public:
   const StructTree::RangeError *getFieldError(llvm::Value *P) const;
   void updateStructTree(const StructErrorMap &O, const llvm::ArrayRef<llvm::Value *> Pointers);
   void createStructTreeFromMetadata(llvm::Value *V,
-				    const mdutils::MDInfo *MDI);
+                                    const mdutils::MDInfo *MDI);
 
 protected:
-  std::map<llvm::Value *, std::unique_ptr<StructTree> > StructMap;
+  std::map<llvm::Value *, std::unique_ptr<StructTree>> StructMap;
   llvm::DenseMap<llvm::Argument *, llvm::Value *> ArgBindings;
 };
 

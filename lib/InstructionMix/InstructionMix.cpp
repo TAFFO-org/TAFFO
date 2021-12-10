@@ -1,7 +1,7 @@
-#include <sstream>
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/InlineAsm.h"
 #include "InstructionMix.h"
+#include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/Intrinsics.h"
+#include <sstream>
 
 using namespace llvm;
 
@@ -11,9 +11,9 @@ void InstructionMix::updateWithInstruction(Instruction *inst)
   ninstr++;
   stat[inst->getOpcodeName()]++;
 
-  if (isa<AllocaInst>(inst) || isa<LoadInst>(inst) || isa<StoreInst>(inst) || isa<GetElementPtrInst>(inst) ) {
+  if (isa<AllocaInst>(inst) || isa<LoadInst>(inst) || isa<StoreInst>(inst) || isa<GetElementPtrInst>(inst)) {
     stat["MemOp"]++;
-  } else if (isa<PHINode>(inst) || isa<SelectInst>(inst) || isa<FCmpInst>(inst) || isa<CmpInst>(inst) ) {
+  } else if (isa<PHINode>(inst) || isa<SelectInst>(inst) || isa<FCmpInst>(inst) || isa<CmpInst>(inst)) {
     stat["CmpOp"]++;
   } else if (isa<CastInst>(inst)) {
     stat["CastOp"]++;
@@ -32,20 +32,20 @@ void InstructionMix::updateWithInstruction(Instruction *inst)
 
   if (CallBase *call = dyn_cast<CallBase>(inst)) {
     std::stringstream stm;
-    
+
     if (isa<CallInst>(call)) {
       stm << "call(";
     } else {
       stm << "invoke(";
     }
-    
+
     Function *opnd = call->getCalledFunction();
     if (opnd) {
       stm << opnd->getName().str();
     } else {
       stm << "%indirect";
     }
-    
+
     stm << ")";
     stat[stm.str()]++;
   }
@@ -103,7 +103,7 @@ int isDelimiterInstruction(llvm::Instruction *instr)
         return isDelimiterFunction(func);
     }
   }
-  
+
   return 0;
 }
 
@@ -116,7 +116,7 @@ bool isSkippableInstruction(llvm::Instruction *instr)
   Function *opnd = call->getCalledFunction();
   if (!opnd)
     return false;
-  
+
   if (isDelimiterFunction(opnd))
     return true;
   if (opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::annotation ||
@@ -131,4 +131,3 @@ bool isSkippableInstruction(llvm::Instruction *instr)
     return true;
   return false;
 }
-

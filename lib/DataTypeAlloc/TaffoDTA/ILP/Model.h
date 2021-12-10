@@ -1,10 +1,10 @@
-#include <string>
-#include <vector>
-#include <set>
+#include "ortools/linear_solver/linear_solver.h"
+#include "llvm/Support/CommandLine.h"
 #include <fstream>
 #include <map>
-#include "llvm/Support/CommandLine.h"
-#include "ortools/linear_solver/linear_solver.h"
+#include <set>
+#include <string>
+#include <vector>
 
 
 #ifndef TAFFO_DTA_MODEL_H
@@ -22,69 +22,68 @@ extern llvm::cl::opt<bool> MixedDoubleEnabled;
 
 using namespace std;
 
-namespace tuner {
-    class Model {
-    public:
-        enum ProblemType{
-            MIN, MAX
-        };
+namespace tuner
+{
+class Model
+{
+public:
+  enum ProblemType {
+    MIN,
+    MAX
+  };
 
 
+private:
+  map<const string, operations_research::MPVariable *> variablesPool;
+  map<const string, double> variableValues;
 
-    private:
-        map<const string, operations_research::MPVariable* > variablesPool;
-        map< const string, double> variableValues;
+  map<const string, std::vector<std::pair<operations_research::MPVariable *, double>>> objDeclarationOccoured;
 
-        map<const string, std::vector<std::pair<operations_research::MPVariable*,double>>> objDeclarationOccoured;
-
-        map< const string, double> objMaxCosts;
-
-
-        vector<pair< const string, double>> objectiveFunction;
-        ProblemType  problemType;
-        Model() = delete;
-
-        std::unique_ptr<operations_research::MPSolver> solver;
-
-    public:
+  map<const string, double> objMaxCosts;
 
 
+  vector<pair<const string, double>> objectiveFunction;
+  ProblemType problemType;
+  Model() = delete;
+
+  std::unique_ptr<operations_research::MPSolver> solver;
+
+public:
+  Model(ProblemType type);
+
+  enum ConstraintType {
+    EQ,
+    LE,
+    GE
+  }; // Equal, less or equal, greater or equal; strict inequalities are not handled by the tools usually
+  // void createVariable(const string &varName);
+
+  void insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide /*, string& comment*/);
 
 
-        Model(ProblemType type);
-
-        enum ConstraintType {
-            EQ, LE, GE
-        }; //Equal, less or equal, greater or equal; strict inequalities are not handled by the tools usually
-        // void createVariable(const string &varName);
-
-        void insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType,  double rightSide/*, string& comment*/);
+  bool isVariableDeclared(const string &variable);
 
 
+  bool finalizeAndSolve();
 
-        bool isVariableDeclared(const string &variable);
-
-
-        bool finalizeAndSolve();
-
-        void createVariable(const string &varName, double min, double max);
+  void createVariable(const string &varName, double min, double max);
 
 
-        void insertObjectiveElement(const pair<string, double> &variables, string costName, double maxValue);
+  void insertObjectiveElement(const pair<string, double> &variables, string costName, double maxValue);
 
-        void writeOutObjectiveFunction();
+  void writeOutObjectiveFunction();
 
-        bool VARIABLE_NOT_DECLARED(string var);
+  bool VARIABLE_NOT_DECLARED(string var);
 
-        bool loadResultsFromFile(string modelFile);
+  bool loadResultsFromFile(string modelFile);
 
-        double getVariableValue(string variable);
+  double getVariableValue(string variable);
 
-        double getMultiplier(string var);
+  double getMultiplier(string var);
 
-       // void insertComment(string comment, int spaceBefore=0, int spaceAfter=0);
-    };
-}
+  // void insertComment(string comment, int spaceBefore=0, int spaceAfter=0);
+};
+} // namespace tuner
 
 
 #endif

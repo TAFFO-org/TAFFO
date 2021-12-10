@@ -16,16 +16,18 @@
 #ifndef ERRORPROPAGATOR_PROPAGATORS_H
 #define ERRORPROPAGATOR_PROPAGATORS_H
 
-#include "llvm/IR/Instruction.h"
-#include "llvm/Analysis/MemorySSA.h"
 #include "RangeErrorMap.h"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/IR/Instruction.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
-class InstructionPropagator {
+class InstructionPropagator
+{
 public:
   InstructionPropagator(RangeErrorMap &RMap, llvm::MemorySSA &MemSSA, bool SloppyAA)
-    : RMap(RMap), MemSSA(MemSSA), SloppyAA(SloppyAA) {}
+      : RMap(RMap), MemSSA(MemSSA), SloppyAA(SloppyAA) {}
 
   /// Propagate errors for a Binary Operator instruction.
   bool propagateBinaryOp(llvm::Instruction &);
@@ -95,18 +97,18 @@ private:
 
   const RangeErrorMap::RangeError *
   getConstantRangeError(llvm::Instruction &I, llvm::ConstantInt *VInt,
-			bool DoublePP = false,
-			const mdutils::FPType *FallbackTy = nullptr);
+                        bool DoublePP = false,
+                        const mdutils::FPType *FallbackTy = nullptr);
 
-  const RangeErrorMap::RangeError*
+  const RangeErrorMap::RangeError *
   getOperandRangeError(llvm::Instruction &I, llvm::Value *V,
-		       bool DoublePP = false,
-		       const mdutils::FPType *FallbackTy = nullptr);
+                       bool DoublePP = false,
+                       const mdutils::FPType *FallbackTy = nullptr);
 
-  const RangeErrorMap::RangeError*
+  const RangeErrorMap::RangeError *
   getOperandRangeError(llvm::Instruction &I, unsigned Op,
-		       bool DoublePP = false,
-		       const mdutils::FPType *FallbackTy = nullptr);
+                       bool DoublePP = false,
+                       const mdutils::FPType *FallbackTy = nullptr);
 
   void updateArgumentRE(llvm::Value *Pointer, const RangeErrorMap::RangeError *NewRE);
 

@@ -5,21 +5,24 @@
 #include "Model.h"
 #include "OptimizerInfo.h"
 #include "TaffoDTA.h"
-#include <unordered_map>
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Support/Casting.h"
 #include <cstdio>
+#include <unordered_map>
 
-namespace tuner {
+namespace tuner
+{
 class Optimizer;
 class PhiWatcher;
 class MemWatcher;
 } // namespace tuner
 
-class MetricBase {
+class MetricBase
+{
 
 protected:
-  enum MetricKind { MK_Perf, MK_Size };
+  enum MetricKind { MK_Perf,
+                    MK_Size };
 
 
 public:
@@ -47,7 +50,7 @@ public:
                   shared_ptr<tuner::ValueInfo> valueInfo);
   void handleUnknownFunction(llvm::Instruction *instruction,
                              shared_ptr<tuner::ValueInfo> valueInfo);
-    shared_ptr<tuner::OptimizerScalarInfo>
+  shared_ptr<tuner::OptimizerScalarInfo>
   handleBinOpCommon(llvm::Instruction *instr, llvm::Value *op1,
                     llvm::Value *op2, bool forceFixEquality,
                     shared_ptr<tuner::ValueInfo> valueInfos);
@@ -55,17 +58,17 @@ public:
   shared_ptr<tuner::OptimizerStructInfo>
   loadStructInfo(llvm::Value *glob, shared_ptr<mdutils::StructInfo> pInfo,
                  string name);
-  virtual void handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res, const tuner::CPUCosts & cpuCosts, const char* start) = 0;
+  virtual void handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res, const tuner::CPUCosts &cpuCosts, const char *start) = 0;
   virtual void handleFAdd(llvm::BinaryOperator *instr, const unsigned OpCode,
-                          const shared_ptr<tuner::ValueInfo> &valueInfos)=0;
+                          const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual void handleFSub(llvm::BinaryOperator *instr, const unsigned OpCode,
-                          const shared_ptr<tuner::ValueInfo> &valueInfos)=0;
+                          const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual void handleFMul(llvm::BinaryOperator *instr, const unsigned OpCode,
-                          const shared_ptr<tuner::ValueInfo> &valueInfos)=0;
+                          const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual void handleFDiv(llvm::BinaryOperator *instr, const unsigned OpCode,
-                          const shared_ptr<tuner::ValueInfo> &valueInfos)=0;
+                          const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual void handleFRem(llvm::BinaryOperator *instr, const unsigned OpCode,
-                          const shared_ptr<tuner::ValueInfo> &valueInfos)=0;
+                          const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual shared_ptr<tuner::OptimizerScalarInfo> allocateNewVariableForValue(
       llvm::Value *value, shared_ptr<mdutils::FPType> fpInfo,
       shared_ptr<mdutils::Range> rangeInfo,
@@ -73,33 +76,33 @@ public:
       bool insertInList = true, string nameAppendix = "",
       bool insertENOBinMin = true, bool respectFloatingPointConstraint = true) = 0;
   virtual void saveInfoForValue(llvm::Value *value,
-                                shared_ptr<tuner::OptimizerInfo> optInfo)=0;
+                                shared_ptr<tuner::OptimizerInfo> optInfo) = 0;
   virtual void closePhiLoop(llvm::PHINode *phiNode,
-                            llvm::Value *requestedValue)=0;
-  virtual void closeMemLoop(llvm::LoadInst *load, llvm::Value *requestedValue)=0;
-  virtual string getEnobActivationVariable(llvm::Value *value, int cardinal)=0;
-  virtual void openPhiLoop(llvm::PHINode *phiNode, llvm::Value *value)=0;
-  virtual void openMemLoop(llvm::LoadInst *load, llvm::Value *value)=0;
+                            llvm::Value *requestedValue) = 0;
+  virtual void closeMemLoop(llvm::LoadInst *load, llvm::Value *requestedValue) = 0;
+  virtual string getEnobActivationVariable(llvm::Value *value, int cardinal) = 0;
+  virtual void openPhiLoop(llvm::PHINode *phiNode, llvm::Value *value) = 0;
+  virtual void openMemLoop(llvm::LoadInst *load, llvm::Value *value) = 0;
   virtual void handleLoad(llvm::Instruction *instruction,
-                          const shared_ptr<tuner::ValueInfo> &valueInfo)=0;
+                          const shared_ptr<tuner::ValueInfo> &valueInfo) = 0;
   virtual shared_ptr<tuner::OptimizerScalarInfo>
-  allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::Value *whereToUse)=0;
+  allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::Value *whereToUse) = 0;
   virtual void handleStore(llvm::Instruction *instruction,
-                           const shared_ptr<tuner::ValueInfo> &valueInfo)=0;
+                           const shared_ptr<tuner::ValueInfo> &valueInfo) = 0;
   virtual void handleFPPrecisionShift(llvm::Instruction *instruction,
-                                      shared_ptr<tuner::ValueInfo> valueInfo)=0;
+                                      shared_ptr<tuner::ValueInfo> valueInfo) = 0;
   virtual void handlePhi(llvm::Instruction *instruction,
-                         shared_ptr<tuner::ValueInfo> valueInfo)=0;
+                         shared_ptr<tuner::ValueInfo> valueInfo) = 0;
   virtual void handleCastInstruction(llvm::Instruction *instruction,
-                                     shared_ptr<tuner::ValueInfo> valueInfo)=0;
-  virtual int getMaxIntBitOfValue(llvm::Value *pValue)=0;
-  virtual int getMinIntBitOfValue(llvm::Value *pValue)=0;
+                                     shared_ptr<tuner::ValueInfo> valueInfo) = 0;
+  virtual int getMaxIntBitOfValue(llvm::Value *pValue) = 0;
+  virtual int getMinIntBitOfValue(llvm::Value *pValue) = 0;
   virtual void handleSelect(llvm::Instruction *instruction,
-                            shared_ptr<tuner::ValueInfo> valueInfo)=0;
+                            shared_ptr<tuner::ValueInfo> valueInfo) = 0;
   virtual ~MetricBase(){};
 
 protected:
-  MetricBase(MetricKind k): Kind(k) {}
+  MetricBase(MetricKind k) : Kind(k) {}
   tuner::Optimizer *opt;
   const MetricKind Kind;
 
@@ -118,14 +121,15 @@ protected:
   std::unordered_map<std::string, llvm::Function *> &getKnown_functions();
   tuner::CPUCosts &getCpuCosts();
   tuner::MemWatcher &getMemWatcher();
-
 };
 
-class MetricPerf : public MetricBase {
+class MetricPerf : public MetricBase
+{
 public:
   MetricPerf() : MetricBase(MetricKind::MK_Perf) {}
 
-  static bool classof(const MetricBase *M) noexcept {
+  static bool classof(const MetricBase *M) noexcept
+  {
     return M->getKind() == MK_Perf;
   }
 
@@ -175,14 +179,13 @@ public:
   allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::Value *whereToUse) override;
 
 protected:
-  MetricPerf(MetricKind k): MetricBase(k) {}
+  MetricPerf(MetricKind k) : MetricBase(k) {}
   int getENOBFromError(double error);
-  static int getENOBFromRange(const shared_ptr<mdutils::Range>& range,
-                       mdutils::FloatType::FloatStandard standard);
+  static int getENOBFromRange(const shared_ptr<mdutils::Range> &range,
+                              mdutils::FloatType::FloatStandard standard);
   void handleSelect(llvm::Instruction *instruction,
                     shared_ptr<tuner::ValueInfo> valueInfo) override;
   std::string getEnobActivationVariable(llvm::Value *value, int cardinal) override;
-
 };
 
 /*

@@ -15,15 +15,17 @@
 #ifndef TAFFO_PRA_MEMSSAUTILS_H
 #define TAFFO_PRA_MEMSSAUTILS_H
 
-#include "llvm/Analysis/MemorySSA.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/MemorySSA.h"
 
-namespace taffo {
+namespace taffo
+{
 
 #define DEFAULT_RANGE_COUNT 2U
 
-class MemSSAUtils {
+class MemSSAUtils
+{
 public:
   MemSSAUtils(llvm::MemorySSA &MemSSA) : MemSSA(MemSSA) {}
 
@@ -42,6 +44,6 @@ private:
   void findMemPhiValue(llvm::Instruction *I, llvm::MemoryPhi *MPhi);
 };
 
-} // end of namespace ErrorProp
+} // namespace taffo
 
 #endif

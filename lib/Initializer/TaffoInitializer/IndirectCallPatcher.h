@@ -1,11 +1,12 @@
 #ifndef TAFFO_INDIRECTCALLPATCHER_H
 #define TAFFO_INDIRECTCALLPATCHER_H
 
-#include <list>
 #include "CallSiteVersions.h"
 #include "llvm/IR/Dominators.h"
+#include <list>
 
-namespace taffo {
+namespace taffo
+{
 
 /// Check whether indirect calls are present in the given module, and patch them with dedicated trampoline calls.
 /// The trampolines enable subsequent passes to better analyze the indirect calls.

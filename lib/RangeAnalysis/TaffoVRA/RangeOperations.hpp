@@ -5,10 +5,11 @@
 #include <string>
 
 #include "RangeNode.hpp"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 
-namespace taffo {
+namespace taffo
+{
 
 //-----------------------------------------------------------------------------
 // Wrappers
@@ -31,10 +32,10 @@ range_ptr_t handleCastInstruction(const range_ptr_t op,
 bool isMathCallInstruction(const std::string &function);
 
 /** Handle call to known math functions. Return nullptr if unknown */
-range_ptr_t handleMathCallInstruction(const std::list<range_ptr_t>& ops,
+range_ptr_t handleMathCallInstruction(const std::list<range_ptr_t> &ops,
                                       const std::string &function);
 
-range_ptr_t handleCompare(const std::list<range_ptr_t>& ops,
+range_ptr_t handleCompare(const std::list<range_ptr_t> &ops,
                           const llvm::CmpInst::Predicate pred);
 
 //-----------------------------------------------------------------------------
@@ -110,7 +111,7 @@ RangeNodePtrT getUnionRange(const RangeNodePtrT op1, const RangeNodePtrT op2);
 
 RangeNodePtrT fillRangeHoles(const RangeNodePtrT src, const RangeNodePtrT dst);
 
-}
+} // namespace taffo
 
 
 #endif /* end of include guard: TAFFO_RANGE_OPERATIONS_HPP */

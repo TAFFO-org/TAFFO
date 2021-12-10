@@ -16,20 +16,22 @@
 #define ERRORPROPAGATOR_MEMSSAUTILS_H
 
 #include "RangeErrorMap.h"
-#include "llvm/Analysis/MemorySSA.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/MemorySSA.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 #define DEFAULT_RE_COUNT 2U
 
-class MemSSAUtils {
+class MemSSAUtils
+{
 public:
   typedef llvm::SmallVector<const RangeErrorMap::RangeError *, DEFAULT_RE_COUNT> REVector;
 
   MemSSAUtils(RangeErrorMap &RMap, llvm::MemorySSA &MemSSA)
-    : RMap(RMap), MemSSA(MemSSA) {}
+      : RMap(RMap), MemSSA(MemSSA) {}
 
   void findMemSSAError(llvm::Instruction *I, llvm::MemoryAccess *MA);
   void findLOEError(llvm::Instruction *I);
