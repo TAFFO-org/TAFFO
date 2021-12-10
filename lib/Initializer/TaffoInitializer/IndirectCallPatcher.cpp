@@ -1,3 +1,4 @@
+#include "CallSiteVersions.h"
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
 #include "TaffoInitializerPass.h"

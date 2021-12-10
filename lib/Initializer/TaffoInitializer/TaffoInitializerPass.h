@@ -1,3 +1,7 @@
+#ifndef __TAFFO_INITIALIZER_PASS_H__
+#define __TAFFO_INITIALIZER_PASS_H__
+
+
 #include "CallSiteVersions.h"
 #include "InputInfo.h"
 #include "MultiValueMap.h"
@@ -13,10 +17,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include <limits>
-
-
-#ifndef __TAFFO_INITIALIZER_PASS_H__
-#define __TAFFO_INITIALIZER_PASS_H__
 
 
 #define DEBUG_TYPE "taffo-init"
@@ -64,7 +64,7 @@ struct TaffoInitializer : public llvm::ModulePass {
                                                        std::shared_ptr<mdutils::MDInfo> user_mdi,
                                                        std::shared_ptr<mdutils::MDInfo> used_mdi);
   void generateFunctionSpace(ConvQueueT &vals, ConvQueueT &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(CallSite *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
+  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
   void printConversionQueue(ConvQueueT &vals);
   void removeAnnotationCalls(ConvQueueT &vals);
 

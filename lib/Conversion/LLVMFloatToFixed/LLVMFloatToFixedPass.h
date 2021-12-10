@@ -93,7 +93,7 @@ struct FloatToFixed : public llvm::ModulePass {
   void cleanup(const std::vector<llvm::Value *> &queue);
   void insertOpenMPIndirection(llvm::Module &m);
   void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global);
-  llvm::Function *createFixFun(CallSite *call, bool *old);
+  llvm::Function *createFixFun(llvm::CallSite *call, bool *old);
   void printConversionQueue(std::vector<llvm::Value *> vals);
   void performConversion(llvm::Module &m, std::vector<llvm::Value *> &q);
   llvm::Value *convertSingleValue(llvm::Module &m, llvm::Value *val, FixedPointType &fixpt);
@@ -158,7 +158,7 @@ struct FloatToFixed : public llvm::ModulePass {
                                   FixedPointType &fixpt);
   llvm::Value *convertPhi(llvm::PHINode *load, FixedPointType &fixpt);
   llvm::Value *convertSelect(llvm::SelectInst *sel, FixedPointType &fixpt);
-  llvm::Value *convertCall(CallSite *call, FixedPointType &fixpt);
+  llvm::Value *convertCall(llvm::CallSite *call, FixedPointType &fixpt);
   llvm::Value *convertRet(llvm::ReturnInst *ret, FixedPointType &fixpt);
   llvm::Value *convertBinOp(llvm::Instruction *instr,
                             const FixedPointType &fixpt);

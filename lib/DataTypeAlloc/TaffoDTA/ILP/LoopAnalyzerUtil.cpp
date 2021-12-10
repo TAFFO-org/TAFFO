@@ -3,10 +3,8 @@
 //
 
 #include "LoopAnalyzerUtil.h"
-#include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Analysis/ScalarEvolution.h>
-#include <llvm/IR/Instruction.h>
-#include <llvm/Support/Debug.h>
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Support/Debug.h"
 #define DEBUG_TYPE "taffo-dta"
 
 using namespace llvm;

@@ -2,11 +2,12 @@
 // Created by nicola on 07/08/20.
 //
 
-#include "llvm/Pass.h"
-
-
 #ifndef TAFFO_LOOPANALYZERUTIL_H
 #define TAFFO_LOOPANALYZERUTIL_H
+
+#include "llvm/IR/Instruction.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Pass.h"
 
 using namespace llvm;
 class LoopAnalyzerUtil
