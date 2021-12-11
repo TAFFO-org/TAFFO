@@ -41,8 +41,8 @@ STATISTIC(FunctionCreated, "Number of fixed point function inserted");
 
 
 /* flags in conversionPool; actually not valid LLVM values but dummy pointers */
-extern llvm::Value *ConversionError = NULL;
-extern llvm::Value *Unsupported = NULL;
+extern llvm::Value *ConversionError;
+extern llvm::Value *Unsupported;
 
 
 namespace flttofix
