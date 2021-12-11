@@ -1,16 +1,39 @@
 #include "LLVMVersions.h"
 
+using namespace llvm;
 
 constexpr int BIG_NUMBER = 99999;
 
 
-int getInstructionCost(llvm::TargetTransformInfo &TTI, llvm::Instruction *inst, llvm::TargetTransformInfo::TargetCostKind costKind)
+int taffo::getInstructionCost(
+    TargetTransformInfo &TTI, Instruction *inst,
+    TargetTransformInfo::TargetCostKind costKind)
 {
-
-#if (LLVM_VERSION_MAJOR == 12)
+#if (LLVM_VERSION_MAJOR >= 12)
   return TTI.getInstructionCost(inst, costKind).getValue().getValueOr(BIG_NUMBER);
-#endif
-#if (LLVM_VERSION_MAJOR == 11)
+#else
   return TTI.getInstructionCost(inst, costKind);
+#endif
+}
+
+
+unsigned taffo::getStaticElementCount(const ConstantAggregateZero *V)
+{
+#if (LLVM_VERSION_MAJOR >= 13)
+  return V->getElementCount().getFixedValue();
+#else
+  return V->getNumElements();
+#endif
+}
+
+
+void taffo::CloneFunction(Function *New, const Function *Old, 
+                          ValueToValueMapTy &VMap,
+                          SmallVectorImpl<ReturnInst *> &Returns)
+{
+#if (LLVM_VERSION_MAJOR >= 13)
+  CloneFunctionInto(New, Old, VMap, CloneFunctionChangeType::GlobalChanges, Returns);
+#else
+  CloneFunctionInto(New, Old, VMap, true, Returns);
 #endif
 }

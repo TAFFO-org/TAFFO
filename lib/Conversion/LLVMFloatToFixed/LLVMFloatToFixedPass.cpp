@@ -1,6 +1,7 @@
 #include "CallSiteVersions.h"
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
+#include "LLVMVersions.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
@@ -464,7 +465,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
       origValToCloned.insert(std::make_pair(oldIt, newIt));
     }
     SmallVector<ReturnInst *, 100> returns;
-    CloneFunctionInto(newF, oldF, origValToCloned, true, returns);
+    taffo::CloneFunction(newF, oldF, origValToCloned, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
 
     SmallVector<mdutils::MDInfo *, 4> ArgsII;

@@ -1,5 +1,4 @@
 #include "FunctionCopyMap.h"
-
 #include "Metadata.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -9,6 +8,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
+#include "llvm/Config/llvm-config.h"
 
 namespace ErrorProp
 {
@@ -53,18 +53,29 @@ void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned Max
     AssumptionCache &AssC = P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     OptimizationRemarkEmitter &ORE = P.getAnalysis<OptimizationRemarkEmitterWrapperPass>(F).getORE();
     TargetTransformInfo &TTI = P.getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    UnrollLoopOptions ULO = {
-        .Count = UnrollCount,
-        .TripCount = TripCount,
-        .Force = true,
-        .AllowRuntime = false,
-        .AllowExpensiveTripCount = true,
-        .PreserveCondBr = false,
-        .PreserveOnlyFirst = false,
-        .TripMultiple = TripMult,
-        .PeelCount = 0U,
-        .UnrollRemainder = false,
-        .ForgetAllSCEV = false};
+    UnrollLoopOptions ULO;
+    #if (LLVM_VERSION_MAJOR >= 13)
+    ULO = {
+      .Count = UnrollCount,
+      .Force = true,
+      .Runtime = false,
+      .AllowExpensiveTripCount = true,
+      .UnrollRemainder = false,
+      .ForgetAllSCEV = false};
+    #else
+    ULO = {
+      .Count = UnrollCount,
+      .TripCount = TripCount,
+      .Force = true,
+      .AllowRuntime = false,
+      .AllowExpensiveTripCount = true,
+      .PreserveCondBr = false,
+      .PreserveOnlyFirst = false,
+      .TripMultiple = TripMult,
+      .PeelCount = 0U,
+      .UnrollRemainder = false,
+      .ForgetAllSCEV = false};
+    #endif
 
     LoopUnrollResult URes = UnrollLoop(L, ULO, &LInfo, &SE, &DomTree, &AssC, &TTI, &ORE, false);
 

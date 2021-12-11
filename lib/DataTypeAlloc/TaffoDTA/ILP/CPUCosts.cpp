@@ -245,7 +245,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
         else
           inst = llvm::cast<llvm::Instruction>(builder.CreateFRem(first_load, second_load));
       }
-      cost_inst = getInstructionCost(TTI, inst, costKind);
+      cost_inst = taffo::getInstructionCost(TTI, inst, costKind);
       LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
       inst->eraseFromParent();
       second_load->eraseFromParent();
@@ -268,7 +268,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       } else if (!first_type->isIntegerTy() && !second_type->isIntegerTy()) {
         inst = llvm::cast<llvm::Instruction>(builder.CreateFPCast(first_load, second_type));
       }
-      cost_inst = getInstructionCost(TTI, inst, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput);
+      cost_inst = taffo::getInstructionCost(TTI, inst, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput);
       LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
       if (inst != first_load)
         inst->eraseFromParent();

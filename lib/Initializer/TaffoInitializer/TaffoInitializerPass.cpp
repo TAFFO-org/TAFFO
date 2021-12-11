@@ -2,6 +2,7 @@
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "LLVMVersions.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -511,7 +512,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
     mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst *, 100> returns;
-  CloneFunctionInto(newF, oldF, mapArgs, true, returns);
+  taffo::CloneFunction(newF, oldF, mapArgs, returns);
   newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 
