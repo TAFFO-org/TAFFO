@@ -66,6 +66,13 @@ if [[ -z "$LLC" ]]; then LLC=${llvmbin}llc; fi
 if [[ -z "$LLVM_LINK" ]]; then LLVM_LINK=${llvmbin}llvm-link; fi
 
 llvm_debug=$(($("$OPT" --version | grep DEBUG | wc -l)))
+llvm_ver=$(${llvmbin}/llvm-config --version)
+llvm_ver_maj=${llvm_ver%%.*}
+
+llvm_has_new_pm=0
+if [[ $llvm_ver_maj -ge 13 ]]; then
+  llvm_has_new_pm=1
+fi
 
 parse_state=0
 raw_opts="$@"
@@ -373,11 +380,17 @@ fi
 # precompute clang invocation for compiling float version
 build_float="${iscpp} $opts ${optimization} ${float_opts} ${temporary_dir}/${output_basename}.1.taffotmp.ll"
 
+# check if we need to disable the new pass manager
+pmflag=
+if [[ $llvm_has_new_pm -ne 0 ]]; then
+  pmflag='--enable-new-pm=0'
+fi
+
 ###
 ###  TAFFO initialization
 ###
 ${OPT} \
-  -load "$TAFFOLIB" \
+  -load "$TAFFOLIB" ${pmflag} \
   -taffoinit \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
@@ -387,7 +400,7 @@ ${OPT} \
 ###
 if [[ $disable_vra -eq 0 ]]; then
   ${OPT} \
-    -load "$TAFFOLIB" \
+    -load "$TAFFOLIB" ${pmflag} \
     ${mem2reg} -taffoVRA \
     ${vra_flags} \
     -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
@@ -406,7 +419,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###  TAFFO Data Type Allocation
   ###
   ${OPT} \
-    -load "$TAFFOLIB" \
+    -load "$TAFFOLIB" ${pmflag} \
     -taffodta -globaldce \
     ${dta_flags} ${dta_inst_set} \
     -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
@@ -415,7 +428,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###  TAFFO Conversion
   ###
   ${OPT} \
-    -load "$TAFFOLIB" \
+    -load "$TAFFOLIB" ${pmflag} \
     -flttofix -globaldce -dce \
     ${conversion_flags} \
     -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" "${temporary_dir}/${output_basename}.4.taffotmp.ll" || exit $?
@@ -425,7 +438,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   if [[ ( $enable_errorprop -eq 1 ) || ( $feedback -ne 0 ) ]]; then
     ${OPT} \
-      -load "$TAFFOLIB" \
+      -load "$TAFFOLIB" ${pmflag} \
       -errorprop \
       ${errorprop_flags} \
       -S -o "${temporary_dir}/${output_basename}.6.taffotmp.ll" "${temporary_dir}/${output_basename}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
