@@ -5,6 +5,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(Taffo)
 
+set(BUILD_SHARED_LIBS OFF)
+
 include(TaffoOptions)
 include(TaffoFetchDeps)
 
@@ -20,8 +22,6 @@ include(HandleLLVMOptions)
 if ((${LLVM_VERSION_MAJOR} LESS 12) OR (${LLVM_VERSION_MAJOR} GREATER 12))
   message(FATAL_ERROR "LLVM version ${LLVM_VERSION_MAJOR} is not supported!")
 endif ()
-
-set(BUILD_SHARED_LIBS OFF)
 
 # to be kept in sync with LLVM!
 set(CMAKE_CXX_STANDARD 14)
