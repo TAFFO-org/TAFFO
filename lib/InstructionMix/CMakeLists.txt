@@ -1,6 +1,6 @@
 set(SELF InstructionMix)
   
-add_library(${SELF}
+add_library(${SELF} STATIC
   InstructionMix.cpp
   InstructionMix.h
   )

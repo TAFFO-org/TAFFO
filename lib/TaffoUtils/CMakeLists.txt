@@ -1,6 +1,6 @@
 set(SELF TaffoUtils)
 
-add_library(${SELF}
+add_library(${SELF} STATIC
   Metadata.h
   Metadata.cpp
   InputInfo.h
