@@ -4,7 +4,7 @@
 
 TAFFO is an autotuning framework which tries to replace floating point operations with fixed point operations as much as possible.
 
-It is based on LLVM 10 and has been tested on Linux (any attempt to compile on Windows, WSL or macOS is at your own risk and peril).
+It is based on LLVM 12 and has been tested on Linux (any attempt to compile on Windows, WSL or macOS is at your own risk and peril).
 
 ## How to use TAFFO
 
@@ -29,17 +29,20 @@ In the latter case you will have to add that location to your PATH.
 
 If you have multiple LLVM versions installed and you want to link TAFFO to a specific one, set the `LLVM_DIR` environment variable to the install prefix of the correct LLVM version beforehand.
 
-Note that at the moment TAFFO supports only LLVM 10, and that LLVM plugins compiled for a given major version of LLVM cannot be loaded by any other version.
+Note that at the moment TAFFO supports only LLVM 12, and that LLVM plugins compiled for a given major version of LLVM cannot be loaded by any other version.
 If you are building LLVM from sources, you must configure it with `-DLLVM_BUILD_LLVM_DYLIB=ON` and `-DLLVM_LINK_LLVM_DYLIB=ON` for the TAFFO build to succeed.
 
+Additionally, TAFFO requires Google ORTools installed.
+It is possible to build and install ORTools manually, or you can build this dependency as part of TAFFO by specifying `-DTAFFO_BUILD_ORTOOLS=ON`.
+This option is recommended.
 
 ```sh
 $ cd /path/to/the/location/of/TAFFO
-$ export LLVM_DIR=/usr/lib/llvm-10 # optional
+$ export LLVM_DIR=/usr/lib/llvm-12 # optional
 $ mkdir build
 $ cd build
-$ cmake ..
-$ make install
+$ cmake .. -DTAFFO_BUILD_ORTOOLS=ON
+$ cmake --build .
 ```
 
 ### Step 3
@@ -63,7 +66,7 @@ Unit tests are located in `unittests` directory.
 ```shell
 mkdir build
 cd build
-cmake ..
+cmake .. -DTAFFO_BUILD_ORTOOLS=ON
 cmake --build .
 ctest -VV
 ```
@@ -73,7 +76,7 @@ ctest -VV
 ```shell
 mkdir build
 cd build
-cmake -G Ninja -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=1 -DCMAKE_BUILD_TYPE=Debug ..
+cmake -DTAFFO_BUILD_ORTOOLS=ON -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=1 -DCMAKE_BUILD_TYPE=Debug ..
 cmake --build . --target install
 ```
 
@@ -94,3 +97,6 @@ export LLVM_DIR=/usr/lib/llvm-12
 
 Then you can follow the instructions given in the test suite readme. 
 Integration tests and benchmarks are located in `test` directory.
+
+**Notice:** Some integration tests do not work in the current release of TAFFO 0.3.
+This is a known issue and will be fixed in a later revision.
