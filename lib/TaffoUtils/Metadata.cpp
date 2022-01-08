@@ -13,19 +13,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "Metadata.h"
+//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
 
 #include <sstream>
 
-namespace mdutils {
+namespace mdutils
+{
 
 using namespace llvm;
 
-MetadataManager& MetadataManager::getMetadataManager() {
+MetadataManager &MetadataManager::getMetadataManager()
+{
   static MetadataManager Instance;
   return Instance;
 }
 
-MDInfo *MetadataManager::retrieveMDInfo(const Value *v) {
+MDInfo *MetadataManager::retrieveMDInfo(const Value *v)
+{
   if (const Instruction *i = dyn_cast<Instruction>(v)) {
     if (MDNode *mdn = i->getMetadata(INPUT_INFO_METADATA)) {
       return retrieveInputInfo(mdn).get();
@@ -49,16 +53,19 @@ MDInfo *MetadataManager::retrieveMDInfo(const Value *v) {
   return nullptr;
 }
 
-InputInfo* MetadataManager::retrieveInputInfo(const Instruction &I) {
+InputInfo *MetadataManager::retrieveInputInfo(const Instruction &I)
+{
   return retrieveInputInfo(I.getMetadata(INPUT_INFO_METADATA)).get();
 }
 
-InputInfo* MetadataManager::retrieveInputInfo(const GlobalObject &V) {
+InputInfo *MetadataManager::retrieveInputInfo(const GlobalObject &V)
+{
   return retrieveInputInfo(V.getMetadata(INPUT_INFO_METADATA)).get();
 }
 
 void MetadataManager::
-retrieveArgumentInputInfo(const Function &F, SmallVectorImpl<MDInfo *> &ResII) {
+    retrieveArgumentInputInfo(const Function &F, SmallVectorImpl<MDInfo *> &ResII)
+{
   MDNode *ArgsMD = F.getMetadata(FUNCTION_ARGS_METADATA);
   if (ArgsMD == nullptr)
     return;
@@ -73,25 +80,26 @@ retrieveArgumentInputInfo(const Function &F, SmallVectorImpl<MDInfo *> &ResII) {
     ArgMDOp++;
     int tid = cast<ConstantInt>(mdtid)->getZExtValue();
     switch (tid) {
-      case 0:
-        ResII.push_back(nullptr);
-        break;
-      case 1:
-        ResII.push_back(retrieveInputInfo(cast<MDNode>(ArgMDOp->get())).get());
-        break;
-      case 2:
-        ResII.push_back(retrieveStructInfo(cast<MDNode>(ArgMDOp->get())).get());
-        break;
-      default:
-        assert("invalid funinfo type id");
+    case 0:
+      ResII.push_back(nullptr);
+      break;
+    case 1:
+      ResII.push_back(retrieveInputInfo(cast<MDNode>(ArgMDOp->get())).get());
+      break;
+    case 2:
+      ResII.push_back(retrieveStructInfo(cast<MDNode>(ArgMDOp->get())).get());
+      break;
+    default:
+      assert("invalid funinfo type id");
     }
     ArgMDOp++;
   }
 }
 
 void MetadataManager::
-retrieveConstInfo(const llvm::Instruction &I,
-		  llvm::SmallVectorImpl<InputInfo *> &ResII) {
+    retrieveConstInfo(const llvm::Instruction &I,
+                      llvm::SmallVectorImpl<InputInfo *> &ResII)
+{
   MDNode *ArgsMD = I.getMetadata(CONST_INFO_METADATA);
   if (ArgsMD == nullptr)
     return;
@@ -100,10 +108,10 @@ retrieveConstInfo(const llvm::Instruction &I,
   for (const MDOperand &MDOp : ArgsMD->operands()) {
     if (ConstantAsMetadata *CMD = dyn_cast<ConstantAsMetadata>(MDOp)) {
       if (ConstantInt *CI = dyn_cast<ConstantInt>(CMD->getValue())) {
-	if (CI->isZero()) {
-	  ResII.push_back(nullptr);
-	  continue;
-	}
+        if (CI->isZero()) {
+          ResII.push_back(nullptr);
+          continue;
+        }
       }
     }
     ResII.push_back(retrieveInputInfo(cast<MDNode>(MDOp)).get());
@@ -111,17 +119,18 @@ retrieveConstInfo(const llvm::Instruction &I,
 }
 
 void MetadataManager::
-setMDInfoMetadata(llvm::Value *u, const MDInfo *mdinfo) {
+    setMDInfoMetadata(llvm::Value *u, const MDInfo *mdinfo)
+{
   StringRef mdid;
-  
+
   if (isa<InputInfo>(mdinfo)) {
     mdid = INPUT_INFO_METADATA;
   } else if (isa<StructInfo>(mdinfo)) {
     mdid = STRUCT_INFO_METADATA;
-  } else{
+  } else {
     assert(false && "unknown MDInfo class");
   }
-  
+
   if (Instruction *instr = dyn_cast<Instruction>(u)) {
     instr->setMetadata(mdid, mdinfo->toMetadata(u->getContext()));
   } else if (GlobalObject *go = dyn_cast<GlobalObject>(u)) {
@@ -132,17 +141,20 @@ setMDInfoMetadata(llvm::Value *u, const MDInfo *mdinfo) {
 }
 
 void MetadataManager::
-setInputInfoMetadata(Instruction &I, const InputInfo &IInfo) {
+    setInputInfoMetadata(Instruction &I, const InputInfo &IInfo)
+{
   I.setMetadata(INPUT_INFO_METADATA, IInfo.toMetadata(I.getContext()));
 }
 
 void MetadataManager::
-setInputInfoMetadata(GlobalObject &V, const InputInfo &IInfo) {
+    setInputInfoMetadata(GlobalObject &V, const InputInfo &IInfo)
+{
   V.setMetadata(INPUT_INFO_METADATA, IInfo.toMetadata(V.getContext()));
 }
 
 void MetadataManager::
-setArgumentInputInfoMetadata(Function &F, const ArrayRef<MDInfo *> AInfo) {
+    setArgumentInputInfoMetadata(Function &F, const ArrayRef<MDInfo *> AInfo)
+{
   LLVMContext &Context = F.getContext();
   SmallVector<Metadata *, 2U> AllArgsMD;
   AllArgsMD.reserve(AInfo.size());
@@ -160,24 +172,24 @@ setArgumentInputInfoMetadata(Function &F, const ArrayRef<MDInfo *> AInfo) {
       tid = 2;
       val = SInfo->toMetadata(Context);
     } else {
-      assert("invalid MDInfo in array");
+      llvm_unreachable("invalid MDInfo in array");
     }
     ConstantInt *ctid = ConstantInt::get(IntegerType::getInt32Ty(Context), tid);
     ConstantAsMetadata *mdtid = ConstantAsMetadata::get(ctid);
     AllArgsMD.push_back(mdtid);
     AllArgsMD.push_back(val);
   }
-  
+
   assert(AllArgsMD.size() / 2 == F.getFunctionType()->getNumParams() && "writing malformed funinfo");
 
   F.setMetadata(FUNCTION_ARGS_METADATA, MDNode::get(Context, AllArgsMD));
 }
 
 void MetadataManager::
-setConstInfoMetadata(llvm::Instruction &I,
-		     const llvm::ArrayRef<InputInfo *> CInfo) {
-  assert(I.getNumOperands() == CInfo.size()
-	 && "Must provide InputInfo or nullptr for each operand.");
+    setConstInfoMetadata(llvm::Instruction &I,
+                         const llvm::ArrayRef<InputInfo *> CInfo)
+{
+  assert(I.getNumOperands() == CInfo.size() && "Must provide InputInfo or nullptr for each operand.");
   LLVMContext &Context = I.getContext();
   SmallVector<Metadata *, 2U> ConstMDs;
   ConstMDs.reserve(CInfo.size());
@@ -193,19 +205,23 @@ setConstInfoMetadata(llvm::Instruction &I,
   I.setMetadata(CONST_INFO_METADATA, MDNode::get(Context, ConstMDs));
 }
 
-StructInfo* MetadataManager::retrieveStructInfo(const Instruction &I) {
+StructInfo *MetadataManager::retrieveStructInfo(const Instruction &I)
+{
   return retrieveStructInfo(I.getMetadata(STRUCT_INFO_METADATA)).get();
 }
 
-StructInfo* MetadataManager::retrieveStructInfo(const GlobalObject &V) {
+StructInfo *MetadataManager::retrieveStructInfo(const GlobalObject &V)
+{
   return retrieveStructInfo(V.getMetadata(STRUCT_INFO_METADATA)).get();
 }
 
-void MetadataManager::setStructInfoMetadata(Instruction &I, const StructInfo &SInfo) {
+void MetadataManager::setStructInfoMetadata(Instruction &I, const StructInfo &SInfo)
+{
   I.setMetadata(STRUCT_INFO_METADATA, SInfo.toMetadata(I.getContext()));
 }
 
-void MetadataManager::setStructInfoMetadata(GlobalObject &V, const StructInfo &SInfo) {
+void MetadataManager::setStructInfoMetadata(GlobalObject &V, const StructInfo &SInfo)
+{
   V.setMetadata(STRUCT_INFO_METADATA, SInfo.toMetadata(V.getContext()));
 }
 
@@ -242,7 +258,7 @@ int MetadataManager::retrieveInputInfoInitWeightMetadata(const Value *v)
 }
 
 void MetadataManager::setInputInfoInitWeightMetadata(llvm::Function *f,
-						     const llvm::ArrayRef<int> weights)
+                                                     const llvm::ArrayRef<int> weights)
 {
   SmallVector<Metadata *, 4U> wmds;
   wmds.reserve(weights.size());
@@ -255,7 +271,7 @@ void MetadataManager::setInputInfoInitWeightMetadata(llvm::Function *f,
 }
 
 void MetadataManager::retrieveInputInfoInitWeightMetadata(llvm::Function *f,
-							  llvm::SmallVectorImpl<int> &ResWs)
+                                                          llvm::SmallVectorImpl<int> &ResWs)
 {
   MDNode *node = f->getMetadata(INIT_WEIGHT_METADATA);
   if (!node)
@@ -274,17 +290,19 @@ void MetadataManager::retrieveInputInfoInitWeightMetadata(llvm::Function *f,
 }
 
 void MetadataManager::
-setMaxRecursionCountMetadata(Function &F, unsigned MaxRecursionCount) {
+    setMaxRecursionCountMetadata(Function &F, unsigned MaxRecursionCount)
+{
   ConstantInt *CIRC = ConstantInt::get(Type::getInt32Ty(F.getContext()),
-				       MaxRecursionCount,
-				       false);
+                                       MaxRecursionCount,
+                                       false);
   ConstantAsMetadata *CMRC = ConstantAsMetadata::get(CIRC);
   MDNode *RCNode = MDNode::get(F.getContext(), CMRC);
   F.setMetadata(MAX_REC_METADATA, RCNode);
 }
 
 unsigned MetadataManager::
-retrieveMaxRecursionCount(const Function &F) {
+    retrieveMaxRecursionCount(const Function &F)
+{
   MDNode *RecC = F.getMetadata(MAX_REC_METADATA);
   if (RecC == nullptr)
     return 0U;
@@ -296,18 +314,19 @@ retrieveMaxRecursionCount(const Function &F) {
 }
 
 void MetadataManager::
-setLoopUnrollCountMetadata(Loop &L, unsigned UnrollCount) {
+    setLoopUnrollCountMetadata(Loop &L, unsigned UnrollCount)
+{
   // Get Loop header terminating instruction
   BasicBlock *Header = L.getHeader();
   assert(Header && "Loop with no header.");
-  
+
   Instruction *HTI = Header->getTerminator();
   assert(HTI && "Block with no terminator.");
 
   // Prepare MD Node
   ConstantInt *CIUC = ConstantInt::get(Type::getInt32Ty(HTI->getContext()),
-				       UnrollCount,
-				       false);
+                                       UnrollCount,
+                                       false);
   ConstantAsMetadata *CMUC = ConstantAsMetadata::get(CIUC);
   MDNode *UCNode = MDNode::get(HTI->getContext(), CMUC);
 
@@ -315,8 +334,9 @@ setLoopUnrollCountMetadata(Loop &L, unsigned UnrollCount) {
 }
 
 void MetadataManager::
-setLoopUnrollCountMetadata(Function &F,
-			   const SmallVectorImpl<Optional<unsigned> > &LUCs) {
+    setLoopUnrollCountMetadata(Function &F,
+                               const SmallVectorImpl<Optional<unsigned>> &LUCs)
+{
   std::ostringstream EncLUCs;
   for (const Optional<unsigned> &LUC : LUCs) {
     if (LUC.hasValue())
@@ -326,12 +346,13 @@ setLoopUnrollCountMetadata(Function &F,
   }
 
   F.setMetadata(UNROLL_COUNT_METADATA,
-		MDNode::get(F.getContext(),
-			    MDString::get(F.getContext(), EncLUCs.str())));
+                MDNode::get(F.getContext(),
+                            MDString::get(F.getContext(), EncLUCs.str())));
 }
 
 Optional<unsigned>
-MetadataManager::retrieveLoopUnrollCount(const Loop &L, LoopInfo *LI) {
+MetadataManager::retrieveLoopUnrollCount(const Loop &L, LoopInfo *LI)
+{
   Optional<unsigned> MDLUC = retrieveLUCFromHeaderMD(L);
 
   if (!MDLUC.hasValue() && LI)
@@ -341,7 +362,8 @@ MetadataManager::retrieveLoopUnrollCount(const Loop &L, LoopInfo *LI) {
 }
 
 Optional<unsigned>
-MetadataManager::retrieveLUCFromHeaderMD(const Loop &L) {
+MetadataManager::retrieveLUCFromHeaderMD(const Loop &L)
+{
   // Get Loop header terminating instruction
   BasicBlock *Header = L.getHeader();
   assert(Header && "Loop with no header.");
@@ -360,7 +382,8 @@ MetadataManager::retrieveLUCFromHeaderMD(const Loop &L) {
 }
 
 Optional<unsigned>
-MetadataManager::retrieveLUCFromFunctionMD(const Loop &L, LoopInfo &LI) {
+MetadataManager::retrieveLUCFromFunctionMD(const Loop &L, LoopInfo &LI)
+{
   unsigned LIdx = getLoopIndex(L, LI);
 
   Function *F = L.getHeader()->getParent();
@@ -374,7 +397,8 @@ MetadataManager::retrieveLUCFromFunctionMD(const Loop &L, LoopInfo &LI) {
 }
 
 unsigned
-MetadataManager::getLoopIndex(const Loop &L, LoopInfo &LI) {
+MetadataManager::getLoopIndex(const Loop &L, LoopInfo &LI)
+{
   unsigned LIdx = 0;
   for (const Loop *CLoop : LI.getLoopsInPreorder()) {
     if (&L == CLoop)
@@ -386,7 +410,8 @@ MetadataManager::getLoopIndex(const Loop &L, LoopInfo &LI) {
 }
 
 SmallVector<Optional<unsigned>, 4U>
-MetadataManager::retrieveLUCListFromFunctionMD(Function &F) {
+MetadataManager::retrieveLUCListFromFunctionMD(Function &F)
+{
   SmallVector<Optional<unsigned>, 4U> LUCList;
 
   MDNode *LUCListMDN = F.getMetadata(UNROLL_COUNT_METADATA);
@@ -405,8 +430,7 @@ MetadataManager::retrieveLUCListFromFunctionMD(Function &F) {
     if (!LUCSR.getAsInteger(10U, LUC)) {
       LUCList.push_back(LUC);
       errs() << " done\n";
-    }
-    else {
+    } else {
       LUCList.push_back(NoneType());
       errs() << " nope\n";
     }
@@ -414,16 +438,19 @@ MetadataManager::retrieveLUCListFromFunctionMD(Function &F) {
   return LUCList;
 }
 
-void MetadataManager::setErrorMetadata(Instruction &I, double Error) {
+void MetadataManager::setErrorMetadata(Instruction &I, double Error)
+{
   I.setMetadata(COMP_ERROR_METADATA, createDoubleMDNode(I.getContext(), Error));
 }
 
-double MetadataManager::retrieveErrorMetadata(const Instruction &I) {
+double MetadataManager::retrieveErrorMetadata(const Instruction &I)
+{
   return retrieveDoubleMDNode(I.getMetadata(COMP_ERROR_METADATA));
 }
 
 void MetadataManager::
-setCmpErrorMetadata(Instruction &I, const CmpErrorInfo &CEI) {
+    setCmpErrorMetadata(Instruction &I, const CmpErrorInfo &CEI)
+{
   if (!CEI.MayBeWrong)
     return;
 
@@ -431,25 +458,30 @@ setCmpErrorMetadata(Instruction &I, const CmpErrorInfo &CEI) {
 }
 
 std::unique_ptr<CmpErrorInfo> MetadataManager::
-retrieveCmpError(const Instruction &I) {
+    retrieveCmpError(const Instruction &I)
+{
   return CmpErrorInfo::createFromMetadata(I.getMetadata(WRONG_CMP_METADATA));
 }
 
-void MetadataManager::setStartingPoint(Function &F) {
+void MetadataManager::setStartingPoint(Function &F)
+{
   Metadata *MD[] = {ConstantAsMetadata::get(ConstantInt::getTrue(F.getContext()))};
   F.setMetadata(START_FUN_METADATA, MDNode::get(F.getContext(), MD));
 }
 
-bool MetadataManager::isStartingPoint(const Function &F) {
+bool MetadataManager::isStartingPoint(const Function &F)
+{
   return F.getMetadata(START_FUN_METADATA) != nullptr;
 }
 
-void MetadataManager::setTargetMetadata(Instruction &I, StringRef Name) {
+void MetadataManager::setTargetMetadata(Instruction &I, StringRef Name)
+{
   MDNode *TMD = MDNode::get(I.getContext(), MDString::get(I.getContext(), Name));
   I.setMetadata(TARGET_METADATA, TMD);
 }
 
-Optional<StringRef> MetadataManager::retrieveTargetMetadata(const Instruction &I) {
+Optional<StringRef> MetadataManager::retrieveTargetMetadata(const Instruction &I)
+{
   MDNode *MD = I.getMetadata(TARGET_METADATA);
   if (MD == nullptr)
     return NoneType();
@@ -458,12 +490,14 @@ Optional<StringRef> MetadataManager::retrieveTargetMetadata(const Instruction &I
   return MDName->getString();
 }
 
-void MetadataManager::setTargetMetadata(GlobalObject &I, StringRef Name) {
+void MetadataManager::setTargetMetadata(GlobalObject &I, StringRef Name)
+{
   MDNode *TMD = MDNode::get(I.getContext(), MDString::get(I.getContext(), Name));
   I.setMetadata(TARGET_METADATA, TMD);
 }
 
-Optional<StringRef> MetadataManager::retrieveTargetMetadata(const GlobalObject &I) {
+Optional<StringRef> MetadataManager::retrieveTargetMetadata(const GlobalObject &I)
+{
   MDNode *MD = I.getMetadata(TARGET_METADATA);
   if (MD == nullptr)
     return NoneType();
@@ -473,7 +507,8 @@ Optional<StringRef> MetadataManager::retrieveTargetMetadata(const GlobalObject &
 }
 
 
-std::shared_ptr<TType> MetadataManager::retrieveTType(MDNode *MDN) {
+std::shared_ptr<TType> MetadataManager::retrieveTType(MDNode *MDN)
+{
   if (MDN == nullptr)
     return nullptr;
 
@@ -487,7 +522,8 @@ std::shared_ptr<TType> MetadataManager::retrieveTType(MDNode *MDN) {
   return TT;
 }
 
-std::shared_ptr<Range> MetadataManager::retrieveRange(MDNode *MDN) {
+std::shared_ptr<Range> MetadataManager::retrieveRange(MDNode *MDN)
+{
   if (MDN == nullptr)
     return nullptr;
 
@@ -501,7 +537,8 @@ std::shared_ptr<Range> MetadataManager::retrieveRange(MDNode *MDN) {
   return NRange;
 }
 
-std::shared_ptr<double> MetadataManager::retrieveError(MDNode *MDN) {
+std::shared_ptr<double> MetadataManager::retrieveError(MDNode *MDN)
+{
   if (MDN == nullptr)
     return nullptr;
 
@@ -515,7 +552,8 @@ std::shared_ptr<double> MetadataManager::retrieveError(MDNode *MDN) {
   return NError;
 }
 
-std::shared_ptr<InputInfo> MetadataManager::retrieveInputInfo(MDNode *MDN) {
+std::shared_ptr<InputInfo> MetadataManager::retrieveInputInfo(MDNode *MDN)
+{
   if (MDN == nullptr)
     return nullptr;
 
@@ -529,7 +567,8 @@ std::shared_ptr<InputInfo> MetadataManager::retrieveInputInfo(MDNode *MDN) {
   return NIInfo;
 }
 
-std::shared_ptr<StructInfo> MetadataManager::retrieveStructInfo(MDNode *MDN) {
+std::shared_ptr<StructInfo> MetadataManager::retrieveStructInfo(MDNode *MDN)
+{
   if (MDN == nullptr)
     return nullptr;
 
@@ -544,21 +583,25 @@ std::shared_ptr<StructInfo> MetadataManager::retrieveStructInfo(MDNode *MDN) {
 }
 
 std::unique_ptr<InputInfo> MetadataManager::
-createInputInfoFromMetadata(MDNode *MDN) {
+    createInputInfoFromMetadata(MDNode *MDN)
+{
   assert(MDN != nullptr);
   assert(MDN->getNumOperands() == 4U && "Must have Type, Range, Initial Error, Flags");
 
   Metadata *ITypeMDN = MDN->getOperand(0U).get();
   std::shared_ptr<TType> IType = (IsNullInputInfoField(ITypeMDN))
-    ? nullptr : retrieveTType(cast<MDNode>(ITypeMDN));
+                                     ? nullptr
+                                     : retrieveTType(cast<MDNode>(ITypeMDN));
 
   Metadata *IRangeMDN = MDN->getOperand(1U).get();
   std::shared_ptr<Range> IRange = (IsNullInputInfoField(IRangeMDN))
-    ? nullptr : retrieveRange(cast<MDNode>(IRangeMDN));
+                                      ? nullptr
+                                      : retrieveRange(cast<MDNode>(IRangeMDN));
 
   Metadata *IErrorMDN = MDN->getOperand(2U).get();
   std::shared_ptr<double> IError = (IsNullInputInfoField(IErrorMDN))
-    ? nullptr : retrieveError(cast<MDNode>(IErrorMDN));
+                                       ? nullptr
+                                       : retrieveError(cast<MDNode>(IErrorMDN));
 
   Metadata *IFlagsMDN = MDN->getOperand(3U).get();
   bool IEnabled = true;
@@ -574,7 +617,8 @@ createInputInfoFromMetadata(MDNode *MDN) {
 }
 
 std::unique_ptr<StructInfo> MetadataManager::
-createStructInfoFromMetadata(MDNode *MDN) {
+    createStructInfoFromMetadata(MDNode *MDN)
+{
   assert(MDN != nullptr);
 
   SmallVector<std::shared_ptr<MDInfo>, 4U> Fields;
@@ -584,14 +628,11 @@ createStructInfoFromMetadata(MDNode *MDN) {
     assert(MDField != nullptr);
     if (IsNullInputInfoField(MDField)) {
       Fields.push_back(nullptr);
-    }
-    else if (InputInfo::isInputInfoMetadata(MDField)) {
+    } else if (InputInfo::isInputInfoMetadata(MDField)) {
       Fields.push_back(retrieveInputInfo(cast<MDNode>(MDField)));
-    }
-    else if (MDNode *MDNField = dyn_cast<MDNode>(MDField)) {
+    } else if (MDNode *MDNField = dyn_cast<MDNode>(MDField)) {
       Fields.push_back(retrieveStructInfo(MDNField));
-    }
-    else {
+    } else {
       llvm_unreachable("Malformed structinfo Metadata.");
     }
   }
@@ -599,4 +640,5 @@ createStructInfoFromMetadata(MDNode *MDN) {
   return std::unique_ptr<StructInfo>(new StructInfo(Fields));
 }
 
-}
+
+} // namespace mdutils

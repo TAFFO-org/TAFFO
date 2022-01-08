@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM
 
@@ -80,6 +80,7 @@ init_flags=
 vra_flags=
 disable_vra=0
 dta_flags=
+dta_inst_set=
 conversion_flags=
 enable_errorprop=0
 errorprop_flags=
@@ -111,6 +112,9 @@ for opt in $raw_opts; do
         -Xerr)
           enable_errorprop=1
           parse_state=8;
+          ;;
+        -Xfloat)
+          parse_state=12;
           ;;
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
@@ -174,13 +178,30 @@ for opt in $raw_opts; do
         -no-mem2reg)
           mem2reg=
           ;;
+        -mixedmode)
+          dta_flags="$dta_flags -mixedmode=1"
+          if [[ -z "$dta_inst_set" ]]; then
+            dta_inst_set="-instructionsetfile=$TAFFO_PREFIX/share/ILP/constrain/fix"
+          fi
+          ;;
+        -costmodel)
+          parse_state=11
+          ;;
+        -costmodelfilename*)
+          dta_flags="$dta_flags $opt"
+          ;;
+        -instructionsetfile*)
+          dta_inst_set="$opt"
+          ;;
         -S)
           emit_source="s"
-          float_opts="-S"
           ;;
         -emit-llvm)
           emit_source="ll"
-          float_opts="$float_opts -S -emit-llvm"
+          ;;
+        -print-clang)
+          printf '%s\n' "$CLANG"
+          exit 0
           ;;
         -help | -h | -version | -v | --help | --version)
           help=1
@@ -240,6 +261,20 @@ for opt in $raw_opts; do
       errorprop_out="$opt";
       parse_state=0;
       ;;
+    11)
+      f="$TAFFO_PREFIX"/share/ILP/cost/"$opt".csv
+      if [[ -e "$f" ]]; then
+        dta_flags="$dta_flags -costmodelfilename=$f"
+      else
+        printf 'error: specified cost model "%s" does not exist\n' "$opt"
+        exit 1
+      fi
+      parse_state=0
+      ;;
+    12)
+      float_opts="$float_opts $opt";
+      parse_state=0;
+      ;;
   esac;
 done
 
@@ -264,6 +299,11 @@ Options:
                         (overrides -c and -emit-llvm)
   -emit-llvm            Produce a LLVM-IR assembly file in output instead of
                         a binary (overrides -c and -S)
+  -mixedmode            Enables experimental data-driven type allocator
+    -costmodel <name>          Loads one of the builtin cost models
+    -costmodelfilename=<file>  Loads the given the cost model file
+                               (produced by taffo-costmodel)
+    -instructionsetfile=<file> Loads the given instruction whitelist file
   -enable-err           Enable the error propagator (disabled by default)
   -err-out <file>       Produce a textual report about the estimates performed
                         by the Error Propagator in the specified file.
@@ -286,7 +326,13 @@ Options:
   -debug-taffo          Enable TAFFO-only debug logging during the compilation.
   -temp-dir <dir>       Store various temporary files related to the execution
                         of TAFFO to the specified directory.
+
+Available builtin cost models:
 HELP_END
+  for f in "$TAFFO_PREFIX"/share/ILP/cost/*.csv; do
+    fn=$(basename "$f")
+    printf '  %s\n' ${fn%%.csv}
+  done
   exit 0
 fi
 
@@ -301,7 +347,7 @@ fi
 if [[ ${#input_files[@]} -eq 1 ]]; then
   # one input file
   ${CLANG} \
-    $opts -O0 -Xclang -disable-O0-optnone \
+    $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone \
     -c -emit-llvm \
     ${input_files} \
     -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
@@ -314,7 +360,7 @@ else
     thisfn="${temporary_dir}/${output_basename}.${thisfn}.0.taffotmp.ll"
     tmp+=( $thisfn )
     ${CLANG} \
-      $opts -O0 -Xclang -disable-O0-optnone \
+      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone \
       -c -emit-llvm \
       ${input_file} \
       -S -o "${thisfn}" || exit $?
@@ -325,7 +371,7 @@ else
 fi
 
 # precompute clang invocation for compiling float version
-build_float="${iscpp} $opts ${optimization} ${temporary_dir}/${output_basename}.1.taffotmp.ll"
+build_float="${iscpp} $opts ${optimization} ${float_opts} ${temporary_dir}/${output_basename}.1.taffotmp.ll"
 
 ###
 ###  TAFFO initialization
@@ -362,7 +408,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ${OPT} \
     -load "$TAFFOLIB" \
     -taffodta -globaldce \
-    ${dta_flags} \
+    ${dta_flags} ${dta_inst_set} \
     -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
     
   ###
@@ -432,8 +478,16 @@ else
 fi
 
 if [[ ! ( -z ${float_output_file} ) ]]; then
+  if [[ $emit_source == 's' ]]; then
+    type_opts='-S'
+  elif [[ $emit_source == 'll' ]]; then
+    type_opts='-S -emit-llvm'
+  fi
   ${build_float} \
-    ${dontlink} ${float_opts} \
+    ${dontlink} -S \
+    -o "${temporary_dir}/${output_basename}.float.taffotmp.s" || exit $?
+  ${build_float} \
+    ${dontlink} ${type_opts} \
     -o "$float_output_file" || exit $?
 fi
 

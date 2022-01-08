@@ -15,50 +15,54 @@
 
 #include "Propagators.h"
 
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstrTypes.h"
 #include "AffineForms.h"
-#include "Metadata.h"
 #include "MemSSAUtils.h"
+#include "Metadata.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/Debug.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 #define DEBUG_TYPE "errorprop"
 
-namespace {
+namespace
+{
 
 using namespace llvm;
 using namespace mdutils;
 
 AffineForm<inter_t>
 propagateAdd(const FPInterval &R1, const AffineForm<inter_t> &E1,
-	     const FPInterval&, const AffineForm<inter_t> &E2) {
+             const FPInterval &, const AffineForm<inter_t> &E2)
+{
   // The absolute errors must be summed one by one
   return E1 + E2;
 }
 
 AffineForm<inter_t>
 propagateSub(const FPInterval &R1, const AffineForm<inter_t> &E1,
-	     const FPInterval&, const AffineForm<inter_t> &E2) {
+             const FPInterval &, const AffineForm<inter_t> &E2)
+{
   // The absolute errors must be subtracted one by one
   return E1 - E2;
 }
 
 AffineForm<inter_t>
 propagateMul(const FPInterval &R1, const AffineForm<inter_t> &E1,
-	     const FPInterval &R2, const AffineForm<inter_t> &E2) {
+             const FPInterval &R2, const AffineForm<inter_t> &E2)
+{
   // With x = y * z, the new error for x is computed as
   // errx = y*errz + x*erry + erry*errz
-  return AffineForm<inter_t>(R1) * E2
-    + AffineForm<inter_t>(R2) * E1
-    + E1 * E2;
+  return AffineForm<inter_t>(R1) * E2 + AffineForm<inter_t>(R2) * E1 + E1 * E2;
 }
 
 AffineForm<inter_t>
 propagateDiv(const FPInterval &R1, const AffineForm<inter_t> &E1,
-	     const FPInterval &R2, const AffineForm<inter_t> &E2,
-	     bool AddTrunc = true) {
+             const FPInterval &R2, const AffineForm<inter_t> &E2,
+             bool AddTrunc = true)
+{
   // Compute y / z as y * 1/z.
 
   // Compute the range of 1/z.
@@ -68,15 +72,13 @@ propagateDiv(const FPInterval &R1, const AffineForm<inter_t> &E1,
 
   // Compute errors on 1/z.
   AffineForm<inter_t> E1OverZ =
-    LinearErrorApproximationDecr([](inter_t x){ return static_cast<inter_t>(-1) / (x * x); },
-				 R2, E2);
+      LinearErrorApproximationDecr([](inter_t x) { return static_cast<inter_t>(-1) / (x * x); },
+                                   R2, E2);
 
   // The error for y / z will be
   // x * err1/z + 1/z * errx + errx * err1/z
   // plus the rounding error due to truncation.
-  AffineForm<inter_t> Res = AffineForm<inter_t>(R1) * E1OverZ
-    + AffineForm<inter_t>(InvR2) * E1
-    + E1 * E1OverZ;
+  AffineForm<inter_t> Res = AffineForm<inter_t>(R1) * E1OverZ + AffineForm<inter_t>(InvR2) * E1 + E1 * E1OverZ;
 
   if (AddTrunc)
     return Res + AffineForm<inter_t>(0, R1.getRoundingError());
@@ -85,7 +87,8 @@ propagateDiv(const FPInterval &R1, const AffineForm<inter_t> &E1,
 }
 
 AffineForm<inter_t>
-propagateShl(const AffineForm<inter_t> &E1) {
+propagateShl(const AffineForm<inter_t> &E1)
+{
   // When shifting left there is no loss of precision (if no overflow occurs).
   return E1;
 }
@@ -94,13 +97,15 @@ propagateShl(const AffineForm<inter_t> &E1) {
 /// \param E1 Errors associated to the operand to be shifted.
 /// \param ResR Range of the result, only used to obtain target point position.
 AffineForm<inter_t>
-propagateShr(const AffineForm<inter_t> &E1, const FPInterval &ResR) {
+propagateShr(const AffineForm<inter_t> &E1, const FPInterval &ResR)
+{
   return E1 + AffineForm<inter_t>(0, ResR.getRoundingError());
 }
 
 } // end of anonymous namespace
 
-bool InstructionPropagator::propagateBinaryOp(Instruction &I) {
+bool InstructionPropagator::propagateBinaryOp(Instruction &I)
+{
   BinaryOperator &BI = cast<BinaryOperator>(I);
 
   LLVM_DEBUG(logInstruction(I));
@@ -110,63 +115,61 @@ bool InstructionPropagator::propagateBinaryOp(Instruction &I) {
   //   return false;
   // }
 
-  bool DoublePP = BI.getOpcode() == Instruction::UDiv
-    || BI.getOpcode() == Instruction::SDiv;
+  bool DoublePP = BI.getOpcode() == Instruction::UDiv || BI.getOpcode() == Instruction::SDiv;
   auto *O1 = getOperandRangeError(BI, 0U, DoublePP);
   auto *O2 = getOperandRangeError(BI, 1U);
-  if (O1 == nullptr || !O1->second.hasValue()
-      || O2 == nullptr || !O2->second.hasValue()) {
+  if (O1 == nullptr || !O1->second.hasValue() || O2 == nullptr || !O2->second.hasValue()) {
     LLVM_DEBUG(logInfo("no data.\n"));
     return false;
   }
 
   AffineForm<inter_t> ERes;
-  switch(BI.getOpcode()) {
-    case Instruction::FAdd:
-      // Fall-through.
-    case Instruction::Add:
-      ERes = propagateAdd(O1->first, *O1->second,
-			  O2->first, *O2->second);
-      break;
-    case Instruction::FSub:
-      // Fall-through.
-    case Instruction::Sub:
-      ERes = propagateSub(O1->first, *O1->second,
-			  O2->first, *O2->second);
-      break;
-    case Instruction::FMul:
-      // Fall-through.
-    case Instruction::Mul:
-      ERes = propagateMul(O1->first, *O1->second,
-			  O2->first, *O2->second);
-      break;
-    case Instruction::FDiv:
-      ERes = propagateDiv(O1->first, *O1->second,
-			  O2->first, *O2->second, false);
-      break;
-    case Instruction::UDiv:
-      // Fall-through.
-    case Instruction::SDiv:
-      ERes = propagateDiv(O1->first, *O1->second,
-			  O2->first, *O2->second);
-      break;
-    case Instruction::Shl:
-      ERes = propagateShl(*O1->second);
-      break;
-    case Instruction::LShr:
-      // Fall-through.
-    case Instruction::AShr: {
-      const FPInterval *ResR = RMap.getRange(&I);
-      if (ResR == nullptr) {
-	LLVM_DEBUG(logInfoln("no data."));
-	return false;
-      }
-      ERes = propagateShr(*O1->second, *ResR);
-      break;
-    }
-    default:
-      LLVM_DEBUG(logInfoln("not supported.\n"));
+  switch (BI.getOpcode()) {
+  case Instruction::FAdd:
+    // Fall-through.
+  case Instruction::Add:
+    ERes = propagateAdd(O1->first, *O1->second,
+                        O2->first, *O2->second);
+    break;
+  case Instruction::FSub:
+    // Fall-through.
+  case Instruction::Sub:
+    ERes = propagateSub(O1->first, *O1->second,
+                        O2->first, *O2->second);
+    break;
+  case Instruction::FMul:
+    // Fall-through.
+  case Instruction::Mul:
+    ERes = propagateMul(O1->first, *O1->second,
+                        O2->first, *O2->second);
+    break;
+  case Instruction::FDiv:
+    ERes = propagateDiv(O1->first, *O1->second,
+                        O2->first, *O2->second, false);
+    break;
+  case Instruction::UDiv:
+    // Fall-through.
+  case Instruction::SDiv:
+    ERes = propagateDiv(O1->first, *O1->second,
+                        O2->first, *O2->second);
+    break;
+  case Instruction::Shl:
+    ERes = propagateShl(*O1->second);
+    break;
+  case Instruction::LShr:
+    // Fall-through.
+  case Instruction::AShr: {
+    const FPInterval *ResR = RMap.getRange(&I);
+    if (ResR == nullptr) {
+      LLVM_DEBUG(logInfoln("no data."));
       return false;
+    }
+    ERes = propagateShr(*O1->second, *ResR);
+    break;
+  }
+  default:
+    LLVM_DEBUG(logInfoln("not supported.\n"));
+    return false;
   }
 
   // Add error to RMap.
@@ -177,7 +180,8 @@ bool InstructionPropagator::propagateBinaryOp(Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagateStore(Instruction &I) {
+bool InstructionPropagator::propagateStore(Instruction &I)
+{
   assert(I.getOpcode() == Instruction::Store && "Must be Store.");
   StoreInst &SI = cast<StoreInst>(I);
 
@@ -212,7 +216,8 @@ bool InstructionPropagator::propagateStore(Instruction &I) {
 }
 
 
-bool InstructionPropagator::propagateLoad(Instruction &I) {
+bool InstructionPropagator::propagateLoad(Instruction &I)
+{
   assert(I.getOpcode() == Instruction::Load && "Must be Load.");
   LoadInst &LI = cast<LoadInst>(I);
 
@@ -235,12 +240,11 @@ bool InstructionPropagator::propagateLoad(Instruction &I) {
   MemSSAUtils::REVector &REs = MemUtils.getRangeErrors();
 
   // If this is a load of a struct element, lookup in the struct errors.
-  if (const RangeErrorMap::RangeError *StructRE
-      = RMap.getStructRangeError(LI.getPointerOperand())) {
+  if (const RangeErrorMap::RangeError *StructRE = RMap.getStructRangeError(LI.getPointerOperand())) {
     REs.push_back(StructRE);
     LLVM_DEBUG(logInfo("(StructError: ");
-	       logError(*StructRE);
-	       logInfo(")"));
+               logError(*StructRE);
+               logInfo(")"));
   }
 
   std::sort(REs.begin(), REs.end());
@@ -255,7 +259,7 @@ bool InstructionPropagator::propagateLoad(Instruction &I) {
     else
       RMap.setRangeError(&I, *RE);
     LLVM_DEBUG(logInfo("(one value) ");
-	       logErrorln(*RE));
+               logErrorln(*RE));
     return true;
   }
 
@@ -285,16 +289,14 @@ bool InstructionPropagator::propagateLoad(Instruction &I) {
   AffineForm<inter_t> Error(0, SrcR->getRoundingError());
   RMap.setRangeError(&I, std::make_pair(*SrcR, Error));
   LLVM_DEBUG(logInfo("(no data, falling back to rounding error)");
-	     logErrorln(Error));
+             logErrorln(Error));
 
   return true;
 }
 
-bool InstructionPropagator::propagateExt(Instruction &I) {
-  assert((I.getOpcode() == Instruction::SExt
-	  || I.getOpcode() == Instruction::ZExt
-	  || I.getOpcode() == Instruction::FPExt)
-	 && "Must be SExt, ZExt or FExt.");
+bool InstructionPropagator::propagateExt(Instruction &I)
+{
+  assert((I.getOpcode() == Instruction::SExt || I.getOpcode() == Instruction::ZExt || I.getOpcode() == Instruction::FPExt) && "Must be SExt, ZExt or FExt.");
 
   LLVM_DEBUG(logInstruction(I));
 
@@ -302,10 +304,9 @@ bool InstructionPropagator::propagateExt(Instruction &I) {
   return unOpErrorPassThrough(I);
 }
 
-bool InstructionPropagator::propagateTrunc(Instruction &I) {
-  assert((I.getOpcode() == Instruction::Trunc
-	  || I.getOpcode() == Instruction::FPTrunc)
-	 && "Must be Trunc.");
+bool InstructionPropagator::propagateTrunc(Instruction &I)
+{
+  assert((I.getOpcode() == Instruction::Trunc || I.getOpcode() == Instruction::FPTrunc) && "Must be Trunc.");
 
   LLVM_DEBUG(logInstruction(I));
 
@@ -314,7 +315,8 @@ bool InstructionPropagator::propagateTrunc(Instruction &I) {
   return unOpErrorPassThrough(I);
 }
 
-bool InstructionPropagator::propagateFNeg(Instruction &I) {
+bool InstructionPropagator::propagateFNeg(Instruction &I)
+{
   assert(I.getOpcode() == Instruction::FNeg && "Must be FNeg.");
 
   LLVM_DEBUG(logInstruction(I));
@@ -323,7 +325,8 @@ bool InstructionPropagator::propagateFNeg(Instruction &I) {
   return unOpErrorPassThrough(I);
 }
 
-bool InstructionPropagator::propagateIToFP(Instruction &I) {
+bool InstructionPropagator::propagateIToFP(Instruction &I)
+{
   assert((isa<SIToFPInst>(I) || isa<UIToFPInst>(I)) && "Must be IToFP.");
 
   LLVM_DEBUG(logInstruction(I));
@@ -331,7 +334,8 @@ bool InstructionPropagator::propagateIToFP(Instruction &I) {
   return unOpErrorPassThrough(I);
 }
 
-bool InstructionPropagator::propagateFPToI(Instruction &I) {
+bool InstructionPropagator::propagateFPToI(Instruction &I)
+{
   assert((isa<FPToSIInst>(I) || isa<FPToUIInst>(I)) && "Must be FPToI.");
 
   LLVM_DEBUG(logInstruction(I));
@@ -355,7 +359,8 @@ bool InstructionPropagator::propagateFPToI(Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagateSelect(Instruction &I) {
+bool InstructionPropagator::propagateSelect(Instruction &I)
+{
   SelectInst &SI = cast<SelectInst>(I);
 
   LLVM_DEBUG(logInstruction(I));
@@ -367,8 +372,7 @@ bool InstructionPropagator::propagateSelect(Instruction &I) {
 
   auto *TV = getOperandRangeError(I, SI.getTrueValue());
   auto *FV = getOperandRangeError(I, SI.getFalseValue());
-  if (TV == nullptr || !TV->second.hasValue()
-      || FV == nullptr || !FV->second.hasValue()) {
+  if (TV == nullptr || !TV->second.hasValue() || FV == nullptr || !FV->second.hasValue()) {
     LLVM_DEBUG(logInfoln("(no data)."));
     return false;
   }
@@ -391,7 +395,8 @@ bool InstructionPropagator::propagateSelect(Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagatePhi(Instruction &I) {
+bool InstructionPropagator::propagatePhi(Instruction &I)
+{
   PHINode &PHI = cast<PHINode>(I);
 
   LLVM_DEBUG(logInstruction(I));
@@ -401,11 +406,11 @@ bool InstructionPropagator::propagatePhi(Instruction &I) {
     for (const Use &IVal : PHI.incoming_values()) {
       auto *RE = getOperandRangeError(I, IVal);
       if (RE == nullptr)
-	continue;
+        continue;
 
       ConstFallbackTy = dyn_cast_or_null<FPType>(RE->first.getTType());
       if (ConstFallbackTy != nullptr)
-	break;
+        break;
     }
   }
 
@@ -439,8 +444,7 @@ bool InstructionPropagator::propagatePhi(Instruction &I) {
   if (RMap.getRangeError(&I) == nullptr) {
     FPInterval FPI(Interval<inter_t>(Min, Max));
     RMap.setRangeError(&I, std::make_pair(FPI, ERes));
-  }
-  else
+  } else
     RMap.setError(&I, ERes);
 
   LLVM_DEBUG(logErrorln(ERes));
@@ -450,15 +454,15 @@ bool InstructionPropagator::propagatePhi(Instruction &I) {
 
 extern cl::opt<unsigned> CmpErrorThreshold;
 
-bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I) {
+bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I)
+{
   CmpInst &CI = cast<CmpInst>(I);
 
   LLVM_DEBUG(logInstruction(I));
 
   auto *Op1 = getOperandRangeError(I, 0U);
   auto *Op2 = getOperandRangeError(I, 1U);
-  if (Op1 == nullptr || Op1->first.isUninitialized() || !Op1->second.hasValue()
-      || Op2 == nullptr || Op2->first.isUninitialized() || !Op2->second.hasValue()) {
+  if (Op1 == nullptr || Op1->first.isUninitialized() || !Op1->second.hasValue() || Op2 == nullptr || Op2->first.isUninitialized() || !Op2->second.hasValue()) {
     LLVM_DEBUG(logInfoln("(no data)."));
     return false;
   }
@@ -469,7 +473,7 @@ bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I) {
 
   // Maximum absolute error tolerance to avoid changing the comparison result.
   inter_t MaxTol = std::max(computeMinRangeDiff(Op1->first, Op2->first),
-			    Op1->first.getRoundingError());
+                            Op1->first.getRoundingError());
 
   CmpErrorInfo CmpInfo(MaxTol, false);
 
@@ -477,12 +481,11 @@ bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I) {
     // The compare might be wrong due to the absolute error on operands.
     if (CmpErrorThreshold == 0) {
       CmpInfo.MayBeWrong = true;
-    }
-    else {
+    } else {
       // Check if it is also above custom threshold:
       inter_t RelErr = AbsErr / std::max(Op1->first.Max, Op2->first.Max);
       if (RelErr * 100.0 >= CmpErrorThreshold)
-	CmpInfo.MayBeWrong = true;
+        CmpInfo.MayBeWrong = true;
     }
   }
   CmpMap.insert(std::make_pair(&I, CmpInfo));
@@ -495,7 +498,8 @@ bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagateRet(Instruction &I) {
+bool InstructionPropagator::propagateRet(Instruction &I)
+{
   ReturnInst &RI = cast<ReturnInst>(I);
 
   LLVM_DEBUG(logInstruction(I));
@@ -515,29 +519,27 @@ bool InstructionPropagator::propagateRet(Instruction &I) {
   Function *F = RI.getFunction();
   const AffineForm<inter_t> *FunErr = RMap.getError(F);
 
-  if (FunErr == nullptr
-      || RetErr->noiseTermsAbsSum() > FunErr->noiseTermsAbsSum()) {
+  if (FunErr == nullptr || RetErr->noiseTermsAbsSum() > FunErr->noiseTermsAbsSum()) {
     // If no error had already been attached to this function,
     // or if RetErr is larger than the previous one, associate RetErr to it.
     RMap.setError(F, RetErr->flattenNoiseTerms());
 
     LLVM_DEBUG(logErrorln(*RetErr));
     return true;
-  }
-  else {
+  } else {
     LLVM_DEBUG(logInfoln("unchanged (smaller than previous)."));
     return true;
   }
 }
 
-bool InstructionPropagator::propagateCall(Instruction &I) {
+bool InstructionPropagator::propagateCall(Instruction &I)
+{
   LLVM_DEBUG(logInstruction(I));
 
   Function *F = nullptr;
   if (isa<CallInst>(I)) {
     F = cast<CallInst>(I).getCalledFunction();
-  }
-  else {
+  } else {
     assert(isa<InvokeInst>(I));
     F = cast<InvokeInst>(I).getCalledFunction();
   }
@@ -564,13 +566,14 @@ bool InstructionPropagator::propagateCall(Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagateGetElementPtr(Instruction &I) {
+bool InstructionPropagator::propagateGetElementPtr(Instruction &I)
+{
   GetElementPtrInst &GEPI = cast<GetElementPtrInst>(I);
 
   LLVM_DEBUG(logInstruction(I));
 
   const RangeErrorMap::RangeError *RE =
-    RMap.getRangeError(GEPI.getPointerOperand());
+      RMap.getRangeError(GEPI.getPointerOperand());
   if (RE == nullptr || !RE->second.hasValue()) {
     LLVM_DEBUG(logInfoln("ignored (no data)."));
     return false;
@@ -583,7 +586,8 @@ bool InstructionPropagator::propagateGetElementPtr(Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagateExtractValue(Instruction &I) {
+bool InstructionPropagator::propagateExtractValue(Instruction &I)
+{
   ExtractValueInst &EVI = cast<ExtractValueInst>(I);
 
   LLVM_DEBUG(logInstruction(I));
@@ -601,13 +605,14 @@ bool InstructionPropagator::propagateExtractValue(Instruction &I) {
   return true;
 }
 
-bool InstructionPropagator::propagateInsertValue(Instruction &I) {
+bool InstructionPropagator::propagateInsertValue(Instruction &I)
+{
   InsertValueInst &IVI = cast<InsertValueInst>(I);
 
   LLVM_DEBUG(logInstruction(I));
 
   const RangeErrorMap::RangeError *RE =
-    RMap.getStructRangeError(IVI.getInsertedValueOperand());
+      RMap.getStructRangeError(IVI.getInsertedValueOperand());
   if (RE == nullptr || !RE->second.hasValue()) {
     LLVM_DEBUG(logInfoln("ignored (no data)."));
     return false;

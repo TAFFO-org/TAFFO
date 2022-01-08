@@ -14,25 +14,28 @@
 
 #include "ErrorPropagator.h"
 
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/Support/Debug.h"
 
-#include "Metadata.h"
 #include "FunctionErrorPropagator.h"
+#include "Metadata.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 using namespace llvm;
 using namespace mdutils;
 
 #define DEBUG_TYPE "errorprop"
 
-bool ErrorPropagator::runOnModule(Module &M) {
+bool ErrorPropagator::runOnModule(Module &M)
+{
   checkCommandLine();
 
   MetadataManager &MDManager = MetadataManager::getMetadataManager();
@@ -50,7 +53,7 @@ bool ErrorPropagator::runOnModule(Module &M) {
   }
 
   FunctionCopyManager FCMap(*this, MaxRecursionCount, DefaultUnrollCount,
-			    MaxUnroll);
+                            MaxUnroll);
 
   bool NoFunctions = true;
   // Iterate over all functions in this Module,
@@ -74,23 +77,27 @@ bool ErrorPropagator::runOnModule(Module &M) {
 }
 
 void ErrorPropagator::retrieveGlobalVariablesRangeError(Module &M,
-							RangeErrorMap &RMap) {
+                                                        RangeErrorMap &RMap)
+{
   for (GlobalVariable &GV : M.globals()) {
     RMap.retrieveRangeError(GV);
   }
 }
 
-void ErrorPropagator::getAnalysisUsage(AnalysisUsage &AU) const {
+void ErrorPropagator::getAnalysisUsage(AnalysisUsage &AU) const
+{
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<OptimizationRemarkEmitterWrapperPass>();
   AU.addRequiredTransitive<MemorySSAWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.setPreservesAll();
 }
 
-void ErrorPropagator::checkCommandLine() {
+void ErrorPropagator::checkCommandLine()
+{
   if (CmpErrorThreshold > 100U)
     CmpErrorThreshold = 100U;
 
@@ -98,11 +105,11 @@ void ErrorPropagator::checkCommandLine() {
     MaxUnroll = 0U;
 }
 
-}  // end of namespace ErrorProp
+} // end of namespace ErrorProp
 
 char ErrorProp::ErrorPropagator::ID = 0;
 
 static llvm::RegisterPass<ErrorProp::ErrorPropagator>
-X("errorprop", "Fixed-Point Arithmetic Error Propagator",
-  false /* Only looks at CFG */,
-  false /* Analysis Pass */);
+    X("errorprop", "Fixed-Point Arithmetic Error Propagator",
+      false /* Only looks at CFG */,
+      false /* Analysis Pass */);

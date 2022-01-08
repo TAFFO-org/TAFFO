@@ -67,4 +67,7 @@ if (NOT LLVM_ENABLE_RTTI)
   target_compile_options(taffo_gtest PRIVATE -fno-rtti)
 endif()
 
+# disable warnings for google-test library
+target_compile_options(taffo_gtest PRIVATE -w)
+
 add_subdirectory(UnitTestMain)

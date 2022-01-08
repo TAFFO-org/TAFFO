@@ -1,19 +1,20 @@
-#include <string>
-#include <list>
+#include "RangeOperationsCallWhitelist.hpp"
+#include "Range.hpp"
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <cassert>
 #include <limits>
-#include "Range.hpp"
-#include "RangeOperationsCallWhitelist.hpp"
+#include <list>
+#include <string>
 
 using namespace taffo;
 
-#define PI   0x1.921FB54442D18p+1
+#define PI 0x1.921FB54442D18p+1
 #define PIO2 0x1.921FB54442D18p+0
 
 static range_ptr_t
-handleCallToCeil(const std::list<range_ptr_t>& operands) {
+handleCallToCeil(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function ceil");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -24,7 +25,8 @@ handleCallToCeil(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToFloor(const std::list<range_ptr_t>& operands) {
+handleCallToFloor(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function floor");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -35,7 +37,8 @@ handleCallToFloor(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToFabs(const std::list<range_ptr_t>& operands) {
+handleCallToFabs(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function fabs");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -50,7 +53,8 @@ handleCallToFabs(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToLog(const std::list<range_ptr_t>& operands) {
+handleCallToLog(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Log");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -67,7 +71,8 @@ handleCallToLog(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToLog10(const std::list<range_ptr_t>& operands) {
+handleCallToLog10(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Log10");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -81,7 +86,8 @@ handleCallToLog10(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToLog2f(const std::list<range_ptr_t>& operands) {
+handleCallToLog2f(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Log2f");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -95,7 +101,8 @@ handleCallToLog2f(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToSqrt(const std::list<range_ptr_t>& operands) {
+handleCallToSqrt(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Sqrt");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -112,7 +119,8 @@ handleCallToSqrt(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToExp(const std::list<range_ptr_t>& operands) {
+handleCallToExp(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Exp");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -124,7 +132,8 @@ handleCallToExp(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToSin(const std::list<range_ptr_t>& operands) {
+handleCallToSin(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Sin");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -140,7 +149,8 @@ handleCallToSin(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToCos(const std::list<range_ptr_t>& operands) {
+handleCallToCos(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function Cos");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -159,7 +169,8 @@ handleCallToCos(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToAcos(const std::list<range_ptr_t>& operands) {
+handleCallToAcos(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function acos");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -170,7 +181,8 @@ handleCallToAcos(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToAsin(const std::list<range_ptr_t>& operands) {
+handleCallToAsin(const std::list<range_ptr_t> &operands)
+{
   assert(operands.size() == 1 && "too many operands in function asin");
   range_ptr_t op = operands.front();
   if (!op) {
@@ -181,31 +193,32 @@ handleCallToAsin(const std::list<range_ptr_t>& operands) {
 }
 
 static range_ptr_t
-handleCallToTanh(const std::list<range_ptr_t>& operands) {
+handleCallToTanh(const std::list<range_ptr_t> &operands)
+{
   // TODO implement
   return nullptr;
 }
 
 static range_ptr_t
-handleCallToRand(const std::list<range_ptr_t>& operands) {
+handleCallToRand(const std::list<range_ptr_t> &operands)
+{
   // FIXME: RAND_MAX is implementation defined!
   return make_range(0, RAND_MAX);
 }
 
 const std::map<const std::string, map_value_t> taffo::functionWhiteList =
-  {
-   CMATH_WHITELIST_FUN("ceil",  &handleCallToCeil),
-   CMATH_WHITELIST_FUN("floor", &handleCallToFloor),
-   CMATH_WHITELIST_FUN("fabs",  &handleCallToFabs),
-   CMATH_WHITELIST_FUN("log",   &handleCallToLog),
-   CMATH_WHITELIST_FUN("log10", &handleCallToLog10),
-   CMATH_WHITELIST_FUN("log2",  &handleCallToLog2f),
-   CMATH_WHITELIST_FUN("sqrt",  &handleCallToSqrt),
-   CMATH_WHITELIST_FUN("exp",   &handleCallToExp),
-   CMATH_WHITELIST_FUN("sin",   &handleCallToSin),
-   CMATH_WHITELIST_FUN("cos",   &handleCallToCos),
-   CMATH_WHITELIST_FUN("acos",  &handleCallToAcos),
-   CMATH_WHITELIST_FUN("asin",  &handleCallToAsin),
-   CMATH_WHITELIST_FUN("tanh",  &handleCallToTanh),
-   CMATH_WHITELIST_FUN("rand",  &handleCallToRand)
-  };
+    {
+        CMATH_WHITELIST_FUN("ceil", &handleCallToCeil),
+        CMATH_WHITELIST_FUN("floor", &handleCallToFloor),
+        CMATH_WHITELIST_FUN("fabs", &handleCallToFabs),
+        CMATH_WHITELIST_FUN("log", &handleCallToLog),
+        CMATH_WHITELIST_FUN("log10", &handleCallToLog10),
+        CMATH_WHITELIST_FUN("log2", &handleCallToLog2f),
+        CMATH_WHITELIST_FUN("sqrt", &handleCallToSqrt),
+        CMATH_WHITELIST_FUN("exp", &handleCallToExp),
+        CMATH_WHITELIST_FUN("sin", &handleCallToSin),
+        CMATH_WHITELIST_FUN("cos", &handleCallToCos),
+        CMATH_WHITELIST_FUN("acos", &handleCallToAcos),
+        CMATH_WHITELIST_FUN("asin", &handleCallToAsin),
+        CMATH_WHITELIST_FUN("tanh", &handleCallToTanh),
+        CMATH_WHITELIST_FUN("rand", &handleCallToRand)};

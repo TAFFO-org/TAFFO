@@ -48,6 +48,7 @@ def ComputeDifference(fix_data, flt_data):
 
   for svfix, svflo in zip(fix_data, flt_data):
     vfix, vflo = Decimal(svfix), Decimal(svflo)
+
     if vfix.is_nan():
       fix_nofl += 1
     elif vflo.is_nan():
@@ -103,10 +104,13 @@ if __name__ == "__main__":
     fixp_data = ReadValues(str(fixp_dataf))
     fixp_timesf = PolybenchRootDir() / 'results-out' / (name+'.time.txt')
     fixp_times = ReadValues(str(fixp_timesf))
-    
-    res = ComputeDifference(fixp_data, float_data)
-    res.update(ComputeSpeedups(float_times, fixp_times))
-    g_res[BenchmarkName(bench)] = res
+    try:
+      res = ComputeDifference(fixp_data, float_data)
+      res.update(ComputeSpeedups(float_times, fixp_times))
+      g_res[BenchmarkName(bench)] = res
+    except Exception as inst:
+      print("Problem With " + name)
+
     
   print(PrettyPrint(g_res))
     

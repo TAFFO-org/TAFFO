@@ -12,8 +12,13 @@ function(taffo_add_unittest test_suite test_name)
   add_definitions(-DGTEST_LANG_CXX11=1)
   add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
 
-  include_directories(../utils/unittest/googletest/include)
-  include_directories(../utils/unittest/googlemock/include)
+  # mark google test include directories as SYSTEM to skip warnings from it
+  include_directories(SYSTEM
+          ${PROJECT_SOURCE_DIR}/utils/unittest/googletest/include
+          ${PROJECT_SOURCE_DIR}/utils/unittest/googlemock/include)
+
+  include(CTest)
+
   if (NOT LLVM_ENABLE_THREADS)
     list(APPEND LLVM_COMPILE_DEFINITIONS GTEST_HAS_PTHREAD=0)
   endif ()
@@ -21,6 +26,7 @@ function(taffo_add_unittest test_suite test_name)
   if (SUPPORTS_VARIADIC_MACROS_FLAG)
     list(APPEND LLVM_COMPILE_FLAGS "-Wno-variadic-macros")
   endif ()
+
   # Some parts of gtest rely on this GNU extension, don't warn on it.
   if(SUPPORTS_GNU_ZERO_VARIADIC_MACRO_ARGUMENTS_FLAG)
     list(APPEND LLVM_COMPILE_FLAGS "-Wno-gnu-zero-variadic-macro-arguments")
@@ -37,7 +43,16 @@ function(taffo_add_unittest test_suite test_name)
   # libpthreads overrides some standard library symbols, so main
   # executable must be linked with it in order to provide consistent
   # API for all shared libaries loaded by this executable.
-  target_link_libraries(${test_name} PRIVATE ${LLVM_LIBRARIES} taffo_gtest_main taffo_gtest ${LLVM_PTHREAD_LIB})
+  target_link_libraries(${test_name}
+          PRIVATE ${LLVM_LIBRARIES}
+          taffo_gtest_main
+          taffo_gtest
+          ${LLVM_PTHREAD_LIB}
+          TaffoVRA)
+
+  # Add gtest to be able to run ctest
+  add_test(NAME ${test_name}
+          COMMAND ${EXECUTABLE_OUTPUT_PATH}/${test_name})
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
@@ -51,6 +66,9 @@ function(add_taffo_unittest test_dirname)
   target_link_libraries(${test_dirname} PRIVATE TaffoUtils)
 endfunction()
 
-add_taffo_unittest(TAFFOUnitTests MultiValueMapTest.cpp)
+add_taffo_unittest(TAFFOUnitTests
+        SanityCheckTest.cpp
+        RangeOperationsTest.cpp
+        MultiValueMapTest.cpp)
 
 

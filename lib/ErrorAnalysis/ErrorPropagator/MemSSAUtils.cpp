@@ -1,35 +1,37 @@
 #include "MemSSAUtils.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 using namespace llvm;
 
-void MemSSAUtils::findLOEError(Instruction *I) {
+void MemSSAUtils::findLOEError(Instruction *I)
+{
   Value *Pointer;
-  switch(I->getOpcode()) {
-    case Instruction::Load:
-      Pointer = (cast<LoadInst>(I))->getPointerOperand();
-      break;
-    case Instruction::GetElementPtr:
-      Pointer = (cast<GetElementPtrInst>(I))->getPointerOperand();
-      break;
-    case Instruction::BitCast:
-      Pointer = (cast<BitCastInst>(I))->getOperand(0U);
-    default:
-      return;
+  switch (I->getOpcode()) {
+  case Instruction::Load:
+    Pointer = (cast<LoadInst>(I))->getPointerOperand();
+    break;
+  case Instruction::GetElementPtr:
+    Pointer = (cast<GetElementPtrInst>(I))->getPointerOperand();
+    break;
+  case Instruction::BitCast:
+    Pointer = (cast<BitCastInst>(I))->getOperand(0U);
+  default:
+    return;
   }
   const RangeErrorMap::RangeError *RE = RMap.getRangeError(Pointer);
   if (RE != nullptr && RE->second.hasValue()) {
     Res.push_back(RE);
-  }
-  else {
+  } else {
     Instruction *PI = dyn_cast<Instruction>(Pointer);
     if (PI != nullptr)
       findLOEError(PI);
   }
 }
 
-void MemSSAUtils::findMemDefError(Instruction *I, const MemoryDef *MD) {
+void MemSSAUtils::findMemDefError(Instruction *I, const MemoryDef *MD)
+{
   assert(MD != nullptr && "MD is null.");
 
   Instruction *MI = MD->getMemoryInst();
@@ -41,7 +43,8 @@ void MemSSAUtils::findMemDefError(Instruction *I, const MemoryDef *MD) {
 }
 
 void MemSSAUtils::
-findMemPhiError(Instruction *I, MemoryPhi *MPhi) {
+    findMemPhiError(Instruction *I, MemoryPhi *MPhi)
+{
   assert(MPhi != nullptr && "MPhi is null.");
 
   for (Use &MU : MPhi->incoming_values()) {
@@ -51,7 +54,8 @@ findMemPhiError(Instruction *I, MemoryPhi *MPhi) {
 }
 
 void MemSSAUtils::
-findMemSSAError(Instruction *I, MemoryAccess *MA) {
+    findMemSSAError(Instruction *I, MemoryAccess *MA)
+{
   if (MA == nullptr) {
     LLVM_DEBUG(dbgs() << "WARNING: nullptr MemoryAccess passed to findMemSSAError!\n");
     return;
@@ -66,8 +70,7 @@ findMemSSAError(Instruction *I, MemoryAccess *MA) {
     MemorySSAWalker *MSSAWalker = MemSSA.getWalker();
     assert(MSSAWalker != nullptr && "Null MemorySSAWalker.");
     findMemSSAError(I, MSSAWalker->getClobberingMemoryAccess(MA));
-  }
-  else if (isa<MemoryDef>(MA))
+  } else if (isa<MemoryDef>(MA))
     findMemDefError(I, cast<MemoryDef>(MA));
   else {
     assert(isa<MemoryPhi>(MA));
@@ -75,27 +78,24 @@ findMemSSAError(Instruction *I, MemoryAccess *MA) {
   }
 }
 
-Value *MemSSAUtils::getOriginPointer(MemorySSA &MemSSA, Value *Pointer) {
+Value *MemSSAUtils::getOriginPointer(MemorySSA &MemSSA, Value *Pointer)
+{
   assert(Pointer != nullptr);
 
   if (isa<Argument>(Pointer) || isa<AllocaInst>(Pointer)) {
     return Pointer;
-  }
-  else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(Pointer)) {
+  } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(Pointer)) {
     return getOriginPointer(MemSSA, GEPI->getPointerOperand());
-  }
-  else if (BitCastInst *BCI = dyn_cast<BitCastInst>(Pointer)) {
+  } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(Pointer)) {
     return getOriginPointer(MemSSA, BCI->getOperand(0U));
-  }
-  else if (LoadInst *LI = dyn_cast<LoadInst>(Pointer)) {
+  } else if (LoadInst *LI = dyn_cast<LoadInst>(Pointer)) {
     MemorySSAWalker *MSSAWalker = MemSSA.getWalker();
     assert(MSSAWalker != nullptr && "Null MemorySSAWalker.");
     if (MemoryDef *MD = dyn_cast<MemoryDef>(MSSAWalker->getClobberingMemoryAccess(LI))) {
       if (MemSSA.isLiveOnEntryDef(MD)) {
-	return getOriginPointer(MemSSA, LI->getPointerOperand());
-      }
-      else if (StoreInst *SI = dyn_cast<StoreInst>(MD->getMemoryInst())) {
-	return getOriginPointer(MemSSA, SI->getValueOperand());
+        return getOriginPointer(MemSSA, LI->getPointerOperand());
+      } else if (StoreInst *SI = dyn_cast<StoreInst>(MD->getMemoryInst())) {
+        return getOriginPointer(MemSSA, SI->getValueOperand());
       }
     }
     // TODO: Handle MemoryPHI

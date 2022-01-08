@@ -1,8 +1,8 @@
 #include "ValueRangeAnalysis.hpp"
 
-#include "llvm/Support/Debug.h"
-#include "llvm/Analysis/MemorySSA.h"
 #include "VRAGlobalStore.hpp"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -11,13 +11,13 @@ using namespace mdutils;
 char ValueRangeAnalysis::ID = 0;
 
 static RegisterPass<ValueRangeAnalysis> X(
-	"taffoVRA",
-	"TAFFO Framework Value Range Analysis Pass",
-	false /* does not affect the CFG */,
-	false /* only Analysis */);
+    "taffoVRA",
+    "TAFFO Framework Value Range Analysis Pass",
+    false /* does not affect the CFG */,
+    false /* only Analysis */);
 
-bool
-ValueRangeAnalysis::runOnModule(Module &M) {
+bool ValueRangeAnalysis::runOnModule(Module &M)
+{
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>();
   GlobalStore->harvestMetadata(M);
 
@@ -29,15 +29,15 @@ ValueRangeAnalysis::runOnModule(Module &M) {
   return true;
 }
 
-void
-ValueRangeAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void ValueRangeAnalysis::getAnalysisUsage(AnalysisUsage &AU) const
+{
   CodeInterpreter::getAnalysisUsage(AU);
   AU.addRequiredTransitive<MemorySSAWrapperPass>();
   AU.setPreservesAll();
 }
 
-void
-ValueRangeAnalysis::processModule(CodeInterpreter &CodeInt, Module &M) {
+void ValueRangeAnalysis::processModule(CodeInterpreter &CodeInt, Module &M)
+{
   bool FoundVisitableFunction = false;
   for (llvm::Function &F : M) {
     if (!F.empty() && (PropagateAll || MetadataManager::isStartingPoint(F))) {

@@ -44,6 +44,7 @@ compile_one()
     -I./utilities \
     -I./ \
     $xparams \
+    $MIXIMI  \
     -debug-taffo \
     -lm \
     2> build/${benchname}.log || return $?
@@ -104,6 +105,9 @@ TOT='32'
 D_CONF="CONF_GOOD"
 RUN_METRICS=0
 ERRORPROP='-enable-err'
+MIXIMODE=""
+
+
 
 for arg; do
   case $arg in
@@ -130,6 +134,13 @@ for arg; do
     --no-err)
       ERRORPROP=''
       ;;
+    -costmodelfilename=*)
+    MIXIMODE="${MIXIMODE} -mixedmode ${arg}"  
+    ;;
+
+    -instructionsetfile=*)
+    MIXIMODE="${MIXIMODE} ${arg}" 
+    ;;
     metrics)
       RUN_METRICS=1
       ;;
@@ -152,7 +163,7 @@ for bench in $all_benchs; do
     compile_one "$bench" \
       "-O3 \
       -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
-      -D$D_CONF -D$D_STANDARD_DATASET \
+      -D$D_CONF -D$D_STANDARD_DATASET $MIXIMODE \
       -Xdta -totalbits -Xdta $TOT \
       $ERRORPROP $opts"
     bpid_fc=$?

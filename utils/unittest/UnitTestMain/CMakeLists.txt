@@ -10,3 +10,6 @@ add_llvm_library(taffo_gtest_main
 if (NOT LLVM_ENABLE_RTTI)
   target_compile_options(taffo_gtest_main PRIVATE -fno-rtti)
 endif()
+
+# disable warnings for google-test library
+target_compile_options(taffo_gtest_main PRIVATE -w)

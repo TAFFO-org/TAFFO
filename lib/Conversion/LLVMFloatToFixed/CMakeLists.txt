@@ -6,6 +6,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   MDCollector.cpp
   Conversion.cpp
   ConstantConversion.cpp
+  IndirectCallConversion.cpp
   InstructionConversion.cpp
 
   ADDITIONAL_HEADERS

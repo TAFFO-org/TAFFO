@@ -1,12 +1,21 @@
+#include "TaffoDTA.h"
+#include "DTAConfig.h"
+#include "Metadata.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Debug.h"
-
-#include "TaffoDTA.h"
-#include "Metadata.h"
+#include <llvm/Analysis/MemorySSA.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#ifdef TAFFO_BUILD_ILP_DTA
+#include "ILP/MetricBase.h"
+#include "ILP/Optimizer.h"
+#endif // TAFFO_BUILD_ILP_DTA
 
 
 using namespace llvm;
@@ -18,21 +27,40 @@ using namespace taffo;
 char TaffoTuner::ID = 0;
 
 static RegisterPass<TaffoTuner> X(
-  "taffodta",
-  "TAFFO Framework Data Type Allocation",
-  false /* does not affect the CFG */,
-  true /* Optimization Pass */);
+    "taffodta",
+    "TAFFO Framework Data Type Allocation",
+    false /* does not affect the CFG */,
+    true /* Optimization Pass */);
+
+void TaffoTuner::getAnalysisUsage(AnalysisUsage &AU) const
+{
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
+  AU.addRequiredTransitive<MemorySSAWrapperPass>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
+  AU.setPreservesAll();
+}
 
 
 bool TaffoTuner::runOnModule(Module &m)
 {
-  std::vector<llvm::Value*> vals;
-  llvm::SmallPtrSet<llvm::Value*, 8U> valset;
+  std::vector<llvm::Value *> vals;
+  llvm::SmallPtrSet<llvm::Value *, 8U> valset;
   retrieveAllMetadata(m, vals, valset);
 
+#ifdef TAFFO_BUILD_ILP_DTA
+  if (MixedMode) {
+    LLVM_DEBUG(llvm::dbgs() << "Model " << CostModelFilename << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "Inst " << InstructionSet << "\n");
+    buildModelAndOptimze(m, vals, valset);
+  } else {
+    mergeFixFormat(vals, valset);
+  }
+#else
   mergeFixFormat(vals, valset);
+#endif
 
-  std::vector<Function*> toDel;
+  std::vector<Function *> toDel;
   toDel = collapseFunction(m);
 
   attachFPMetaData(vals);
@@ -45,8 +73,8 @@ bool TaffoTuner::runOnModule(Module &m)
 }
 
 
-void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value*> &vals,
-				     llvm::SmallPtrSetImpl<llvm::Value *> &valset)
+void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals,
+                                     llvm::SmallPtrSetImpl<llvm::Value *> &valset)
 {
   mdutils::MetadataManager &MDManager = mdutils::MetadataManager::getMetadataManager();
 
@@ -59,8 +87,8 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value*> &vals,
   for (Function &f : m.functions()) {
     if (f.isIntrinsic())
       continue;
-    
-    SmallVector<mdutils::MDInfo*, 5> argsII;
+
+    SmallVector<mdutils::MDInfo *, 5> argsII;
     MDManager.retrieveArgumentInputInfo(f, argsII);
     auto arg = f.arg_begin();
     for (auto itII = argsII.begin(); itII != argsII.end(); itII++) {
@@ -82,7 +110,8 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value*> &vals,
 
 bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 {
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)")) << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
+                    << "\n");
   if (!MDI)
     return false;
   std::shared_ptr<MDInfo> newmdi(MDI->clone());
@@ -92,7 +121,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
     valueInfo(v)->metadata = newmdi;
     return true;
   }
-  
+
   /* HACK to set the enabled status on phis which compensates for a bug in vra.
    * Affects axbench/sobel. */
   bool forceEnableConv = false;
@@ -110,23 +139,34 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
     if (InputInfo *II = dyn_cast<InputInfo>(elem.first)) {
       if (forceEnableConv)
         II->IEnableConversion = true;
+
+      // FIXME: hack to propagate itofp metadata
+      if (isa<UIToFPInst>(v) ||
+          isa<SIToFPInst>(v)) {
+        LLVM_DEBUG(dbgs() << "FORCING CONVERSION OF A ITOFP!\n";);
+        II->IEnableConversion = true;
+      }
+
       if (!isFloatType(elem.second)) {
         LLVM_DEBUG(dbgs() << "[Info] Skipping a member of " << *v << " because not a float\n");
         continue;
       }
-      if (associateFixFormat(*II)) {
+
+      // TODO: insert logic here to associate different types in a clever way
+      if (associateFixFormat(*II, elem.second->getTypeID())) {
         skippedAll = false;
       }
 
     } else if (StructInfo *SI = dyn_cast<StructInfo>(elem.first)) {
       if (!elem.second->isStructTy()) {
-        LLVM_DEBUG(dbgs() << "[ERROR] found non conforming structinfo " << SI->toString() << " on value " << *v << "\n");
+        LLVM_DEBUG(dbgs() << "[ERROR] found non conforming structinfo " << SI->toString() << " on value " << *v
+                          << "\n");
         LLVM_DEBUG(dbgs() << "contained type " << *elem.second << " is not a struct type\n");
         LLVM_DEBUG(dbgs() << "The top-level MDInfo was " << MDI->toString() << "\n");
         llvm_unreachable("Non-conforming StructInfo.");
       }
-      int i=0;
-      for (std::shared_ptr<MDInfo> se: *SI) {
+      int i = 0;
+      for (std::shared_ptr<MDInfo> se : *SI) {
         if (se.get() != nullptr) {
           Type *thisT = fullyUnwrapPointerOrArrayType(elem.second->getContainedType(i));
           queue.push_back(std::make_pair(se.get(), thisT));
@@ -153,7 +193,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 }
 
 
-bool TaffoTuner::associateFixFormat(InputInfo& II)
+bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
 {
   if (!II.IEnableConversion) {
     LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", conversion disabled\n");
@@ -165,30 +205,51 @@ bool TaffoTuner::associateFixFormat(InputInfo& II)
     return true;
   }
 
-  Range* rng = II.IRange.get();
+  Range *rng = II.IRange.get();
   if (rng == nullptr) {
     LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", no range\n");
     return false;
   }
-  
+
+
+  // New super performing algorithm to compute a lot of things
+  // Preserving this code just in case, shold be not necessary
+  /*if (ForceFloat >= 0) {
+      auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
+
+      double greatest = abs(II.IRange->Min);
+      double max = abs(II.IRange->Max);
+      if (max > greatest) greatest = max;
+
+      FloatType res = FloatType(standard, greatest);
+
+      LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
+
+      II.IType.reset(res.clone());
+      return true;
+
+
+  } else {*/
   FixedPointTypeGenError fpgerr;
   FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
-
   if (fpgerr == FixedPointTypeGenError::InvalidRange) {
     LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
     return false;
   }
-
   II.IType.reset(res.clone());
   return true;
+  //}
 }
 
 
 void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
-			   llvm::SmallPtrSetImpl<llvm::Value *> &valset)
+                           llvm::SmallPtrSetImpl<llvm::Value *> &valset)
 {
   // Topological sort by means of a reversed DFS.
-  enum VState { Visited, Visiting };
+  enum VState {
+    Visited,
+    Visiting
+  };
   DenseMap<Value *, VState> vstates;
   std::vector<Value *> revQueue;
   std::vector<Value *> stack;
@@ -204,46 +265,46 @@ void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
       Value *c = stack.back();
       auto cstate = vstates.find(c);
       if (cstate == vstates.end()) {
-	vstates[c] = Visiting;
-	for (Value *u : c->users()) {
-	  if (!isa<Instruction>(u) && !isa<GlobalObject>(u))
-	    continue;
+        vstates[c] = Visiting;
+        for (Value *u : c->users()) {
+          if (!isa<Instruction>(u) && !isa<GlobalObject>(u))
+            continue;
 
-	  if (conversionDisabled(u)) {
-	    LLVM_DEBUG(dbgs() << "[WARNING] Skipping " << *u << " without TAFFO info!\n");
-	    continue;
-	  }
+          if (conversionDisabled(u)) {
+            LLVM_DEBUG(dbgs() << "[WARNING] Skipping " << *u << " without TAFFO info!\n");
+            continue;
+          }
 
-	  stack.push_back(u);
-	  if (!hasInfo(u)) {
-	    LLVM_DEBUG(dbgs() << "[WARNING] Found Value " << *u << " without range! (uses " << *c << ")\n");
-	    Type *utype = fullyUnwrapPointerOrArrayType(u->getType());
-	    Type *ctype = fullyUnwrapPointerOrArrayType(c->getType());
-	    if (!utype->isStructTy() && !ctype->isStructTy()) {
-	      InputInfo *ii = cast<InputInfo>(valueInfo(c)->metadata->clone());
-	      ii->IRange.reset();
-	      std::shared_ptr<ValueInfo> viu = valueInfo(u);
-	      viu->metadata.reset(ii);
-	      viu->initialType = ii->IType;
-	    } else if (utype->isStructTy() && ctype->isStructTy()
-		       && ctype->canLosslesslyBitCastTo(utype)) {
-	      valueInfo(u)->metadata.reset(valueInfo(c)->metadata->clone());
-	    } else {
-	      if (utype->isStructTy())
-		valueInfo(u)->metadata = StructInfo::constructFromLLVMType(utype);
-	      else
-		valueInfo(u)->metadata.reset(new InputInfo());
-	      LLVM_DEBUG(dbgs() << "not copying metadata of " << *c << " to " << *u << " because one value has struct typing and the other has not.\n");
-	    }
-	  }
-	}
+          stack.push_back(u);
+          if (!hasInfo(u)) {
+            LLVM_DEBUG(dbgs() << "[WARNING] Found Value " << *u << " without range! (uses " << *c << ")\n");
+            Type *utype = fullyUnwrapPointerOrArrayType(u->getType());
+            Type *ctype = fullyUnwrapPointerOrArrayType(c->getType());
+            if (!utype->isStructTy() && !ctype->isStructTy()) {
+              InputInfo *ii = cast<InputInfo>(valueInfo(c)->metadata->clone());
+              ii->IRange.reset();
+              std::shared_ptr<ValueInfo> viu = valueInfo(u);
+              viu->metadata.reset(ii);
+              viu->initialType = ii->IType;
+            } else if (utype->isStructTy() && ctype->isStructTy() && ctype->canLosslesslyBitCastTo(utype)) {
+              valueInfo(u)->metadata.reset(valueInfo(c)->metadata->clone());
+            } else {
+              if (utype->isStructTy())
+                valueInfo(u)->metadata = StructInfo::constructFromLLVMType(utype);
+              else
+                valueInfo(u)->metadata.reset(new InputInfo());
+              LLVM_DEBUG(dbgs() << "not copying metadata of " << *c << " to " << *u
+                                << " because one value has struct typing and the other has not.\n");
+            }
+          }
+        }
       } else if (cstate->second == Visiting) {
-	revQueue.push_back(c);
-	stack.pop_back();
-	vstates[c] = Visited;
+        revQueue.push_back(c);
+        stack.pop_back();
+        vstates[c] = Visited;
       } else {
-	assert(cstate->second == Visited);
-	stack.pop_back();
+        assert(cstate->second == Visited);
+        stack.pop_back();
       }
     }
   }
@@ -257,7 +318,7 @@ void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
 }
 
 void TaffoTuner::mergeFixFormat(const std::vector<llvm::Value *> &vals,
-				const llvm::SmallPtrSetImpl<llvm::Value *> &valset)
+                                const llvm::SmallPtrSetImpl<llvm::Value *> &valset)
 {
   if (DisableTypeMerging)
     return;
@@ -265,14 +326,14 @@ void TaffoTuner::mergeFixFormat(const std::vector<llvm::Value *> &vals,
   assert(vals.size() == valset.size() && "They must contain the same elements.");
   bool merged = false;
   for (Value *v : vals) {
-    for (Value *u: v->users()) {
+    for (Value *u : v->users()) {
       if (valset.count(u)) {
-	if (IterativeMerging ? mergeFixFormatIterative(v, u) : mergeFixFormat(v, u)) {
-            restoreTypesAcrossFunctionCall(v);
-            restoreTypesAcrossFunctionCall(u);
+        if (IterativeMerging ? mergeFixFormatIterative(v, u) : mergeFixFormat(v, u)) {
+          restoreTypesAcrossFunctionCall(v);
+          restoreTypesAcrossFunctionCall(u);
 
-            merged = true;
-	}
+          merged = true;
+        }
       }
     }
   }
@@ -280,7 +341,8 @@ void TaffoTuner::mergeFixFormat(const std::vector<llvm::Value *> &vals,
     mergeFixFormat(vals, valset);
 }
 
-bool TaffoTuner::mergeFixFormat(llvm::Value *v, llvm::Value *u) {
+bool TaffoTuner::mergeFixFormat(llvm::Value *v, llvm::Value *u)
+{
   std::shared_ptr<ValueInfo> viv = valueInfo(v);
   std::shared_ptr<ValueInfo> viu = valueInfo(u);
   InputInfo *iiv = dyn_cast<InputInfo>(viv->metadata.get());
@@ -290,26 +352,32 @@ bool TaffoTuner::mergeFixFormat(llvm::Value *v, llvm::Value *u) {
     return false;
   }
   if (!iiv->IType || !viv->initialType || !iiu->IType || !viu->initialType) {
-    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because at least one does not change to a fixed point type\n");
+    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u
+                      << " because at least one does not change to a fixed point type\n");
     return false;
   }
   if (v->getType()->isPointerTy() || u->getType()->isPointerTy()) {
     LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because at least one is a pointer\n");
     return false;
   }
-  FPType *fpv = cast<FPType>(viv->initialType.get());
-  FPType *fpu = cast<FPType>(viu->initialType.get());
+  FPType *fpv = dyn_cast<FPType>(viv->initialType.get());
+  FPType *fpu = dyn_cast<FPType>(viu->initialType.get());
+  if (!fpv || !fpu) {
+    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because one is not a FPType\n");
+    return false;
+  }
   if (!(*fpv == *fpu)) {
     if (isMergeable(fpv, fpu)) {
       std::shared_ptr<mdutils::FPType> fp = merge(fpv, fpu);
       if (!fp) {
-	LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because resulting type is invalid\n");
-	return false;
+        LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u
+                          << " because resulting type is invalid\n");
+        return false;
       }
       LLVM_DEBUG(dbgs() << "Merged fixp : \n"
-		 << "\t" << *v << " fix type " << fpv->toString() << "\n"
-		 << "\t" << *u << " fix type " << fpu->toString() << "\n"
-		 << "Final format " << fp->toString() << "\n";);
+                        << "\t" << *v << " fix type " << fpv->toString() << "\n"
+                        << "\t" << *u << " fix type " << fpu->toString() << "\n"
+                        << "Final format " << fp->toString() << "\n";);
 
       iiv->IType.reset(fp->clone());
       iiu->IType.reset(fp->clone());
@@ -321,7 +389,8 @@ bool TaffoTuner::mergeFixFormat(llvm::Value *v, llvm::Value *u) {
   return false;
 }
 
-bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u) {
+bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
+{
   std::shared_ptr<ValueInfo> viv = valueInfo(v);
   std::shared_ptr<ValueInfo> viu = valueInfo(u);
   InputInfo *iiv = dyn_cast<InputInfo>(viv->metadata.get());
@@ -331,7 +400,8 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u) {
     return false;
   }
   if (!iiv->IType.get() || !iiu->IType.get()) {
-    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because at least one does not change to a fixed point type\n");
+    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u
+                      << " because at least one does not change to a fixed point type\n");
     return false;
   }
   if (v->getType()->isPointerTy() || u->getType()->isPointerTy()) {
@@ -344,13 +414,14 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u) {
     if (isMergeable(fpv, fpu)) {
       std::shared_ptr<mdutils::FPType> fp = merge(fpv, fpu);
       if (!fp) {
-	LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because resulting type " << fp->toString() << " is invalid\n");
-	return false;
+        LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because resulting type "
+                          << fp->toString() << " is invalid\n");
+        return false;
       }
       LLVM_DEBUG(dbgs() << "Merged fixp : \n"
-		 << "\t" << *v << " fix type " << fpv->toString() << "\n"
-		 << "\t" << *u << " fix type " << fpu->toString() << "\n"
-		 << "Final format " << fp->toString() << "\n";);
+                        << "\t" << *v << " fix type " << fpv->toString() << "\n"
+                        << "\t" << *u << " fix type " << fpu->toString() << "\n"
+                        << "Final format " << fp->toString() << "\n";);
 
       iiv->IType.reset(fp->clone());
       iiu->IType.reset(fp->clone());
@@ -364,9 +435,7 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u) {
 
 bool TaffoTuner::isMergeable(mdutils::FPType *fpv, mdutils::FPType *fpu) const
 {
-  return fpv->getWidth() == fpu->getWidth()
-    && (std::abs((int)fpv->getPointPos() - (int)fpu->getPointPos())
-	+ (fpv->isSigned() == fpu->isSigned() ? 0 : 1)) <= SimilarBits;
+  return fpv->getWidth() == fpu->getWidth() && (std::abs((int)fpv->getPointPos() - (int)fpu->getPointPos()) + (fpv->isSigned() == fpu->isSigned() ? 0 : 1)) <= SimilarBits;
 }
 
 std::shared_ptr<mdutils::FPType> TaffoTuner::merge(mdutils::FPType *fpv, mdutils::FPType *fpu) const
@@ -394,30 +463,32 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
     LLVM_DEBUG(dbgs() << " --> skipping restoring types because value is not converted\n");
     return;
   }
-  
+
   std::shared_ptr<MDInfo> finalMd = valueInfo(v)->metadata;
-  
+
   if (Argument *arg = dyn_cast<Argument>(v)) {
     setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
     return;
   }
-  
-  for (Use& use: v->uses()) {
+
+  for (Use &use : v->uses()) {
     User *user = use.getUser();
-    CallSite call(user);
+    AbstractCallSite call(&use);
     if (call.getInstruction() == nullptr)
       continue;
-    
+
     Function *fun = dyn_cast<Function>(call.getCalledFunction());
     if (fun == nullptr) {
-      LLVM_DEBUG(dbgs() << " --> skipping restoring types from call site " << *user << " because function reference cannot be resolved\n");
+      LLVM_DEBUG(dbgs() << " --> skipping restoring types from call site " << *user
+                        << " because function reference cannot be resolved\n");
       continue;
     }
     if (fun->isVarArg()) {
-      LLVM_DEBUG(dbgs() << " --> skipping restoring types from call site " << *user << " because function is vararg\n");
+      LLVM_DEBUG(dbgs() << " --> skipping restoring types from call site " << *user
+                        << " because function is vararg\n");
       continue;
     }
-    
+
     assert(fun->arg_size() > use.getOperandNo() && "invalid call to function; operandNo > numOperands");
     Argument *arg = fun->arg_begin() + use.getOperandNo();
     if (hasInfo(arg)) {
@@ -430,9 +501,10 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
 
 void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::shared_ptr<MDInfo> finalMd)
 {
-  Function *fun =  arg->getParent();
+  Function *fun = arg->getParent();
   int n = arg->getArgNo();
-  LLVM_DEBUG(dbgs() << " --> setting types to " << finalMd->toString() << " on call arguments from function " << fun->getName() << " argument " << n << "\n");
+  LLVM_DEBUG(dbgs() << " --> setting types to " << finalMd->toString() << " on call arguments from function "
+                    << fun->getName() << " argument " << n << "\n");
   for (auto it = fun->user_begin(); it != fun->user_end(); it++) {
     if (isa<CallInst>(*it) || isa<InvokeInst>(*it)) {
       Value *callarg = it->getOperand(n);
@@ -447,8 +519,9 @@ void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::
 }
 
 
-std::vector<Function*> TaffoTuner::collapseFunction(Module &m) {
-  std::vector<Function*> toDel;
+std::vector<Function *> TaffoTuner::collapseFunction(Module &m)
+{
+  std::vector<Function *> toDel;
   for (Function &f : m.functions()) {
     if (MDNode *mdNode = f.getMetadata(CLONED_FUN_METADATA)) {
       if (std::find(toDel.begin(), toDel.end(), &f) != toDel.end())
@@ -462,14 +535,13 @@ std::vector<Function*> TaffoTuner::collapseFunction(Module &m) {
         Function *fClone = dyn_cast<Function>(md->getValue());
         if (fClone->user_begin() == fClone->user_end()) {
           DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Ignoring " << fClone->getName()
-            << " because it's not used anywhere\n");
+                                            << " because it's not used anywhere\n");
         } else if (Function *eqFun = findEqFunction(fClone, &f)) {
           DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Replace function " << fClone->getName()
-            << " with " << eqFun->getName() << "\n";);
+                                            << " with " << eqFun->getName() << "\n";);
           fClone->replaceAllUsesWith(eqFun);
           toDel.push_back(fClone);
         }
-
       }
     }
   }
@@ -477,25 +549,25 @@ std::vector<Function*> TaffoTuner::collapseFunction(Module &m) {
 }
 
 
-bool compareTypesOfMDInfo(MDInfo& mdi1, MDInfo& mdi2)
+bool compareTypesOfMDInfo(MDInfo &mdi1, MDInfo &mdi2)
 {
   if (mdi1.getKind() != mdi2.getKind())
     return false;
 
   if (isa<InputInfo>(&mdi1)) {
-    InputInfo& ii1 = cast<InputInfo>(mdi1);
-    InputInfo& ii2 = cast<InputInfo>(mdi2);
+    InputInfo &ii1 = cast<InputInfo>(mdi1);
+    InputInfo &ii2 = cast<InputInfo>(mdi2);
     if (ii1.IType.get() && ii2.IType.get()) {
       return *ii1.IType == *ii2.IType;
     } else
       return false;
 
   } else if (isa<StructInfo>(&mdi1)) {
-    StructInfo& si1 = cast<StructInfo>(mdi1);
-    StructInfo& si2 = cast<StructInfo>(mdi2);
+    StructInfo &si1 = cast<StructInfo>(mdi1);
+    StructInfo &si2 = cast<StructInfo>(mdi2);
     if (si1.size() == si2.size()) {
       int c = si1.size();
-      for (int i=0; i<c; i++) {
+      for (int i = 0; i < c; i++) {
         std::shared_ptr<MDInfo> p1 = si1.getField(i);
         std::shared_ptr<MDInfo> p2 = si1.getField(i);
         if ((p1.get() == nullptr) != (p2.get() == nullptr))
@@ -516,28 +588,28 @@ bool compareTypesOfMDInfo(MDInfo& mdi1, MDInfo& mdi2)
 }
 
 
-Function* TaffoTuner::findEqFunction(Function *fun, Function *origin)
+Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
 {
   std::vector<std::pair<int, std::shared_ptr<MDInfo>>> fixSign;
 
   DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Search eq function for " << fun->getName()
-    << " in " << origin->getName() << " pool\n";);
+                                    << " in " << origin->getName() << " pool\n";);
 
   if (isFloatType(fun->getReturnType()) && hasInfo(*fun->user_begin())) {
     std::shared_ptr<MDInfo> retval = valueInfo(*fun->user_begin())->metadata;
     if (retval) {
-      fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(-1, retval)); //ret value in signature
+      fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(-1, retval)); // ret value in signature
       DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Return type : "
-          << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
+                                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
     }
   }
 
-  int i=0;
-  for (Argument &arg: fun->args()) {
+  int i = 0;
+  for (Argument &arg : fun->args()) {
     if (hasInfo(&arg) && valueInfo(&arg)->metadata) {
-      fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(i,valueInfo(&arg)->metadata));
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Arg "<< i << " type : "
-          << valueInfo(&arg)->metadata->toString() << "\n";);
+      fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(i, valueInfo(&arg)->metadata));
+      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Arg " << i << " type : "
+                                        << valueInfo(&arg)->metadata->toString() << "\n";);
     }
     i++;
   }
@@ -582,15 +654,15 @@ void TaffoTuner::attachFPMetaData(std::vector<llvm::Value *> &vals)
 }
 
 
-void TaffoTuner::attachFunctionMetaData(llvm::Module &m) {
+void TaffoTuner::attachFunctionMetaData(llvm::Module &m)
+{
   mdutils::MetadataManager &MDManager = mdutils::MetadataManager::getMetadataManager();
 
   for (Function &f : m.functions()) {
-    LLVM_DEBUG(dbgs() << f.getName() << "\n");
-    if (f.isIntrinsic() || f.isDeclaration())
+    if (f.isIntrinsic())
       continue;
-    
-    SmallVector<mdutils::MDInfo*, 5> argsII;
+
+    SmallVector<mdutils::MDInfo *, 5> argsII;
     MDManager.retrieveArgumentInputInfo(f, argsII);
     auto argsIt = argsII.begin();
     for (Argument &arg : f.args()) {
@@ -605,3 +677,138 @@ void TaffoTuner::attachFunctionMetaData(llvm::Module &m) {
     MDManager.setArgumentInputInfoMetadata(f, argsII);
   }
 }
+
+#ifdef TAFFO_BUILD_ILP_DTA
+void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &vals,
+                                      const SmallPtrSetImpl<llvm::Value *> &valset)
+{
+  assert(vals.size() == valset.size() && "They must contain the same elements.");
+
+
+  Optimizer optimizer(m, this, new MetricPerf(), CostModelFilename, CPUCosts::CostType::Performance);
+  // Optimizer optimizer(m, this, new MetricPerf(),"", CPUCosts::CostType::Size);
+  optimizer.initialize();
+
+  LLVM_DEBUG(dbgs() << "\n============ GLOBALS ============\n");
+
+  for (GlobalObject &globObj : m.globals()) {
+    LLVM_DEBUG(globObj.print(dbgs()););
+    LLVM_DEBUG(dbgs() << "     -having-     ");
+    if (!hasInfo(&globObj)) {
+      LLVM_DEBUG(dbgs() << "No info available, skipping.");
+    } else {
+      LLVM_DEBUG(dbgs() << valueInfo(&globObj)->metadata->toString() << "\n");
+
+      optimizer.handleGlobal(&globObj, valueInfo(&globObj));
+    }
+    LLVM_DEBUG(dbgs() << "\n\n";);
+  }
+
+  // FIXME: this is an hack to prevent multiple visit of the same function if it will be called somewhere from the program
+  for (Function &f : m.functions()) {
+    // Skip compiler provided functions
+    if (f.isIntrinsic() || f.isDeclaration())
+      continue;
+
+    if (!f.isIntrinsic() && !f.empty() && f.getName().equals("main")) {
+      LLVM_DEBUG(dbgs() << "========== GLOBAL ENTRY POINT main ==========";);
+
+      optimizer.handleCallFromRoot(&f);
+      break;
+    }
+  }
+
+  // Looking for remaining functions
+  for (Function &f : m.functions()) {
+    // Skip compiler provided functions
+    if (f.isIntrinsic()) {
+      LLVM_DEBUG(dbgs() << "Skipping intrinsic function " << f.getName() << "\n";);
+      continue;
+    }
+
+    // Skip empty functions
+    if (f.empty()) {
+      LLVM_DEBUG(dbgs() << "Skipping empty function " << f.getName() << "\n";);
+      continue;
+    }
+
+    optimizer.handleCallFromRoot(&f);
+  }
+
+  assert(optimizer.finish() && "Optimizer did not found a solution!");
+
+
+  for (Value *v : vals) {
+    if (!valset.count(v)) {
+      LLVM_DEBUG(dbgs() << "Not in the conversion queue! Skipping!\n";);
+      continue;
+    }
+    LLVM_DEBUG(dbgs() << "Assigning to ";);
+    LLVM_DEBUG(v->print(dbgs()););
+
+
+    std::shared_ptr<ValueInfo> viu = valueInfo(v);
+
+    // Read from the model, search for the data type associated with that value and convert it!
+    auto fp = optimizer.getAssociatedMetadata(v);
+    if (!fp) {
+      LLVM_DEBUG(dbgs() << "Invalid datatype returned!\n";);
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << " datatype " << fp->toString(););
+
+    LLVM_DEBUG(dbgs() << "\n";);
+
+
+    bool result = mergeDataTypes(viu->metadata, fp);
+    if (result) {
+      // Some datatype has changed, restore in function call
+      LLVM_DEBUG(dbgs() << "Restoring call type...\n";);
+      restoreTypesAcrossFunctionCall(v);
+    }
+
+    /*auto *iiv = dyn_cast<InputInfo>(viu->metadata.get());
+
+    iiv->IType.reset(fp->clone());*/
+  }
+
+  optimizer.printStatInfos();
+}
+
+bool TaffoTuner::mergeDataTypes(shared_ptr<mdutils::MDInfo> old, shared_ptr<mdutils::MDInfo> model)
+{
+  if (!old || !model)
+    return false;
+
+  if (old->getKind() == mdutils::MDInfo::K_Field) {
+    assert(model->getKind() == mdutils::MDInfo::K_Field && "Mismatching metadata infos!!!");
+
+    auto old1 = dynamic_ptr_cast_or_null<InputInfo>(old);
+    auto model1 = dynamic_ptr_cast_or_null<InputInfo>(model);
+
+
+    if (!old1->IType)
+      return false;
+    LLVM_DEBUG(dbgs() << "model1: " << model1->IType->toString() << "\n";);
+    LLVM_DEBUG(dbgs() << "old1: " << old1->IType->toString() << "\n\n";);
+    if (old1->IType->operator==(*model1->IType)) {
+      return false;
+    }
+
+    old1->IType.reset(model1->IType->clone());
+    return true;
+  } else if (old->getKind() == mdutils::MDInfo::K_Struct) {
+    auto old1 = dynamic_ptr_cast_or_null<StructInfo>(old);
+    auto model1 = dynamic_ptr_cast_or_null<StructInfo>(model);
+
+    bool changed = false;
+    for (unsigned int i = 0; i < old1->size(); i++) {
+      changed |= mergeDataTypes(old1->getField(i), model1->getField(i));
+    }
+    return changed;
+  }
+
+  llvm_unreachable("unknown data type");
+}
+#endif // TAFFO_BUILD_ILP_DTA

@@ -1,0 +1,14 @@
+./datamining/covariance/covariance.c
+./linear-algebra/kernels/2mm/2mm.c
+./linear-algebra/kernels/3mm/3mm.c
+./linear-algebra/kernels/doitgen/doitgen.c
+./linear-algebra/kernels/gemm/gemm.c
+./linear-algebra/kernels/symm/symm.c
+./linear-algebra/kernels/syr2k/syr2k.c
+./linear-algebra/kernels/syrk/syrk.c
+./medley/floyd-warshall/floyd-warshall.c
+./medley/reg_detect/reg_detect.c
+./stencils/fdtd-2d/fdtd-2d.c
+./stencils/jacobi-1d-imper/jacobi-1d-imper.c
+./stencils/jacobi-2d-imper/jacobi-2d-imper.c
+./stencils/seidel-2d/seidel-2d.c

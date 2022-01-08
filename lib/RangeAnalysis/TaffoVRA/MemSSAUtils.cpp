@@ -1,11 +1,14 @@
 #include "MemSSAUtils.hpp"
+#include "llvm/IR/Instructions.h"
 
-namespace taffo {
+namespace taffo
+{
 
 using namespace llvm;
 
-SmallVectorImpl<Value*>&
-MemSSAUtils::getDefiningValues(Instruction *i) {
+SmallVectorImpl<Value *> &
+MemSSAUtils::getDefiningValues(Instruction *i)
+{
   Visited.clear();
   Res.clear();
 
@@ -14,12 +17,14 @@ MemSSAUtils::getDefiningValues(Instruction *i) {
   return Res;
 }
 
-void MemSSAUtils::findLOEValue(Instruction *i) {
+void MemSSAUtils::findLOEValue(Instruction *i)
+{
   Value *pointer = (cast<LoadInst>(i))->getPointerOperand();
   Res.push_back(getOriginPointer(MemSSA, pointer));
 }
 
-void MemSSAUtils::findMemDefValue(Instruction *i, const MemoryDef *md) {
+void MemSSAUtils::findMemDefValue(Instruction *i, const MemoryDef *md)
+{
   assert(md != nullptr && "md is null.");
 
   Instruction *mi = md->getMemoryInst();
@@ -31,7 +36,8 @@ void MemSSAUtils::findMemDefValue(Instruction *i, const MemoryDef *md) {
 }
 
 void MemSSAUtils::
-findMemPhiValue(Instruction *i, MemoryPhi *mphi) {
+    findMemPhiValue(Instruction *i, MemoryPhi *mphi)
+{
   assert(mphi != nullptr && "mphi is null.");
 
   for (Use &mu : mphi->incoming_values()) {
@@ -41,7 +47,8 @@ findMemPhiValue(Instruction *i, MemoryPhi *mphi) {
 }
 
 void MemSSAUtils::
-findClobberingValues(Instruction *i, MemoryAccess *ma) {
+    findClobberingValues(Instruction *i, MemoryAccess *ma)
+{
   if (ma == nullptr) {
     return;
   }
@@ -55,8 +62,7 @@ findClobberingValues(Instruction *i, MemoryAccess *ma) {
     MemorySSAWalker *MSSAWalker = MemSSA.getWalker();
     assert(MSSAWalker != nullptr && "Null MemorySSAWalker.");
     findClobberingValues(i, MSSAWalker->getClobberingMemoryAccess(ma));
-  }
-  else if (isa<MemoryDef>(ma))
+  } else if (isa<MemoryDef>(ma))
     findMemDefValue(i, cast<MemoryDef>(ma));
   else {
     assert(isa<MemoryPhi>(ma));
@@ -64,29 +70,24 @@ findClobberingValues(Instruction *i, MemoryAccess *ma) {
   }
 }
 
-Value *MemSSAUtils::getOriginPointer(MemorySSA &MemSSA, Value *Pointer) {
+Value *MemSSAUtils::getOriginPointer(MemorySSA &MemSSA, Value *Pointer)
+{
   assert(Pointer != nullptr);
 
-  if (isa<Argument>(Pointer)
-      || isa<AllocaInst>(Pointer)
-      || isa<GlobalVariable>(Pointer)) {
+  if (isa<Argument>(Pointer) || isa<AllocaInst>(Pointer) || isa<GlobalVariable>(Pointer)) {
     return Pointer;
-  }
-  else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(Pointer)) {
+  } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(Pointer)) {
     return getOriginPointer(MemSSA, GEPI->getPointerOperand());
-  }
-  else if (BitCastInst *BCI = dyn_cast<BitCastInst>(Pointer)) {
+  } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(Pointer)) {
     return getOriginPointer(MemSSA, BCI->getOperand(0U));
-  }
-  else if (LoadInst *LI = dyn_cast<LoadInst>(Pointer)) {
+  } else if (LoadInst *LI = dyn_cast<LoadInst>(Pointer)) {
     MemorySSAWalker *MSSAWalker = MemSSA.getWalker();
     assert(MSSAWalker != nullptr && "Null MemorySSAWalker.");
     if (MemoryDef *MD = dyn_cast<MemoryDef>(MSSAWalker->getClobberingMemoryAccess(LI))) {
       if (MemSSA.isLiveOnEntryDef(MD)) {
-	return getOriginPointer(MemSSA, LI->getPointerOperand());
-      }
-      else if (StoreInst *SI = dyn_cast<StoreInst>(MD->getMemoryInst())) {
-	return getOriginPointer(MemSSA, SI->getValueOperand());
+        return getOriginPointer(MemSSA, LI->getPointerOperand());
+      } else if (StoreInst *SI = dyn_cast<StoreInst>(MD->getMemoryInst())) {
+        return getOriginPointer(MemSSA, SI->getValueOperand());
       }
     }
     // TODO: Handle MemoryPHI

@@ -2,13 +2,15 @@
 
 #include "MemSSAUtils.h"
 
-namespace ErrorProp {
+namespace ErrorProp
+{
 
 using namespace llvm;
 using namespace mdutils;
 
 const RangeErrorMap::RangeError *
-InstructionPropagator::getConstantFPRangeError(ConstantFP *VFP) {
+InstructionPropagator::getConstantFPRangeError(ConstantFP *VFP)
+{
   double CVal;
   if (VFP->getType()->isDoubleTy())
     CVal = VFP->getValueAPF().convertToDouble();
@@ -27,9 +29,10 @@ InstructionPropagator::getConstantFPRangeError(ConstantFP *VFP) {
 
 const RangeErrorMap::RangeError *
 InstructionPropagator::getConstantRangeError(Instruction &I, ConstantInt *VInt,
-					     bool DoublePP,
-					     const FPType *FallbackTy) {
-  const RangeErrorMap::RangeError* RE = RMap.getRangeError(VInt);
+                                             bool DoublePP,
+                                             const FPType *FallbackTy)
+{
+  const RangeErrorMap::RangeError *RE = RMap.getRangeError(VInt);
   if (RE != nullptr)
     return RE;
 
@@ -47,28 +50,30 @@ InstructionPropagator::getConstantRangeError(Instruction &I, ConstantInt *VInt,
   AffineForm<inter_t> Error;
   if (Ty != nullptr) {
     unsigned PointPos = Ty->getPointPos();
-    if (DoublePP) PointPos *= 2U;
+    if (DoublePP)
+      PointPos *= 2U;
     int SPointPos = (Ty->isSigned()) ? -PointPos : PointPos;
     std::unique_ptr<FixedPointValue> VFPRange =
-      FixedPointValue::createFromConstantInt(SPointPos, nullptr, VInt, VInt);
+        FixedPointValue::createFromConstantInt(SPointPos, nullptr, VInt, VInt);
     VRange = VFPRange->getInterval();
     // We use the rounding error of this format as the only error.
     Error = (RMap.isExactConst())
-      ? AffineForm<inter_t>(0) : AffineForm<inter_t>(0, Ty->getRoundingError());
-  }
-  else {
+                ? AffineForm<inter_t>(0)
+                : AffineForm<inter_t>(0, Ty->getRoundingError());
+  } else {
     VRange.Min = VRange.Max = VInt->getSExtValue();
     LLVM_DEBUG(dbgs() << "(WARNING: interpreting ConstantInt " << *VInt
-	  << " as integer.)");
+                      << " as integer.)");
   }
 
   RMap.setRangeError(VInt, std::make_pair(VRange, Error));
   return RMap.getRangeError(VInt);
 }
 
-const RangeErrorMap::RangeError*
+const RangeErrorMap::RangeError *
 InstructionPropagator::getOperandRangeError(Instruction &I, Value *V,
-					    bool DoublePP, const FPType *FallbackTy) {
+                                            bool DoublePP, const FPType *FallbackTy)
+{
   assert(V != nullptr);
 
   // If V is a Constant Int extract its value.
@@ -84,10 +89,11 @@ InstructionPropagator::getOperandRangeError(Instruction &I, Value *V,
   return RMap.getRangeError(V);
 }
 
-const RangeErrorMap::RangeError*
+const RangeErrorMap::RangeError *
 InstructionPropagator::getOperandRangeError(Instruction &I, unsigned Op,
-					    bool DoublePP,
-					    const FPType *FallbackTy) {
+                                            bool DoublePP,
+                                            const FPType *FallbackTy)
+{
   Value *V = I.getOperand(Op);
   if (V == nullptr)
     return nullptr;
@@ -96,23 +102,24 @@ InstructionPropagator::getOperandRangeError(Instruction &I, unsigned Op,
 }
 
 void InstructionPropagator::
-updateArgumentRE(Value *Pointer,
-		 const RangeErrorMap::RangeError *NewRE) {
+    updateArgumentRE(Value *Pointer,
+                     const RangeErrorMap::RangeError *NewRE)
+{
   assert(Pointer != nullptr);
   assert(NewRE != nullptr);
 
   Pointer = MemSSAUtils::getOriginPointer(MemSSA, Pointer);
   if (Pointer != nullptr) {
     auto *PointerRE = RMap.getRangeError(Pointer);
-    if (PointerRE == nullptr || !PointerRE->second.hasValue()
-	|| PointerRE->second->noiseTermsAbsSum() < NewRE->second->noiseTermsAbsSum()) {
+    if (PointerRE == nullptr || !PointerRE->second.hasValue() || PointerRE->second->noiseTermsAbsSum() < NewRE->second->noiseTermsAbsSum()) {
       RMap.setRangeError(Pointer, *NewRE);
-      LLVM_DEBUG(dbgs() << "(Error of pointer ("<< *Pointer << ") updated.) ");
+      LLVM_DEBUG(dbgs() << "(Error of pointer (" << *Pointer << ") updated.) ");
     }
   }
 }
 
-bool InstructionPropagator::unOpErrorPassThrough(Instruction &I) {
+bool InstructionPropagator::unOpErrorPassThrough(Instruction &I)
+{
   // assert(isa<UnaryInstruction>(I) && "Must be Unary.");
 
   auto *OpRE = getOperandRangeError(I, 0U);
@@ -125,8 +132,7 @@ bool InstructionPropagator::unOpErrorPassThrough(Instruction &I) {
   if (DestRE == nullptr || DestRE->first.isUninitialized()) {
     // Add operand range and error to RMap.
     RMap.setRangeError(&I, *OpRE);
-  }
-  else {
+  } else {
     // Add only error to RMap.
     RMap.setError(&I, *OpRE->second);
   }
@@ -137,7 +143,8 @@ bool InstructionPropagator::unOpErrorPassThrough(Instruction &I) {
 }
 
 inter_t InstructionPropagator::computeMinRangeDiff(const FPInterval &R1,
-						   const FPInterval &R2) {
+                                                   const FPInterval &R2)
+{
   // Check if the two ranges overlap.
   if (R1.Min <= R2.Max && R2.Min <= R1.Max) {
     return 0.0;
@@ -154,38 +161,44 @@ inter_t InstructionPropagator::computeMinRangeDiff(const FPInterval &R1,
   return R1.Min - R2.Max;
 }
 
-void InstructionPropagator::logInstruction(const llvm::Value &I) {
+void InstructionPropagator::logInstruction(const llvm::Value &I)
+{
   dbgs() << "[taffo-err] " << I << ": ";
 }
 
-void InstructionPropagator::logInfo(const llvm::StringRef Msg) {
+void InstructionPropagator::logInfo(const llvm::StringRef Msg)
+{
   dbgs() << Msg << " ";
 }
 
-void InstructionPropagator::logInfoln(const llvm::StringRef Msg) {
+void InstructionPropagator::logInfoln(const llvm::StringRef Msg)
+{
   dbgs() << Msg << "\n";
 }
 
-void InstructionPropagator::logError(const AffineForm<inter_t> &Err) {
+void InstructionPropagator::logError(const AffineForm<inter_t> &Err)
+{
   dbgs() << static_cast<double>(Err.noiseTermsAbsSum());
 }
 
-void InstructionPropagator::logError(const RangeErrorMap::RangeError &RE) {
+void InstructionPropagator::logError(const RangeErrorMap::RangeError &RE)
+{
   if (RE.second.hasValue())
     logError(RE.second.getValue());
   else
     dbgs() << "null";
 }
 
-void InstructionPropagator::logErrorln(const AffineForm<inter_t> &Err) {
+void InstructionPropagator::logErrorln(const AffineForm<inter_t> &Err)
+{
   logError(Err);
   dbgs() << "\n";
 }
 
-void InstructionPropagator::logErrorln(const RangeErrorMap::RangeError &RE) {
+void InstructionPropagator::logErrorln(const RangeErrorMap::RangeError &RE)
+{
   logError(RE);
   dbgs() << "\n";
-
 }
 
 } // end of namespace ErrorProp
