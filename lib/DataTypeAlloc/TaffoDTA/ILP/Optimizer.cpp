@@ -408,7 +408,14 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
     handleBinaryInstruction(instruction, opCode, valueInfo);
 
   } else if (Instruction::isUnaryOp(opCode)) {
-    llvm_unreachable("Not handled.");
+
+    switch (opCode) {
+    case llvm::Instruction::FNeg:
+      metric->handleFNeg(dyn_cast<UnaryOperator>(instruction), opCode, valueInfo);
+      break;
+    default:
+      llvm_unreachable("Not handled.");
+    }
 
   } else {
     switch (opCode) {

@@ -362,6 +362,41 @@ void MetricBase::openMemLoop(LoadInst *load, Value *value)
 
 
 shared_ptr<OptimizerScalarInfo>
+MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEquality, shared_ptr<ValueInfo> valueInfos)
+{
+  auto info1 = getInfoOfValue(op1);
+
+  if (!info1) {
+    LLVM_DEBUG(dbgs() << "Value does not have info, ignoring...\n";);
+    return nullptr;
+  }
+
+  auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfos->metadata);
+  if (!inputInfo) {
+    LLVM_DEBUG(dbgs() << "No info on destination, bailing out, bug in VRA?\n";);
+    return nullptr;
+  }
+
+  auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
+  if (!fptype) {
+    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+    return nullptr;
+  }
+
+  shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
+
+  // Obviously the type should be sufficient to contain the result
+  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
+                                                                       inputInfo->IError,
+                                                                       instr->getFunction()->getName().str());
+
+  opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
+
+  return result;
+}
+
+
+shared_ptr<OptimizerScalarInfo>
 MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
                               shared_ptr<ValueInfo> valueInfos)
 {

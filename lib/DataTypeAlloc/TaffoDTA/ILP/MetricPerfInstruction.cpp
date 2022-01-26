@@ -144,6 +144,74 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
 }
 
 
+void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+{
+  assert(instr->getOpcode() == llvm::Instruction::FNeg && "Operand mismatch!");
+
+  auto &cpuCosts = getCpuCosts();
+  auto &model = getModel();
+
+  auto op1 = instr->getOperand(0);
+
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
+
+  /* adds type cast constraints for operands and returns the variable set of this instruction */
+  auto res = handleUnaryOpCommon(instr, op1, true, valueInfos);
+  if (!res)
+    return;
+
+  handleDisabled(res, cpuCosts, "SUB");
+
+  double maxCost = getCpuCosts().MaxMinCosts("SUB").first;
+  model.insertObjectiveElement(
+      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FIX)),
+      MODEL_OBJ_MATHCOST, maxCost);
+  model.insertObjectiveElement(
+      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
+      MODEL_OBJ_MATHCOST, 0);
+  model.insertObjectiveElement(
+      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+      MODEL_OBJ_MATHCOST, 0);
+  if (hasHalf) {
+    model.insertObjectiveElement(
+        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+  if (hasQuad) {
+    model.insertObjectiveElement(
+        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+
+  if (hasPPC128) {
+    model.insertObjectiveElement(
+        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+
+  if (hasFP80) {
+    model.insertObjectiveElement(
+        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FP80)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+
+  if (hasBF16) {
+    model.insertObjectiveElement(
+        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_BF16)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+  // Precision cost
+  // Handloed in allocating variable
+
+  auto constraint = vector<pair<string, double>>();
+  // Enob constraints
+  constraint.clear();
+  constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
+  constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub first addend"*/);
+}
+
+
 void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
 {
   assert(instr->getOpcode() == llvm::Instruction::FSub && "Operand mismatch!");

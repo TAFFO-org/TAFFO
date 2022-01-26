@@ -164,6 +164,7 @@ public:
 
   void
   handleBinaryInstruction(Instruction *instr, const unsigned int OpCode, const shared_ptr<ValueInfo> &valueInfos);
+  void handleUnaryInstruction(Instruction *instr, const shared_ptr<ValueInfo> &valueInfos);
 
 
   void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1, shared_ptr<OptimizerScalarInfo> op2,

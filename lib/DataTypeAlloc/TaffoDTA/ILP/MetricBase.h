@@ -54,6 +54,10 @@ public:
   handleBinOpCommon(llvm::Instruction *instr, llvm::Value *op1,
                     llvm::Value *op2, bool forceFixEquality,
                     shared_ptr<tuner::ValueInfo> valueInfos);
+
+  shared_ptr<tuner::OptimizerScalarInfo>
+  handleUnaryOpCommon(llvm::Instruction *instr, llvm::Value *op1, bool forceFixEquality, shared_ptr<tuner::ValueInfo> valueInfos);
+
   MetricKind getKind() const noexcept { return Kind; }
   shared_ptr<tuner::OptimizerStructInfo>
   loadStructInfo(llvm::Value *glob, shared_ptr<mdutils::StructInfo> pInfo,
@@ -68,6 +72,8 @@ public:
   virtual void handleFDiv(llvm::BinaryOperator *instr, const unsigned OpCode,
                           const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual void handleFRem(llvm::BinaryOperator *instr, const unsigned OpCode,
+                          const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
+  virtual void handleFNeg(llvm::UnaryOperator *instr, const unsigned OpCode,
                           const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
   virtual shared_ptr<tuner::OptimizerScalarInfo> allocateNewVariableForValue(
       llvm::Value *value, shared_ptr<mdutils::FPType> fpInfo,
@@ -156,6 +162,8 @@ public:
                       const tuner::CPUCosts &cpuCosts,
                       const char *start) override;
   void handleFAdd(llvm::BinaryOperator *instr, const unsigned OpCode,
+                  const shared_ptr<tuner::ValueInfo> &valueInfos) override;
+  void handleFNeg(llvm::UnaryOperator *instr, const unsigned OpCode,
                   const shared_ptr<tuner::ValueInfo> &valueInfos) override;
   void handleFSub(llvm::BinaryOperator *instr, const unsigned OpCode,
                   const shared_ptr<tuner::ValueInfo> &valueInfos) override;
