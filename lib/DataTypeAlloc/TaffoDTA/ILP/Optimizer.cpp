@@ -305,6 +305,17 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
         LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!\n";);
         DisabledSkipped++;
         continue;
+      } else {
+        /* The VRA may leave null ranges even when conversion is enabled
+         * for code that is unreachable from the starting point, so we check
+         * the range and if it is null we skip this instruction */
+        std::shared_ptr<ValueInfo> VI = tuner->valueInfo(&(*iIt));
+        std::shared_ptr<mdutils::MDInfo> MDI = VI->metadata;
+        mdutils::InputInfo *II = dyn_cast<mdutils::InputInfo>(MDI.get());
+        if (II && II->IRange == nullptr) {
+          LLVM_DEBUG(dbgs() << "Skipping because there is no range!\n";);
+          continue;
+        }
       }
     }
 
