@@ -132,13 +132,10 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp
   // The first operand is the beautiful object
   Value *operand = cexp_i->getOperand(0U);
 
-
-  Type *source_element_type =
-      cast<PointerType>(operand->getType()->getScalarType())->getElementType();
   std::vector<unsigned> offset;
 
   // We compute all the offsets that will be used in our "data structure" to navigate it, to reach the correct range
-  if (extractGEPOffset(source_element_type,
+  if (extractGEPOffset(operand->getType(),
                        iterator_range<User::const_op_iterator>(cexp_i->op_begin() + 1,
                                                                cexp_i->op_end()),
                        offset)) {
@@ -228,13 +225,15 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
   LLVM_DEBUG(operand->print(dbgs()););
   LLVM_DEBUG(dbgs() << "\n";);
 
+  LLVM_DEBUG(dbgs() << "type = " << *gep_i->getType() << "\n");
+
   std::vector<unsigned> offset;
 
-  if (extractGEPOffset(gep_i->getSourceElementType(),
+  if (extractGEPOffset(gep_i->getPointerOperandType(),
                        iterator_range<User::const_op_iterator>(gep_i->idx_begin(),
                                                                gep_i->idx_end()),
                        offset)) {
-    LLVM_DEBUG(dbgs() << "Exctracted offset: [";);
+    LLVM_DEBUG(dbgs() << "Extracted offset: [";);
     for (unsigned int i = 0; i < offset.size(); i++) {
       LLVM_DEBUG(dbgs() << offset[i] << ", ";);
     }
@@ -246,13 +245,11 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
       return;
     }
 
-
     auto optInfo = optInfo_t->getOptInfo();
     if (!optInfo) {
       LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
       return;
     }
-
 
     // This will only contain displacements for struct fields...
     for (unsigned int i = 0; i < offset.size(); i++) {
@@ -278,35 +275,33 @@ bool MetricBase::extractGEPOffset(const llvm::Type *source_element_type,
                                   std::vector<unsigned> &offset)
 {
   assert(source_element_type != nullptr);
-  LLVM_DEBUG((dbgs() << "indices: "););
-  for (auto idx_it = indices.begin() + 1; // skip first index
-       idx_it != indices.end(); ++idx_it) {
+  LLVM_DEBUG((dbgs() << "extractGEPOffset() BEGIN\n"););
 
+  for (auto idx_it = indices.begin(); idx_it != indices.end(); ++idx_it) {
+    if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type) || isa<llvm::PointerType>(source_element_type)) {
+      // This is needed to skip the array element in array of structures
+      // In facts, we treats arrays as "scalar" things, so we just do not want to deal with them
+      source_element_type = source_element_type->getContainedType(0);
+      LLVM_DEBUG(dbgs() << "skipping array/vector/pointer...\n");
+      continue;
+    }
+  
     const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
     if (int_i) {
       int n = static_cast<int>(int_i->getSExtValue());
-      if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type)) {
-        // This is needed to skip the array element in array of structures
-        // In facts, we treats arrays as "scalar" things, so we just do not want to deal with them
-        source_element_type = source_element_type->getContainedType(n);
-        LLVM_DEBUG(dbgs() << "continuing...   ";);
-        continue;
-      }
 
-
+      source_element_type = source_element_type->getContainedType(n);
       offset.push_back(n);
       /*source_element_type =
               cast<StructType>(source_element_type)->getTypeAtIndex(n);*/
-      LLVM_DEBUG((dbgs() << n << " "););
+      LLVM_DEBUG(dbgs() << "contained type " << n << ": " << *source_element_type << " (ID=" << source_element_type->getTypeID() << ")\n");
     } else {
       // We can skip only if is a sequential i.e. we are accessing an index of an array
-      if (!isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type)) {
-        emitError("Index of GEP not constant");
-        return false;
-      }
+      emitError("Index of GEP not constant");
+      return false;
     }
   }
-  LLVM_DEBUG((dbgs() << "--end indices\n"););
+  LLVM_DEBUG((dbgs() << "extractGEPOffset() END\n"););
   return true;
 }
 
