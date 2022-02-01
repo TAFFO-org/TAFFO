@@ -745,6 +745,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     }
     LLVM_DEBUG(dbgs() << "Assigning to ";);
     LLVM_DEBUG(v->print(dbgs()););
+    LLVM_DEBUG(dbgs() << "\n");
 
 
     std::shared_ptr<ValueInfo> viu = valueInfo(v);
@@ -760,14 +761,16 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
 
     LLVM_DEBUG(dbgs() << "\n";);
 
-
+    #if 0
     bool result = mergeDataTypes(viu->metadata, fp);
     if (result) {
       // Some datatype has changed, restore in function call
-      LLVM_DEBUG(dbgs() << "Restoring call type...\n";);
+      LLVM_DEBUG(dbgs() << "Restoring call type because of mergeDataTypes()...\n";);
       restoreTypesAcrossFunctionCall(v);
     }
+    #endif
 
+    LLVM_DEBUG(dbgs() << "done with [" << *v << '] !\n');
     /*auto *iiv = dyn_cast<InputInfo>(viu->metadata.get());
 
     iiv->IType.reset(fp->clone());*/
