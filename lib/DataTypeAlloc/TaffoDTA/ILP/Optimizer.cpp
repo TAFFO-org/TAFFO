@@ -621,7 +621,7 @@ bool Optimizer::valueHasInfo(Value *value)
 shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
 {
   auto res = getInfoOfValue(pValue);
-  if (!res) {
+  if (res == nullptr) {
     return nullptr;
   }
 
@@ -637,6 +637,11 @@ shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
 
 shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> info)
 {
+  if (!info) {
+    LLVM_DEBUG(dbgs() << "OptimizerInfo null, returning null\n");
+    return nullptr;
+  }
+
   if (info->getKind() == OptimizerInfo::K_Field) {
     auto i = modelvarToTType(dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info));
     auto result = make_shared<InputInfo>();
@@ -656,12 +661,8 @@ shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerIn
     return buildDataHierarchy(apr->getOptInfo());
   }
 
-  if (!info) {
-    LLVM_DEBUG(dbgs() << "OptimizerInfo null!\n");
-  } else {
-    LLVM_DEBUG(dbgs() << "Unknown OptimizerInfo: " << info->toString() << "\n");
-  }
-  llvm_unreachable("Unnknown data type");
+  LLVM_DEBUG(dbgs() << "Unknown OptimizerInfo: " << info->toString() << "\n");
+  llvm_unreachable("Unknown data type");
 }
 
 shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalarInfo> scalarInfo)

@@ -196,7 +196,7 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {
     if (auto structInfo = dynamic_ptr_cast_or_null<StructInfo>(*it)) {
       optInfo->setField(i, loadStructInfo(glob, structInfo, (name + "_" + to_string(i))));
-    } else if (auto ii = dyn_cast<InputInfo>(it->get())) {
+    } else if (auto ii = dyn_cast_or_null<InputInfo>(it->get())) {
       auto fptype = dynamic_ptr_cast_or_null<FPType>(ii->IType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
@@ -207,6 +207,7 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
         optInfo->setField(i, info);
       }
     } else {
+      LLVM_DEBUG(dbgs() << "no info for struct member " << i << " of " << *glob);
     }
     i++;
   }
