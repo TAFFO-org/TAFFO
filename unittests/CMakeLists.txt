@@ -66,10 +66,9 @@ function(add_taffo_unittest test_dirname)
   target_link_libraries(${test_dirname} PRIVATE TaffoUtils)
 endfunction()
 
-add_taffo_unittest(TAFFOUnitTests
-        SanityCheckTest.cpp
-        #RangeOperationsTest.cpp
-        #MultiValueMapTest.cpp
-        )
+add_subdirectory(TaffoUtils)
+
+taffo_add_unittest(SanityTest SanityTest
+        SanityCheckTest.cpp)
 
 
