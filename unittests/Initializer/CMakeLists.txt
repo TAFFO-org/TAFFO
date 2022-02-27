@@ -1,0 +1,8 @@
+set(SELF InitializerTests)
+
+taffo_add_unittest(${SELF} ${SELF}
+    TaffoInitializer/AnnotationParserTest.cpp
+    )
+
+include_directories(${CMAKE_SOURCE_DIR}/lib/Initializer)
+target_link_libraries(${SELF} PRIVATE TaffoUtils obj.TaffoInitializer)

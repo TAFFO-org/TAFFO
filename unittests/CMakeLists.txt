@@ -67,6 +67,7 @@ function(add_taffo_unittest test_dirname)
 endfunction()
 
 add_subdirectory(TaffoUtils)
+add_subdirectory(Initializer)
 
 taffo_add_unittest(SanityTest SanityTest
         SanityCheckTest.cpp)
