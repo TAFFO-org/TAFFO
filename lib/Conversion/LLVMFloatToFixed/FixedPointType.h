@@ -52,9 +52,33 @@ private:
     };
 
     std::string toString() const;
+
+    Primitive() : isSigned(false), fracBitsAmt(0), bitsAmt(0), floatStandard(Float_half)
+    {
+    }
+
+
+    Primitive(bool isSigned, int fracBitsAmt, int bitsAmt, FloatStandard floatStandard) : isSigned(isSigned), fracBitsAmt(fracBitsAmt), bitsAmt(bitsAmt), floatStandard(floatStandard)
+    {
+    }
+
+
+    Primitive(const Primitive &rhs) : isSigned(rhs.isSigned), fracBitsAmt(rhs.fracBitsAmt), bitsAmt(rhs.bitsAmt), floatStandard(rhs.floatStandard)
+    {
+    }
+
+    Primitive &operator=(const Primitive &rhs)
+    {
+      this->isSigned = rhs.isSigned;
+      this->fracBitsAmt = rhs.fracBitsAmt;
+      this->bitsAmt = rhs.bitsAmt;
+      this->floatStandard = rhs.floatStandard;
+      return *this;
+    }
   };
 
-  std::shared_ptr<llvm::SmallVector<FixedPointType, 2>> structData;
+
+  std::shared_ptr<llvm::SmallVector<FixedPointType, 4>> structData;
   Primitive scalarData;
 
 public:
@@ -78,6 +102,22 @@ public:
   FixedPointType(llvm::Type *llvmtype, bool signd = true);
 
   FixedPointType(mdutils::TType *mdtype);
+
+
+  //copy constructor
+  FixedPointType(const FixedPointType &elems) : structData(elems.structData),
+                                                scalarData(elems.scalarData)
+  {
+  }
+
+  //move constructor
+  FixedPointType(FixedPointType &&elems) = default;
+
+  //copy assignment
+  FixedPointType &operator=(const FixedPointType &elems) = default;
+
+  FixedPointType &operator=(FixedPointType &&elems) = default;
+
 
   static FixedPointType get(mdutils::MDInfo *mdnfo, int *enableConversion = nullptr);
 

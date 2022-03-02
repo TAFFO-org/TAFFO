@@ -159,7 +159,6 @@ bool FloatToFixed::runOnModule(Module &m)
 
   sortQueue(vals);
   propagateCall(vals, global);
-  m.dump();
   LLVM_DEBUG(printConversionQueue(vals));
   ConversionCount = vals.size();
 

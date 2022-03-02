@@ -19,17 +19,13 @@ using namespace mdutils;
 using namespace taffo;
 
 
-FixedPointType::FixedPointType()
+FixedPointType::FixedPointType() : structData(nullptr), scalarData({false, 0, 0, FloatStandard::Float_NotFloat})
 {
-  structData = nullptr;
-  scalarData = {false, 0, 0, FloatStandard::Float_NotFloat};
 }
 
 
-FixedPointType::FixedPointType(bool s, int f, int b)
+FixedPointType::FixedPointType(bool s, int f, int b) : structData(nullptr), scalarData({s, f, b, FloatStandard::Float_NotFloat})
 {
-  structData = nullptr;
-  scalarData = {s, f, b, FloatStandard::Float_NotFloat};
 }
 
 
@@ -75,7 +71,7 @@ FixedPointType::FixedPointType(Type *llvmtype, bool signd)
 
 FixedPointType::FixedPointType(const ArrayRef<FixedPointType> &elems)
 {
-  structData.reset(new SmallVector<FixedPointType, 2>(elems.begin(), elems.end()));
+  structData.reset(new SmallVector<FixedPointType, 4>(elems.begin(), elems.end()));
 }
 
 

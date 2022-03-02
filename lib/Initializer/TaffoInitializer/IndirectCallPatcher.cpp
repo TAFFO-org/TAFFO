@@ -1,5 +1,5 @@
-#include "CallSiteVersions.h"
 #include "IndirectCallPatcher.h"
+#include "CallSiteVersions.h"
 #include "Metadata.h"
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
@@ -13,6 +13,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <unordered_set>
@@ -32,7 +33,13 @@ bool containsUnsupportedFunctions(
        instructionIt != inst_end(function); instructionIt++) {
     if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
       llvm::Function *curCallFunction = curCallInstruction->getCalledFunction();
+      if (curCallFunction == nullptr) {
+        LLVM_DEBUG(llvm::dbgs() << "Try to retrive name of " << curCallInstruction << " not found \n");
+        return true;
+      }
+
       auto functionName = curCallFunction->getName();
+
 
       if (any_of(prefixBlocklist, [&](const std::string &prefix) {
             return functionName.startswith(prefix);
@@ -41,7 +48,7 @@ bool containsUnsupportedFunctions(
       } else if (traversedFunctions.find(curCallFunction) ==
                  traversedFunctions.end()) {
         traversedFunctions.insert(curCallFunction);
-        if (containsUnsupportedFunctions(curCallFunction, traversedFunctions)) {
+        if (containsUnsupportedFunctions(curCallFunction, std::move(traversedFunctions))) {
           return true;
         }
       }
@@ -57,6 +64,12 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     CallInst *curCallInstruction, const CallSite *curCall,
                     Function *indirectFunction)
 {
+
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << "###\n");
+  LLVM_DEBUG(llvm::dbgs() << "curCallInstruction " << *curCallInstruction << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "curCall " << *curCall << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "indirectFunction " << *indirectFunction << "\n");
+
 
   auto microTaskOperand =
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
@@ -77,6 +90,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
     MDNode *metadataNode =
         MDNode::get(m.getContext(), ValueAsMetadata::get(constantPointerNull));
 
+
     for (auto *sharedArgument = curCall->arg_begin() + 2;
          sharedArgument < curCall->arg_end(); sharedArgument++)
       if (auto *sharedVarInstr = dyn_cast<Instruction>(*sharedArgument))
@@ -87,18 +101,39 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
 
   auto functionType = indirectFunction->getFunctionType();
 
+
+  auto old_indeirectFunction = indirectFunction;
+  if (auto tmp = dyn_cast<llvm::Function>(curCall->getArgOperand(2)->stripPointerCasts())) {
+    indirectFunction = tmp;
+  }
+
   auto params = functionType->params();
   // Copy the first two params directly from the functionType since they fixed
   // internal OpenMP parameters
   copy_n(params.begin(), 2, back_inserter(paramsFunc));
+  LLVM_DEBUG(llvm::dbgs() << "Copy the first two params type directly from the functionType since they fixed internal OpenMP parameters\n");
+
+
   // Skip the third argument (outlined function) and copy the dynamic arguments'
   // types from the call
   for (unsigned i = 3; i < curCall->getNumArgOperands(); i++)
     paramsFunc.push_back(curCall->getArgOperand(i)->getType());
+  LLVM_DEBUG(llvm::dbgs() << "Copy all the other argument type excepts for the third\n");
+  LLVM_DEBUG(
+      //dump collected argument argument
+      LLVM_DEBUG(llvm::dbgs() << "Dump collected argument type argument\n");
+      for (const auto &iter
+           : paramsFunc) {
+        llvm::dbgs() << "\t" << *iter << "\n";
+      });
+
 
   // Create the new function with the parsed types and signature
   auto trampolineFunctionType =
-      FunctionType::get(functionType->getReturnType(), paramsFunc, false);
+      FunctionType::get(functionType->getReturnType(), paramsFunc, indirectFunction->isVarArg());
+  LLVM_DEBUG(llvm::dbgs() << "Trampoline function type \n\t" << *trampolineFunctionType << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "indirectFunction function type \n\t" << *indirectFunction->getFunctionType() << "\n");
+
   auto trampolineFunctionName = indirectFunction->getName() + "_trampoline";
   Function *trampolineFunction =
       Function::Create(trampolineFunctionType, indirectFunction->getLinkage(),
@@ -122,7 +157,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
 
   // Keep ref to the indirect function, preventing globaldce pass to destroy it
   auto magicBitCast =
-      new BitCastInst(indirectFunction, indirectFunction->getType(), "", block);
+      new BitCastInst(old_indeirectFunction, old_indeirectFunction->getType(), "", block);
   ReturnInst::Create(m.getContext(), nullptr, block);
 
   // Create the arguments of the direct function, extracted from the indirect
@@ -130,17 +165,29 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   // Create null pointer to patch the internal OpenMP argument
   Value *nullPointer = ConstantPointerNull::get(
       PointerType::get(Type::getInt32Ty(trampolineFunction->getContext()), 0));
+  LLVM_DEBUG(llvm::dbgs() << "Trampoline function " << *trampolineFunction << "\n");
+
   outlinedArgumentsInsideTrampoline.push_back(nullPointer);
   outlinedArgumentsInsideTrampoline.push_back(nullPointer);
-  for (auto argIt = trampolineFunction->arg_begin() + 2;
-       argIt < trampolineFunction->arg_end(); argIt++) {
-    outlinedArgumentsInsideTrampoline.push_back(argIt);
+
+  for (size_t argI = 2;
+       argI < trampolineFunction->arg_size(); ++argI) {
+
+    if (trampolineFunction->getArg(argI)->getType() == indirectFunction->getArg(argI)->getType()) {
+      outlinedArgumentsInsideTrampoline.push_back(trampolineFunction->getArg(argI));
+    } else {
+      if (trampolineFunction->getArg(argI)->getType()->getPointerElementType()->isIntegerTy() && indirectFunction->getArg(argI)->getType()->getPointerElementType()->isIntegerTy()) {
+        auto bit = BitCastInst::CreatePointerCast(trampolineFunction->getArg(argI), indirectFunction->getArg(argI)->getType());
+        bit->insertAfter(magicBitCast);
+        outlinedArgumentsInsideTrampoline.push_back(bit);
+      }
+    }
   }
 
   // Create the call to the direct function inside the trampoline
   CallInst *outlinedCall =
-      CallInst::Create(microTaskFunction, outlinedArgumentsInsideTrampoline);
-  outlinedCall->insertAfter(magicBitCast);
+      CallInst::Create(indirectFunction, outlinedArgumentsInsideTrampoline);
+  outlinedCall->insertBefore(&*magicBitCast->getParent()->getTerminator());
 
   // Create the call to the trampoline function after the indirect function
   CallInst *trampolineCallInstruction =
@@ -151,7 +198,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   trampolineCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
 
   MDNode *indirectFunctionRef = MDNode::get(
-      curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
+      curCallInstruction->getContext(), ValueAsMetadata::get(old_indeirectFunction));
   trampolineCallInstruction->setMetadata(INDIRECT_METADATA,
                                          indirectFunctionRef);
 
