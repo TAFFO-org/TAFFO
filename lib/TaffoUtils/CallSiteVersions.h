@@ -5,7 +5,8 @@
 
 #if (LLVM_VERSION_MAJOR >= 12)
 #include "llvm/IR/AbstractCallSite.h"
-namespace llvm {
+namespace llvm
+{
 using CallSite = CallBase;
 }
 #else

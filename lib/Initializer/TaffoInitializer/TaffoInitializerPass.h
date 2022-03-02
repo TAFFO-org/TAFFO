@@ -3,6 +3,7 @@
 
 
 #include "CallSiteVersions.h"
+#include "HandleSpecialFunction.h"
 #include "InputInfo.h"
 #include "MultiValueMap.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -73,8 +74,10 @@ struct TaffoInitializer : public llvm::ModulePass {
 
   bool isSpecialFunction(const llvm::Function *f)
   {
+
     llvm::StringRef fName = f->getName();
-    return fName.startswith("llvm.") || f->getBasicBlockList().empty();
+    auto is_handled = HandledSpecialFunction::is_handled(f);
+    return !is_handled && (fName.startswith("llvm.") || f->getBasicBlockList().empty());
   };
 };
 

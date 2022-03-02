@@ -3,6 +3,7 @@
 
 #include "CallSiteVersions.h"
 #include "FixedPointType.h"
+#include "HandleSpecialFunction.h"
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
@@ -149,7 +150,7 @@ struct FloatToFixed : public llvm::ModulePass {
            tmp == TypeMatchPolicy::HintOverRangeMaxFrac ||
            tmp == TypeMatchPolicy::ForceHint;
   }
-  
+
   /* convert* functions return nullptr if the conversion cannot be
    * recovered, and Unsupported to trigger the fallback behavior */
   llvm::Constant *convertConstant(llvm::Constant *flt, FixedPointType &fixpt,
@@ -200,7 +201,8 @@ struct FloatToFixed : public llvm::ModulePass {
   bool isSpecialFunction(const llvm::Function *f)
   {
     llvm::StringRef fName = f->getName();
-    return fName.startswith("llvm.") || f->getBasicBlockList().size() == 0;
+    auto is_handled = taffo::HandledSpecialFunction::is_handled(f);
+    return !is_handled && (fName.startswith("llvm.") || f->getBasicBlockList().empty());
   };
 
   /** Returns the converted Value matching a non-converted Value.
@@ -317,7 +319,6 @@ struct FloatToFixed : public llvm::ModulePass {
     return translateOrMatchAnyOperand(val, iofixpt, ip,
                                       TypeMatchPolicy::ForceHint);
   };
-  
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
                                   llvm::Instruction *ip = nullptr)
   {
@@ -484,7 +485,6 @@ struct FloatToFixed : public llvm::ModulePass {
   };
 
   bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); };
-  
   bool isConvertedFixedPoint(llvm::Value *val)
   {
     if (!hasInfo(val))
@@ -650,7 +650,6 @@ struct FloatToFixed : public llvm::ModulePass {
   void convertIndirectCalls(llvm::Module &m);
 
   void handleKmpcFork(llvm::CallInst *patchedDirectCall, llvm::Function *indirectFunction);
-
 };
 
 } // namespace flttofix

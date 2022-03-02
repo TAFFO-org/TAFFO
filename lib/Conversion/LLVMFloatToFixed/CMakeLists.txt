@@ -8,10 +8,15 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   ConstantConversion.cpp
   IndirectCallConversion.cpp
   InstructionConversion.cpp
+  CreateSpecialFunction.cpp
+  SinCosHandler.cpp
+  TAFFOMath.cpp
 
   ADDITIONAL_HEADERS
   FixedPointType.h
   LLVMFloatToFixedPass.h
+  CreateSpecialFunction.h
+  TAFFOMath.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils

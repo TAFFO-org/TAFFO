@@ -18,8 +18,11 @@ using namespace flttofix;
 /// original indirect functions.
 void FloatToFixed::convertIndirectCalls(llvm::Module &m)
 {
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " ####\n");
+
   using handler_function = void (FloatToFixed::*)(
-      llvm::CallInst * patchedDirectCall, llvm::Function * indirectFunction);
+      llvm::CallInst *, llvm::Function *);
+
   const std::map<const std::string, handler_function> indirectCallFunctions = {
       {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}};
 
@@ -32,6 +35,7 @@ void FloatToFixed::convertIndirectCalls(llvm::Module &m)
       if (auto curCallInstruction =
               llvm::dyn_cast<llvm::CallInst>(&(*instructionIt))) {
         if (curCallInstruction->getMetadata(INDIRECT_METADATA)) {
+          LLVM_DEBUG(llvm::dbgs() << "Found indirect" << curCallInstruction << "\n");
           trampolineCalls.push_back(curCallInstruction);
         }
       }
@@ -66,7 +70,19 @@ void FloatToFixed::convertIndirectCalls(llvm::Module &m)
 void FloatToFixed::handleKmpcFork(CallInst *patchedDirectCall,
                                   Function *indirectFunction)
 {
-  auto calledFunction = cast<CallInst>(patchedDirectCall)->getCalledFunction();
+
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " ####\n");
+  LLVM_DEBUG(llvm::dbgs() << "Arg 1 " << *patchedDirectCall << " ####\n");
+  LLVM_DEBUG(llvm::dbgs() << "Arg 1 " << *indirectFunction << " ####\n");
+
+
+  auto calledFunction = patchedDirectCall->getCalledFunction();
+  if (calledFunction == nullptr) {
+    LLVM_DEBUG(llvm::dbgs() << "The function   " << *calledFunction << " is never called\n");
+    return;
+  }
+
+
   auto entryBlock = &calledFunction->getEntryBlock();
 
   // Get the fixp call instruction to use it as an argument for the restored

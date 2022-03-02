@@ -503,6 +503,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
       oldF->getFunctionType(), oldF->getLinkage(),
       oldF->getName(), oldF->getParent());
 
+
   ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
   Function::arg_iterator newArgumentI = newF->arg_begin();
   Function::arg_iterator oldArgumentI = oldF->arg_begin();
@@ -512,7 +513,12 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
   }
   SmallVector<ReturnInst *, 100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, true, returns);
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+  if (!newF->isDeclaration()) {
+    newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+  } else {
+    newF->setLinkage(GlobalVariable::LinkageTypes::ExternalWeakLinkage);
+  }
+
   FunctionCloned++;
 
   ConvQueueT roots;
@@ -522,14 +528,18 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
   LLVM_DEBUG(dbgs() << "  callsite instr " << *call << " [" << call->getFunction()->getName() << "]\n");
   for (int i = 0; oldArgumentI != oldF->arg_end(); oldArgumentI++, newArgumentI++, i++) {
     auto user_begin = newArgumentI->user_begin();
-    if (user_begin == newArgumentI->user_end()) {
+    Value *allocaOfArgument = nullptr;
+    if (!HandledSpecialFunction::is_handled(oldF) && user_begin == newArgumentI->user_end()) {
       LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
       continue;
     }
+    if (user_begin != newArgumentI->user_end()) {
+      allocaOfArgument = user_begin->getOperand(0);
+    }
 
     Value *callOperand = call->getOperand(i);
-    Value *allocaOfArgument = user_begin->getOperand(1);
-    if (!isa<AllocaInst>(allocaOfArgument))
+
+    if (allocaOfArgument == nullptr || !isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
 
     if (!vals.count(callOperand)) {

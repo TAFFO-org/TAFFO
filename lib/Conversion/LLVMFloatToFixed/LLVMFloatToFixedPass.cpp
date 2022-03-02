@@ -1,5 +1,6 @@
-#include "CallSiteVersions.h"
 #include "LLVMFloatToFixedPass.h"
+#include "CallSiteVersions.h"
+#include "CreateSpecialFunction.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -158,6 +159,7 @@ bool FloatToFixed::runOnModule(Module &m)
 
   sortQueue(vals);
   propagateCall(vals, global);
+  m.dump();
   LLVM_DEBUG(printConversionQueue(vals));
   ConversionCount = vals.size();
 
@@ -432,16 +434,23 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
 {
   SmallPtrSet<Function *, 16> oldFuncs;
 
-  for (int i = 0; i < vals.size(); i++) {
+  for (size_t i = 0; i < vals.size(); i++) {
     Value *valsi = vals[i];
     CallSite *call = dyn_cast<CallBase>(valsi);
 
     if (call == nullptr)
       continue;
 
-    bool alreadyHandledNewF;
+    bool alreadyHandledNewF = false;
     Function *oldF = call->getCalledFunction();
-    Function *newF = createFixFun(call, &alreadyHandledNewF);
+    Function *newF = nullptr;
+    if (taffo::HandledSpecialFunction::is_handled(oldF)) {
+      newF = taffo::CreateSpecialFunction::create(this, call, alreadyHandledNewF);
+      functionPool[oldF] = newF;
+      FunctionCreated++;
+    } else {
+      newF = createFixFun(call, &alreadyHandledNewF);
+    }
     if (!newF) {
       LLVM_DEBUG(dbgs() << "Attempted to clone function " << oldF->getName() << " but failed\n");
       continue;
@@ -462,43 +471,46 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
       origValToCloned.insert(std::make_pair(oldIt, newIt));
     }
     SmallVector<ReturnInst *, 100> returns;
-    CloneFunctionInto(newF, oldF, origValToCloned, true, returns);
+    if (!taffo::HandledSpecialFunction::is_handled(oldF))
+      CloneFunctionInto(newF, oldF, origValToCloned, true, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
+
 
     std::vector<Value *> newVals; // propagate fixp conversion
     oldIt = oldF->arg_begin();
     newIt = newF->arg_begin();
-    for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
-      if (oldIt->getType() != newIt->getType()) {
-        FixedPointType fixtype = valueInfo(oldIt)->fixpType;
+    if (!taffo::HandledSpecialFunction::is_handled(oldF))
+      for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
+        if (oldIt->getType() != newIt->getType()) {
+          FixedPointType fixtype = valueInfo(oldIt)->fixpType;
 
-        // append fixp info to arg name
-        newIt->setName(newIt->getName() + "." + fixtype.toString());
+          // append fixp info to arg name
+          newIt->setName(newIt->getName() + "." + fixtype.toString());
 
-        /* Create a fake value to maintain type consistency because
+          /* Create a fake value to maintain type consistency because
          * createFixFun has RAUWed all arguments
          * FIXME: is there a cleaner way to do this? */
-        std::string name("placeholder");
-        if (newIt->hasName()) {
-          name += newIt->getName().str() + ".";
-        }
-        Value *placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
-        /* Reimplement RAUW to defeat the same-type check (which is ironic because
+          std::string name("placeholder");
+          if (newIt->hasName()) {
+            name += newIt->getName().str() + ".";
+          }
+          Value *placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
+          /* Reimplement RAUW to defeat the same-type check (which is ironic because
          * we are attempting to fix a type mismatch here) */
-        while (!newIt->materialized_use_empty()) {
-          Use &U = *(newIt->uses().begin());
-          U.set(placehValue);
-        }
-        *(newValueInfo(placehValue)) = *(valueInfo(oldIt));
-        operandPool[placehValue] = newIt;
+          while (!newIt->materialized_use_empty()) {
+            Use &U = *(newIt->uses().begin());
+            U.set(placehValue);
+          }
+          *(newValueInfo(placehValue)) = *(valueInfo(oldIt));
+          operandPool[placehValue] = newIt;
 
-        valueInfo(placehValue)->isArgumentPlaceholder = true;
-        newVals.push_back(placehValue);
+          valueInfo(placehValue)->isArgumentPlaceholder = true;
+          newVals.push_back(placehValue);
 
-        /* No need to mark the argument itself, readLocalMetadata will
+          /* No need to mark the argument itself, readLocalMetadata will
          * do it in a bit as its metadata has been cloned as well */
+        }
       }
-    }
 
     newVals.insert(newVals.end(), global.begin(), global.end());
     SmallPtrSet<Value *, 32> localFix;
@@ -509,8 +521,12 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     oldIt = oldF->arg_begin();
     newIt = newF->arg_begin();
     for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
-      if (oldIt->getType() != newIt->getType()) {
-        *(valueInfo(newIt)) = *(valueInfo(oldIt));
+      if (hasInfo(oldIt)) {
+        if (hasInfo(newIt)) {
+          *(valueInfo(newIt)) = *(valueInfo(oldIt));
+        } else {
+          *newValueInfo(newIt) = *valueInfo(oldIt);
+        }
       }
     }
 
@@ -531,13 +547,14 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     oldFuncs.insert(oldF);
 
     /* Put the instructions from the new function in */
-    for (Value *val : newVals) {
-      if (Instruction *inst = dyn_cast<Instruction>(val)) {
-        if (inst->getFunction() == newF) {
-          vals.push_back(val);
+    if (!taffo::HandledSpecialFunction::is_handled(oldF))
+      for (Value *val : newVals) {
+        if (Instruction *inst = dyn_cast<Instruction>(val)) {
+          if (inst->getFunction() == newF) {
+            vals.push_back(val);
+          }
         }
       }
-    }
   }
 
   /* Remove instructions of the old functions from the queue */
