@@ -42,16 +42,15 @@ typedef struct OptionData_ {
         fptype DGrefval;   // DerivaGem Reference Value (unused)
 } OptionData;
 
-fptype *prices;
-int numOptions;
+static fptype *prices;
+static int numOptions;
 
-int    * otype;
-fptype __attribute((annotate("scalar(range(0.35,0.84) error(1e-8))"))) *sptprice;
-fptype __attribute((annotate("scalar(range(0.33,0.92) error(1e-8))"))) *strike;
-fptype __attribute((annotate("scalar(range(0.0275,0.1) error(0))"))) *rate;
-fptype __attribute((annotate("scalar(range(0.05,0.65) error(1e-8))"))) *volatility;
-fptype __attribute((annotate("scalar(range(0.05,1) error(0))"))) *otime;
-int numError = 0;
+static int    * otype;
+static fptype __attribute((annotate("scalar(range(0.35,0.84) error(1e-8))"))) *sptprice;
+static fptype __attribute((annotate("scalar(range(0.33,0.92) error(1e-8))"))) *strike;
+static fptype __attribute((annotate("scalar(range(0.0275,0.1) error(0))"))) *rate;
+static fptype __attribute((annotate("scalar(range(0.05,0.65) error(1e-8))"))) *volatility;
+static fptype __attribute((annotate("scalar(range(0.05,1) error(0))"))) *otime;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +60,7 @@ int numError = 0;
 // See Hull, Section 11.8, P.243-244
 #define inv_sqrt_2xPI 0.39894228040143270286
 
-fptype CNDF ( fptype __attribute((annotate("scalar()"))) InputX )
+static fptype CNDF ( fptype __attribute((annotate("scalar()"))) InputX )
 {
     int sign;
 
@@ -130,7 +129,7 @@ fptype CNDF ( fptype __attribute((annotate("scalar()"))) InputX )
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
-fptype BlkSchlsEqEuroNoDiv( fptype __attribute((annotate("scalar()"))) sptprice,
+static fptype BlkSchlsEqEuroNoDiv( fptype __attribute((annotate("scalar()"))) sptprice,
                             fptype __attribute((annotate("scalar()"))) strike,
 			    fptype __attribute((annotate("scalar()"))) rate,
                             fptype __attribute((annotate("scalar()"))) volatility,
@@ -164,9 +163,6 @@ fptype BlkSchlsEqEuroNoDiv( fptype __attribute((annotate("scalar()"))) sptprice,
     fptype __attribute((annotate("scalar()"))) NofXd2;
     fptype __attribute((annotate("scalar()"))) NegNofXd1;
     fptype __attribute((annotate("scalar()"))) NegNofXd2;
-    
-    printf("sptprice=%.12f strike=%.12f rate=%.12f volatility=%.12f time=%.12f timet=%.12f\n", 
-        sptprice, strike, rate, volatility, time, timet);
 
     //xStockPrice = sptprice;
     //xStrikePrice = strike;
@@ -226,12 +222,12 @@ fptype BlkSchlsEqEuroNoDiv( fptype __attribute((annotate("scalar()"))) sptprice,
 }
 
 
-double normalize(double in, double min, double max, double min_new, double max_new)
+static double normalize(double in, double min, double max, double min_new, double max_new)
 {
     return (((in - min) / (max - min)) * (max_new - min_new)) + min_new ;
 }
 
-int bs_thread(void *tid_ptr) {
+static int bs_thread(void *tid_ptr) {
     int i, j;
 
     int tid = *(int *)tid_ptr;
@@ -274,7 +270,10 @@ int bs_thread(void *tid_ptr) {
     return 0;
 }
 
-int main (int argc, char **argv)
+#ifndef BENCH_MAIN
+#define BENCH_MAIN main
+#endif
+extern "C" int BENCH_MAIN(int argc, char **argv)
 {
     int i;
     int loopnum;
@@ -304,8 +303,6 @@ int main (int argc, char **argv)
     }
     otype = (int *) (((unsigned long long)buffer2 + PAD) & ~(LINESIZE - 1));
     
-    printf("sptprice=%p, strike=%p, rate=%p, volatility=%p, otime=%p, otype=%p\n", sptprice, strike, rate, volatility, otime, otype);
-
     for (i=0; i<numOptions; i++) {
         otype[i]      = (blackscholes_data[i].OptionType == 'P') ? 1 : 0;
         sptprice[i]   = blackscholes_data[i].s / DIVIDE;

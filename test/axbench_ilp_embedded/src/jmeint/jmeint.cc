@@ -16,7 +16,10 @@
 #include "benchmark.hpp"
 #include "data.hpp"
 
-int main(int argc, char* argv[])
+#ifndef BENCH_MAIN
+#define BENCH_MAIN main
+#endif
+extern "C" int BENCH_MAIN(int argc, char* argv[])
 {
 	int i;
 	int x;
