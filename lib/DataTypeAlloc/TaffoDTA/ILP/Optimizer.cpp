@@ -350,10 +350,6 @@ shared_ptr<OptimizerInfo> Optimizer::getInfoOfValue(Value *value)
   return nullptr;
 }
 
-
-// FIXME: replace with a dynamic version!
-#define I_COST 1
-
 void Optimizer::handleBinaryInstruction(Instruction *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
 {
   // We are only handling operations between floating point, as we do not care about other values when building the model

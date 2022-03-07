@@ -99,46 +99,46 @@ bool Model::finalizeAndSolve()
 
   writeOutObjectiveFunction();
 
-  LLVM_DEBUG(
-
-      std::string tmp;
-      solver->ExportModelAsLpFormat(false, &tmp);
-      llvm::dbgs() << "####LP Format####\n"
-                   << tmp;
-      llvm::dbgs() << "\n\n";
-
-
-  );
+  if (DumpModelFile != "") {
+    LLVM_DEBUG(llvm::dbgs() << "Dumping model to " << DumpModelFile << "...");
+    std::ofstream model_file;
+    model_file.open(DumpModelFile);
+    std::string tmp;
+    solver->ExportModelAsLpFormat(false, &tmp);
+    model_file << tmp;
+    model_file.close();
+    LLVM_DEBUG(llvm::dbgs() << " done.\n");
+  }
 
   const operations_research::MPSolver::ResultStatus result_status =
       solver->Solve();
   // Check that the problem has an optimal solution.
   if (result_status != operations_research::MPSolver::OPTIMAL) {
-    LLVM_DEBUG(
-        dbgs() << "[ERROR] There was an error while solving the model!\n\n";);
+    LLVM_DEBUG(llvm::dbgs() << "[ERROR] There was an error while solving the model!\n\n");
     return false;
   }
 
+  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
+  LLVM_DEBUG(dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
+  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
 
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
-  LLVM_DEBUG(dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
-  LLVM_DEBUG(dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
   for (auto &v : variablesPool) {
     variableValues.insert(make_pair(v.first, v.second->solution_value()));
-    LLVM_DEBUG(dbgs() << v.first << " = " << v.second->solution_value() << "\n";);
   }
 
-  IF_TAFFO_DEBUG
-  {
-    dbgs() << "\n************* < TRUMPETS HERE > *************\n";
-    dbgs() << "**** THE HOLY OBJECTIVE FUNCTION MEMBERS ****\n";
-    dbgs() << "*********************************************\n";
+  if (DumpModelFile != "") {
+    std::string solution_file_name = DumpModelFile + ".sol";
+    LLVM_DEBUG(llvm::dbgs() << "Dumping solution to " << solution_file_name << "...");
+    std::ofstream solution_file;
+    solution_file.open(solution_file_name);
+
+    solution_file << "Variable Name = Solution Value\n";
+    for (auto &v : variablesPool) {
+      solution_file << v.first << " = " << v.second->solution_value() << "\n";
+    }
+
+    solution_file << "________________________________________________________________________________\n\n";
+    solution_file << "Objective Function Members:\n";
     double castcost = 0, mathcost = 0, enob = 0;
     for (auto &coefficient_id_and_variables : objDeclarationOccoured) {
       for (auto &variable : coefficient_id_and_variables.second) {
@@ -154,17 +154,16 @@ bool Model::finalizeAndSolve()
         }
       }
     }
-    dbgs() << " Cast Cost = " << castcost << "\n";
-    dbgs() << " Math Cost = " << mathcost << "\n";
-    dbgs() << " ENOB      = " << enob << "\n";
-    dbgs() << "*********************************************\n\n";
+    solution_file << " Cast Cost = " << castcost << "\n";
+    solution_file << " Math Cost = " << mathcost << "\n";
+    solution_file << " ENOB      = " << enob << "\n";
+    LLVM_DEBUG(llvm::dbgs() << " done.\n");
   }
 
   if (variableValues.size() != variablesPool.size()) {
-    LLVM_DEBUG(dbgs() << "[ERROR] The number of variables in the file and in the model does not match!\n";);
+    LLVM_DEBUG(dbgs() << "[ERROR] The numbers of variables in the program and in the model do not match!\n");
     return false;
   }
-
 
   return true;
 }

@@ -18,7 +18,7 @@ extern llvm::cl::opt<double> MixedTuningTime;
 extern llvm::cl::opt<double> MixedTuningENOB;
 extern llvm::cl::opt<double> MixedTuningCastingTime;
 extern llvm::cl::opt<bool> MixedDoubleEnabled;
-
+extern llvm::cl::opt<std::string> DumpModelFile;
 
 using namespace std;
 

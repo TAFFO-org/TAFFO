@@ -735,8 +735,8 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     optimizer.handleCallFromRoot(&f);
   }
 
-  assert(optimizer.finish() && "Optimizer did not found a solution!");
-
+  bool result = optimizer.finish();
+  assert(result && "Optimizer did not find a solution!");
 
   for (Value *v : vals) {
     if (!valset.count(v)) {
@@ -770,7 +770,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     }
     #endif
 
-    LLVM_DEBUG(dbgs() << "done with [" << *v << '] !\n');
+    LLVM_DEBUG(dbgs() << "done with [" << *v << "]\n");
     /*auto *iiv = dyn_cast<InputInfo>(viu->metadata.get());
 
     iiv->IType.reset(fp->clone());*/

@@ -72,6 +72,9 @@ static llvm::cl::opt<std::string, true> InstructionSetFlag("instructionsetfile",
                                                            llvm::cl::desc("Set the filename to load wich instruction set are allowed"),
                                                            llvm::cl::location(InstructionSet), llvm::cl::init("DOES-NOT-EXIST"));
 
+llvm::cl::opt<std::string> DumpModelFile("dumpmodel",
+                                         llvm::cl::desc("Dump the ILP model in LP format"),
+                                         llvm::cl::value_desc("File where to dump the model"));
 #endif // TAFFO_BUILD_ILP_DTA
 
 STATISTIC(FixCast, "Number of fixed point format cast");
