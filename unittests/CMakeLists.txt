@@ -66,6 +66,12 @@ function(add_taffo_unittest test_dirname)
   target_link_libraries(${test_dirname} PRIVATE TaffoUtils)
 endfunction()
 
+### END FUNCTION DEFINITIONS ###
+
+add_library(TestUtils STATIC TestUtils.h)
+set_target_properties(TestUtils PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories(TestUtils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_subdirectory(TaffoUtils)
 add_subdirectory(Initializer)
 
