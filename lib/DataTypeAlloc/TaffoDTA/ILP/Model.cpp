@@ -1,4 +1,3 @@
-
 #include "Model.h"
 #include "DebugUtils.h"
 #include "Infos.h"
@@ -12,14 +11,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cmath>
 
 
 #define M_BIG 1000000
-
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -98,99 +96,65 @@ bool Model::finalizeAndSolve()
 {
   writeOutObjectiveFunction();
 
-  if (DumpModelFile != "") {
-    LLVM_DEBUG(llvm::dbgs() << "Dumping model to " << DumpModelFile << "...");
-    std::ofstream model_file;
-    model_file.open(DumpModelFile);
-    std::string tmp;
-    solver->ExportModelAsLpFormat(false, &tmp);
-    model_file << tmp;
-    model_file.close();
-    LLVM_DEBUG(llvm::dbgs() << " done.\n");
-  }
+  LLVM_DEBUG(llvm::dbgs() << "****************************************************************************************\n");
+#ifndef NDEBUG
+  dumpModel();
+#endif
 
+  LLVM_DEBUG(llvm::dbgs() << "Solving model...\n");
   LLVM_DEBUG(solver->EnableOutput());
   const operations_research::MPSolver::ResultStatus result_status =
       solver->Solve();
-  
+
   // Check that the problem has an optimal solution.
   if (result_status != operations_research::MPSolver::OPTIMAL && result_status != operations_research::MPSolver::FEASIBLE) {
     LLVM_DEBUG(
-        dbgs() << "[ERROR] There was an error while solving the model!\n";);
+        llvm::dbgs() << "[ERROR] There was an error while solving the model!\n");
     switch (result_status) {
       case operations_research::MPSolver::INFEASIBLE:
-        LLVM_DEBUG(dbgs() << "status = INFEASIBLE\n");
+        LLVM_DEBUG(llvm::dbgs() << "status = INFEASIBLE\n");
         break;
       case operations_research::MPSolver::UNBOUNDED:
-        LLVM_DEBUG(dbgs() << "status = UNBOUNDED\n");
+        LLVM_DEBUG(llvm::dbgs() << "status = UNBOUNDED\n");
         break;
       case operations_research::MPSolver::ABNORMAL:
-        LLVM_DEBUG(dbgs() << "status = ABNORMAL\n");
+        LLVM_DEBUG(llvm::dbgs() << "status = ABNORMAL\n");
         break;
       case operations_research::MPSolver::MODEL_INVALID:
-        LLVM_DEBUG(dbgs() << "status = MODEL_INVALID\n");
+        LLVM_DEBUG(llvm::dbgs() << "status = MODEL_INVALID\n");
         break;
       case operations_research::MPSolver::NOT_SOLVED:
-        LLVM_DEBUG(dbgs() << "status = NOT_SOLVED????\n");
+        LLVM_DEBUG(llvm::dbgs() << "status = NOT_SOLVED????\n");
         break;
       default:
-        LLVM_DEBUG(dbgs() << "status = " << result_status << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "status = " << result_status << "\n");
     }
-    LLVM_DEBUG(dbgs() << "\n");
     return false;
   }
+  LLVM_DEBUG(llvm::dbgs() << "\n");
 
   if (result_status == operations_research::MPSolver::FEASIBLE) {
-    LLVM_DEBUG(dbgs() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
+    LLVM_DEBUG(llvm::dbgs() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
   }
 
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
-  LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
+  LLVM_DEBUG(llvm::dbgs() << "****************************************************************************************\n");
+  LLVM_DEBUG(llvm::dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
+  LLVM_DEBUG(llvm::dbgs() << "****************************************************************************************\n");
 
   for (auto &v : variablesPool) {
     variableValues.insert(make_pair(v.first, v.second->solution_value()));
   }
 
-  if (DumpModelFile != "") {
-    std::string solution_file_name = DumpModelFile + ".sol";
-    LLVM_DEBUG(llvm::dbgs() << "Dumping solution to " << solution_file_name << "...");
-    std::ofstream solution_file;
-    solution_file.open(solution_file_name);
-
-    solution_file << "Variable Name = Solution Value\n";
-    for (auto &v : variablesPool) {
-      solution_file << v.first << " = " << v.second->solution_value() << "\n";
-    }
-
-    solution_file << "________________________________________________________________________________\n\n";
-    solution_file << "Objective Function Members:\n";
-    double castcost = 0, mathcost = 0, enob = 0;
-    for (auto &coefficient_id_and_variables : objDeclarationOccoured) {
-      for (auto &variable : coefficient_id_and_variables.second) {
-        std::string coefficient_id = coefficient_id_and_variables.first;
-        if (coefficient_id == MODEL_OBJ_CASTCOST) {
-          castcost += variable.first->solution_value() * variable.second;
-        } else if (coefficient_id == MODEL_OBJ_MATHCOST) {
-          mathcost += variable.first->solution_value() * variable.second;
-        } else if (coefficient_id == MODEL_OBJ_ENOB) {
-          enob += variable.first->solution_value() * variable.second;
-        } else {
-          llvm_unreachable("and why is it now that we discover that we have a coefficient id that does not exist?");
-        }
-      }
-    }
-    solution_file << " Cast Cost = " << castcost << "\n";
-    solution_file << " Math Cost = " << mathcost << "\n";
-    solution_file << " ENOB      = " << enob << "\n";
-    LLVM_DEBUG(llvm::dbgs() << " done.\n");
-  }
+#ifndef NDEBUG
+  dumpSolution();
+#endif
 
   if (variableValues.size() != variablesPool.size()) {
     LLVM_DEBUG(dbgs() << "[ERROR] The numbers of variables in the program and in the model do not match!\n");
     return false;
   }
 
+  LLVM_DEBUG(llvm::dbgs() << "****************************************************************************************\n");
   return true;
 }
 
@@ -308,7 +272,6 @@ void Model::insertObjectiveElement(const pair<string, double> &p, string costNam
 
 void Model::writeOutObjectiveFunction()
 {
-  // solver.Minimize(x + 10 * y)
   auto obj = solver->MutableObjective();
 
   switch (problemType) {
@@ -319,7 +282,6 @@ void Model::writeOutObjectiveFunction()
     obj->SetMaximization();
     break;
   }
-
 
   for (auto &objectives : objDeclarationOccoured) {
     for (auto &a : objectives.second) {
@@ -368,6 +330,81 @@ double Model::getVariableValue(string variable)
 
   return res->second;
 }
+
+#ifndef NDEBUG
+void Model::dumpModel()
+{
+  std::string tmp;
+  solver->ExportModelAsLpFormat(false, &tmp);
+  if (DumpModelFile != "") {
+    LLVM_DEBUG(llvm::dbgs() << "Dumping model to " << DumpModelFile << "...");
+    std::error_code EC;
+    llvm::raw_fd_ostream model_file(DumpModelFile, EC);
+    if (!EC) {
+      model_file << tmp;
+      model_file.close();
+      LLVM_DEBUG(llvm::dbgs() << " done.\n");
+    } else {
+      LLVM_DEBUG(llvm::dbgs() << " failed. An error occurred while trying to dump the model: "
+                 << EC.message() << '\n');
+    }
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "Dumping model to log:");
+    LLVM_DEBUG(llvm::dbgs() << tmp << "\n");
+  }
+}
+
+void Model::dumpSolution()
+{
+  std::string tmp;
+  llvm::raw_string_ostream acc(tmp);
+
+  acc << "Variable Name = Solution Value\n";
+  for (auto &v : variablesPool) {
+    acc << v.first << " = " << v.second->solution_value() << "\n";
+  }
+
+  acc << "________________________________________________________________________________\n\n";
+  acc << "Objective Function Members:\n";
+  double castcost = 0, mathcost = 0, enob = 0;
+  for (auto &coefficient_id_and_variables : objDeclarationOccoured) {
+    for (auto &variable : coefficient_id_and_variables.second) {
+      std::string coefficient_id = coefficient_id_and_variables.first;
+      if (coefficient_id == MODEL_OBJ_CASTCOST) {
+        castcost += variable.first->solution_value() * variable.second;
+      } else if (coefficient_id == MODEL_OBJ_MATHCOST) {
+        mathcost += variable.first->solution_value() * variable.second;
+      } else if (coefficient_id == MODEL_OBJ_ENOB) {
+        enob += variable.first->solution_value() * variable.second;
+      } else {
+        llvm_unreachable("and why is it now that we discover that we have a coefficient id that does not exist?");
+      }
+    }
+  }
+  acc << " Cast Cost = " << castcost << "\n";
+  acc << " Math Cost = " << mathcost << "\n";
+  acc << " ENOB      = " << enob << "\n";
+  acc.flush();
+
+  if (DumpModelFile != "") {
+    std::string solution_file_name = DumpModelFile + ".sol";
+    LLVM_DEBUG(llvm::dbgs() << "Dumping solution to " << solution_file_name << "...");
+    std::error_code EC;
+    llvm::raw_fd_ostream solution_file(solution_file_name, EC);
+    if (!EC) {
+      solution_file << tmp;
+      solution_file.close();
+      LLVM_DEBUG(llvm::dbgs() << " done.\n");
+    } else {
+      LLVM_DEBUG(llvm::dbgs() << " failed. An error occurred while trying to dump the solution: "
+                 << EC.message() << '\n');
+    }
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "Dumping solution to log:\n");
+    LLVM_DEBUG(llvm::dbgs() << tmp << "\n");
+  }
+}
+#endif
 
 // void Model::insertComment(string comment, int spaceBefore, int spaceAfter) {
 //     int i;
