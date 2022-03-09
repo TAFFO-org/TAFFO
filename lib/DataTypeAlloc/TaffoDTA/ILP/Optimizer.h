@@ -1,3 +1,6 @@
+#ifndef __TAFFO_DTA_OPTIMIZER_H__
+#define __TAFFO_DTA_OPTIMIZER_H__
+
 #include "CPUCosts.h"
 #include "Infos.h"
 #include "InputInfo.h"
@@ -7,6 +10,8 @@
 #include "OptimizerInfo.h"
 #include "TaffoDTA.h"
 #include "TypeUtils.h"
+#include "PhiWatcher.h"
+#include "MemWatcher.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -20,9 +25,6 @@
 #include <set>
 #include <stack>
 #include <unordered_map>
-
-#ifndef __TAFFO_DTA_OPTIMIZER_H__
-#define __TAFFO_DTA_OPTIMIZER_H__
 
 extern bool hasHalf;
 extern bool hasQuad;
@@ -62,40 +64,6 @@ std::shared_ptr<T> dynamic_ptr_cast_or_null(const std::shared_ptr<U> &r) noexcep
     return std::shared_ptr<T>();
   }
 }
-
-
-// This class contains references to phi node that has no been closed yet
-class PhiWatcher
-{
-private:
-  DenseMap<llvm::Value *, vector<PHINode *>> pairsToClose;
-
-
-public:
-  void openPhiLoop(PHINode *phiNode, Value *requestedValue);
-
-  PHINode *getPhiNodeToClose(Value *value);
-
-  void closePhiLoop(PHINode *phiNode, Value *requestedNode);
-
-  void dumpState();
-};
-
-class MemWatcher
-{
-private:
-  DenseMap<llvm::Value *, vector<LoadInst *>> pairsToClose;
-
-
-public:
-  void openPhiLoop(LoadInst *phiNode, Value *requestedValue);
-
-  LoadInst *getPhiNodeToClose(Value *value);
-
-  void closePhiLoop(LoadInst *phiNode, Value *requestedNode);
-
-  void dumpState();
-};
 
 class Optimizer
 {

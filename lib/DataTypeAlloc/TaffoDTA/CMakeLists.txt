@@ -15,8 +15,10 @@ if (TAFFO_BUILD_ILP_DTA)
     ILP/OptimizerInstructionHandling.cpp
     ILP/OptimizerConstantsHandling.cpp
     ILP/PhiWatcher.cpp
+    ILP/PhiWatcher.h
     ILP/CPUCosts.cpp
     ILP/MemWatcher.cpp
+    ILP/MemWatcher.h
     ILP/LoopAnalyzerUtil.cpp
     ILP/MetricPerf.cpp
     ILP/MetricBase.cpp

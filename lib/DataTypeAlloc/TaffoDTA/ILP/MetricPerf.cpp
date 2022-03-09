@@ -1,6 +1,7 @@
 #include "LoopAnalyzerUtil.h"
 #include "MetricBase.h"
 #include "Optimizer.h"
+#include "Utils.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/IntrinsicInst.h"
 
@@ -727,19 +728,7 @@ std::string MetricPerf::getEnobActivationVariable(Value *value, int cardinal)
   assert(cardinal >= 0 && "Cardinal should be a positive number!");
   string valueName;
 
-  if (auto instr = dyn_cast_or_null<Instruction>(value)) {
-    valueName.append(instr->getFunction()->getName().str());
-    valueName.append("_");
-  }
-
-  if (!value->getName().empty()) {
-    valueName.append(value->getNameOrAsOperand());
-  } else {
-    valueName.append(to_string(value->getValueID()));
-    valueName.append("_");
-  }
-
-  std::replace(valueName.begin(), valueName.end(), '.', '_');
+  valueName = tuner::uniqueIDForValue(value);
 
   assert(!valueName.empty() && "The value should have a name!!!");
 
