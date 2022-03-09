@@ -11,9 +11,6 @@ if (TAFFO_BUILD_ILP_DTA)
   set(DTA_SRC ${DTA_SRC}
     ILP/Optimizer.cpp
     ILP/Model.cpp
-    ILP/OptimizerBinaryInstructions.cpp
-    ILP/OptimizerInstructionHandling.cpp
-    ILP/OptimizerConstantsHandling.cpp
     ILP/PhiWatcher.cpp
     ILP/PhiWatcher.h
     ILP/CPUCosts.cpp
