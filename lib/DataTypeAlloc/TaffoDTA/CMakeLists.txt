@@ -26,6 +26,8 @@ if (TAFFO_BUILD_ILP_DTA)
     ILP/Model.h
     ILP/CPUCosts.h
     ILP/LoopAnalyzerUtil.h
+    ILP/Utils.h
+    ILP/Utils.cpp
     )
 endif ()
 

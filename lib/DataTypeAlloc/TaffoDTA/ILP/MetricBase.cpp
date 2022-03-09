@@ -87,7 +87,6 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
 
       Range rangeInfo(min, max);
 
-
       FixedPointTypeGenError fpgerr;
       FPType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
       if (fpgerr != FixedPointTypeGenError::NoError) {
@@ -96,10 +95,9 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
         return nullptr;
       }
 
-      string fname = "ConstantValue";
       // ENOB should not be considered for constant.... It is a constant and will be converted as best as possible
       // WE DO NOT SAVE CONSTANTS INFO!
-      auto info = allocateNewVariableForValue(constantFP, make_shared<FPType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, fname, false, "", false);
+      auto info = allocateNewVariableForValue(constantFP, make_shared<FPType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
       info->setReferToConstant(true);
       return info;
     }
@@ -187,11 +185,6 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
 {
   shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->size());
 
-  string function = "";
-  if (auto instr = dyn_cast_or_null<Instruction>(glob)) {
-    function = instr->getFunction()->getName().str();
-  }
-
   int i = 0;
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {
     if (auto structInfo = dynamic_ptr_cast_or_null<StructInfo>(*it)) {
@@ -202,7 +195,7 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
 
       } else {
-        auto info = allocateNewVariableForValue(glob, fptype, ii->IRange, ii->IError, function, false,
+        auto info = allocateNewVariableForValue(glob, fptype, ii->IRange, ii->IError, false,
                                                 name + "_" + to_string(i));
         optInfo->setField(i, info);
       }
@@ -383,8 +376,7 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
 
   // Obviously the type should be sufficient to contain the result
   shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError,
-                                                                       instr->getFunction()->getName().str());
+                                                                       inputInfo->IError);
 
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
 
@@ -423,8 +415,7 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
 
   // Obviously the type should be sufficient to contain the result
   shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError,
-                                                                       instr->getFunction()->getName().str());
+                                                                       inputInfo->IError);
 
   opt->insertTypeEqualityConstraint(varCast1, varCast2, forceFixEquality);
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
@@ -538,8 +529,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
                    dbgs() << "Info: " << inputInfo->toString() << "\n";);
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
                                                                              inputInfo->IRange,
-                                                                             inputInfo->IError,
-                                                                             instruction->getFunction()->getNameOrAsOperand());
+                                                                             inputInfo->IError);
         retInfo = result;
         LLVM_DEBUG(dbgs() << "Allocated variable for returns.\n";);
       } else {
@@ -757,7 +747,6 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
                                                                              inputInfo->IRange,
                                                                              inputInfo->IError,
-                                                                             call_i->getFunction()->getName().str(),
                                                                              true,
                                                                              "",
                                                                              true,
@@ -884,7 +873,6 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<ValueInfo> va
         return;
       }
       auto info = allocateNewVariableForValue(alloca, fptype, fieldInfo->IRange, fieldInfo->IError,
-                                              alloca->getFunction()->getName().str(),
                                               false);
       saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(info));
     } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {

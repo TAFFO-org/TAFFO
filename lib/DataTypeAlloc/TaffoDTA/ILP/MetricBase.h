@@ -78,7 +78,7 @@ public:
   virtual shared_ptr<tuner::OptimizerScalarInfo> allocateNewVariableForValue(
       llvm::Value *value, shared_ptr<mdutils::FPType> fpInfo,
       shared_ptr<mdutils::Range> rangeInfo,
-      shared_ptr<double> suggestedMinError, string functionName,
+      shared_ptr<double> suggestedMinError,
       bool insertInList = true, string nameAppendix = "",
       bool insertENOBinMin = true, bool respectFloatingPointConstraint = true) = 0;
   virtual void saveInfoForValue(llvm::Value *value,
@@ -178,7 +178,7 @@ public:
   shared_ptr<tuner::OptimizerScalarInfo> allocateNewVariableForValue(
       llvm::Value *value, shared_ptr<mdutils::FPType> fpInfo,
       shared_ptr<mdutils::Range> rangeInfo,
-      shared_ptr<double> suggestedMinError, string functionName,
+      shared_ptr<double> suggestedMinError,
       bool insertInList = true, string nameAppendix = "",
       bool insertENOBinMin = true,
       bool respectFloatingPointConstraint = true) override;

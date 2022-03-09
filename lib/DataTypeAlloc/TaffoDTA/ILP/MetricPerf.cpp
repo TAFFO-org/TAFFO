@@ -10,22 +10,16 @@ using namespace mdutils;
 
 
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<mdutils::FPType> fpInfo, shared_ptr<mdutils::Range> rangeInfo, shared_ptr<double> suggestedMinError,
-                                                                               string functionName, bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
+                                                                               bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
 {
   assert(!valueHasInfo(value) && "The value considered already have an info!");
 
   assert(fpInfo && "fpInfo should not be nullptr here!");
   assert(rangeInfo && "rangeInfo should not be nullptr here!");
 
-  if (!functionName.empty()) {
-    functionName = functionName.append("_");
-  }
-
-
   auto &model = getModel();
 
-
-  string varNameBase(string(functionName).append((std::string)value->getName()).append(nameAppendix));
+  string varNameBase = tuner::uniqueIDForValue(value).append(nameAppendix);
   std::replace(varNameBase.begin(), varNameBase.end(), '.', '_');
   string varName(varNameBase);
 
@@ -34,7 +28,6 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
     varName = string(varNameBase).append("_").append(to_string(counter));
     counter++;
   }
-
 
   LLVM_DEBUG(llvm::dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
 
@@ -732,16 +725,6 @@ std::string MetricPerf::getEnobActivationVariable(Value *value, int cardinal)
 
   assert(!valueName.empty() && "The value should have a name!!!");
 
-  string fname;
-  if (auto instr = dyn_cast_or_null<Instruction>(value)) {
-    fname = instr->getFunction()->getName().str();
-    std::replace(fname.begin(), fname.end(), '.', '_');
-  }
-
-  if (!fname.empty()) {
-    valueName = fname + "_" + valueName;
-  }
-
   string toreturn = valueName + "_enob_" + to_string(cardinal);
 
   return toreturn;
@@ -872,8 +855,7 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
 
   // Allocating variable for result
   shared_ptr<tuner::OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                                fieldInfo->IError,
-                                                                                instruction->getFunction()->getName().str());
+                                                                                fieldInfo->IError);
   auto constraint = vector<pair<string, double>>();
   auto &model = getModel();
   constraint.clear();

@@ -76,7 +76,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
         return;
       }
-      auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, "", false);
+      auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, false);
       metric->saveInfoForValue(glob, make_shared<OptimizerPointerInfo>(optInfo));
     } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {
       LLVM_DEBUG(dbgs() << " ^ This is a real structure\n");
@@ -123,7 +123,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo
         LLVM_DEBUG(dbgs() << "Has initializer and it is not a null value! Need more processing!\n");
       } else {
         LLVM_DEBUG(dbgs() << "No initializer, or null value!\n");
-        auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, "", false);
+        auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, false);
         // This is a pointer, so the reference to it is a pointer to a pointer yay
         metric->saveInfoForValue(glob, make_shared<OptimizerPointerInfo>(make_shared<OptimizerPointerInfo>(optInfo)));
       }
@@ -218,8 +218,7 @@ void Optimizer::handleCallFromRoot(Function *f)
       auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
       if (fptype) {
           LLVM_DEBUG(dbgs() << fptype->toString(););
-          shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype, inputInfo->IRange,
-                                                                               instruction->getFunction()->getName());
+          shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype, inputInfo->IRange);
           retInfo = result;
       } else {
           LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n";);

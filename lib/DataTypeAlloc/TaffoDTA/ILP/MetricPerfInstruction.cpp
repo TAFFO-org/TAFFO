@@ -588,8 +588,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
       // Do not save! As here we have a pointer!
       shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                             fieldInfo->IError,
-                                                                             instruction->getFunction()->getName().str(), false);
+                                                                             fieldInfo->IError);
 
       auto met = make_shared<OptimizerPointerInfo>(variable);
 
@@ -640,8 +639,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
 
     shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                           fieldInfo->IError,
-                                                                           instruction->getFunction()->getName().str());
+                                                                           fieldInfo->IError);
 
     // Limiting the ENOB as coming from an integer we can have an error at min of 1
     // Look that here we have the original program, so these instruction are not related to fixed point implementation!
@@ -897,8 +895,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
 
   // Allocating variable for result
   shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                         fieldInfo->IError,
-                                                                         instruction->getFunction()->getName().str());
+                                                                         fieldInfo->IError);
   auto constraint = vector<pair<string, double>>();
   constraint.clear();
 
@@ -915,7 +912,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
       }
     }
 
-    string enob_selection = getEnobActivationVariable(instruction, index);
+    string enob_selection = getEnobActivationVariable(phi_n, index);
     getModel().createVariable(enob_selection, 0, 1);
     constraint.push_back(make_pair(enob_selection, 1.0));
   }
