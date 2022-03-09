@@ -113,9 +113,34 @@ bool Model::finalizeAndSolve()
   const operations_research::MPSolver::ResultStatus result_status =
       solver->Solve();
   // Check that the problem has an optimal solution.
-  if (result_status != operations_research::MPSolver::OPTIMAL) {
-    LLVM_DEBUG(llvm::dbgs() << "[ERROR] There was an error while solving the model!\n\n");
+  if (result_status != operations_research::MPSolver::OPTIMAL && result_status != operations_research::MPSolver::FEASIBLE) {
+    LLVM_DEBUG(
+        dbgs() << "[ERROR] There was an error while solving the model!\n";);
+    switch (result_status) {
+      case operations_research::MPSolver::INFEASIBLE:
+        LLVM_DEBUG(dbgs() << "status = INFEASIBLE\n");
+        break;
+      case operations_research::MPSolver::UNBOUNDED:
+        LLVM_DEBUG(dbgs() << "status = UNBOUNDED\n");
+        break;
+      case operations_research::MPSolver::ABNORMAL:
+        LLVM_DEBUG(dbgs() << "status = ABNORMAL\n");
+        break;
+      case operations_research::MPSolver::MODEL_INVALID:
+        LLVM_DEBUG(dbgs() << "status = MODEL_INVALID\n");
+        break;
+      case operations_research::MPSolver::NOT_SOLVED:
+        LLVM_DEBUG(dbgs() << "status = NOT_SOLVED????\n");
+        break;
+      default:
+        LLVM_DEBUG(dbgs() << "status = " << result_status << "\n");
+    }
+    LLVM_DEBUG(dbgs() << "\n");
     return false;
+  }
+
+  if (result_status == operations_research::MPSolver::FEASIBLE) {
+    LLVM_DEBUG(dbgs() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
   }
 
   LLVM_DEBUG(dbgs() << "****************************************************************************************\n");
