@@ -96,7 +96,6 @@ Model::Model(ProblemType type) : solver(operations_research::MPSolver::CreateSol
 
 bool Model::finalizeAndSolve()
 {
-
   writeOutObjectiveFunction();
 
   if (DumpModelFile != "") {
@@ -110,8 +109,10 @@ bool Model::finalizeAndSolve()
     LLVM_DEBUG(llvm::dbgs() << " done.\n");
   }
 
+  LLVM_DEBUG(solver->EnableOutput());
   const operations_research::MPSolver::ResultStatus result_status =
       solver->Solve();
+  
   // Check that the problem has an optimal solution.
   if (result_status != operations_research::MPSolver::OPTIMAL && result_status != operations_research::MPSolver::FEASIBLE) {
     LLVM_DEBUG(
