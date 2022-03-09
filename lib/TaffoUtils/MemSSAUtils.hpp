@@ -12,10 +12,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef TAFFO_VRA_MEMSSAUTILS_H
-#define TAFFO_VRA_MEMSSAUTILS_H
+#ifndef TAFFO_MEMSSAUTILS_H
+#define TAFFO_MEMSSAUTILS_H
 
-#include "Range.hpp"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemorySSA.h"

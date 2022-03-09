@@ -24,7 +24,6 @@ if (TAFFO_BUILD_ILP_DTA)
     ILP/Optimizer.h
     ILP/OptimizerInfo.h
     ILP/Model.h
-    ILP/MemSSAUtils.hpp
     ILP/CPUCosts.h
     ILP/LoopAnalyzerUtil.h
     )
