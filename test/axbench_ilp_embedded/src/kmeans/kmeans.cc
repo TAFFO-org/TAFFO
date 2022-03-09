@@ -11,7 +11,7 @@
 #define RAW_PRINT
 
 
-float euclideanDistance(float __attribute__((annotate("scalar()"))) rp, float __attribute__((annotate("scalar()"))) gp, float __attribute__((annotate("scalar()"))) bp, float __attribute__((annotate("scalar()"))) rc, float __attribute__((annotate("scalar()"))) gc, float __attribute__((annotate("scalar()"))) bc)
+static float euclideanDistance(float __attribute__((annotate("scalar()"))) rp, float __attribute__((annotate("scalar()"))) gp, float __attribute__((annotate("scalar()"))) bp, float __attribute__((annotate("scalar()"))) rc, float __attribute__((annotate("scalar()"))) gc, float __attribute__((annotate("scalar()"))) bc)
 {
   float __attribute__((annotate("scalar()"))) rd;
   float __attribute__((annotate("scalar()"))) gd;

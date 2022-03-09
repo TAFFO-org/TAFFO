@@ -1,7 +1,7 @@
 #include "data.hpp"
 
 
-const inversek2j_line inversek2j_data[] = {
+const __attribute__((selectany)) inversek2j_line inversek2j_data[] = {
 {0.422224,0.133948},
 {0.761231,0.568115},
 {0.117430,1.470724},
