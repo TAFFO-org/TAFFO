@@ -21,7 +21,6 @@ if (TAFFO_BUILD_ILP_DTA)
     ILP/MetricBase.cpp
     ILP/MetricPerfInstruction.cpp
     ILP/MetricBase.h
-    ILP/MetricBaseForward.h
     ILP/Optimizer.h
     ILP/OptimizerInfo.h
     ILP/Model.h

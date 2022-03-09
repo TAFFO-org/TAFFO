@@ -5,7 +5,6 @@
 #include "Infos.h"
 #include "InputInfo.h"
 #include "Metadata.h"
-#include "MetricBaseForward.h"
 #include "Model.h"
 #include "OptimizerInfo.h"
 #include "TaffoDTA.h"
@@ -52,6 +51,9 @@ extern llvm::cl::opt<bool> MixedDoubleEnabled;
 
 
 using namespace llvm;
+
+class MetricBase;
+class MetricPerf;
 
 namespace tuner
 {
