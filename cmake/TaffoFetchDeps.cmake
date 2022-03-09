@@ -12,7 +12,7 @@ if (TAFFO_BUILD_ILP_DTA)
     
     FetchContent_Declare(
       or-tools
-      GIT_REPOSITORY "git@github.com:google/or-tools.git"
+      GIT_REPOSITORY "https://github.com:google/or-tools.git"
       GIT_TAG "stable"
       GIT_SHALLOW ON
       GIT_PROGRESS ON)
