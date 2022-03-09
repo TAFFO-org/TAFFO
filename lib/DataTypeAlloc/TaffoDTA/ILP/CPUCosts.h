@@ -1,12 +1,10 @@
+#ifndef __TAFFO_DTA_CPUCOSTS_H__
+#define __TAFFO_DTA_CPUCOSTS_H__
+
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include <map>
 #include <string>
 #include <vector>
-
-
-#ifndef __TAFFO_DTA_CPUCOSTS_H__
-#define __TAFFO_DTA_CPUCOSTS_H__
-
 
 using namespace std;
 
