@@ -21,7 +21,7 @@ Behind the scenes, it uses the LLVM `opt` tool to load one pass at a time and ru
 
 To use TAFFO it is encouraged to follow these steps:
 
-### Step 1
+### 1: Build and install TAFFO
 
 Create a build directory, compile and install TAFFO.
 You can either install TAFFO to the standard location of `/usr/local`, or you can install it to any other location of your choice.
@@ -45,7 +45,7 @@ $ cmake .. -DTAFFO_BUILD_ORTOOLS=ON
 $ cmake --build .
 ```
 
-### Step 3
+### 2: Modify and test the application
 
 Modify the application to insert annotations on the appropriate variable declarations, then use `taffo` to compile your application.
 
