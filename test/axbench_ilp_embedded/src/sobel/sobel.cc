@@ -7,7 +7,7 @@
 
 #define IMG_W 80
 #define IMG_H 80
-//#define RAW_PRINT
+#define RAW_PRINT
 
 
 static const float __attribute((annotate("scalar()"))) kx[][3] =
