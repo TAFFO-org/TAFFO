@@ -4,7 +4,6 @@ set(DTA_SRC
   TaffoDTA.cpp
   TaffoDTA.h
   DTAConfig.h
-  Infos.h
   )
 
 if (TAFFO_BUILD_ILP_DTA)

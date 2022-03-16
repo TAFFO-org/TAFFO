@@ -2,7 +2,6 @@
 #define __TAFFO_DTA_OPTIMIZER_H__
 
 #include "CPUCosts.h"
-#include "Infos.h"
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "Model.h"

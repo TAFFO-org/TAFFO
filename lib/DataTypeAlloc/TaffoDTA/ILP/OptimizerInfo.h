@@ -1,7 +1,6 @@
 #ifndef __TAFFO_DTA_OPTIMIZERINFO_H__
 #define __TAFFO_DTA_OPTIMIZERINFO_H__
 
-#include "Infos.h"
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"

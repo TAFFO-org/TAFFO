@@ -1,6 +1,5 @@
 #include "Model.h"
 #include "DebugUtils.h"
-#include "Infos.h"
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "OptimizerInfo.h"
