@@ -169,7 +169,10 @@ Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *c
   std::vector<T> newConsts;
 
   for (unsigned int i = 0; i < cds->getNumElements(); i++) {
+    bool dontCare;
+
     APFloat thiselem = cds->getElementAsAPFloat(i);
+    thiselem.convert(APFloat::IEEEdouble(), APFloatBase::rmTowardZero, &dontCare);
     newConsts.push_back(thiselem.convertToDouble());
   }
 
