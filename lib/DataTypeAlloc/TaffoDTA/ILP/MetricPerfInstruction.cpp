@@ -20,6 +20,12 @@ void MetricPerf::handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res,
   for (const auto &tmpString : cpuCosts.CostsIdValues) {
     if (tmpString.find(start) == 0 && cpuCosts.isDisabled(cpuCosts.decodeId(tmpString))) {
 
+      if (hasDouble && tmpString.find("DOUBLE") != string::npos) {
+        constraint.clear();
+        constraint.push_back(make_pair(res->getDoubleSelectedVariable(), 1.0));
+        model.insertLinearConstraint(constraint, Model::EQ, 0 /*, "Disable Double"*/);
+      }
+
       if (hasHalf && tmpString.find("HALF") != string::npos) {
         constraint.clear();
         constraint.push_back(make_pair(res->getHalfSelectedVariable(), 1.0));
@@ -93,9 +99,11 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_HALF)),
@@ -169,9 +177,11 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
@@ -238,9 +248,11 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
@@ -312,9 +324,11 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_HALF)),
@@ -415,9 +429,11 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_HALF)),
@@ -515,9 +531,11 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_HALF)),
@@ -748,7 +766,9 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       enoblambda(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
       // Enob constraints Double
-      enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+      if (hasDouble) {
+        enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+      }
 
       // Enob constraints half
       if (hasHalf) {

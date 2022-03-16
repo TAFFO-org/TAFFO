@@ -24,6 +24,7 @@
 #include <stack>
 #include <unordered_map>
 
+extern bool hasDouble;
 extern bool hasHalf;
 extern bool hasQuad;
 extern bool hasPPC128;

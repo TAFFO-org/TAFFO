@@ -768,7 +768,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
 
   // If we have info on return value, forcing the return value in the model to be of the returned type of function
   if (retInfo) {
-    if (instruction->getType()->isDoubleTy()) {
+    if (hasDouble && instruction->getType()->isDoubleTy()) {
       auto constraint = vector<pair<string, double>>();
       constraint.clear();
       constraint.push_back(make_pair(retInfo->getDoubleSelectedVariable(), 1.0));
@@ -818,7 +818,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
         constraint.push_back(make_pair(info2->getFloatSelectedVariable(), 1.0));
         getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for argument value"*/);
         LLVM_DEBUG(dbgs() << "Forcing argument to float type.\n";);
-      } else if ((*arg_it)->getType()->isDoubleTy()) {
+      } else if (hasDouble && (*arg_it)->getType()->isDoubleTy()) {
         auto info2 = allocateNewVariableWithCastCost(arg_it->get(), instruction);
         auto constraint = vector<pair<string, double>>();
         constraint.clear();

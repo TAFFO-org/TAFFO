@@ -48,8 +48,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   // binary variables for mixed precision
   model.createVariable(optimizerInfo->getFixedSelectedVariable(), 0, 1);
   model.createVariable(optimizerInfo->getFloatSelectedVariable(), 0, 1);
-  model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
-
+  if (hasDouble)
+    model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
   if (hasHalf)
     model.createVariable(optimizerInfo->getHalfSelectedVariable(), 0, 1);
   if (hasQuad)
@@ -66,7 +66,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
 
   auto constraint = vector<pair<string, double>>();
   int ENOBfloat = getENOBFromRange(rangeInfo, FloatType::Float_float);
-  int ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
+  int ENOBdouble = 0;
   int ENOBhalf = 0;
   int ENOBquad = 0;
   int ENOBppc128 = 0;
@@ -91,7 +91,10 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   enobconstraint(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
   // Enob constraints Double
-  enobconstraint(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+  if (hasDouble) {
+    ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
+    enobconstraint(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+  }
 
   // Enob constraints Half
   if (hasHalf) {
@@ -139,6 +142,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
 
   int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)fpInfo->getPointPos()});
 
+  enobMaxCost = hasDouble ? max(enobMaxCost, ENOBdouble) : enobMaxCost;
   enobMaxCost = hasHalf ? max(enobMaxCost, ENOBhalf) : enobMaxCost;
   enobMaxCost = hasFP80 ? max(enobMaxCost, ENOBfp80) : enobMaxCost;
   enobMaxCost = hasQuad ? max(enobMaxCost, ENOBquad) : enobMaxCost;
@@ -191,7 +195,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFloatSelectedVariable(), 1.0));
-  constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
+  if (hasDouble)
+    constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
   if (hasHalf)
     constraint.push_back(make_pair(optimizerInfo->getHalfSelectedVariable(), 1.0));
   if (hasQuad)
@@ -278,7 +283,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
   // binary variables for mixed precision
   model.createVariable(optimizerInfo->getFixedSelectedVariable(), 0, 1);
   model.createVariable(optimizerInfo->getFloatSelectedVariable(), 0, 1);
-  model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
+  if (hasDouble)
+    model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
   if (hasHalf)
     model.createVariable(optimizerInfo->getHalfSelectedVariable(), 0, 1);
   if (hasQuad)
@@ -297,7 +303,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFloatSelectedVariable(), 1.0));
-  constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
+  if (hasDouble)
+    constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
   if (hasHalf)
     constraint.push_back(make_pair(optimizerInfo->getHalfSelectedVariable(), 1.0));
   if (hasQuad)
@@ -391,6 +398,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
       std::size_t ppc128_i = CostsString.find("PPC128");
       std::size_t half_i = CostsString.find("HALF");
       std::size_t bf16_i = CostsString.find("BF16");
+      if (!hasDouble && double_i != std::string::npos)
+        continue;
       if (!hasHalf && half_i != std::string::npos)
         continue;
       if (!hasQuad && quad_i != std::string::npos)

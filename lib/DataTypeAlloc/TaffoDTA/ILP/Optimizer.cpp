@@ -27,6 +27,7 @@ Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string mode
   LLVM_DEBUG(dbgs() << "Time tuning CAST knob: " << to_string(TUNING_CASTING) << "\n";);
   metric->setOpt(this);
 
+  LLVM_DEBUG(dbgs() << "has double: " << to_string(hasDouble) << "\n";);
   LLVM_DEBUG(dbgs() << "has half: " << to_string(hasHalf) << "\n";);
   LLVM_DEBUG(dbgs() << "has Quad: " << to_string(hasQuad) << "\n";);
   LLVM_DEBUG(dbgs() << "has PPC128: " << to_string(hasPPC128) << "\n";);
@@ -580,7 +581,8 @@ void Optimizer::insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1
 
   eqconstraintlambda(&tuner::OptimizerScalarInfo::getFloatSelectedVariable, "float equality");
 
-  eqconstraintlambda(&tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "double equality");
+  if (hasDouble)
+    eqconstraintlambda(&tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "double equality");
 
   if (hasHalf)
     eqconstraintlambda(&tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Half equality");
@@ -671,14 +673,17 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
   LLVM_DEBUG(dbgs() << scalarInfo->getFixedSelectedVariable() << " " << selectedFixed << "\n");
   double selectedFloat = model.getVariableValue(scalarInfo->getFloatSelectedVariable());
   LLVM_DEBUG(dbgs() << scalarInfo->getFloatSelectedVariable() << " " << selectedFloat << "\n");
-  double selectedDouble = model.getVariableValue(scalarInfo->getDoubleSelectedVariable());
-  LLVM_DEBUG(dbgs() << scalarInfo->getDoubleSelectedVariable() << " " << selectedDouble << "\n");
+  double selectedDouble = 0;
   double selectedHalf = 0;
   double selectedFP80 = 0;
   double selectedPPC128 = 0;
   double selectedQuad = 0;
   double selectedBF16 = 0;
 
+  if (hasDouble) {
+    selectedDouble = model.getVariableValue(scalarInfo->getDoubleSelectedVariable());
+    LLVM_DEBUG(dbgs() << scalarInfo->getDoubleSelectedVariable() << " " << selectedDouble << "\n");
+  }
   if (hasHalf) {
     selectedHalf = model.getVariableValue(scalarInfo->getHalfSelectedVariable());
     LLVM_DEBUG(dbgs() << scalarInfo->getHalfSelectedVariable() << " " << selectedHalf << "\n");

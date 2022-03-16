@@ -22,6 +22,7 @@ llvm::cl::opt<bool> hasBF16("hasBF16", llvm::cl::desc("target support bf16"),
                             llvm::cl::init(true));
 */
 
+bool hasDouble = true;
 bool hasHalf = true;
 bool hasQuad = true;
 bool hasPPC128 = true;
