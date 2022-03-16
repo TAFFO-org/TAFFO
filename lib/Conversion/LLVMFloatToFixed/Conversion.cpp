@@ -322,9 +322,13 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   LLVM_DEBUG(dbgs() << "Called fixedToFixed\n";);
 
+  Instruction *fixinst = dyn_cast<Instruction>(fix);
+  if (!ip && fixinst)
+    ip = getFirstInsertionPointAfter(fixinst);
+  assert(ip && "ip required when converted value not an instruction");
+
   Type *llvmsrct = fix->getType();
   Type *llvmdestt = destt.scalarToLLVMType(fix->getContext());
-
 
   // Source and destination are both float
   if (llvmsrct->isFloatingPointTy() &&
@@ -360,14 +364,8 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
     return genConvertFixToFloat(fix, srct, llvmdestt);
   }
 
-
-  assert(llvmsrct->isSingleValueType() && "cannot change fixed point format of a pointer");
-  assert(llvmsrct->isIntegerTy() && "cannot change fixed point format of a float");
-
-  Instruction *fixinst = dyn_cast<Instruction>(fix);
-  if (!ip && fixinst)
-    ip = getFirstInsertionPointAfter(fixinst);
-  assert(ip && "ip required when converted value not an instruction");
+  assert(llvmsrct->isSingleValueType() && "cannot change type of a pointer");
+  assert(llvmsrct->isIntegerTy() && "cannot change type of a float");
 
   IRBuilder<> builder(ip);
 
