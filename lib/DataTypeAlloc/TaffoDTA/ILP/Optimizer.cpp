@@ -666,7 +666,7 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     LLVM_DEBUG(dbgs() << "Nullptr scalar info!");
     return nullptr;
   }
-  LLVM_DEBUG(dbgs() << "\nmodel var values\n");
+  LLVM_DEBUG(dbgs() << "model var values\n");
   double selectedFixed = model.getVariableValue(scalarInfo->getFixedSelectedVariable());
   LLVM_DEBUG(dbgs() << scalarInfo->getFixedSelectedVariable() << " " << selectedFixed << "\n");
   double selectedFloat = model.getVariableValue(scalarInfo->getFloatSelectedVariable());
@@ -678,7 +678,6 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
   double selectedPPC128 = 0;
   double selectedQuad = 0;
   double selectedBF16 = 0;
-
 
   if (hasHalf) {
     selectedHalf = model.getVariableValue(scalarInfo->getHalfSelectedVariable());
@@ -701,7 +700,6 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     LLVM_DEBUG(dbgs() << scalarInfo->getBF16SelectedVariable() << " " << selectedBF16 << "\n");
   }
 
-
   double fracbits = model.getVariableValue(scalarInfo->getFractBitsVariable());
 
   assert(selectedDouble + selectedFixed + selectedFloat + selectedHalf + selectedFP80 + selectedPPC128 + selectedQuad + selectedBF16 == 1 &&
@@ -711,7 +709,6 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     StatSelectedFixed++;
     return make_shared<mdutils::FPType>(scalarInfo->getTotalBits(), (int)fracbits, scalarInfo->isSigned);
   }
-
 
   if (selectedFloat == 1) {
     StatSelectedFloat++;
