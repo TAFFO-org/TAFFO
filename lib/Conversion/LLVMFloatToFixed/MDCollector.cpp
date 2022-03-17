@@ -39,7 +39,7 @@ InputInfo *FloatToFixed::getInputInfo(Value *v)
   MetadataManager &MDManager = MetadataManager::getMetadataManager();
   MDInfo *MDI = MDManager.retrieveMDInfo(v);
 
-  if (auto *fpInfo = dyn_cast<InputInfo>(MDI)) {
+  if (auto *fpInfo = dyn_cast_or_null<InputInfo>(MDI)) {
     return fpInfo;
   }
 
