@@ -19,7 +19,7 @@ static float euclideanDistance(float __attribute__((annotate("scalar()"))) rp, f
   rd = rp - rc;
   gd = gp - gc;
   bd = bp - bc;
-  return sqrt(rd*rd + gd*gd + bd*bd);
+  return sqrtf(rd*rd + gd*gd + bd*bd);
 }
 
 

@@ -76,9 +76,9 @@ static float sobel(const float w[][3] __attribute((annotate("scalar()"))))
   sy = convolve(w, kx);
 
   ss = sx * sx + sy * sy;
-  s = sqrt(ss);
-  if (s >= (256 / sqrt(256 * 256 + 256 * 256)))
-    s = 255 / sqrt(256 * 256 + 256 * 256);
+  s = sqrtf(ss);
+  if (s >= (256 / sqrtf(256 * 256 + 256 * 256)))
+    s = 255 / sqrtf(256 * 256 + 256 * 256);
 
   return s ;
 }

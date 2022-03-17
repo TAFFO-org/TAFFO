@@ -54,28 +54,24 @@ build_one_embedded_float()
   mkdir -p "$logdir"
   main_flt="bench_${bench}_orig"
   main=${main_flt/-/_}
-  out_flt="../../embedded_src/bench_obj/${main_flt}.o"
-  log="$logdir/$out_flt.log"
-  #CLANG=$(taffo -print-clang)
-  #${CLANG} \
-  #  *.cc -I../../embedded_src -I../../embedded_src/stm32f207 -o "$out_flt" $CFLAGS \
-  #  -DBENCH_MAIN="$main_flt" \
-  #  -stdlib=libstdc++ -I${embedded_sysroot}/include/c++/*/arm-none-eabi \
-  #  --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
-  #    &>> "$log"
-  taffo \
-    *.cc -I../../embedded_src -I../../embedded_src/stm32f207 -c -o "$out" $CFLAGS \
-    -DBENCH_MAIN="$main" \
-    -Xvra -unroll -Xvra 0 \
-    -debug-taffo \
-    -temp-dir "$logdir" \
-    -stdlib=libstdc++ -I$extra_cxx_includes \
-    --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
-      &>> "$log"
-  err=$?
-  if [[ err -eq 0 ]]; then
-    printf "%s" "$main"
-  fi
+  log="$logdir/${main_flt}.log"
+  extra_cxx_includes="$embedded_sysroot"/include/c++/7.3.1/arm-none-eabi
+  echo $bench > "$log"
+  CLANG=$(taffo -print-clang)
+  for f in *.cc; do
+    out_flt="../../embedded_src/bench_obj/${f}_orig.o"
+    ${CLANG} \
+      "$f" -I../../embedded_src -I../../embedded_src/stm32f207 -c -o "$out_flt" $CFLAGS \
+      -DBENCH_MAIN="$main_flt" \
+      -stdlib=libstdc++ -I${extra_cxx_includes} \
+      --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+        &>> "$log"
+    err=$?
+    if [[ err -ne 0 ]]; then
+      return $err
+    fi
+  done
+  printf "%s" "$main"
 }
 
 clean_one()
@@ -105,7 +101,7 @@ if [[ -z $X_IS_CHILD ]]; then
   if [[ -z $embedded_triple ]];  then export embedded_triple=arm-none-eabi; fi
   if [[ -z $embedded_cpu ]];     then export embedded_cpu=cortex-m3; fi
   if [[ -z $costmodel ]];  then export costmodel=stm32; fi
-  if [[ -z $instrset ]];   then export instrset=fix; fi
+  if [[ -z $instrset ]];   then export instrset=embedded; fi
   if [[ -z $enobweight ]]; then export enobweight=1; fi
   if [[ -z $timeweight ]]; then export timeweight=100; fi
   if [[ -z $castweight ]]; then export castweight=100; fi
@@ -165,7 +161,7 @@ for benchdir in $benchs; do
       out=$?
       if [[ $out -eq 0 ]]; then
         printf ' OK!\n'
-        printf 'printf("%%s\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+        printf 'printf("%%s\\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
       else
@@ -173,16 +169,27 @@ for benchdir in $benchs; do
       fi
       ;;
     build_experiment)
+      printf '%-5s %-16s' "$action" "$bench"
+      main=$(build_one_embedded_float $bench)
+      out=$?
+      if [[ $out -eq 0 ]]; then
+        printf ' OK!\n'
+        printf 'printf("%%s\\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+        printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+        printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
+      else
+        printf ' fail %d\n' $out 
+      fi
       if [[ -z $wstart ]]; then export wstart=0; fi
-      if [[ -z $wend   ]]; then export wend=1000; fi
-      if [[ -z $wstep  ]]; then export wstep=500; fi
+      if [[ -z $wend   ]]; then export wend=100000; fi
+      if [[ -z $wstep  ]]; then export wstep=50000; fi
       printf '  wstart           = %s\n' "$wstart"
       printf '  wend             = %s\n' "$wend"
       printf '  wstep            = %s\n' "$wstep"
       for (( i = wstart; i <= wend; i = i + wstep )); do
         export enobweight=$i
-        export timeweight=$(( 1000 - i ))
-        export castweight=$(( 1000 - i ))
+        export timeweight=$(( wend - i ))
+        export castweight=$(( wend - i ))
         printf '  enobweight       = %s\n' "$enobweight" > /dev/stderr
         printf '  timeweight       = %s\n' "$timeweight" > /dev/stderr
         printf '  castweight       = %s\n' "$castweight" > /dev/stderr
