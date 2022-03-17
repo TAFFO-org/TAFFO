@@ -606,7 +606,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
       // Do not save! As here we have a pointer!
       shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                             fieldInfo->IError);
+                                                                             fieldInfo->IError, false);
 
       auto met = make_shared<OptimizerPointerInfo>(variable);
 
