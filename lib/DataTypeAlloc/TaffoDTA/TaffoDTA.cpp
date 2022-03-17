@@ -473,11 +473,12 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
 
   for (Use &use : v->uses()) {
     User *user = use.getUser();
-    AbstractCallSite call(&use);
-    if (call.getInstruction() == nullptr)
+    CallBase *call = dyn_cast<CallBase>(user);
+    if (call == nullptr)
       continue;
+    LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall: processing " << *(user) << ")\n");
 
-    Function *fun = dyn_cast<Function>(call.getCalledFunction());
+    Function *fun = dyn_cast<Function>(call->getCalledFunction());
     if (fun == nullptr) {
       LLVM_DEBUG(dbgs() << " --> skipping restoring types from call site " << *user
                         << " because function reference cannot be resolved\n");
@@ -494,8 +495,11 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
     if (hasInfo(arg)) {
       valueInfo(arg)->metadata.reset(finalMd->clone());
       setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
+    } else {
+      LLVM_DEBUG(dbgs() << "Not looking good, formal arg #" << use.getOperandNo() << " (" << *arg << ") has no valueInfo, but actual argument does...\n");
     }
   }
+  LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall ended\n");
 }
 
 
