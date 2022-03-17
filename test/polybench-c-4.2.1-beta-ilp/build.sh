@@ -12,7 +12,7 @@ build_one()
   out="${bench}_${costmodel}_${enobweight}_${timeweight}_${castweight}"
   float_out="${bench}_unmodified"
   taffo \
-    *.c -I.. -o "$out" $CFLAGS -D$pb_dataset \
+    *.c -I.. -o "$out" $CFLAGS -D$pb_dataset -lm \
     -float-output "$float_out" \
     -mixedmode \
     -costmodel "$costmodel" \
@@ -33,7 +33,7 @@ build_one()
 build_one_embedded()
 {
   # $1: bench name
-  
+
   bench="$1"
   pushd "$bench" > /dev/null
   mkdir -p "../../embedded_src/bench_obj"
@@ -86,15 +86,15 @@ run_one()
 {
   executable="${bench}_${costmodel}_${enobweight}_${timeweight}_${castweight}"
   float_executable="${bench}_unmodified"
-  
+
   pushd "$bench" > /dev/null
   ./$executable > taffo_out.txt 2> taffo_time.txt
   ./$float_executable > float_out.txt 2> float_time.txt
-  
+
   nfo=$($SCRIPTPATH/error.py float_out.txt taffo_out.txt)
   err=$?
   printf '%-19s' "$nfo"
-  
+
   popd > /dev/null
   return $err
 }
@@ -133,6 +133,10 @@ printf '  castweight       = %s\n' "$castweight"
 printf '  pb_dataset       = %s\n' "$pb_dataset"
 printf '  CFLAGS           = %s\n' "$CFLAGS"
 
+if [[ ( $# -gt 0 ) && ( $1 == build ) ]]; then
+  action=build
+  shift
+fi
 if [[ ( $# -gt 0 ) && ( $1 == clean ) ]]; then
   action=clean
   shift
@@ -185,6 +189,6 @@ for benchdir in $benchs; do
   if [[ $out -eq 0 ]]; then
     printf ' OK!\n'
   else
-    printf ' fail %d\n' $out 
+    printf ' fail %d\n' $out
   fi
 done
