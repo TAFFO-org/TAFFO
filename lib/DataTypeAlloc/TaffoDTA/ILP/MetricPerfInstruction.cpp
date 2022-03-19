@@ -1,5 +1,6 @@
 #include "MetricBase.h"
 #include "Optimizer.h"
+#include "Utils.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -1012,7 +1013,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     newEnobVariable.append("_memphi_");
     newEnobVariable.append(load->getFunction()->getName().str());
     newEnobVariable.append("_");
-    newEnobVariable.append(load->getNameOrAsOperand());
+    newEnobVariable.append(uniqueIDForValue(load));
     std::replace(newEnobVariable.begin(), newEnobVariable.end(), '.', '_');
     LLVM_DEBUG(dbgs() << "New enob for load: " << newEnobVariable << "\n";);
     getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);

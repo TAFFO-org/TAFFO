@@ -241,12 +241,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
 
   auto originalVar = info->getBaseName();
 
-  string endName = whereToUse->getNameOrAsOperand();
-  if (endName.empty()) {
-    if (auto istr = dyn_cast_or_null<Instruction>(whereToUse)) {
-      endName = string(istr->getOpcodeName());
-    }
-  }
+  string endName = tuner::uniqueIDForValue(whereToUse);
   std::replace(endName.begin(), endName.end(), '.', '_');
 
 
