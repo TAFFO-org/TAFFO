@@ -1,6 +1,7 @@
 #include "LoopAnalyzerUtil.h"
 #include "MetricBase.h"
 #include "Optimizer.h"
+#include "Utils.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/IntrinsicInst.h"
 
@@ -9,22 +10,16 @@ using namespace mdutils;
 
 
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<mdutils::FPType> fpInfo, shared_ptr<mdutils::Range> rangeInfo, shared_ptr<double> suggestedMinError,
-                                                                               string functionName, bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
+                                                                               bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
 {
   assert(!valueHasInfo(value) && "The value considered already have an info!");
 
   assert(fpInfo && "fpInfo should not be nullptr here!");
   assert(rangeInfo && "rangeInfo should not be nullptr here!");
 
-  if (!functionName.empty()) {
-    functionName = functionName.append("_");
-  }
-
-
   auto &model = getModel();
 
-
-  string varNameBase(string(functionName).append((std::string)value->getName()).append(nameAppendix));
+  string varNameBase = tuner::uniqueIDForValue(value).append(nameAppendix);
   std::replace(varNameBase.begin(), varNameBase.end(), '.', '_');
   string varName(varNameBase);
 
@@ -33,7 +28,6 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
     varName = string(varNameBase).append("_").append(to_string(counter));
     counter++;
   }
-
 
   LLVM_DEBUG(llvm::dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
 
@@ -54,8 +48,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   // binary variables for mixed precision
   model.createVariable(optimizerInfo->getFixedSelectedVariable(), 0, 1);
   model.createVariable(optimizerInfo->getFloatSelectedVariable(), 0, 1);
-  model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
-
+  if (hasDouble)
+    model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
   if (hasHalf)
     model.createVariable(optimizerInfo->getHalfSelectedVariable(), 0, 1);
   if (hasQuad)
@@ -72,7 +66,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
 
   auto constraint = vector<pair<string, double>>();
   int ENOBfloat = getENOBFromRange(rangeInfo, FloatType::Float_float);
-  int ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
+  int ENOBdouble = 0;
   int ENOBhalf = 0;
   int ENOBquad = 0;
   int ENOBppc128 = 0;
@@ -97,7 +91,10 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   enobconstraint(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
   // Enob constraints Double
-  enobconstraint(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+  if (hasDouble) {
+    ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
+    enobconstraint(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+  }
 
   // Enob constraints Half
   if (hasHalf) {
@@ -145,6 +142,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
 
   int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)fpInfo->getPointPos()});
 
+  enobMaxCost = hasDouble ? max(enobMaxCost, ENOBdouble) : enobMaxCost;
   enobMaxCost = hasHalf ? max(enobMaxCost, ENOBhalf) : enobMaxCost;
   enobMaxCost = hasFP80 ? max(enobMaxCost, ENOBfp80) : enobMaxCost;
   enobMaxCost = hasQuad ? max(enobMaxCost, ENOBquad) : enobMaxCost;
@@ -197,7 +195,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFloatSelectedVariable(), 1.0));
-  constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
+  if (hasDouble)
+    constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
   if (hasHalf)
     constraint.push_back(make_pair(optimizerInfo->getHalfSelectedVariable(), 1.0));
   if (hasQuad)
@@ -242,12 +241,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
 
   auto originalVar = info->getBaseName();
 
-  string endName = whereToUse->getNameOrAsOperand();
-  if (endName.empty()) {
-    if (auto istr = dyn_cast_or_null<Instruction>(whereToUse)) {
-      endName = string(istr->getOpcodeName());
-    }
-  }
+  string endName = tuner::uniqueIDForValue(whereToUse);
   std::replace(endName.begin(), endName.end(), '.', '_');
 
 
@@ -284,7 +278,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
   // binary variables for mixed precision
   model.createVariable(optimizerInfo->getFixedSelectedVariable(), 0, 1);
   model.createVariable(optimizerInfo->getFloatSelectedVariable(), 0, 1);
-  model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
+  if (hasDouble)
+    model.createVariable(optimizerInfo->getDoubleSelectedVariable(), 0, 1);
   if (hasHalf)
     model.createVariable(optimizerInfo->getHalfSelectedVariable(), 0, 1);
   if (hasQuad)
@@ -303,7 +298,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFloatSelectedVariable(), 1.0));
-  constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
+  if (hasDouble)
+    constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
   if (hasHalf)
     constraint.push_back(make_pair(optimizerInfo->getHalfSelectedVariable(), 1.0));
   if (hasQuad)
@@ -397,6 +393,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
       std::size_t ppc128_i = CostsString.find("PPC128");
       std::size_t half_i = CostsString.find("HALF");
       std::size_t bf16_i = CostsString.find("BF16");
+      if (!hasDouble && double_i != std::string::npos)
+        continue;
       if (!hasHalf && half_i != std::string::npos)
         continue;
       if (!hasQuad && quad_i != std::string::npos)
@@ -727,31 +725,9 @@ std::string MetricPerf::getEnobActivationVariable(Value *value, int cardinal)
   assert(cardinal >= 0 && "Cardinal should be a positive number!");
   string valueName;
 
-  if (auto instr = dyn_cast_or_null<Instruction>(value)) {
-    valueName.append(instr->getFunction()->getName().str());
-    valueName.append("_");
-  }
-
-  if (!value->getName().empty()) {
-    valueName.append(value->getNameOrAsOperand());
-  } else {
-    valueName.append(to_string(value->getValueID()));
-    valueName.append("_");
-  }
-
-  std::replace(valueName.begin(), valueName.end(), '.', '_');
+  valueName = tuner::uniqueIDForValue(value);
 
   assert(!valueName.empty() && "The value should have a name!!!");
-
-  string fname;
-  if (auto instr = dyn_cast_or_null<Instruction>(value)) {
-    fname = instr->getFunction()->getName().str();
-    std::replace(fname.begin(), fname.end(), '.', '_');
-  }
-
-  if (!fname.empty()) {
-    valueName = fname + "_" + valueName;
-  }
 
   string toreturn = valueName + "_enob_" + to_string(cardinal);
 
@@ -883,8 +859,7 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
 
   // Allocating variable for result
   shared_ptr<tuner::OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                                fieldInfo->IError,
-                                                                                instruction->getFunction()->getName().str());
+                                                                                fieldInfo->IError);
   auto constraint = vector<pair<string, double>>();
   auto &model = getModel();
   constraint.clear();

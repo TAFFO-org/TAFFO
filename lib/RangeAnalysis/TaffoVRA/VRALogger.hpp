@@ -128,7 +128,11 @@ public:
   static std::string toString(const range_ptr_t R)
   {
     if (R) {
-      return "[" + std::to_string(R->min()) + ", " + std::to_string(R->max()) + "]";
+      char minstr[32];
+      char maxstr[32];
+      std::snprintf(minstr, 32, "%.20e", R->min());
+      std::snprintf(maxstr, 32, "%.20e", R->max());
+      return "[" + std::string(minstr) + ", " + std::string(maxstr) + "]";
     }
     return "null range";
   }

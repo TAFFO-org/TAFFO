@@ -27,6 +27,7 @@ Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string mode
   LLVM_DEBUG(dbgs() << "Time tuning CAST knob: " << to_string(TUNING_CASTING) << "\n";);
   metric->setOpt(this);
 
+  LLVM_DEBUG(dbgs() << "has double: " << to_string(hasDouble) << "\n";);
   LLVM_DEBUG(dbgs() << "has half: " << to_string(hasHalf) << "\n";);
   LLVM_DEBUG(dbgs() << "has Quad: " << to_string(hasQuad) << "\n";);
   LLVM_DEBUG(dbgs() << "has PPC128: " << to_string(hasPPC128) << "\n";);
@@ -76,7 +77,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
         return;
       }
-      auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, "", false);
+      auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, false);
       metric->saveInfoForValue(glob, make_shared<OptimizerPointerInfo>(optInfo));
     } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {
       LLVM_DEBUG(dbgs() << " ^ This is a real structure\n");
@@ -123,7 +124,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo
         LLVM_DEBUG(dbgs() << "Has initializer and it is not a null value! Need more processing!\n");
       } else {
         LLVM_DEBUG(dbgs() << "No initializer, or null value!\n");
-        auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, "", false);
+        auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->IRange, fieldInfo->IError, false);
         // This is a pointer, so the reference to it is a pointer to a pointer yay
         metric->saveInfoForValue(glob, make_shared<OptimizerPointerInfo>(make_shared<OptimizerPointerInfo>(optInfo)));
       }
@@ -218,8 +219,7 @@ void Optimizer::handleCallFromRoot(Function *f)
       auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
       if (fptype) {
           LLVM_DEBUG(dbgs() << fptype->toString(););
-          shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype, inputInfo->IRange,
-                                                                               instruction->getFunction()->getName());
+          shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype, inputInfo->IRange);
           retInfo = result;
       } else {
           LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n";);
@@ -305,6 +305,17 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
         LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!\n";);
         DisabledSkipped++;
         continue;
+      } else {
+        /* The VRA may leave null ranges even when conversion is enabled
+         * for code that is unreachable from the starting point, so we check
+         * the range and if it is null we skip this instruction */
+        std::shared_ptr<ValueInfo> VI = tuner->valueInfo(&(*iIt));
+        std::shared_ptr<mdutils::MDInfo> MDI = VI->metadata;
+        mdutils::InputInfo *II = dyn_cast<mdutils::InputInfo>(MDI.get());
+        if (II && II->IRange == nullptr) {
+          LLVM_DEBUG(dbgs() << "Skipping because there is no range!\n";);
+          continue;
+        }
       }
     }
 
@@ -338,10 +349,6 @@ shared_ptr<OptimizerInfo> Optimizer::getInfoOfValue(Value *value)
 
   return nullptr;
 }
-
-
-// FIXME: replace with a dynamic version!
-#define I_COST 1
 
 void Optimizer::handleBinaryInstruction(Instruction *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
 {
@@ -408,7 +415,14 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
     handleBinaryInstruction(instruction, opCode, valueInfo);
 
   } else if (Instruction::isUnaryOp(opCode)) {
-    llvm_unreachable("Not handled.");
+
+    switch (opCode) {
+    case llvm::Instruction::FNeg:
+      metric->handleFNeg(dyn_cast<UnaryOperator>(instruction), opCode, valueInfo);
+      break;
+    default:
+      llvm_unreachable("Not handled.");
+    }
 
   } else {
     switch (opCode) {
@@ -567,7 +581,8 @@ void Optimizer::insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1
 
   eqconstraintlambda(&tuner::OptimizerScalarInfo::getFloatSelectedVariable, "float equality");
 
-  eqconstraintlambda(&tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "double equality");
+  if (hasDouble)
+    eqconstraintlambda(&tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "double equality");
 
   if (hasHalf)
     eqconstraintlambda(&tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Half equality");
@@ -603,7 +618,7 @@ bool Optimizer::valueHasInfo(Value *value)
 shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
 {
   auto res = getInfoOfValue(pValue);
-  if (!res) {
+  if (res == nullptr) {
     return nullptr;
   }
 
@@ -619,6 +634,11 @@ shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
 
 shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> info)
 {
+  if (!info) {
+    LLVM_DEBUG(dbgs() << "OptimizerInfo null, returning null\n");
+    return nullptr;
+  }
+
   if (info->getKind() == OptimizerInfo::K_Field) {
     auto i = modelvarToTType(dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info));
     auto result = make_shared<InputInfo>();
@@ -638,12 +658,8 @@ shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerIn
     return buildDataHierarchy(apr->getOptInfo());
   }
 
-  if (!info) {
-    LLVM_DEBUG(dbgs() << "OptimizerInfo null!\n");
-  } else {
-    LLVM_DEBUG(dbgs() << "Unknown OptimizerInfo: " << info->toString() << "\n");
-  }
-  llvm_unreachable("Unnknown data type");
+  LLVM_DEBUG(dbgs() << "Unknown OptimizerInfo: " << info->toString() << "\n");
+  llvm_unreachable("Unknown data type");
 }
 
 shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalarInfo> scalarInfo)
@@ -652,20 +668,22 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     LLVM_DEBUG(dbgs() << "Nullptr scalar info!");
     return nullptr;
   }
-  LLVM_DEBUG(dbgs() << "\nmodel var values\n");
+  LLVM_DEBUG(dbgs() << "model var values\n");
   double selectedFixed = model.getVariableValue(scalarInfo->getFixedSelectedVariable());
   LLVM_DEBUG(dbgs() << scalarInfo->getFixedSelectedVariable() << " " << selectedFixed << "\n");
   double selectedFloat = model.getVariableValue(scalarInfo->getFloatSelectedVariable());
   LLVM_DEBUG(dbgs() << scalarInfo->getFloatSelectedVariable() << " " << selectedFloat << "\n");
-  double selectedDouble = model.getVariableValue(scalarInfo->getDoubleSelectedVariable());
-  LLVM_DEBUG(dbgs() << scalarInfo->getDoubleSelectedVariable() << " " << selectedDouble << "\n");
+  double selectedDouble = 0;
   double selectedHalf = 0;
   double selectedFP80 = 0;
   double selectedPPC128 = 0;
   double selectedQuad = 0;
   double selectedBF16 = 0;
 
-
+  if (hasDouble) {
+    selectedDouble = model.getVariableValue(scalarInfo->getDoubleSelectedVariable());
+    LLVM_DEBUG(dbgs() << scalarInfo->getDoubleSelectedVariable() << " " << selectedDouble << "\n");
+  }
   if (hasHalf) {
     selectedHalf = model.getVariableValue(scalarInfo->getHalfSelectedVariable());
     LLVM_DEBUG(dbgs() << scalarInfo->getHalfSelectedVariable() << " " << selectedHalf << "\n");
@@ -687,7 +705,6 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     LLVM_DEBUG(dbgs() << scalarInfo->getBF16SelectedVariable() << " " << selectedBF16 << "\n");
   }
 
-
   double fracbits = model.getVariableValue(scalarInfo->getFractBitsVariable());
 
   assert(selectedDouble + selectedFixed + selectedFloat + selectedHalf + selectedFP80 + selectedPPC128 + selectedQuad + selectedBF16 == 1 &&
@@ -697,7 +714,6 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     StatSelectedFixed++;
     return make_shared<mdutils::FPType>(scalarInfo->getTotalBits(), (int)fracbits, scalarInfo->isSigned);
   }
-
 
   if (selectedFloat == 1) {
     StatSelectedFloat++;

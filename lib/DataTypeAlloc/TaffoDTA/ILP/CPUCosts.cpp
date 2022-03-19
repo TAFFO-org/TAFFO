@@ -20,6 +20,7 @@ using namespace tuner;
 using namespace std;
 
 extern std::string InstructionSet;
+extern bool hasDouble;
 extern bool hasHalf;
 extern bool hasQuad;
 extern bool hasPPC128;
@@ -376,6 +377,9 @@ void CPUCosts::loadInstructionSet()
       } else if (values.first.find("BF16") == 0) {
         LLVM_DEBUG(llvm::dbgs() << "No bf16\n");
         hasBF16 = false;
+      } else if (values.first.find("DOUBLE") == 0) {
+        LLVM_DEBUG(llvm::dbgs() << "No double\n");
+        hasDouble = false;
       } else {
         llvm_unreachable((string("Not supported disabled type ") + values.first).c_str());
       }

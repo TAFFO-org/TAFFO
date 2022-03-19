@@ -1,6 +1,5 @@
-build*
+build*/
 .idea
-
 build.log
 *.zip
 dist

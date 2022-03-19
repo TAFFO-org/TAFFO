@@ -87,7 +87,6 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
 
       Range rangeInfo(min, max);
 
-
       FixedPointTypeGenError fpgerr;
       FPType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
       if (fpgerr != FixedPointTypeGenError::NoError) {
@@ -96,10 +95,9 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
         return nullptr;
       }
 
-      string fname = "ConstantValue";
       // ENOB should not be considered for constant.... It is a constant and will be converted as best as possible
       // WE DO NOT SAVE CONSTANTS INFO!
-      auto info = allocateNewVariableForValue(constantFP, make_shared<FPType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, fname, false, "", false);
+      auto info = allocateNewVariableForValue(constantFP, make_shared<FPType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
       info->setReferToConstant(true);
       return info;
     }
@@ -132,13 +130,10 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp
   // The first operand is the beautiful object
   Value *operand = cexp_i->getOperand(0U);
 
-
-  Type *source_element_type =
-      cast<PointerType>(operand->getType()->getScalarType())->getElementType();
   std::vector<unsigned> offset;
 
   // We compute all the offsets that will be used in our "data structure" to navigate it, to reach the correct range
-  if (extractGEPOffset(source_element_type,
+  if (extractGEPOffset(operand->getType(),
                        iterator_range<User::const_op_iterator>(cexp_i->op_begin() + 1,
                                                                cexp_i->op_end()),
                        offset)) {
@@ -190,26 +185,22 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
 {
   shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->size());
 
-  string function = "";
-  if (auto instr = dyn_cast_or_null<Instruction>(glob)) {
-    function = instr->getFunction()->getName().str();
-  }
-
   int i = 0;
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {
     if (auto structInfo = dynamic_ptr_cast_or_null<StructInfo>(*it)) {
       optInfo->setField(i, loadStructInfo(glob, structInfo, (name + "_" + to_string(i))));
-    } else if (auto ii = dyn_cast<InputInfo>(it->get())) {
+    } else if (auto ii = dyn_cast_or_null<InputInfo>(it->get())) {
       auto fptype = dynamic_ptr_cast_or_null<FPType>(ii->IType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
 
       } else {
-        auto info = allocateNewVariableForValue(glob, fptype, ii->IRange, ii->IError, function, false,
+        auto info = allocateNewVariableForValue(glob, fptype, ii->IRange, ii->IError, false,
                                                 name + "_" + to_string(i));
         optInfo->setField(i, info);
       }
     } else {
+      LLVM_DEBUG(dbgs() << "no info for struct member " << i << " of " << *glob);
     }
     i++;
   }
@@ -228,13 +219,15 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
   LLVM_DEBUG(operand->print(dbgs()););
   LLVM_DEBUG(dbgs() << "\n";);
 
+  LLVM_DEBUG(dbgs() << "type = " << *gep_i->getType() << "\n");
+
   std::vector<unsigned> offset;
 
-  if (extractGEPOffset(gep_i->getSourceElementType(),
+  if (extractGEPOffset(gep_i->getPointerOperandType(),
                        iterator_range<User::const_op_iterator>(gep_i->idx_begin(),
                                                                gep_i->idx_end()),
                        offset)) {
-    LLVM_DEBUG(dbgs() << "Exctracted offset: [";);
+    LLVM_DEBUG(dbgs() << "Extracted offset: [";);
     for (unsigned int i = 0; i < offset.size(); i++) {
       LLVM_DEBUG(dbgs() << offset[i] << ", ";);
     }
@@ -246,13 +239,11 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
       return;
     }
 
-
     auto optInfo = optInfo_t->getOptInfo();
     if (!optInfo) {
       LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
       return;
     }
-
 
     // This will only contain displacements for struct fields...
     for (unsigned int i = 0; i < offset.size(); i++) {
@@ -278,35 +269,33 @@ bool MetricBase::extractGEPOffset(const llvm::Type *source_element_type,
                                   std::vector<unsigned> &offset)
 {
   assert(source_element_type != nullptr);
-  LLVM_DEBUG((dbgs() << "indices: "););
-  for (auto idx_it = indices.begin() + 1; // skip first index
-       idx_it != indices.end(); ++idx_it) {
+  LLVM_DEBUG((dbgs() << "extractGEPOffset() BEGIN\n"););
 
+  for (auto idx_it = indices.begin(); idx_it != indices.end(); ++idx_it) {
+    if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type) || isa<llvm::PointerType>(source_element_type)) {
+      // This is needed to skip the array element in array of structures
+      // In facts, we treats arrays as "scalar" things, so we just do not want to deal with them
+      source_element_type = source_element_type->getContainedType(0);
+      LLVM_DEBUG(dbgs() << "skipping array/vector/pointer...\n");
+      continue;
+    }
+  
     const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
     if (int_i) {
       int n = static_cast<int>(int_i->getSExtValue());
-      if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type)) {
-        // This is needed to skip the array element in array of structures
-        // In facts, we treats arrays as "scalar" things, so we just do not want to deal with them
-        source_element_type = source_element_type->getContainedType(n);
-        LLVM_DEBUG(dbgs() << "continuing...   ";);
-        continue;
-      }
 
-
+      source_element_type = source_element_type->getContainedType(n);
       offset.push_back(n);
       /*source_element_type =
               cast<StructType>(source_element_type)->getTypeAtIndex(n);*/
-      LLVM_DEBUG((dbgs() << n << " "););
+      LLVM_DEBUG(dbgs() << "contained type " << n << ": " << *source_element_type << " (ID=" << source_element_type->getTypeID() << ")\n");
     } else {
       // We can skip only if is a sequential i.e. we are accessing an index of an array
-      if (!isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type)) {
-        emitError("Index of GEP not constant");
-        return false;
-      }
+      emitError("Index of GEP not constant");
+      return false;
     }
   }
-  LLVM_DEBUG((dbgs() << "--end indices\n"););
+  LLVM_DEBUG((dbgs() << "extractGEPOffset() END\n"););
   return true;
 }
 
@@ -362,6 +351,40 @@ void MetricBase::openMemLoop(LoadInst *load, Value *value)
 
 
 shared_ptr<OptimizerScalarInfo>
+MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEquality, shared_ptr<ValueInfo> valueInfos)
+{
+  auto info1 = getInfoOfValue(op1);
+
+  if (!info1) {
+    LLVM_DEBUG(dbgs() << "Value does not have info, ignoring...\n";);
+    return nullptr;
+  }
+
+  auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfos->metadata);
+  if (!inputInfo) {
+    LLVM_DEBUG(dbgs() << "No info on destination, bailing out, bug in VRA?\n";);
+    return nullptr;
+  }
+
+  auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
+  if (!fptype) {
+    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+    return nullptr;
+  }
+
+  shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
+
+  // Obviously the type should be sufficient to contain the result
+  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
+                                                                       inputInfo->IError);
+
+  opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
+
+  return result;
+}
+
+
+shared_ptr<OptimizerScalarInfo>
 MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
                               shared_ptr<ValueInfo> valueInfos)
 {
@@ -392,8 +415,7 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
 
   // Obviously the type should be sufficient to contain the result
   shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError,
-                                                                       instr->getFunction()->getName().str());
+                                                                       inputInfo->IError);
 
   opt->insertTypeEqualityConstraint(varCast1, varCast2, forceFixEquality);
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
@@ -507,8 +529,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
                    dbgs() << "Info: " << inputInfo->toString() << "\n";);
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
                                                                              inputInfo->IRange,
-                                                                             inputInfo->IError,
-                                                                             instruction->getFunction()->getNameOrAsOperand());
+                                                                             inputInfo->IError);
         retInfo = result;
         LLVM_DEBUG(dbgs() << "Allocated variable for returns.\n";);
       } else {
@@ -726,7 +747,6 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
                                                                              inputInfo->IRange,
                                                                              inputInfo->IError,
-                                                                             call_i->getFunction()->getName().str(),
                                                                              true,
                                                                              "",
                                                                              true,
@@ -748,7 +768,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
 
   // If we have info on return value, forcing the return value in the model to be of the returned type of function
   if (retInfo) {
-    if (instruction->getType()->isDoubleTy()) {
+    if (hasDouble && instruction->getType()->isDoubleTy()) {
       auto constraint = vector<pair<string, double>>();
       constraint.clear();
       constraint.push_back(make_pair(retInfo->getDoubleSelectedVariable(), 1.0));
@@ -798,7 +818,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
         constraint.push_back(make_pair(info2->getFloatSelectedVariable(), 1.0));
         getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for argument value"*/);
         LLVM_DEBUG(dbgs() << "Forcing argument to float type.\n";);
-      } else if ((*arg_it)->getType()->isDoubleTy()) {
+      } else if (hasDouble && (*arg_it)->getType()->isDoubleTy()) {
         auto info2 = allocateNewVariableWithCastCost(arg_it->get(), instruction);
         auto constraint = vector<pair<string, double>>();
         constraint.clear();
@@ -853,7 +873,6 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<ValueInfo> va
         return;
       }
       auto info = allocateNewVariableForValue(alloca, fptype, fieldInfo->IRange, fieldInfo->IError,
-                                              alloca->getFunction()->getName().str(),
                                               false);
       saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(info));
     } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {

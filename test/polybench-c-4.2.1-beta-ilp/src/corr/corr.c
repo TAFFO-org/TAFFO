@@ -158,5 +158,5 @@ int BENCH_MAIN(){
 }
 
 #ifdef __TAFFO__
-static void *__taffo_vra_starting_function = BENCH_MAIN;
+void *__taffo_vra_starting_function = BENCH_MAIN;
 #endif

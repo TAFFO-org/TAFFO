@@ -1,6 +1,10 @@
+#include "PhiWatcher.h"
 #include "Optimizer.h"
+#include "llvm/Support/Debug.h"
 
 using namespace tuner;
+using namespace llvm;
+using namespace std;
 
 void PhiWatcher::openPhiLoop(PHINode *phiNode, Value *requestedValue)
 {

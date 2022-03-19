@@ -151,7 +151,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
       if (iofixpt.isFixedPoint()) {
         if (!wasHintForced) {
           // In questo caso cercare di mettere il fixpoint migliore!
-          auto info = getInputInfo(res);
+          auto info = getInputInfo(val);
           if (!info || !info->IRange) {
             llvm_unreachable("Cannot proceed in converting to a fix point a value without info!");
           }
@@ -223,16 +223,12 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
 bool FloatToFixed::associateFixFormat(mdutils::InputInfo *II, FixedPointType &iofixpt)
 {
   mdutils::Range *rng = II->IRange.get();
-  if (rng == nullptr) {
-    llvm_unreachable("No range info!");
-  }
+  assert(rng && "No range info!");
 
   FixedPointTypeGenError fpgerr;
   // Using default parameters of DTA
   mdutils::FPType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
-  if (fpgerr == FixedPointTypeGenError::InvalidRange) {
-    llvm_unreachable("Cannot assign a fixed point!");
-  }
+  assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
 
   iofixpt = FixedPointType(res.isSigned(), res.getPointPos(), res.getWidth());
 
@@ -322,9 +318,13 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   LLVM_DEBUG(dbgs() << "Called fixedToFixed\n";);
 
+  Instruction *fixinst = dyn_cast<Instruction>(fix);
+  if (!ip && fixinst)
+    ip = getFirstInsertionPointAfter(fixinst);
+  assert(ip && "ip required when converted value not an instruction");
+
   Type *llvmsrct = fix->getType();
   Type *llvmdestt = destt.scalarToLLVMType(fix->getContext());
-
 
   // Source and destination are both float
   if (llvmsrct->isFloatingPointTy() &&
@@ -360,14 +360,8 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
     return genConvertFixToFloat(fix, srct, llvmdestt);
   }
 
-
-  assert(llvmsrct->isSingleValueType() && "cannot change fixed point format of a pointer");
-  assert(llvmsrct->isIntegerTy() && "cannot change fixed point format of a float");
-
-  Instruction *fixinst = dyn_cast<Instruction>(fix);
-  if (!ip && fixinst)
-    ip = getFirstInsertionPointAfter(fixinst);
-  assert(ip && "ip required when converted value not an instruction");
+  assert(llvmsrct->isSingleValueType() && "cannot change type of a pointer");
+  assert(llvmsrct->isIntegerTy() && "cannot change type of a float");
 
   IRBuilder<> builder(ip);
 

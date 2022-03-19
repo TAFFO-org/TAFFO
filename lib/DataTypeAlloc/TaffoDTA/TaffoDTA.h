@@ -137,8 +137,7 @@ struct TaffoTuner : public llvm::ModulePass {
   }
 
 #ifdef TAFFO_BUILD_ILP_DTA
-  bool mergeDataTypes(std::shared_ptr<mdutils::MDInfo> old,
-                      std::shared_ptr<mdutils::MDInfo> model);
+  bool overwriteType(std::shared_ptr<mdutils::MDInfo> old, std::shared_ptr<mdutils::MDInfo> model);
 #endif // TAFFO_BUILD_ILP_DTA
 };
 

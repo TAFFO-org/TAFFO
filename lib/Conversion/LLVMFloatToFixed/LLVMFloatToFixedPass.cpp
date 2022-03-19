@@ -82,7 +82,8 @@ MLHVec collectMallocLikeHandler(Module &m)
 
             type = bitcast->getType()->isPtrOrPtrVectorTy() ? bitcast->getType()->getPointerElementType() : bitcast->getType()->getScalarType();
             while (type->isPtrOrPtrVectorTy()) {
-              type = bitcast->getType()->getPointerElementType();
+              type = type->getPointerElementType();
+              LLVM_DEBUG(llvm::dbgs() << "type " << *type << "\n");
             }
             LLVM_DEBUG(llvm::dbgs() << "Scalar type ");
             LLVM_DEBUG(type->dump());
@@ -90,7 +91,7 @@ MLHVec collectMallocLikeHandler(Module &m)
             llvm::Type *type_tmp = nullptr;
             type_tmp = bitcast->getType()->isPtrOrPtrVectorTy() ? bitcast->getType()->getPointerElementType() : bitcast->getType()->getScalarType();
             while (type_tmp->isPtrOrPtrVectorTy()) {
-              type_tmp = bitcast->getType()->getPointerElementType();
+              type_tmp = type_tmp->getPointerElementType();
             }
             LLVM_DEBUG(llvm::dbgs() << "Scalar type ");
             LLVM_DEBUG(type_tmp->dump());

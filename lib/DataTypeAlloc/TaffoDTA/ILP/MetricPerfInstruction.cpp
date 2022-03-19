@@ -1,5 +1,6 @@
 #include "MetricBase.h"
 #include "Optimizer.h"
+#include "Utils.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -19,6 +20,12 @@ void MetricPerf::handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res,
   auto &model = getModel();
   for (const auto &tmpString : cpuCosts.CostsIdValues) {
     if (tmpString.find(start) == 0 && cpuCosts.isDisabled(cpuCosts.decodeId(tmpString))) {
+
+      if (hasDouble && tmpString.find("DOUBLE") != string::npos) {
+        constraint.clear();
+        constraint.push_back(make_pair(res->getDoubleSelectedVariable(), 1.0));
+        model.insertLinearConstraint(constraint, Model::EQ, 0 /*, "Disable Double"*/);
+      }
 
       if (hasHalf && tmpString.find("HALF") != string::npos) {
         constraint.clear();
@@ -93,9 +100,11 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_HALF)),
@@ -144,6 +153,76 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
 }
 
 
+void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+{
+  assert(instr->getOpcode() == llvm::Instruction::FNeg && "Operand mismatch!");
+
+  auto &cpuCosts = getCpuCosts();
+  auto &model = getModel();
+
+  auto op1 = instr->getOperand(0);
+
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
+
+  /* adds type cast constraints for operands and returns the variable set of this instruction */
+  auto res = handleUnaryOpCommon(instr, op1, true, valueInfos);
+  if (!res)
+    return;
+
+  handleDisabled(res, cpuCosts, "SUB");
+
+  double maxCost = getCpuCosts().MaxMinCosts("SUB").first;
+  model.insertObjectiveElement(
+      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FIX)),
+      MODEL_OBJ_MATHCOST, maxCost);
+  model.insertObjectiveElement(
+      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
+      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+  if (hasHalf) {
+    model.insertObjectiveElement(
+        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+  if (hasQuad) {
+    model.insertObjectiveElement(
+        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+
+  if (hasPPC128) {
+    model.insertObjectiveElement(
+        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+
+  if (hasFP80) {
+    model.insertObjectiveElement(
+        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FP80)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+
+  if (hasBF16) {
+    model.insertObjectiveElement(
+        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_BF16)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
+  // Precision cost
+  // Handloed in allocating variable
+
+  auto constraint = vector<pair<string, double>>();
+  // Enob constraints
+  constraint.clear();
+  constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
+  constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub first addend"*/);
+}
+
+
 void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
 {
   assert(instr->getOpcode() == llvm::Instruction::FSub && "Operand mismatch!");
@@ -170,9 +249,11 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
@@ -244,9 +325,11 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_HALF)),
@@ -347,9 +430,11 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_HALF)),
@@ -447,9 +532,11 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertObjectiveElement(
       make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
-  model.insertObjectiveElement(
-      make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
-      MODEL_OBJ_MATHCOST, 0);
+  if (hasDouble) {
+    model.insertObjectiveElement(
+        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
+        MODEL_OBJ_MATHCOST, 0);
+  }
   if (hasHalf) {
     model.insertObjectiveElement(
         make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_HALF)),
@@ -520,8 +607,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
       // Do not save! As here we have a pointer!
       shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                             fieldInfo->IError,
-                                                                             instruction->getFunction()->getName().str(), false);
+                                                                             fieldInfo->IError, false);
 
       auto met = make_shared<OptimizerPointerInfo>(variable);
 
@@ -572,8 +658,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
 
     shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                           fieldInfo->IError,
-                                                                           instruction->getFunction()->getName().str());
+                                                                           fieldInfo->IError);
 
     // Limiting the ENOB as coming from an integer we can have an error at min of 1
     // Look that here we have the original program, so these instruction are not related to fixed point implementation!
@@ -682,7 +767,9 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       enoblambda(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
       // Enob constraints Double
-      enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+      if (hasDouble) {
+        enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+      }
 
       // Enob constraints half
       if (hasHalf) {
@@ -829,8 +916,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
 
   // Allocating variable for result
   shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                         fieldInfo->IError,
-                                                                         instruction->getFunction()->getName().str());
+                                                                         fieldInfo->IError);
   auto constraint = vector<pair<string, double>>();
   constraint.clear();
 
@@ -847,7 +933,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
       }
     }
 
-    string enob_selection = getEnobActivationVariable(instruction, index);
+    string enob_selection = getEnobActivationVariable(phi_n, index);
     getModel().createVariable(enob_selection, 0, 1);
     constraint.push_back(make_pair(enob_selection, 1.0));
   }
@@ -927,7 +1013,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     newEnobVariable.append("_memphi_");
     newEnobVariable.append(load->getFunction()->getName().str());
     newEnobVariable.append("_");
-    newEnobVariable.append(load->getNameOrAsOperand());
+    newEnobVariable.append(uniqueIDForValue(load));
     std::replace(newEnobVariable.begin(), newEnobVariable.end(), '.', '_');
     LLVM_DEBUG(dbgs() << "New enob for load: " << newEnobVariable << "\n";);
     getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
