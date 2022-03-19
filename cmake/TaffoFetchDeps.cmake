@@ -12,8 +12,8 @@ if (TAFFO_BUILD_ILP_DTA)
     
     FetchContent_Declare(
       or-tools
-      GIT_REPOSITORY "https://github.com:google/or-tools.git"
-      GIT_TAG "stable"
+      GIT_REPOSITORY "https://github.com/google/or-tools.git"
+      GIT_TAG "v9.2"
       GIT_SHALLOW ON
       GIT_PROGRESS ON)
     # TODO: disable some of this stuff, not sure we need it all
