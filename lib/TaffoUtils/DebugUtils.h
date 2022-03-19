@@ -10,7 +10,7 @@
 
 #else
 
-#define IF_TAFFO_DEBUG (false)
+#define IF_TAFFO_DEBUG if (false)
 
 #endif
 
