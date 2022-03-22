@@ -230,7 +230,7 @@ bool InstructionPropagator::propagateLoad(Instruction &I)
 
   // Look for range and error in the defining instructions with MemorySSA
   MemSSARE MemRE(RMap, MemSSA);
-  MemSSARE::REVector &REs = MemRE.getRangeErrors(&I);
+  MemSSARE::REVector &REs = MemRE.getRangeErrors(&I, SloppyAA);
 
   // If this is a load of a struct element, lookup in the struct errors.
   if (const RangeErrorMap::RangeError *StructRE = RMap.getStructRangeError(LI.getPointerOperand())) {
