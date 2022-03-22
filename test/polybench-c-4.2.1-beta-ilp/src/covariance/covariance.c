@@ -42,7 +42,7 @@ int BENCH_MAIN(int argc, char** argv)
 
 
   PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-2097152, 2097151) final error(1e-100))"))) data[N][M];
-  PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-2097152, 2097151) final error(1e-100))"))) cov[N][M];
+  PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-2097152, 2097151) final error(1e-100)) target('cov')"))) cov[N][M];
   PB_STATIC DATA_TYPE __attribute((annotate("scalar(error(1e-100))"))) mean[M];
 
     TAFFO_DUMPCONFIG();
@@ -115,7 +115,3 @@ int BENCH_MAIN(int argc, char** argv)
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

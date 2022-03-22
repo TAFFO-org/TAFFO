@@ -53,7 +53,7 @@
 int BENCH_MAIN(){
 
 
-  PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-100, 100)  error(1e-100))"))) C[NI][NJ];
+  PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-100, 100)  error(1e-100)) target('C')"))) C[NI][NJ];
   PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-100, 100) error(1e-100))"))) A[NI][NK];
   PB_STATIC DATA_TYPE __attribute((annotate("scalar(range(-100, 100)  error(1e-100))"))) B[NK][NJ];
 
@@ -107,7 +107,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

@@ -58,7 +58,7 @@ int BENCH_MAIN(){
 
 
 /* Variable declaration/allocation. */
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final error(1e-100))"))) ex[NX][NY];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final error(1e-100)) target('ex')"))) ex[NX][NY];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final error(1e-100))"))) ey[NX][NY];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final error(1e-100))"))) hz[NX][NY];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) _fict_[TMAX];
@@ -132,7 +132,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

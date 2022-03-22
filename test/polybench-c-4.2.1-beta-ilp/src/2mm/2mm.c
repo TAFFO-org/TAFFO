@@ -68,8 +68,8 @@ int BENCH_MAIN(){
     PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) A[NI][NK];
     PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) B[NK][NJ];
     PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) C[NJ][NL];
-    PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))) D[NI][NL];
-    
+    PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100)) target('D')"))) D[NI][NL];
+
     TAFFO_DUMPCONFIG();
     TIMING_CPUCLOCK_START();
     /* Retrieve problem size. */
@@ -127,7 +127,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

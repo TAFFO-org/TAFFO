@@ -70,7 +70,7 @@ int BENCH_MAIN(){
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))) F[NJ][NL];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) C[NJ][NM];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) D[NM][NL];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))) G[NI][NL];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100)) target('G')"))) G[NI][NL];
 
 
     TAFFO_DUMPCONFIG();
@@ -138,7 +138,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif
