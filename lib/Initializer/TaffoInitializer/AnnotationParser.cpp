@@ -120,8 +120,8 @@ bool AnnotationParser::parseNewSyntax()
         return false;
       target = tgt;
       startingPoint = true;
-    }
-    if (peek("errtarget")) {
+
+    } else if (peek("errtarget")) {
       std::string tgt;
       if (!expect("("))
         return false;
