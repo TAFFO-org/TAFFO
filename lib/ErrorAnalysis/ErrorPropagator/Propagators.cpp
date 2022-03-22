@@ -16,7 +16,7 @@
 #include "Propagators.h"
 
 #include "AffineForms.h"
-#include "MemSSAUtils.h"
+#include "MemSSARE.h"
 #include "Metadata.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
@@ -229,15 +229,8 @@ bool InstructionPropagator::propagateLoad(Instruction &I)
   }
 
   // Look for range and error in the defining instructions with MemorySSA
-  MemSSAUtils MemUtils(RMap, MemSSA);
-  MemUtils.findMemSSAError(&I, MemSSA.getMemoryAccess(&I));
-
-  // Kludje for when AliasAnalysis fails (i.e. almost always).
-  if (SloppyAA) {
-    MemUtils.findLOEError(&I);
-  }
-
-  MemSSAUtils::REVector &REs = MemUtils.getRangeErrors();
+  MemSSARE MemRE(RMap, MemSSA);
+  MemSSARE::REVector &REs = MemRE.getRangeErrors(&I);
 
   // If this is a load of a struct element, lookup in the struct errors.
   if (const RangeErrorMap::RangeError *StructRE = RMap.getStructRangeError(LI.getPointerOperand())) {
