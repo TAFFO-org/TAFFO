@@ -83,7 +83,7 @@ propagateDiv(const FPInterval &R1, const AffineForm<inter_t> &E1,
   if (AddTrunc)
     return Res + AffineForm<inter_t>(0, R1.getRoundingError());
   else
-    return std::move(Res);
+    return Res;
 }
 
 AffineForm<inter_t>
@@ -456,8 +456,6 @@ extern cl::opt<unsigned> CmpErrorThreshold;
 
 bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I)
 {
-  CmpInst &CI = cast<CmpInst>(I);
-
   LLVM_DEBUG(logInstruction(I));
 
   auto *Op1 = getOperandRangeError(I, 0U);
