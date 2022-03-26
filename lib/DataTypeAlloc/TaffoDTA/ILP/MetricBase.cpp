@@ -486,37 +486,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
   }
 
   // fetch ranges of arguments
-  std::list<shared_ptr<OptimizerInfo>> arg_errors;
-  std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors;
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
-  for (auto arg_it = call_i->arg_begin(); arg_it != call_i->arg_end(); ++arg_it) {
-    LLVM_DEBUG(dbgs() << "info for ";);
-    LLVM_DEBUG((*arg_it)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << " --> ";);
-
-    // if a variable was declared for type
-    auto info = getInfoOfValue(*arg_it);
-    if (!info) {
-      // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-      LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
-    } else {
-      LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
-    }
-
-    // Even if is a null value, we push it!
-    arg_errors.push_back(info);
-
-    /*if (const generic_range_ptr_t arg_info = fetchInfo(*arg_it)) {*/
-    // If the error is a scalar, collect it also as a scalar
-    auto arg_info_scalar = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
-    if (arg_info_scalar) {
-      arg_scalar_errors.push_back(arg_info_scalar);
-    }
-    //}
-    LLVM_DEBUG(dbgs() << "\n\n";);
-  }
-  LLVM_DEBUG(dbgs() << ("Arguments end.\n"););
-
+  std::list<shared_ptr<OptimizerInfo>> arg_errors = opt->fetchFunctionCallArgumentInfo(call_i);
 
   // Allocating variable for result: all returns will have the same type, and therefore a cast, if needed
   shared_ptr<OptimizerInfo> retInfo;

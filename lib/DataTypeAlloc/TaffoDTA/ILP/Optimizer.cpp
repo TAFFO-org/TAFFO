@@ -157,13 +157,11 @@ void Optimizer::handleCallFromRoot(Function *f)
   const std::string calledFunctionName = f->getName().str();
   LLVM_DEBUG(dbgs() << ("We are calling " + calledFunctionName + " from root\n"););
 
-
   auto function = known_functions.find(calledFunctionName);
   if (function == known_functions.end()) {
     LLVM_DEBUG(dbgs() << "Calling an external function, UNSUPPORTED at the moment.\n";);
     return;
   }
-
 
   // In teoria non dobbiamo mai pushare variabili per quanto riguarda una chiamata da root
   // Infatti, la chiamata da root implica la compatibilità con codice esterno che si aspetta che non vengano modificate
@@ -259,12 +257,49 @@ void Optimizer::handleCallFromRoot(Function *f)
     arg_errors.push_back(nullptr);
   }
 
-
   LLVM_DEBUG(dbgs() << ("Processing function...\n"););
 
   // See comment before to understand why these variable are set to nulls here
   processFunction(*f, arg_errors, nullptr);
   return;
+}
+
+
+list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const CallBase *call_i)
+{
+  // fetch ranges of arguments
+  std::list<shared_ptr<OptimizerInfo>> arg_errors;
+  //std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors; // UNUSED
+  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  for (auto arg_it = call_i->arg_begin(); arg_it != call_i->arg_end(); ++arg_it) {
+    LLVM_DEBUG(dbgs() << "info for ";);
+    LLVM_DEBUG((*arg_it)->print(dbgs()););
+    LLVM_DEBUG(dbgs() << " --> ";);
+
+    // if a variable was declared for type
+    auto info = getInfoOfValue(*arg_it);
+    if (!info) {
+      // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
+      LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
+    } else {
+      LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
+    }
+
+    // Even if is a null value, we push it!
+    arg_errors.push_back(info);
+
+    /*if (const generic_range_ptr_t arg_info = fetchInfo(*arg_it)) {*/
+    // If the error is a scalar, collect it also as a scalar
+    //auto arg_info_scalar = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
+    //if (arg_info_scalar) {
+    //  arg_scalar_errors.push_back(arg_info_scalar);
+    //}
+    //}
+    LLVM_DEBUG(dbgs() << "\n\n";);
+  }
+  LLVM_DEBUG(dbgs() << ("Arguments end.\n"););
+  
+  return arg_errors;
 }
 
 
@@ -294,14 +329,14 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
   // As we have copy of the same function for
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
     // C++ is horrible
-    LLVM_DEBUG((*iIt).print(dbgs()););
-    LLVM_DEBUG(dbgs() << "     -having-     ";);
-    if (!tuner->hasInfo(&(*iIt)) || !tuner->valueInfo(&(*iIt))->metadata) {
+    Instruction *I = &(*iIt);
+    LLVM_DEBUG(dbgs() << *I << "\n     -having-     ");
+    if (!tuner->hasInfo(I) || !tuner->valueInfo(I)->metadata) {
       LLVM_DEBUG(dbgs() << "No info available.\n";);
     } else {
-      LLVM_DEBUG(dbgs() << tuner->valueInfo(&(*iIt))->metadata->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << tuner->valueInfo(I)->metadata->toString() << "\n";);
 
-      if (!tuner->valueInfo(&(*iIt))->metadata->getEnableConversion()) {
+      if (!tuner->valueInfo(I)->metadata->getEnableConversion()) {
         LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!\n";);
         DisabledSkipped++;
         continue;
@@ -312,15 +347,14 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
         std::shared_ptr<ValueInfo> VI = tuner->valueInfo(&(*iIt));
         std::shared_ptr<mdutils::MDInfo> MDI = VI->metadata;
         mdutils::InputInfo *II = dyn_cast<mdutils::InputInfo>(MDI.get());
-        if (II && II->IRange == nullptr) {
+        if (II && II->IRange == nullptr && I->getType()->isFloatingPointTy()) {
           LLVM_DEBUG(dbgs() << "Skipping because there is no range!\n";);
           continue;
         }
       }
     }
 
-
-    handleInstruction(&(*iIt), tuner->valueInfo(&(*iIt)));
+    handleInstruction(I, tuner->valueInfo(I));
     LLVM_DEBUG(dbgs() << "\n\n";);
   }
 

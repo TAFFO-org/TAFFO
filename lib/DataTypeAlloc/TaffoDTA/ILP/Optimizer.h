@@ -145,9 +145,8 @@ public:
 
   bool valueHasInfo(Value *value);
 
-
-  void
-  processFunction(Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
+  list<shared_ptr<OptimizerInfo>> fetchFunctionCallArgumentInfo(const CallBase *call_i);
+  void processFunction(Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
 
   void handleTerminators(Instruction *term, shared_ptr<ValueInfo> valueInfo);
 
