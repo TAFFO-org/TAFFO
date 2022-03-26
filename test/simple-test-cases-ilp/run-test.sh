@@ -9,7 +9,7 @@ if [[ -z $(which $TIMEOUT) ]]; then
   TIMEOUT='gtimeout'
 fi
 if [[ ! ( -z $(which $TIMEOUT) ) ]]; then
-  TIMEOUT="$TIMEOUT 30"
+  TIMEOUT="$TIMEOUT 300"
 else
   printf 'warning: timeout command not found\n'
   TIMEOUT=''
@@ -53,7 +53,7 @@ recompile_one() {
   print_rhs=$(printf '[costmodel=%s] %s' "$costmodel_name" "$input")
   printf '[BUILD] [....] %s' "$print_rhs"
   
-  $TIMEOUT taffo $args -mixedmode -costmodelfilename="$costmodel" -o "$out" "$input" $extraargs -debug -temp-dir ./build 2> "$input".log
+  $TIMEOUT taffo $args -mixedmode -costmodelfilename="$costmodel" -lm -o "$out" "$input" $extraargs -debug -temp-dir ./build 2> "$input".log
   
   bpid_fc=$?
   if [[ $bpid_fc -ne 0 ]]; then
