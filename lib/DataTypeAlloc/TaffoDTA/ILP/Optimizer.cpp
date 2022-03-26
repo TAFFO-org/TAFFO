@@ -325,12 +325,11 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
   // Even if null, we push this on the stack. The return will handle it hopefully
   retStack.push(retInfo);
 
-
   // As we have copy of the same function for
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
     // C++ is horrible
     Instruction *I = &(*iIt);
-    LLVM_DEBUG(dbgs() << *I << "\n     -having-     ");
+    LLVM_DEBUG(dbgs() << *I << "     -having-     ");
     if (!tuner->hasInfo(I) || !tuner->valueInfo(I)->metadata) {
       LLVM_DEBUG(dbgs() << "No info available.\n";);
     } else {
