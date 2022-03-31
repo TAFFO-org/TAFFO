@@ -147,9 +147,6 @@ bool create_asin_acos(flttofix::FloatToFixed *float_to_fixed,
   flttofix::FixedPointType truefxpret = *old_ret_fxpt;
 
 
-  llvm::dbgs() << "\n"
-               << *new_f;
-
   auto fxpt_norm_arg = flttofix::FixedPointType(true, fxparg.scalarBitsAmt() - 2, fxparg.scalarBitsAmt());
   auto one = TaffoMath::make_fxp(fxpt_norm_arg, TaffoMath::one, cntx, float_to_fixed);
   auto new_arg_type = new_f->getArg(0)->getType();
