@@ -128,7 +128,7 @@ createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
 {
 
 
-  getOrInsertGlobal(module, Name, Ty, 1);
+  getOrInsertGlobal(module, Name, Ty, 0);
   auto global = module->getGlobalVariable(Name);
   global->setInitializer(initializer);
   global->setConstant(true);
