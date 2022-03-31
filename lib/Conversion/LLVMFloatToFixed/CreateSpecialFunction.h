@@ -33,6 +33,8 @@ private:
   //Handler functions
   llvm::Function *sinHandler(OldInfo &, NewInfo &);
   llvm::Function *cosHandler(OldInfo &, NewInfo &);
+  llvm::Function *asinHandler(OldInfo &, NewInfo &);
+  llvm::Function *acosHandler(OldInfo &, NewInfo &);
 };
 
 } // namespace taffo

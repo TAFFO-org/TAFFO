@@ -49,9 +49,8 @@ def run(names):
 
 
 def validate(names):
-
+    print("name,tot_error, lines, avg_error")
     for name in names:
-        print(name)
         try:
             with open("./output/"+name , "r") as orig_file, open("./output/"+name+"_taffo" , "r") as taffo_file:
                 tot_error=0.0
@@ -63,13 +62,10 @@ def validate(names):
                     tot_error = tot_error + abs(orig_float-taffo_float)
                     count = count + 1
 
-            print("tot_error, lines, avg_error")
-            print("{}, {}, {}".format(tot_error, count, tot_error/count ))
+
+            print("{}, {}, {}, {}".format(name, tot_error, count, tot_error/count ))
         except:
-            print("Error")
-
-        print("\n\n\n\n")
-
+            print("err, err, err, err")
 
 
 

@@ -27,10 +27,6 @@ enum intrinsicNames {
 } // namespace taffo
 
 
-cl::opt<int> MathZ("LuTsize",
-                   llvm::cl::desc("Enable Lut table"), llvm::cl::init(2048));
-
-
 void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix::FixedPointType &fxparg,
                     flttofix::FixedPointType &fxpret, Value *arg_value,
                     llvm::IRBuilder<> &builder)

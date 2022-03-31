@@ -11,6 +11,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   CreateSpecialFunction.cpp
   SinCosHandler.cpp
   TAFFOMath.cpp
+  ASinACosHandler.cpp
 
   ADDITIONAL_HEADERS
   FixedPointType.h

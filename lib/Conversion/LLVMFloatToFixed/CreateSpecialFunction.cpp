@@ -164,6 +164,9 @@ CreateSpecialFunction::CreateSpecialFunction(flttofix::FloatToFixed *f_t_f)
 
   dispatch.insert({"sin", [this](OldInfo &O, NewInfo &N) { return this->sinHandler(O, N); }});
   dispatch.insert({"cos", [this](OldInfo &O, NewInfo &N) { return this->cosHandler(O, N); }});
+
+  dispatch.insert({"asin", [this](OldInfo &O, NewInfo &N) { return this->asinHandler(O, N); }});
+  dispatch.insert({"acos", [this](OldInfo &O, NewInfo &N) { return this->acosHandler(O, N); }});
 }
 
 }; // namespace taffo

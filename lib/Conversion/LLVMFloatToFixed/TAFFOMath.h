@@ -26,7 +26,12 @@
 #include <llvm/IR/Type.h>
 #include <utility>
 
+static const int MathZ = 2048;
 
+/*
+cl::opt<int> MathZ("LuTsize",
+                   llvm::cl::desc("Enable Lut table"), llvm::cl::init(2048));
+*/
 // value taken from Elementary Function Chapter 7. The CORDIC Algorithm
 namespace TaffoMath
 {
@@ -126,7 +131,8 @@ void wrapper_printf(llvm::IRBuilder<> &builder, Function *new_f, const std::stri
 
 
   builder.CreateCall(print, small);
-*/}
+*/
+}
 
 
-  } // namespace TaffoMath
+} // namespace TaffoMath
