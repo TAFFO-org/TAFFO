@@ -1,5 +1,5 @@
-#ifndef DYNAMIC_TRACING
-#define DYNAMIC_TRACING
+#ifndef READ_TRACE
+#define READ_TRACE
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -7,7 +7,7 @@
 //------------------------------------------------------------------------------
 // New PM interface
 //------------------------------------------------------------------------------
-struct InjectFuncCall : public llvm::PassInfoMixin<InjectFuncCall> {
+struct ReadTrace : public llvm::PassInfoMixin<ReadTrace> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &);
   bool runOnModule(llvm::Module &M);
