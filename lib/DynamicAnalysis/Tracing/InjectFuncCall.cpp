@@ -1,42 +1,9 @@
-//========================================================================
-// FILE:
-//    InjectFuncCall.cpp
-//
-// DESCRIPTION:
-//    For each function defined in the input IR module, InjectFuncCall inserts
-//    a call to printf (from the C standard I/O library). The injected IR code
-//    corresponds to the following function call in ANSI C:
-//    ```C
-//      printf("(llvm-tutor) Hello from: %s\n(llvm-tutor)   number of arguments: %d\n",
-//             FuncName, FuncNumArgs);
-//    ```
-//    This code is inserted at the beginning of each function, i.e. before any
-//    other instruction is executed.
-//
-//    To illustrate, for `void foo(int a, int b, int c)`, the code added by InjectFuncCall
-//    will generated the following output at runtime:
-//    ```
-//    (llvm-tutor) Hello World from: foo
-//    (llvm-tutor)   number of arguments: 3
-//    ```
-//
-// USAGE:
-//    1. Legacy pass manager:
-//      $ opt -load <BUILD_DIR>/lib/libInjectFuncCall.so `\`
-//        --legacy-inject-func-call <bitcode-file>
-//    2. New pass maanger:
-//      $ opt -load-pass-plugin <BUILD_DIR>/lib/libInjectFunctCall.so `\`
-//        -passes=-"inject-func-call" <bitcode-file>
-//
-// License: MIT
-//========================================================================
 #include "InjectFuncCall.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/Twine.h"
@@ -90,7 +57,7 @@ bool InjectFuncCall::runOnModule(Module &M) {
   auto moduleName = M.getModuleIdentifier();
 
   auto getVarName = [&moduleName](long counter) -> std::string {
-    return (Twine(moduleName) + Twine("::var") + Twine(counter)).str();
+    return (Twine("TAFFO_TRACE:") + Twine(moduleName) + Twine("::var") + Twine(counter)).str();
   };
 
   for (auto &F : M) {
@@ -133,42 +100,3 @@ PreservedAnalyses InjectFuncCall::run(llvm::Module &M,
   return (Changed ? llvm::PreservedAnalyses::none()
                   : llvm::PreservedAnalyses::all());
 }
-
-bool LegacyInjectFuncCall::runOnModule(llvm::Module &M) {
-  bool Changed = Impl.runOnModule(M);
-
-  return Changed;
-}
-
-//-----------------------------------------------------------------------------
-// New PM Registration
-//-----------------------------------------------------------------------------
-llvm::PassPluginLibraryInfo getInjectFuncCallPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "inject-func-call", LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &MPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "inject-func-call") {
-                    MPM.addPass(InjectFuncCall());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-
-extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
-llvmGetPassPluginInfo() {
-  return getInjectFuncCallPluginInfo();
-}
-
-//-----------------------------------------------------------------------------
-// Legacy PM Registration
-//-----------------------------------------------------------------------------
-char LegacyInjectFuncCall::ID = 0;
-
-// Register the pass - required for (among others) opt
-static RegisterPass<LegacyInjectFuncCall>
-    X(/*PassArg=*/"legacy-inject-func-call", /*Name=*/"LegacyInjectFuncCall",
-      /*CFGOnly=*/false, /*is_analysis=*/false);
