@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 
 using namespace llvm;
 
@@ -21,6 +22,7 @@ bool ReadTrace::runOnModule(Module &M) {
   bool InsertedAtLeastOnePrintf = false;
 
   auto &CTX = M.getContext();
+  std::unordered_map<std::string, double> minVals, maxVals;
 
   for (auto &filename: Filenames) {
     printf("arg: %s\n", filename.c_str());
@@ -32,11 +34,31 @@ bool ReadTrace::runOnModule(Module &M) {
       getline(ss, parsed, ' ');
       if (parsed != "TAFFO_TRACE") continue;
       getline(ss, parsed, ' ');
-      std::cout << "parsed var: " << parsed << " ";
+      std::string varName = parsed;
+      std::cout << "parsed var: " << varName << " ";
       getline(ss, parsed, ' ');
-      std::cout << "parsed val: " << std::stod(parsed) << std::endl;
+      double varValue = std::stod(parsed);
+      std::cout << "parsed val: " << varValue << std::endl;
+      if (auto it = minVals.find(varName) != minVals.end()) {
+        if (it > varValue) {
+          minVals[varName] = varValue;
+        }
+      } else {
+        minVals[varName] = varValue;
+      }
+      if (auto it = maxVals.find(varName) != maxVals.end()) {
+        if (it < varValue) {
+          maxVals[varName] = varValue;
+        }
+      } else {
+        maxVals[varName] = varValue;
+      }
     }
     MyReadFile.close();
+  }
+
+  for (auto const &i: minVals) {
+    std::cout << i.first << " " << "min: " << i.second << " max: " << maxVals[i.first] << std::endl;
   }
 
   return InsertedAtLeastOnePrintf;
