@@ -4,6 +4,10 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "read-trace"
@@ -20,6 +24,19 @@ bool ReadTrace::runOnModule(Module &M) {
 
   for (auto &filename: Filenames) {
     printf("arg: %s\n", filename.c_str());
+    std::string myText;
+    std::ifstream MyReadFile(filename);
+    while (getline (MyReadFile, myText)) {
+      std::string parsed;
+      std::stringstream ss(myText);
+      getline(ss, parsed, ' ');
+      if (parsed != "TAFFO_TRACE") continue;
+      getline(ss, parsed, ' ');
+      std::cout << "parsed var: " << parsed << " ";
+      getline(ss, parsed, ' ');
+      std::cout << "parsed val: " << std::stod(parsed) << std::endl;
+    }
+    MyReadFile.close();
   }
 
   return InsertedAtLeastOnePrintf;

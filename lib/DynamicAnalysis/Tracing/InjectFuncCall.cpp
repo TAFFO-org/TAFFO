@@ -44,7 +44,7 @@ bool InjectFuncCall::runOnModule(Module &M) {
 
   // STEP 2: Inject a global variable that will hold the printf format string
   // ------------------------------------------------------------------------
-  llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "%s: %.17g\n");
+  llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "%s %f\n");
 
   Constant *PrintfFormatStrVar =
       M.getOrInsertGlobal("PrintfFormatStr", PrintfFormatStr->getType());
@@ -57,7 +57,7 @@ bool InjectFuncCall::runOnModule(Module &M) {
   auto moduleName = M.getModuleIdentifier();
 
   auto getVarName = [&moduleName](long counter) -> std::string {
-    return (Twine("TAFFO_TRACE:") + Twine(moduleName) + Twine("::var") + Twine(counter)).str();
+    return (Twine("\nTAFFO_TRACE ") + Twine(moduleName) + Twine("::var") + Twine(counter)).str();
   };
 
   for (auto &F : M) {
