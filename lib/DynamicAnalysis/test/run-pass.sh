@@ -8,4 +8,7 @@ export LLVM_DIR=/usr/lib/llvm-12/bin/
 
 "$LLVM_DIR"clang instrumented.o -o instrumented
 
-./instrumented
+./instrumented > trace.log
+
+#"$LLVM_DIR"opt -S -load-pass-plugin ../../../build/lib/Taffo.so --passes="read-trace" instrumented.ll -o annotated.ll
+"$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so -load-pass-plugin ../../../build/lib/Taffo.so --passes="read-trace" -trace_file trace.log instrumented.ll -o annotated.ll
