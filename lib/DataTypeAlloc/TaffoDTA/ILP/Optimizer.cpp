@@ -116,7 +116,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
         return;
       }
-      // FIXME: hack, this is done to respect the fact that a pointer (yes, even a simple pointer) may be used by hugly people
+      // FIXME: hack, this is done to respect the fact that a pointer (yes, even a simple pointer) may be used by ugly people
       // as array, that are allocated through a malloc. In this way we must use this as a form of bypass. We allocate a new
       // value even if it may be overwritten at some time...
 
@@ -495,7 +495,6 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
     } break;
     case llvm::Instruction::Select:
       metric->handleSelect(instruction, valueInfo);
-      ;
       break;
     case llvm::Instruction::UserOp1: // TODO implement
     case llvm::Instruction::UserOp2: // TODO implement

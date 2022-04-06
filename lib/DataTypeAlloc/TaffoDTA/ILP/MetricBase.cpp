@@ -233,15 +233,21 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
     }
     LLVM_DEBUG(dbgs() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
-    auto optInfo_t = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerPointerInfo>(getInfoOfValue(operand));
+    auto baseinfo = getInfoOfValue(operand);
+    if (!baseinfo) {
+      LLVM_DEBUG(dbgs() << "Operand pointer info missing; probably trying to access a non float element, bailing out.\n";);
+      return;
+    }
+    auto optInfo_t = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerPointerInfo>(baseinfo);
     if (!optInfo_t) {
-      LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "Operand pointer info has the wrong type!! Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "wrong info: " << baseinfo->toString() << "\n");
       return;
     }
 
     auto optInfo = optInfo_t->getOptInfo();
     if (!optInfo) {
-      LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "Operand pointed value info null; probably trying to access a non float element, bailing out.\n";);
       return;
     }
 
@@ -249,7 +255,7 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
     for (unsigned int i = 0; i < offset.size(); i++) {
       auto structInfo = dynamic_ptr_cast_or_null<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
-        LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
+        LLVM_DEBUG(dbgs() << "Pointer value info kind is not struct, probably trying to access a non float element, bailing out.\n";);
         return;
       }
 
@@ -855,12 +861,11 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<ValueInfo> va
       }
 
       auto optInfo = loadStructInfo(alloca, fieldInfo, "");
-      saveInfoForValue(alloca, optInfo);
+      saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(optInfo));
 
     } else {
       llvm_unreachable("Unknown metadata!");
     }
-
 
   } else {
     LLVM_DEBUG(dbgs() << " ^ this is a pointer, skipping as it is unsupported at the moment.\n";);
