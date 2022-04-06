@@ -476,12 +476,12 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
 Value *FloatToFixed::convertBinOp(Instruction *instr,
                                   const FixedPointType &fixpt)
 {
-  /*le istruzioni Instruction::
-    [Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
-    vengono gestite dalla fallback e non in questa funzione */
+  /* Instruction::[Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
+   * are handled by the fallback function, not here */
   if (!instr->getType()->isFloatingPointTy() ||
       valueInfo(instr)->noTypeConversion)
     return Unsupported;
+
   int opc = instr->getOpcode();
   if (opc == Instruction::FAdd || opc == Instruction::FSub ||
       opc == Instruction::FRem) {
