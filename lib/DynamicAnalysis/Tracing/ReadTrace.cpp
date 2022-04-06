@@ -35,10 +35,15 @@ bool ReadTrace::runOnModule(Module &M) {
       if (parsed != "TAFFO_TRACE") continue;
       getline(ss, parsed, ' ');
       std::string varName = parsed;
-      std::cout << "parsed var: " << varName << " ";
       getline(ss, parsed, ' ');
       double varValue = std::stod(parsed);
-      std::cout << "parsed val: " << varValue << std::endl;
+      getline(ss, parsed, ' ');
+      std::string varType = parsed;
+
+      std::cout << "parsed var: " << varName << " ";
+      std::cout << "parsed val: " << varValue << " ";
+      std::cout << "parsed type: " << varType << std::endl;
+
       if (auto it = minVals.find(varName) != minVals.end()) {
         if (it > varValue) {
           minVals[varName] = varValue;
