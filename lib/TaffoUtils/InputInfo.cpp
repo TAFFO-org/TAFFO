@@ -270,8 +270,15 @@ bool IsNullInputInfoField(Metadata *MD)
   return CI->isZero() && CI->getBitWidth() == 1U;
 }
 
-std::string FloatType::getFloatStandardName(FloatType::FloatStandard standard)
-{
+const llvm::Type::TypeID FloatType::llvmFloatTypes[7] = {llvm::Type::TypeID::HalfTyID,
+                                                         llvm::Type::TypeID::BFloatTyID,
+                                                         llvm::Type::TypeID::FloatTyID,
+                                                         llvm::Type::TypeID::DoubleTyID,
+                                                         llvm::Type::TypeID::X86_FP80TyID,
+                                                         llvm::Type::TypeID::FP128TyID,
+                                                         llvm::Type::TypeID::PPC_FP128TyID};
+
+std::string FloatType::getFloatStandardName(FloatType::FloatStandard standard) {
   switch (standard) {
   case Float_half: /*16-bit floating-point value*/
     return "Float_half";
@@ -292,25 +299,75 @@ std::string FloatType::getFloatStandardName(FloatType::FloatStandard standard)
   return "[UNKNOWN TYPE]";
 }
 
-llvm::Type::TypeID FloatType::getLLVMTypeID() const
-{
-  switch (this->getStandard()) {
-  case Float_half: /*16-bit floating-point value*/
-    return llvm::Type::TypeID::HalfTyID;
-  case Float_float: /*32-bit floating-point value*/
-    return llvm::Type::TypeID::FloatTyID;
-  case Float_double: /*64-bit floating-point value*/
-    return llvm::Type::TypeID::DoubleTyID;
-  case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
-    return llvm::Type::TypeID::FP128TyID;
-  case Float_x86_fp80: /*80-bit floating-point value (X87)*/
-    return llvm::Type::TypeID::X86_FP80TyID;
-  case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
-    return llvm::Type::TypeID::PPC_FP128TyID;
-  case Float_bfloat: /*bfloat floating point value)*/
-    return llvm::Type::TypeID::BFloatTyID;
+std::string FloatType::getFloatStandardName(llvm::Type::TypeID typeId) {
+  return getFloatStandardName(getFloatStandard(typeId));
+}
+
+llvm::Type::TypeID FloatType::getLLVMTypeID(FloatType::FloatStandard standard) {
+  switch (standard) {
+    case Float_half: /*16-bit floating-point value*/
+      return llvm::Type::TypeID::HalfTyID;
+    case Float_float: /*32-bit floating-point value*/
+      return llvm::Type::TypeID::FloatTyID;
+    case Float_double: /*64-bit floating-point value*/
+      return llvm::Type::TypeID::DoubleTyID;
+    case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
+      return llvm::Type::TypeID::FP128TyID;
+    case Float_x86_fp80: /*80-bit floating-point value (X87)*/
+      return llvm::Type::TypeID::X86_FP80TyID;
+    case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
+      return llvm::Type::TypeID::PPC_FP128TyID;
+    case Float_bfloat: /*bfloat floating point value)*/
+      return llvm::Type::TypeID::BFloatTyID;
   }
   llvm_unreachable("[TAFFO] Unknown FloatType standard!");
+  return llvm::Type::TypeID::FloatTyID;
+}
+
+FloatType::FloatStandard FloatType::getFloatStandard(llvm::Type::TypeID typeId) {
+  switch(typeId) {
+    case llvm::Type::HalfTyID:
+      return Float_half;
+    case llvm::Type::BFloatTyID:
+      return Float_bfloat;
+    case llvm::Type::FloatTyID:
+      return Float_float;
+    case llvm::Type::DoubleTyID:
+      return Float_double;
+    case llvm::Type::X86_FP80TyID:
+      return Float_x86_fp80;
+    case llvm::Type::FP128TyID:
+      return Float_fp128;
+    case llvm::Type::PPC_FP128TyID:
+      return Float_ppc_fp128;
+    default:
+      llvm_unreachable("[TAFFO] Unknown FloatType standard!");
+      return Float_float;
+  }
+}
+
+FloatType::FloatStandard FloatType::getFloatStandard(const std::string& typeIdStr) {
+  if (typeIdStr == "Float_half") /*16-bit floating-point value*/
+    return Float_half;
+  if (typeIdStr == "Float_float") /*32-bit floating-point value*/
+    return Float_float;
+  if (typeIdStr == "Float_double") /*64-bit floating-point value*/
+    return Float_double;
+  if (typeIdStr == "Float_fp128") /*128-bit floating-point value (112-bit mantissa)*/
+    return Float_fp128;
+  if (typeIdStr == "Float_x86_fp80") /*80-bit floating-point value (X87)*/
+    return Float_x86_fp80;
+  if (typeIdStr == "Float_ppc_fp128") /*128-bit floating-point value (two 64-bits)*/
+    return Float_ppc_fp128;
+  if (typeIdStr == "Float_bfloat") /*bfloat floating point value)*/
+    return Float_bfloat;
+  llvm_unreachable("[TAFFO] Unknown FloatType standard!");
+  return Float_float;
+}
+
+llvm::Type::TypeID FloatType::getLLVMTypeID() const
+{
+  return getLLVMTypeID(this->getStandard());
 }
 
 // FIXME: some values are not computed correctly because we can not!
