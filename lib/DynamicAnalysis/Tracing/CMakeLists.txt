@@ -1,13 +1,15 @@
 set(SELF DynamicTracing)
 
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
-  Tracing.cpp
-  InjectFuncCall.cpp
-  ReadTrace.cpp
+    Tracing.cpp
+    InjectFuncCall.cpp
+    ReadTrace.cpp
+    NameVariables.cpp
 
-  ADDITIONAL_HEADERS
-  InjectFuncCall.h
-  ReadTrace.h
+    ADDITIONAL_HEADERS
+    InjectFuncCall.h
+    ReadTrace.h
+    NameVariables.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils

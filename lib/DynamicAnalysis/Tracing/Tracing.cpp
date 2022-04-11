@@ -3,6 +3,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "InjectFuncCall.h"
 #include "ReadTrace.h"
+#include "NameVariables.h"
 
 using namespace llvm;
 
@@ -21,6 +22,10 @@ llvm::PassPluginLibraryInfo getInjectFuncCallPluginInfo() {
                       }
                       if (Name == "read-trace") {
                         MPM.addPass(ReadTrace());
+                        return true;
+                      }
+                      if (Name == "name-variables") {
+                        MPM.addPass(NameVariables());
                         return true;
                       }
                       return false;

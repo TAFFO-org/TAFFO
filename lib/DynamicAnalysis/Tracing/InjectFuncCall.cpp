@@ -59,18 +59,12 @@ bool InjectFuncCall::runOnModule(Module &M) {
   // STEP 3: For each function in the module, inject a call to printf
   // ----------------------------------------------------------------
   IRBuilder<> Builder(CTX);
-  long counter = 0;
-  auto moduleName = M.getModuleIdentifier();
   std::unordered_map<Type::TypeID, Constant*> floatTypeNameConstants;
 
   for (auto type: mdutils::FloatType::llvmFloatTypes) {
     auto typeName = mdutils::FloatType::getFloatStandardName(type);
     floatTypeNameConstants[type] = Builder.CreateGlobalStringPtr(typeName, "", 0, &M);
   }
-
-  auto getVarName = [&moduleName](long counter) -> std::string {
-    return (Twine(moduleName) + Twine("::var") + Twine(counter)).str();
-  };
 
   for (auto &F : M) {
     if (!F.hasName() || F.isDeclaration())
@@ -83,8 +77,6 @@ bool InjectFuncCall::runOnModule(Module &M) {
         auto &Inst = *current;
         auto next = InstList.getNextNode(*current);
         if (!Inst.isDebugOrPseudoInst() && Inst.getType()->isFloatingPointTy()) {
-          Inst.setName(getVarName(counter));
-          counter++;
           if (next != nullptr) {
             Builder.SetInsertPoint(next);
           } else {
