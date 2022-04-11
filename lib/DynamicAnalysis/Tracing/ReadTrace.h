@@ -1,5 +1,5 @@
-#ifndef READ_TRACE
-#define READ_TRACE
+#ifndef TAFFO_READ_TRACE
+#define TAFFO_READ_TRACE
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"

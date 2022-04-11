@@ -1,5 +1,5 @@
-#ifndef DYNAMIC_TRACING
-#define DYNAMIC_TRACING
+#ifndef TAFFO_DYNAMIC_TRACING
+#define TAFFO_DYNAMIC_TRACING
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
