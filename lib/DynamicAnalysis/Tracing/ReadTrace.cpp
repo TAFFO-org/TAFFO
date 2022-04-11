@@ -23,6 +23,7 @@ bool ReadTrace::runOnModule(Module &M) {
 
   auto &CTX = M.getContext();
   std::unordered_map<std::string, double> minVals, maxVals;
+  std::unordered_map<std::string, std::string> valTypes;
 
   for (auto &filename: Filenames) {
     printf("arg: %s\n", filename.c_str());
@@ -51,6 +52,7 @@ bool ReadTrace::runOnModule(Module &M) {
       } else {
         minVals[varName] = varValue;
       }
+
       if (auto it = maxVals.find(varName) != maxVals.end()) {
         if (it < varValue) {
           maxVals[varName] = varValue;
@@ -58,12 +60,19 @@ bool ReadTrace::runOnModule(Module &M) {
       } else {
         maxVals[varName] = varValue;
       }
+
+      if (auto it = valTypes.find(varName) == valTypes.end()) {
+        valTypes[varName] = varType;
+      }
     }
     MyReadFile.close();
   }
 
   for (auto const &i: minVals) {
-    std::cout << i.first << " " << "min: " << i.second << " max: " << maxVals[i.first] << std::endl;
+    std::cout << i.first << " " << "min: " << i.second
+    << " max: " << maxVals[i.first]
+    << " type: " << valTypes[i.first]
+    << std::endl;
   }
 
   return InsertedAtLeastOnePrintf;

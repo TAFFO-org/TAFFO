@@ -92,11 +92,14 @@ bool InjectFuncCall::runOnModule(Module &M) {
           }
           auto InstName = Builder.CreateGlobalStringPtr(Inst.getName());
           // Printf requires i8*, but PrintfFormatStrVar is an array: [n x i8]. Add a cast: [n x i8] -> i8*
-          llvm::Value *FormatStrPtr = Builder.CreatePointerCast(
-              PrintfFormatStrVar, PrintfArgTy, "formatStr");
+          llvm::Value *FormatStrPtr = Builder.CreatePointerCast(PrintfFormatStrVar, PrintfArgTy, "formatStr");
 
-          Builder.CreateCall(Printf,
-                             {FormatStrPtr, InstName, &Inst, floatTypeNameConstants[Inst.getType()->getTypeID()]});
+          Builder.CreateCall(Printf, {
+            FormatStrPtr,
+            InstName,
+            &Inst,
+            floatTypeNameConstants[Inst.getType()->getTypeID()]
+          });
           InsertedAtLeastOnePrintf = true;
         }
         current = next;
