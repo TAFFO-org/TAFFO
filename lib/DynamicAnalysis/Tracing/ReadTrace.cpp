@@ -15,7 +15,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "read-trace"
 
-cl::list<std::string> Filenames("trace_file", cl::desc("Specify filenames of trace files"), cl::OneOrMore);
+cl::list<std::string> Filenames("trace_file", cl::desc("Specify filenames of trace files"), cl::ZeroOrMore);
 
 //-----------------------------------------------------------------------------
 // ReadTrace implementation
@@ -112,7 +112,7 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
         maxVals[varName] = varValue;
       }
 
-      if (auto it = valTypes.find(varName) == valTypes.end()) {
+      if (valTypes.find(varName) == valTypes.end()) {
         valTypes[varName] = mdutils::FloatType::getFloatStandard(varType);
       }
     }
