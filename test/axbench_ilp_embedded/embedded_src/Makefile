@@ -5,14 +5,14 @@ AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
 
 OUTPUT = embedded_main
-TARGET ?= stm32f207
+TARGET ?= stm32f407
 
-OBJ_DIR = ./obj
+OBJ_DIR = ./obj_$(TARGET)
 OUTPUT_ELF = $(OUTPUT).elf
 OUTPUT_BIN = $(OUTPUT).bin
 OUTPUT_MAP = $(OUTPUT).map
 
-.PHONY: all clean
+.PHONY: all clean target
 
 all: $(OUTPUT_BIN)
 
@@ -56,4 +56,7 @@ $(OBJ_DIR):
 clean:
 	rm -rf $(OBJ_DIR)
 	rm -f *.elf *.bin *.map *.log *.s
+
+target:
+	@echo '$(TARGET)'
 
