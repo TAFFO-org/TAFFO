@@ -21,3 +21,6 @@ export LLVM_DIR=/usr/lib/llvm-12/bin/
   -trace_file trace.log -trace_file trace2.log input_named.ll -o annotated.ll
 
 "$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --taffodta annotated.ll -o taffodta.ll
+
+#"$LLVM_DIR"llc -filetype=obj taffodta.ll -o taffodta.o
+#"$LLVM_DIR"clang taffodta.o -o tuned
