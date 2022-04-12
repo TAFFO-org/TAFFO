@@ -55,9 +55,7 @@ bool ReadTrace::runOnModule(Module &M) {
           } else {
             Builder.SetInsertPoint(&BB.back());
           }
-          auto instType = std::make_shared<mdutils::FloatType>(
-                  valTypes.at(InstName),
-                  maxVals.at(InstName));
+          auto instType = std::shared_ptr<mdutils::FloatType>{};
           auto instRange = std::make_shared<mdutils::Range>(
                   minVals.at(InstName), maxVals.at(InstName));
           auto instError = std::shared_ptr<double>{};
