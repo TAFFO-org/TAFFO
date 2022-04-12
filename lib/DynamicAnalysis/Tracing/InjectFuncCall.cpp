@@ -7,6 +7,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Compiler.h"
 
@@ -50,7 +51,7 @@ bool InjectFuncCall::runOnModule(Module &M) {
 
   // STEP 2: Inject a global variable that will hold the printf format string
   // ------------------------------------------------------------------------
-  llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "\nTAFFO_TRACE %s %f %s\n");
+  llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "\nTAFFO_TRACE %s %A %s\n");
 
   Constant *PrintfFormatStrVar =
       M.getOrInsertGlobal("PrintfFormatStr", PrintfFormatStr->getType());
@@ -85,11 +86,12 @@ bool InjectFuncCall::runOnModule(Module &M) {
           auto InstName = Builder.CreateGlobalStringPtr(Inst.getName());
           // Printf requires i8*, but PrintfFormatStrVar is an array: [n x i8]. Add a cast: [n x i8] -> i8*
           llvm::Value *FormatStrPtr = Builder.CreatePointerCast(PrintfFormatStrVar, PrintfArgTy, "formatStr");
+          llvm::Value *Cast = Builder.CreateFPCast(&Inst, Type::getDoubleTy(CTX));
 
           Builder.CreateCall(Printf, {
             FormatStrPtr,
             InstName,
-            &Inst,
+            Cast,
             floatTypeNameConstants[Inst.getType()->getTypeID()]
           });
           InsertedAtLeastOnePrintf = true;
