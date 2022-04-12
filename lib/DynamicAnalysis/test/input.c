@@ -1,12 +1,5 @@
-//=============================================================================
-// FILE:
-//      input_for_hello.c
-//
-// DESCRIPTION:
-//      Sample input file for HelloWorld and InjectFuncCall
-//
-// License: MIT
-//=============================================================================
+#include <stdio.h>
+
 float foo(float a) {
   float boo = 2;
   float arr[] = {1.9, 1.23, 3.32, 2.52, 7.42, 8.91, 6.54};
@@ -35,6 +28,8 @@ int main(int argc, char *argv[]) {
   ret += fez(a, ret, 123);
 
   if (ret / 2 > 10) ret += 1;
+
+  printf("Result: %A\n", ret);
 
   return ret;
 }
