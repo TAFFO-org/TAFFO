@@ -1,6 +1,6 @@
 export LLVM_DIR=/usr/lib/llvm-12/bin/
 # Generate an LLVM file to analyze
-"$LLVM_DIR"clang -O0 -emit-llvm -S ./input.c -o input.ll
+"$LLVM_DIR"clang -O3 -emit-llvm -S ./input.c -o input.ll
 # Run the pass through opt - New PM
 "$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --taffoinit input.ll -o taffoinit.ll
 #"$LLVM_DIR"opt -S -load-pass-plugin ../../../build/lib/Taffo.so --passes="name-variables" taffoinit.ll -o input_named.ll
@@ -22,5 +22,7 @@ export LLVM_DIR=/usr/lib/llvm-12/bin/
 
 "$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --taffodta annotated.ll -o taffodta.ll
 
-#"$LLVM_DIR"llc -filetype=obj taffodta.ll -o taffodta.o
-#"$LLVM_DIR"clang taffodta.o -o tuned
+"$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --flttofix -globaldce -dce taffodta.ll -o flttofix.ll
+
+"$LLVM_DIR"llc -filetype=obj taffodta.ll -o taffodta.o
+"$LLVM_DIR"clang taffodta.o -o tuned
