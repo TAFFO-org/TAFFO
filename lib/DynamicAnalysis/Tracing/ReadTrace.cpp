@@ -90,9 +90,9 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
       getline(ss, parsed, ' ');
       std::string varType = parsed;
 
-      std::cout << "parsed var: " << varName << " ";
-      std::cout << "parsed val: " << varValue << " ";
-      std::cout << "parsed type: " << varType << std::endl;
+//      std::cout << "parsed var: " << varName << " ";
+//      std::cout << "parsed val: " << varValue << " ";
+//      std::cout << "parsed type: " << varType << std::endl;
 
       if (auto it = minVals.find(varName) != minVals.end()) {
         if (it > varValue) {
