@@ -28,6 +28,7 @@ bool ReadTrace::runOnModule(Module &M) {
 
   std::unordered_map<std::string, double> minVals, maxVals;
   std::unordered_map<std::string, mdutils::FloatType::FloatStandard> valTypes;
+  std::unordered_map<Instruction*, double> derivedMinVals, derivedMaxVals;
 
   parseTraceFiles(minVals, maxVals, valTypes);
 
@@ -50,11 +51,6 @@ bool ReadTrace::runOnModule(Module &M) {
         auto next = InstList.getNextNode(*current);
         auto InstName = Inst.getName().str();
         if (!Inst.isDebugOrPseudoInst() && Inst.getType()->isFloatingPointTy() && valTypes.count(InstName) != 0) {
-          if (next != nullptr) {
-            Builder.SetInsertPoint(next);
-          } else {
-            Builder.SetInsertPoint(&BB.back());
-          }
           auto instType = std::shared_ptr<mdutils::FloatType>{};
           auto instRange = std::make_shared<mdutils::Range>(
                   minVals.at(InstName), maxVals.at(InstName));
@@ -66,6 +62,79 @@ bool ReadTrace::runOnModule(Module &M) {
         current = next;
       }
     }
+  }
+
+  for (auto &F : M) {
+    if (!F.hasName() || F.isDeclaration())
+      continue;
+
+    for (auto &BB : F.getBasicBlockList()) {
+      auto &InstList = BB.getInstList();
+      auto current = InstList.getNextNode(InstList.front());
+      while (current != nullptr) {
+        auto &Inst = *current;
+        auto next = InstList.getNextNode(*current);
+
+        if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
+          auto *storeSrc = storeInst->getOperand(0);
+          auto *storeDst = storeInst->getOperand(1);
+          auto srcName = storeSrc->getName().str();
+          std::cout << "Store: "
+                    << storeSrc->getName().str()
+                    << " > "
+                    << storeDst->getName().str()
+                    << std::endl;
+
+          auto ops = std::list<Instruction*>();
+          ops.push_back(storeInst);
+          ops.push_back(dyn_cast<Instruction>(storeDst));
+
+          if (auto srcMin = minVals.find(srcName) != minVals.end()) {
+            auto srcMax = maxVals.find(srcName)->second;
+//            errs() << *storeInst << "\n";
+//            errs() << *storeDst << "\n";
+            for (auto op: storeDst->users()) {
+//              errs() << *op << "\n";
+              if (!Inst.isDebugOrPseudoInst()) {
+                ops.push_back(dyn_cast<Instruction>(op));
+              }
+            }
+            for (auto op: ops) {
+              if (minVals.count(op->getName().str()) == 0) {
+                if (auto it = derivedMinVals.find(op) != derivedMinVals.end()) {
+                  if (it > srcMin) {
+                    derivedMinVals[op] = srcMin;
+                  }
+                } else {
+                  derivedMinVals[op] = srcMin;
+                }
+
+                if (auto it = derivedMaxVals.find(op) != derivedMaxVals.end()) {
+                  if (it < srcMax) {
+                    derivedMaxVals[op] = srcMax;
+                  }
+                } else {
+                  derivedMaxVals[op] = srcMax;
+                }
+              }
+            }
+          }
+        }
+        current = next;
+      }
+    }
+  }
+
+  for (auto pair: derivedMinVals) {
+    auto op = pair.first;
+    auto minVal = pair.second;
+    auto maxVal = derivedMaxVals[op];
+    auto instType = std::shared_ptr<mdutils::FloatType>{};
+    auto instRange = std::make_shared<mdutils::Range>(minVal, maxVal);
+    auto instError = std::shared_ptr<double>{};
+    mdutils::InputInfo ii{instType, instRange, instError};
+    mdutils::MetadataManager::setInputInfoMetadata(*op, ii);
+    Changed = true;
   }
 
   return Changed;
