@@ -1,8 +1,8 @@
-export LLVM_DIR=/usr/lib/llvm-12/bin/
+export LLVM_DIR=export LLVM_DIR=/home/denisovlev/Data/llvm-12-debug/bin/
 # Generate an LLVM file to analyze
-"$LLVM_DIR"clang -O3 -emit-llvm -S ./input.c -o input.ll
+"$LLVM_DIR"clang -D__TAFFO__ -O0 -Xclang -disable-O0-optnone -emit-llvm -S ./input.c -o input.ll
 # Run the pass through opt - New PM
-"$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --taffoinit input.ll -o taffoinit.ll
+"$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --taffoinit -taffoVRA input.ll -o taffoinit.ll
 #"$LLVM_DIR"opt -S -load-pass-plugin ../../../build/lib/Taffo.so --passes="name-variables" taffoinit.ll -o input_named.ll
 #"$LLVM_DIR"opt -S -load-pass-plugin ../../../build/lib/Taffo.so --passes="inject-func-call" input_named.ll -o instrumented.ll
 "$LLVM_DIR"opt -S -load ../../../build/lib/Taffo.so --taffo-name-variables taffoinit.ll -o input_named.ll

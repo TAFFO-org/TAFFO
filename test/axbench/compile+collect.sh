@@ -93,9 +93,10 @@ if [[ -z $DONT_REBUILD ]]; then
             -o obj/${bench}.out.dynamic.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
+                -debug \
                 -stats --flttofix -globaldce -dce \
                 obj/${bench}.out.dynamic.taffotmp.ll \
-                -o obj/${bench}.out.dynamic_flttofix.taffotmp.ll
+                -o obj/${bench}.out.dynamic_flttofix.taffotmp.ll > flttofix.log
 
     ${OPT} -load=${TAFFOLIB} -S \
                     -stats -O3 \
@@ -112,6 +113,8 @@ if [[ -z $DONT_REBUILD ]]; then
   taffo-instmix obj/${bench}.out.fixp.1.taffotmp.ll > stats/${benchsrc}.mix.txt
   taffo-mlfeat obj/${bench}.out.fixp.5.taffotmp.ll > stats/${benchsrc}.fixp.mlfeat.txt
   taffo-mlfeat obj/${bench}.out.fixp.1.taffotmp.ll > stats/${benchsrc}.mlfeat.txt
+  taffo-instmix obj/${bench}.out.dynamic_final.taffotmp.ll > stats/${benchsrc}.dynamic_final.mix.txt
+  taffo-mlfeat obj/${bench}.out.dynamic_final.taffotmp.ll > stats/${benchsrc}.dynamic_final.mlfeat.txt
   ${OPT} -load=${TAFFOLIB} -S -flttofix -dce -stats obj/${bench}.out.fixp.4.taffotmp.ll -o /dev/null 2> stats/${benchsrc}.llvm.txt
   dynamic_analysis
 fi

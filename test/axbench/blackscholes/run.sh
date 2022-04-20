@@ -21,10 +21,16 @@ do
 	echo -e "\e[96m*** Dynamic Tuned Fix Version ***\e[0m"
   time ./bin/${benchmark}.out.dynamic_final ${f} data/output/${filename}_${benchmark}_out.data.dynamic_final
 
+  echo -e "\e[96m*** No taffo Version ***\e[0m"
+  time ./bin/${benchmark}.out.original ${f} data/output/${filename}_${benchmark}_out.data.original
+
 	echo -e "\e[32m### QoS ###\e[0m"
 	python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
 
 	echo -e "\e[32m### QoS Dynamic ###\e[0m"
   python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.dynamic_final
+
+  echo -e "\e[32m### QoS no taffo ###\e[0m"
+  python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.original
 
 done
