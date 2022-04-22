@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <unordered_map>
 #include <memory>
 
@@ -50,12 +51,16 @@ bool ReadTrace::runOnModule(Module &M) {
         auto &Inst = *current;
         auto next = InstList.getNextNode(*current);
         auto InstName = Inst.getName().str();
-        if (!Inst.isDebugOrPseudoInst() && Inst.getType()->isFloatingPointTy() && valTypes.count(InstName) != 0) {
+        if (!Inst.isDebugOrPseudoInst() &&
+            Inst.getType()->isFloatingPointTy() &&
+            valTypes.count(InstName) != 0
+//            && !isa<LoadInst>(Inst)
+            ) {
           auto instType = std::shared_ptr<mdutils::FloatType>{};
           auto instRange = std::make_shared<mdutils::Range>(
                   minVals.at(InstName), maxVals.at(InstName));
           auto instError = std::shared_ptr<double>{};
-          mdutils::InputInfo ii{instType, instRange, instError};
+          mdutils::InputInfo ii{instType, instRange, instError, false, true};
           mdutils::MetadataManager::setInputInfoMetadata(Inst, ii);
           Changed = true;
         }
@@ -79,11 +84,11 @@ bool ReadTrace::runOnModule(Module &M) {
           auto *storeSrc = storeInst->getOperand(0);
           auto *storeDst = storeInst->getOperand(1);
           auto srcName = storeSrc->getName().str();
-          std::cout << "Store: "
-                    << storeSrc->getName().str()
-                    << " > "
-                    << storeDst->getName().str()
-                    << std::endl;
+//          std::cout << "Store: "
+//                    << storeSrc->getName().str()
+//                    << " > "
+//                    << storeDst->getName().str()
+//                    << std::endl;
 
           auto ops = std::list<Instruction*>();
           ops.push_back(storeInst);
@@ -100,22 +105,20 @@ bool ReadTrace::runOnModule(Module &M) {
               }
             }
             for (auto op: ops) {
-              if (minVals.count(op->getName().str()) == 0) {
-                if (auto it = derivedMinVals.find(op) != derivedMinVals.end()) {
-                  if (it > srcMin) {
-                    derivedMinVals[op] = srcMin;
-                  }
-                } else {
+              if (auto it = derivedMinVals.find(op) != derivedMinVals.end()) {
+                if (it > srcMin) {
                   derivedMinVals[op] = srcMin;
                 }
+              } else {
+                derivedMinVals[op] = srcMin;
+              }
 
-                if (auto it = derivedMaxVals.find(op) != derivedMaxVals.end()) {
-                  if (it < srcMax) {
-                    derivedMaxVals[op] = srcMax;
-                  }
-                } else {
+              if (auto it = derivedMaxVals.find(op) != derivedMaxVals.end()) {
+                if (it < srcMax) {
                   derivedMaxVals[op] = srcMax;
                 }
+              } else {
+                derivedMaxVals[op] = srcMax;
               }
             }
           }
@@ -163,21 +166,25 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
 //      std::cout << "parsed val: " << varValue << " ";
 //      std::cout << "parsed type: " << varType << std::endl;
 
-      if (auto it = minVals.find(varName) != minVals.end()) {
-        if (it > varValue) {
+      auto minIt = minVals.find(varName);
+      if (minIt != minVals.end()) {
+        if (minIt->second > varValue) {
           minVals[varName] = varValue;
         }
       } else {
         minVals[varName] = varValue;
       }
 
-      if (auto it = maxVals.find(varName) != maxVals.end()) {
-        if (it < varValue) {
+      auto maxIt = maxVals.find(varName);
+      if (maxIt != maxVals.end()) {
+        if (maxIt->second < varValue) {
           maxVals[varName] = varValue;
         }
       } else {
         maxVals[varName] = varValue;
       }
+
+      assert(minVals[varName] <= maxVals[varName]);
 
       if (valTypes.find(varName) == valTypes.end()) {
         valTypes[varName] = mdutils::FloatType::getFloatStandard(varType);
