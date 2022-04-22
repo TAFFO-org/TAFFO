@@ -11,6 +11,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Compiler.h"
 
+#include <string>
 #include <unordered_map>
 
 #include "TaffoUtils/InputInfo.h"

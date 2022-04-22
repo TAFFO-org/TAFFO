@@ -54,13 +54,13 @@ bool ReadTrace::runOnModule(Module &M) {
         if (!Inst.isDebugOrPseudoInst() &&
             Inst.getType()->isFloatingPointTy() &&
             valTypes.count(InstName) != 0
-//            && !isa<LoadInst>(Inst)
+            && !isa<LoadInst>(Inst)
             ) {
           auto instType = std::shared_ptr<mdutils::FloatType>{};
           auto instRange = std::make_shared<mdutils::Range>(
                   minVals.at(InstName), maxVals.at(InstName));
           auto instError = std::shared_ptr<double>{};
-          mdutils::InputInfo ii{instType, instRange, instError, false, true};
+          mdutils::InputInfo ii{instType, instRange, instError};
           mdutils::MetadataManager::setInputInfoMetadata(Inst, ii);
           Changed = true;
         }
@@ -84,42 +84,43 @@ bool ReadTrace::runOnModule(Module &M) {
           auto *storeSrc = storeInst->getOperand(0);
           auto *storeDst = storeInst->getOperand(1);
           auto srcName = storeSrc->getName().str();
-//          std::cout << "Store: "
-//                    << storeSrc->getName().str()
-//                    << " > "
-//                    << storeDst->getName().str()
-//                    << std::endl;
 
           auto ops = std::list<Instruction*>();
           ops.push_back(storeInst);
           ops.push_back(dyn_cast<Instruction>(storeDst));
 
-          if (auto srcMin = minVals.find(srcName) != minVals.end()) {
+          auto srcMinIt = minVals.find(srcName);
+          if (srcMinIt != minVals.end()) {
             auto srcMax = maxVals.find(srcName)->second;
-//            errs() << *storeInst << "\n";
-//            errs() << *storeDst << "\n";
+            errs() << "----------" << "\n";
+            errs() << *storeInst << "\n";
+            errs() << *storeDst << "\n";
             for (auto op: storeDst->users()) {
-//              errs() << *op << "\n";
+              errs() << *op << "\n";
               if (!Inst.isDebugOrPseudoInst()) {
                 ops.push_back(dyn_cast<Instruction>(op));
               }
             }
             for (auto op: ops) {
-              if (auto it = derivedMinVals.find(op) != derivedMinVals.end()) {
-                if (it > srcMin) {
-                  derivedMinVals[op] = srcMin;
+              auto derivedMinValsIt = derivedMinVals.find(op);
+              if (derivedMinValsIt != derivedMinVals.end()) {
+                if (derivedMinValsIt->second > srcMinIt->second) {
+                  derivedMinVals[op] = srcMinIt->second;
                 }
               } else {
-                derivedMinVals[op] = srcMin;
+                derivedMinVals[op] = srcMinIt->second;
               }
 
-              if (auto it = derivedMaxVals.find(op) != derivedMaxVals.end()) {
-                if (it < srcMax) {
+              auto derivedMaxValsIt = derivedMaxVals.find(op);
+              if (derivedMaxValsIt != derivedMaxVals.end()) {
+                if (derivedMaxValsIt->second < srcMax) {
                   derivedMaxVals[op] = srcMax;
                 }
               } else {
                 derivedMaxVals[op] = srcMax;
               }
+
+              assert(derivedMinVals[op] <= derivedMaxVals[op]);
             }
           }
         }
@@ -137,6 +138,9 @@ bool ReadTrace::runOnModule(Module &M) {
     auto instError = std::shared_ptr<double>{};
     mdutils::InputInfo ii{instType, instRange, instError};
     mdutils::MetadataManager::setInputInfoMetadata(*op, ii);
+    errs() << "----------" << "\n";
+    errs() << *op << "\n";
+    errs() << instRange->toString() << "\n";
     Changed = true;
   }
 
