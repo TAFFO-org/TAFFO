@@ -69,7 +69,7 @@ if [[ -z $DONT_REBUILD ]]; then
 
   dynamic_analysis() {
     ${OPT} -load=${TAFFOLIB} -S \
-    -O0 --taffoinit --taffo-name-variables -dce -stats \
+    --taffoinit --taffo-name-variables -globaldce -dce -stats \
     obj/${bench}.out.fixp.1.taffotmp.ll \
     -o obj/${bench}.out.named.taffotmp.ll
 
@@ -88,18 +88,17 @@ if [[ -z $DONT_REBUILD ]]; then
     > obj/${bench}.out.instrumented.trace
 
     ${OPT} -load=${TAFFOLIB} -S \
-            -O0 --taffo-read-trace -stats -trace_file obj/${bench}.out.instrumented.trace --taffodta \
+            -O0 --taffo-read-trace -stats -trace_file obj/${bench}.out.instrumented.trace \
             obj/${bench}.out.named.taffotmp.ll \
             -o obj/${bench}.out.dynamic.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
-                -debug \
-                -stats --flttofix -globaldce -dce \
+                -stats --taffodta \
                 obj/${bench}.out.dynamic.taffotmp.ll \
                 -o obj/${bench}.out.dynamic_flttofix.taffotmp.ll > flttofix.log
 
     ${OPT} -load=${TAFFOLIB} -S \
-                    -stats -O3 \
+                    -stats --flttofix -globaldce -dce \
                     obj/${bench}.out.dynamic_flttofix.taffotmp.ll \
                     -o obj/${bench}.out.dynamic_final.taffotmp.ll
 
