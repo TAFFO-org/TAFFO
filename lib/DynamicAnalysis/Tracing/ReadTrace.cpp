@@ -18,6 +18,20 @@ using namespace llvm;
 
 cl::list<std::string> Filenames("trace_file", cl::desc("Specify filenames of trace files"), cl::ZeroOrMore);
 
+std::string typeName(Value& val) {
+  if (isa<Argument>(val)) {
+    return "Argument";
+  } else if (isa<Constant>(val)) {
+    return "Constant";
+  } else if (isa<Instruction>(val)) {
+    return "Instruction";
+  } else if (isa<Operator>(val)) {
+    return "Operator";
+  } else {
+    return "Unknown";
+  }
+}
+
 //-----------------------------------------------------------------------------
 // ReadTrace implementation
 //-----------------------------------------------------------------------------
@@ -31,121 +45,107 @@ bool ReadTrace::runOnModule(Module &M) {
   std::unordered_map<std::string, mdutils::FloatType::FloatStandard> valTypes;
   std::unordered_map<Instruction*, double> derivedMinVals, derivedMaxVals;
 
-  parseTraceFiles(minVals, maxVals, valTypes);
+//  parseTraceFiles(minVals, maxVals, valTypes);
 
-  for (auto const &i: minVals) {
-    std::cout << i.first << " " << "min: " << i.second
-    << " max: " << maxVals[i.first]
-    << " type: " << valTypes[i.first]
-    << std::endl;
-  }
+  std::unordered_map<Value*, int> instToIndex;
+  std::unordered_map<int, Value*> indexToInst;
+  std::list<std::pair<int, int>> edges;
+  int instCount = buildMemEdgesList(M, instToIndex, indexToInst, edges);
+  std::map<int, std::list<int>> cc;
+  connectedComponents(instCount, edges, cc);
 
-  for (auto &F : M) {
-    if (!F.hasName() || F.isDeclaration())
-      continue;
-
-    for (auto &BB: F.getBasicBlockList()) {
-      auto &InstList = BB.getInstList();
-      auto current = InstList.getNextNode(InstList.front());
-      while (current != nullptr) {
-        auto &Inst = *current;
-        auto next = InstList.getNextNode(*current);
-        auto InstName = Inst.getName().str();
-        if (!Inst.isDebugOrPseudoInst() &&
-            Inst.getType()->isFloatingPointTy() &&
-            valTypes.count(InstName) != 0
-            && !isa<LoadInst>(Inst)
-            ) {
-          auto instType = std::shared_ptr<mdutils::FloatType>{};
-          auto instRange = std::make_shared<mdutils::Range>(
-                  minVals.at(InstName), maxVals.at(InstName));
-          auto instError = std::shared_ptr<double>{};
-          mdutils::InputInfo ii{instType, instRange, instError};
-          mdutils::MetadataManager::setInputInfoMetadata(Inst, ii);
-          Changed = true;
-        }
-        current = next;
-      }
+  for (auto it = cc.begin(); it != cc.end(); it++) {
+    std::list<int> l = it->second;
+    for (auto x : l) {
+      errs() << typeName(*indexToInst[x]) << ": ";
+      errs() << *indexToInst[x] << "\n";
     }
-  }
-
-  for (auto &F : M) {
-    if (!F.hasName() || F.isDeclaration())
-      continue;
-
-    for (auto &BB : F.getBasicBlockList()) {
-      auto &InstList = BB.getInstList();
-      auto current = InstList.getNextNode(InstList.front());
-      while (current != nullptr) {
-        auto &Inst = *current;
-        auto next = InstList.getNextNode(*current);
-
-        if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
-          auto *storeSrc = storeInst->getOperand(0);
-          auto *storeDst = storeInst->getOperand(1);
-          auto srcName = storeSrc->getName().str();
-
-          auto ops = std::list<Instruction*>();
-          ops.push_back(storeInst);
-          ops.push_back(dyn_cast<Instruction>(storeDst));
-
-          auto srcMinIt = minVals.find(srcName);
-          if (srcMinIt != minVals.end()) {
-            auto srcMax = maxVals.find(srcName)->second;
-            errs() << "----------" << "\n";
-            errs() << *storeInst << "\n";
-            errs() << *storeDst << "\n";
-            for (auto op: storeDst->users()) {
-              errs() << *op << "\n";
-              if (!Inst.isDebugOrPseudoInst()) {
-                ops.push_back(dyn_cast<Instruction>(op));
-              }
-            }
-            for (auto op: ops) {
-              auto derivedMinValsIt = derivedMinVals.find(op);
-              if (derivedMinValsIt != derivedMinVals.end()) {
-                if (derivedMinValsIt->second > srcMinIt->second) {
-                  derivedMinVals[op] = srcMinIt->second;
-                }
-              } else {
-                derivedMinVals[op] = srcMinIt->second;
-              }
-
-              auto derivedMaxValsIt = derivedMaxVals.find(op);
-              if (derivedMaxValsIt != derivedMaxVals.end()) {
-                if (derivedMaxValsIt->second < srcMax) {
-                  derivedMaxVals[op] = srcMax;
-                }
-              } else {
-                derivedMaxVals[op] = srcMax;
-              }
-
-              assert(derivedMinVals[op] <= derivedMaxVals[op]);
-            }
-          }
-        }
-        current = next;
-      }
-    }
-  }
-
-  for (auto pair: derivedMinVals) {
-    auto op = pair.first;
-    auto minVal = pair.second;
-    auto maxVal = derivedMaxVals[op];
-    auto instType = std::shared_ptr<mdutils::FloatType>{};
-    auto instRange = std::make_shared<mdutils::Range>(minVal, maxVal);
-    auto instError = std::shared_ptr<double>{};
-    mdutils::InputInfo ii{instType, instRange, instError};
-    mdutils::MetadataManager::setInputInfoMetadata(*op, ii);
-    errs() << "----------" << "\n";
-    errs() << *op << "\n";
-    errs() << instRange->toString() << "\n";
-    Changed = true;
+    errs() << "-----\n";
   }
 
   return Changed;
 }
+
+int merge(int* parent, int x)
+{
+  if (parent[x] == x)
+    return x;
+  return merge(parent, parent[x]);
+}
+
+void ReadTrace::connectedComponents(int n, std::list<std::pair<int, int>>& edges, std::map<int, std::list<int>>& cc) {
+  int parent[n];
+  for (int i = 0; i < n; i++) {
+    parent[i] = i;
+  }
+  for (auto x : edges) {
+    parent[merge(parent, x.first)] = merge(parent, x.second);
+  }
+  for (int i = 0; i < n; i++) {
+    parent[i] = merge(parent, parent[i]);
+  }
+  for (int i = 0; i < n; i++) {
+    cc[parent[i]].push_back(i);
+  }
+}
+
+int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& instToIndex,
+                                  std::unordered_map<int, Value*>& indexToInst,
+                                  std::list<std::pair<int, int>>& edges) {
+  int index = -1;
+
+  auto getIndex = [&instToIndex, &indexToInst, &index](Value* Inst) -> int {
+    auto it = instToIndex.find(Inst);
+    errs() << "*** " << *Inst << "\n";
+    if (it != instToIndex.end()) {
+      return it->second;
+    } else {
+      index++;
+      instToIndex[Inst] = index;
+      indexToInst[index] = Inst;
+      return index;
+    }
+  };
+
+  for (auto &F : M) {
+    if (!F.hasName() || F.isDeclaration()) continue;
+    for (auto &BB: F.getBasicBlockList()) {
+      for (auto &Inst: BB.getInstList()) {
+        if (Inst.isDebugOrPseudoInst()) continue ;
+        if (isa<AllocaInst, StoreInst, LoadInst, GetElementPtrInst>(Inst)) {
+          int instIndex = getIndex(&Inst);
+          for (auto child: Inst.users()) {
+            int childIndex = getIndex(child);
+            edges.emplace_back(instIndex, childIndex);
+          }
+
+          if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
+            auto storeSrc = storeInst->getValueOperand();
+            auto storeDst = storeInst->getPointerOperand();
+            int srcIndex = getIndex(storeSrc);
+            edges.emplace_back(instIndex, srcIndex);
+            int dstIndex = getIndex(storeDst);
+            edges.emplace_back(instIndex, dstIndex);
+          }
+
+          if (auto *loadInst = dyn_cast<LoadInst>(&Inst)) {
+            auto loadSrc = loadInst->getPointerOperand();
+            int srcIndex = getIndex(loadSrc);
+            edges.emplace_back(instIndex, srcIndex);
+          }
+
+          if (auto *gepInst = dyn_cast<GetElementPtrInst>(&Inst)) {
+            auto gepSrc = gepInst->getPointerOperand();
+            int srcIndex = getIndex(gepSrc);
+            edges.emplace_back(instIndex, srcIndex);
+          }
+        }
+      } // instructions
+    } // basic blocks
+  } // functions
+
+  return index + 1; // number of nodes in the graph
+} // buildMemEdgesList
 
 void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals,
                                 std::unordered_map<std::string, double>& maxVals,
