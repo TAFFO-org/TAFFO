@@ -18,20 +18,6 @@ using namespace llvm;
 
 cl::list<std::string> Filenames("trace_file", cl::desc("Specify filenames of trace files"), cl::ZeroOrMore);
 
-std::string typeName(Value& val) {
-  if (isa<Argument>(val)) {
-    return "Argument";
-  } else if (isa<Constant>(val)) {
-    return "Constant";
-  } else if (isa<Instruction>(val)) {
-    return "Instruction";
-  } else if (isa<Operator>(val)) {
-    return "Operator";
-  } else {
-    return "Unknown";
-  }
-}
-
 //-----------------------------------------------------------------------------
 // ReadTrace implementation
 //-----------------------------------------------------------------------------
@@ -45,25 +31,84 @@ bool ReadTrace::runOnModule(Module &M) {
   std::unordered_map<std::string, mdutils::FloatType::FloatStandard> valTypes;
   std::unordered_map<Instruction*, double> derivedMinVals, derivedMaxVals;
 
-//  parseTraceFiles(minVals, maxVals, valTypes);
-
+  // calculate connected components on the memory operations
   std::unordered_map<Value*, int> instToIndex;
   std::unordered_map<int, Value*> indexToInst;
   std::list<std::pair<int, int>> edges;
   int instCount = buildMemEdgesList(M, instToIndex, indexToInst, edges);
-  std::map<int, std::list<int>> cc;
+  std::unordered_map<int, std::list<int>> cc;
+  std::unordered_map<int, std::list<Value*>> ccValues;
+  std::unordered_map<int, std::pair<double, double>> ccRanges;
   connectedComponents(instCount, edges, cc);
 
-  for (auto it = cc.begin(); it != cc.end(); it++) {
-    std::list<int> l = it->second;
+  for (auto & it : cc) {
+    std::list<int> l = it.second;
     for (auto x : l) {
-      errs() << typeName(*indexToInst[x]) << ": ";
-      errs() << *indexToInst[x] << "\n";
+      ccValues[it.first].emplace_back(indexToInst[x]);
+//      errs() << typeName(*indexToInst[x]) << ": ";
+//      errs() << *indexToInst[x] << "\n";
+    }
+//    errs() << "-----\n";
+  }
+
+  // read the trace file
+  parseTraceFiles(minVals, maxVals, valTypes);
+
+  // calculate value ranges for every component
+  calculateCCRanges(ccValues, minVals, maxVals, ccRanges);
+
+  for (const auto & it : ccRanges) {
+    const auto range = it.second;
+    const auto l = ccValues[it.first];
+    for (auto x : l) {
+      errs() << typeName(*x) << ": ";
+      errs() << "[" << range.first << ", " << range.second << "]: ";
+      errs() << *x << "\n";
     }
     errs() << "-----\n";
   }
 
   return Changed;
+}
+
+void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<Value*>>& ccValues,
+                                  const std::unordered_map<std::string, double>& minVals,
+                                  const std::unordered_map<std::string, double>& maxVals,
+                                  std::unordered_map<int, std::pair<double, double>>& ccRanges) {
+  for (const auto& it: ccValues) {
+    double minV, maxV;
+    bool hasValue = false;
+    for (const auto value: it.second) {
+      auto valueName = value->getName().str();
+      if (minVals.count(valueName) > 0) {
+        if (!hasValue) {
+          hasValue = true;
+          minV = minVals.at(valueName);
+          maxV = maxVals.at(valueName);
+        } else {
+          minV = minV <= minVals.at(valueName)? minV: minVals.at(valueName);
+          maxV = maxV >= maxVals.at(valueName)? maxV: maxVals.at(valueName);
+        }
+      }
+    }
+    if (hasValue) {
+      ccRanges[it.first] = {minV, maxV};
+    }
+  }
+}
+
+std::string ReadTrace::typeName(Value& val) {
+  if (isa<Argument>(val)) {
+    return "Argument";
+  } else if (isa<Constant>(val)) {
+    return "Constant";
+  } else if (isa<Instruction>(val)) {
+    return "Instruction";
+  } else if (isa<Operator>(val)) {
+    return "Operator";
+  } else {
+    return "Unknown";
+  }
 }
 
 int merge(int* parent, int x)
@@ -73,7 +118,8 @@ int merge(int* parent, int x)
   return merge(parent, parent[x]);
 }
 
-void ReadTrace::connectedComponents(int n, std::list<std::pair<int, int>>& edges, std::map<int, std::list<int>>& cc) {
+void ReadTrace::connectedComponents(const int n, const std::list<std::pair<int, int>>& edges,
+                                    std::unordered_map<int, std::list<int>>& cc) {
   int parent[n];
   for (int i = 0; i < n; i++) {
     parent[i] = i;

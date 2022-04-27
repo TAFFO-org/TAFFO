@@ -17,11 +17,19 @@ struct ReadTrace : public llvm::PassInfoMixin<ReadTrace> {
 
 private:
 
+  std::string typeName(llvm::Value& val);
+
+  void calculateCCRanges(const std::unordered_map<int, std::list<llvm::Value*>>& ccValues,
+                                    const std::unordered_map<std::string, double>& minVals,
+                                    const std::unordered_map<std::string, double>& maxVals,
+                                    std::unordered_map<int, std::pair<double, double>>& ccRanges);
+
   int buildMemEdgesList(llvm::Module &M, std::unordered_map<llvm::Value*, int>& instToIndex,
                          std::unordered_map<int, llvm::Value*>& indexToInst,
                          std::list<std::pair<int, int>>& edges);
 
-  void connectedComponents(int count, std::list<std::pair<int, int>>& edges, std::map<int, std::list<int>>& cc);
+  void connectedComponents(const int count, const std::list<std::pair<int, int>>& edges,
+                           std::unordered_map<int, std::list<int>>& cc);
 
   void
   parseTraceFiles(std::unordered_map<std::string, double>& minVals, std::unordered_map<std::string, double>& maxVals,
