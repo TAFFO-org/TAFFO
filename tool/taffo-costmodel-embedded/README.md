@@ -10,7 +10,7 @@ with the official GCC toolchain distributed by ARM, freely downloadable here:
 https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/downloads
 
 Be careful when installing cross-compilers using package managers on Linux
-as there might be different package for hard-float and soft-float compilers.
+as there might be different packages for hard-float and soft-float compilers.
 Which one you need to use depends on the target.
 
 Additionally, install the open source st-link toolkit via your package
