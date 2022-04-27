@@ -6,6 +6,7 @@ add_executable(${SELF}
   timing.h
   collector.h
   xutils.h
+  config.h
   )
 
 target_compile_definitions(${SELF} PRIVATE

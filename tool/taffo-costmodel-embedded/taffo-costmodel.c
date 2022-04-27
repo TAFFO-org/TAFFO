@@ -18,6 +18,7 @@
 
 
 #define USE_TIMING
+#include "config.h"
 #include "timing.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -188,13 +189,6 @@ static int cmpf(const void *a, const void *b) {
     T = 1000.0/T; \
     }
 
-#ifndef MEMSIZE
-#define MEMSIZE (1024*8)
-#endif
-
-#ifndef NBRUN
-#define NBRUN 128
-#endif
 
 int main(void) {
     const size_t memsize = MEMSIZE;
