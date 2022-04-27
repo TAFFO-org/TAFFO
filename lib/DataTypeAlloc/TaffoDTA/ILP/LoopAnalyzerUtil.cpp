@@ -24,19 +24,21 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Instruction *
 
 unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
 {
-  if (loop) {
-    auto scev = tuner->getAnalysis<ScalarEvolutionWrapperPass>(
-                         *loop->getHeader()->getParent())
-                    .getSE()
-                    .getSmallConstantTripCount(loop);
-    LLVM_DEBUG(dbgs() << "Got SCEV " << scev << "; looking for nested loops...\n";);
-    if (scev == 0) {
-      scev = 1;
-      LLVM_DEBUG(dbgs() << "[Warning] Could not find a loop trip count, forcing to be at least 1.\n";);
-    }
-    return scev * computeFullTripCount(tuner, loop->getParentLoop());
-  } else {
+  if (!loop) {
     LLVM_DEBUG(dbgs() << "Loop Info: loop is null! Not part of a loop, finishing search!\n";);
     return 1;
   }
+
+  auto scev = tuner->getAnalysis<ScalarEvolutionWrapperPass>(
+                       *loop->getHeader()->getParent())
+                  .getSE()
+                  .getSmallConstantTripCount(loop);
+  if (scev == 0) {
+    scev = 2;
+    LLVM_DEBUG(dbgs() << "SCEV told us the trip count is zero; forcing the default of " << scev << "!\n");
+  } else {
+    LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << scev << ", which is OK AFAICT.\n";);
+  }
+  LLVM_DEBUG(dbgs() << "Checking for nested loops...\n");
+  return scev * computeFullTripCount(tuner, loop->getParentLoop());
 }

@@ -259,6 +259,10 @@ void Optimizer::handleCallFromRoot(Function *f)
 
   LLVM_DEBUG(dbgs() << ("Processing function...\n"););
 
+  // Initialize trip count
+  currentInstruction = nullptr;
+  currentInstructionTripCount = 1;
+
   // See comment before to understand why these variable are set to nulls here
   processFunction(*f, arg_errors, nullptr);
   return;
@@ -433,8 +437,12 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
 {
   // This will be a mess. God bless you.
   LLVM_DEBUG(llvm::dbgs() << "Handling instruction " << (instruction->dump(), "\n"));
-  auto info = LoopAnalyzerUtil::computeFullTripCount(tuner, instruction);
+  currentInstruction = instruction;
+  unsigned int info = LoopAnalyzerUtil::computeFullTripCount(tuner, instruction);
   LLVM_DEBUG(dbgs() << "Optimizer: got trip count " << info << "\n");
+  unsigned int prevInstrTripCount = currentInstructionTripCount;
+  currentInstructionTripCount *= info;
+  LLVM_DEBUG(dbgs() << "Current cumulative trip count: " << currentInstructionTripCount << "\n");
 
   const unsigned opCode = instruction->getOpcode();
   if (opCode == Instruction::Call) {
@@ -527,6 +535,23 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
     }
     // TODO here be dragons
   } // end else
+
+  currentInstruction = nullptr;
+  currentInstructionTripCount = prevInstrTripCount;
+}
+
+int Optimizer::getCurrentInstructionCost()
+{
+  if (MixedTripCount == false) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": option -mixedtripcount off, returning 1.\n");
+    return 1;
+  }
+  if (currentInstruction == nullptr) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": wait, we are not processing any instruction right now... Returning 1.\n");
+    return 1;
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": cost appears to be trip count of " << *currentInstruction << "\n");
+  return currentInstructionTripCount;
 }
 
 void Optimizer::handleTerminators(llvm::Instruction *term, shared_ptr<ValueInfo> valueInfo)

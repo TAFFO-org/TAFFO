@@ -361,8 +361,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
 
   // Casting costs
   // Is correct to only place here the maxCastCost, as only one cast will be active at a time
-  model.insertObjectiveElement(make_pair(C1, I_COST * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, maxCastCost);
-  model.insertObjectiveElement(make_pair(C2, I_COST * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, 0);
+  model.insertObjectiveElement(make_pair(C1, opt->getCurrentInstructionCost() * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, maxCastCost);
+  model.insertObjectiveElement(make_pair(C2, opt->getCurrentInstructionCost() * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, 0);
 
   // TYPE CAST
   auto costcrosslambda = [&](std::string &variable, tuner::CPUCosts::CostsId cost, const string (tuner::OptimizerScalarInfo::*getFirstVariable)(), const string (tuner::OptimizerScalarInfo::*getSecondVariable)(), const std::string &desc) mutable {
@@ -371,7 +371,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
     constraint.push_back(make_pair(((*optimizerInfo).*getSecondVariable)(), 1.0));
     constraint.push_back(make_pair(variable, -1));
     model.insertLinearConstraint(constraint, tuner::Model::LE, 1 /*, desc*/);
-    model.insertObjectiveElement(make_pair(variable, I_COST * cpuCosts.getCost(cost)), MODEL_OBJ_CASTCOST, 0);
+    model.insertObjectiveElement(make_pair(variable, opt->getCurrentInstructionCost() * cpuCosts.getCost(cost)), MODEL_OBJ_CASTCOST, 0);
   };
 
   int counter2 = 3;

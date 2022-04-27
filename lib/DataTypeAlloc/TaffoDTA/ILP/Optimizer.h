@@ -31,16 +31,12 @@ extern bool hasPPC128;
 extern bool hasFP80;
 extern bool hasBF16;
 
-
-// FIXME: I_COST should absolutely not be constant
-
-#define I_COST 1
-
 // This means how much the casting cost will be relevant for the computation
 extern llvm::cl::opt<double> MixedTuningTime;
 extern llvm::cl::opt<double> MixedTuningENOB;
 extern llvm::cl::opt<double> MixedTuningCastingTime;
 extern llvm::cl::opt<bool> MixedDoubleEnabled;
+extern llvm::cl::opt<bool> MixedTripCount;
 #define TUNING_CASTING (MixedTuningCastingTime)
 #define TUNING_MATH (MixedTuningTime)
 #define TUNING_ENOB (MixedTuningENOB)
@@ -97,13 +93,16 @@ public:
   int StatSelectedFP80 = 0;
   int StatSelectedBF16 = 0;
 
-
   /*
   bool hasHalf;
   bool hasQuad;
   bool hasFP80 ;
   bool hasPPC128;
   bool hasBF16;*/
+
+private:
+  Instruction *currentInstruction;
+  unsigned int currentInstructionTripCount = 1;
 
 public:
   void handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo);
@@ -126,6 +125,8 @@ public:
 public:
   void handleInstruction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo);
 
+  /** Returns the cost of the instruction currently being processed by handleInstruction. */
+  int getCurrentInstructionCost();
 
   void emitError(const string &stringhina);
 
@@ -135,7 +136,6 @@ public:
   void
   handleBinaryInstruction(Instruction *instr, const unsigned int OpCode, const shared_ptr<ValueInfo> &valueInfos);
   void handleUnaryInstruction(Instruction *instr, const shared_ptr<ValueInfo> &valueInfos);
-
 
   void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1, shared_ptr<OptimizerScalarInfo> op2,
                                     bool forceFixBitsConstraint);

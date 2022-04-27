@@ -19,11 +19,9 @@ class MemWatcher;
 
 class MetricBase
 {
-
 protected:
   enum MetricKind { MK_Perf,
                     MK_Size };
-
 
 public:
   void setOpt(tuner::Optimizer *O) { opt = O; }
