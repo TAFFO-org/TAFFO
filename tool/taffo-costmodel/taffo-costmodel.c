@@ -41,7 +41,16 @@ enum e_ops {
   OP_DIV,
   OP_SHIFT,
   OP_REM,
-  N_OP
+  OP_START_TRIG,
+  OP_LOG = OP_START_TRIG,
+  OP_EXP,
+  OP_SQRT,
+  OP_SIN,
+  OP_COS,
+  OP_ASIN,
+  OP_ACOS,
+  OP_END_TRIG,
+  N_OP = OP_END_TRIG
 };
 const char *ops_names[N_OP] = {
   "ADD",
@@ -50,6 +59,13 @@ const char *ops_names[N_OP] = {
   "DIV",
   "SHIFT",
   "REM",
+  "LOG",
+  "EXP",
+  "SQRT",
+  "SIN",
+  "COS",
+  "ASIN",
+  "ACOS"
 };
 
 enum e_types {
@@ -67,64 +83,6 @@ const char *types_names[N_T] = {
 double op_times[N_OP][N_T];
 double cast_times[N_OP][N_OP];
 
-/*
-enum collecting {
-  ADD_FIX = 0,
-  ADD_FLOAT,
-  ADD_DOUBLE,
-  SUB_FIX,
-  SUB_FLOAT,
-  SUB_DOUBLE,
-  MUL_FIX,
-  MUL_FLOAT,
-  MUL_DOUBLE,
-  DIV_FIX,
-  DIV_FLOAT,
-  DIV_DOUBLE,
-  REM_FIX,
-  REM_FLOAT,
-  REM_DOUBLE,
-  LOG_FIX,
-  LOG_FLOAT,
-  LOG_DOUBLE,
-  CAST_FIX_FLOAT,
-  CAST_FIX_DOUBLE,
-  CAST_FLOAT_FIX,
-  CAST_FLOAT_DOUBLE,
-  CAST_DOUBLE_FIX,
-  CAST_DOUBLE_FLOAT,
-  CAST_FIX_FIX,
-  COLLECTION_SIZE
-};
-
-const char * coll[] = {
-  "ADD_FIX",
-  "ADD_FLOAT",
-  "ADD_DOUBLE",
-  "SUB_FIX",
-  "SUB_FLOAT",
-  "SUB_DOUBLE",
-  "MUL_FIX",
-  "MUL_FLOAT",
-  "MUL_DOUBLE",
-  "DIV_FIX",
-  "DIV_FLOAT",
-  "DIV_DOUBLE",
-  "REM_FIX",
-  "REM_FLOAT",
-  "REM_DOUBLE",
-  "CAST_FIX_FLOAT",
-  "CAST_FIX_DOUBLE",
-  "CAST_FLOAT_FIX",
-  "CAST_FLOAT_DOUBLE",
-  "CAST_DOUBLE_FIX",
-  "CAST_DOUBLE_FLOAT",
-  "CAST_FIX_FIX",
-  "ERRRRRRRRRRORRRRRRRRRRRR"
-};
-
-double times[COLLECTION_SIZE];
-*/
 
 /**
  * floating-point comparison, for qsort()
@@ -262,6 +220,13 @@ int main(void) {
     FTIME(OP_MUL, c[i] = a[i] * b[i]);
     FTIME(OP_DIV, c[i] = a[i] / b[i]);
     F_FUN_TIME(OP_REM, c[i], fmodf, fmod, (a[i], b[i]));
+    F_FUN_TIME(OP_LOG, c[i], logf, log, (a[i]));
+    F_FUN_TIME(OP_EXP, c[i], expf, exp, (a[i]));
+    F_FUN_TIME(OP_SQRT, c[i], sqrtf, sqrt, (a[i]));
+    F_FUN_TIME(OP_SIN, c[i], sinf, sin, (a[i]));
+    F_FUN_TIME(OP_COS, c[i], cosf, cos, (a[i]));
+    F_FUN_TIME(OP_ASIN, c[i], asinf, asin, (a[i]));
+    F_FUN_TIME(OP_ACOS, c[i], acosf, acos, (a[i]));
 
     printf("'%-20s', %16s, %16s, %16s, %16s, %16s\n", " --- To --->", "flt32", "flt64", "int32", "flt80", "flt128");
     CTIME(T_FIX, int32);
@@ -271,6 +236,11 @@ int main(void) {
     cast_times[T_FLOAT][T_FIX] += op_times[OP_MUL][T_FLOAT];
     CTIME(T_DOUBLE, flt64);
     cast_times[T_DOUBLE][T_FIX] += op_times[OP_MUL][T_DOUBLE];
+
+    double fallback_ovh = cast_times[T_FIX][T_FLOAT] +  cast_times[T_FLOAT][T_FIX];
+    for (int i=OP_START_TRIG; i<OP_END_TRIG; i++) {
+      op_times[i][T_FIX] = op_times[i][T_FLOAT] + fallback_ovh;
+    }
 
     free((void *) _a);
     free((void *) _b);
