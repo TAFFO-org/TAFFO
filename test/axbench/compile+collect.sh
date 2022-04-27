@@ -95,7 +95,7 @@ if [[ -z $DONT_REBUILD ]]; then
     ${OPT} -load=${TAFFOLIB} -S \
                 -stats --taffodta \
                 obj/${bench}.out.dynamic.taffotmp.ll \
-                -o obj/${bench}.out.dynamic_flttofix.taffotmp.ll > flttofix.log
+                -o obj/${bench}.out.dynamic_flttofix.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
                     -stats --flttofix -globaldce -dce \
@@ -104,7 +104,7 @@ if [[ -z $DONT_REBUILD ]]; then
 
     ${LLC} -filetype=obj obj/${bench}.out.dynamic_final.taffotmp.ll -o obj/${bench}.out.dynamic_final.taffotmp.o
 
-    ${CLANGXX} obj/${bench}.out.dynamic_final.taffotmp.o -o bin/${bench}.out.dynamic_final
+    ${CLANGXX} -O3 obj/${bench}.out.dynamic_final.taffotmp.o -o bin/${bench}.out.dynamic_final
   }
 
   # Make stats

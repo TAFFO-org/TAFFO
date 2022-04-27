@@ -41,7 +41,7 @@ bool ReadTrace::runOnModule(Module &M) {
   std::unordered_map<int, std::pair<double, double>> ccRanges;
   connectedComponents(instCount, edges, cc);
 
-  for (auto & it : cc) {
+  for (auto &it : cc) {
     std::list<int> l = it.second;
     for (auto x : l) {
       ccValues[it.first].emplace_back(indexToInst[x]);
@@ -57,7 +57,7 @@ bool ReadTrace::runOnModule(Module &M) {
   // calculate value ranges for every component
   calculateCCRanges(ccValues, minVals, maxVals, ccRanges);
 
-  for (const auto & it : ccRanges) {
+  for (const auto &it : ccRanges) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
     for (auto x : l) {
@@ -66,6 +66,63 @@ bool ReadTrace::runOnModule(Module &M) {
       errs() << *x << "\n";
     }
     errs() << "-----\n";
+  }
+
+  // assign calculated intervals to the metadata
+  std::unordered_map<Value*, std::pair<double, double>> valuesRanges;
+
+  for (auto &F : M) {
+    if (!F.hasName() || F.isDeclaration()) continue;
+    for (auto &BB : F.getBasicBlockList()) {
+      for (auto &Inst : BB.getInstList()) {
+        if (Inst.isDebugOrPseudoInst()) continue;
+        auto InstName = Inst.getName().str();
+        if (minVals.count(InstName) > 0) {
+          valuesRanges[&Inst] = {minVals.at(InstName), maxVals.at(InstName)};
+        }
+      } // instructions
+    } // basic blocks
+  } // functions
+
+  for (const auto &it : ccRanges) {
+    const auto range = it.second;
+    const auto l = ccValues[it.first];
+    for (auto value : l) {
+      valuesRanges[value] = range;
+    }
+  }
+
+  for (const auto &it: valuesRanges) {
+    auto value = it.first;
+    auto range = it.second;
+    if (auto Inst = dyn_cast<Instruction>(value)) {
+      if (isa<LoadInst>(Inst) && !Inst->getType()->isFPOrFPVectorTy()) continue;
+      auto instType = std::shared_ptr<mdutils::FloatType>{};
+      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+      auto instError = std::shared_ptr<double>{};
+      mdutils::InputInfo ii{instType, instRange, instError, false, true};
+      mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
+      Changed = true;
+    }
+    if (auto Arg = dyn_cast<Argument>(value)) {
+      auto F = Arg->getParent();
+      auto instType = std::shared_ptr<mdutils::FloatType>{};
+      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+      auto instError = std::shared_ptr<double>{};
+      mdutils::InputInfo ii{instType, instRange, instError, false, true};
+      llvm::SmallVector<mdutils::MDInfo *> FunMD;
+      mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, FunMD);
+      if (!Arg->getType()->isStructTy()) {
+        auto ArgMD = FunMD[Arg->getArgNo()];
+        if (!ArgMD) {
+          FunMD[Arg->getArgNo()] = new mdutils::InputInfo(ii);
+        } else {
+          auto *ArgII = dyn_cast<mdutils::InputInfo>(ArgMD);
+          *ArgII = ii;
+        }
+        mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
+      }
+    }
   }
 
   return Changed;
