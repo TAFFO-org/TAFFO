@@ -15,3 +15,7 @@ working-dist-llvm6
 test/jpeg-decoder-no-external-fft
 .cache
 .envrc
+tool/taffo-costmodel-embedded/obj*
+*.bin
+*.elf
+*.map
