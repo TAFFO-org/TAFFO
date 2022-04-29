@@ -18,7 +18,7 @@ all: $(OUTPUT_BIN)
 
 C_SRC += $(wildcard *.c)
 
-CFLAGS = -DNOFLT80 -DNOFLT128 -ffreestanding -g
+CFLAGS = -Os -ffreestanding -g
 ASMFLAGS = -ffreestanding -g
 LDFLAGS = -ffreestanding -lm -lc -Wl,-Map=$(OUTPUT_MAP)
 -include $(TARGET)/Makefile.inc
