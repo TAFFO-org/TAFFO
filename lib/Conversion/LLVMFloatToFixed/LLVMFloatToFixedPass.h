@@ -18,6 +18,7 @@
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_ANNOTATION "annotation"
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "

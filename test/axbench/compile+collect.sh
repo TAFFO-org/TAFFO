@@ -68,9 +68,16 @@ if [[ -z $DONT_REBUILD ]]; then
     2> stats/taffo.log
 
   dynamic_analysis() {
+    orig_files='src_original/*.@(cc|cpp|c)'
+    ${CLANGXX} -D__TAFFO__ \
+    -O0 -Xclang -disable-O0-optnone -emit-llvm -S \
+    -I../common/src \
+     ${orig_files} \
+     -o obj/${bench}.out.original.ll
+
     ${OPT} -load=${TAFFOLIB} -S \
     --taffoinit --taffo-name-variables -globaldce -dce -stats \
-    obj/${bench}.out.fixp.1.taffotmp.ll \
+    obj/${bench}.out.original.ll \
     -o obj/${bench}.out.named.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
@@ -93,19 +100,29 @@ if [[ -z $DONT_REBUILD ]]; then
             -o obj/${bench}.out.dynamic.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
-                -stats --taffodta \
+                -debug \
+                -stats -taffoVRA \
                 obj/${bench}.out.dynamic.taffotmp.ll \
-                -o obj/${bench}.out.dynamic_flttofix.taffotmp.ll
+                -o obj/${bench}.out.dynamic_vra.taffotmp.ll 2>stats/dynamic_taffovra.error.log
 
     ${OPT} -load=${TAFFOLIB} -S \
-                    -stats --flttofix -globaldce -dce \
-                    obj/${bench}.out.dynamic_flttofix.taffotmp.ll \
-                    -o obj/${bench}.out.dynamic_final.taffotmp.ll
+                -debug \
+                -stats --taffodta \
+                obj/${bench}.out.dynamic_vra.taffotmp.ll \
+                -o obj/${bench}.out.dynamic_taffodta.taffotmp.ll 2>stats/dynamic_taffodta.error.log
+
+    (${OPT} -load=${TAFFOLIB} -S \
+                    -debug \
+                    -stats --flttofix \
+                    obj/${bench}.out.dynamic_taffodta.taffotmp.ll \
+                    -o obj/${bench}.out.dynamic_final.taffotmp.ll) 2>stats/dynamic_flttofix.error.log
 
     ${LLC} -filetype=obj obj/${bench}.out.dynamic_final.taffotmp.ll -o obj/${bench}.out.dynamic_final.taffotmp.o
 
     ${CLANGXX} -O3 obj/${bench}.out.dynamic_final.taffotmp.o -o bin/${bench}.out.dynamic_final
   }
+
+  dynamic_analysis
 
   # Make stats
   taffo-instmix obj/${bench}.out.fixp.5.taffotmp.ll > stats/${benchsrc}.fixp.mix.txt
@@ -115,7 +132,6 @@ if [[ -z $DONT_REBUILD ]]; then
   taffo-instmix obj/${bench}.out.dynamic_final.taffotmp.ll > stats/${benchsrc}.dynamic_final.mix.txt
   taffo-mlfeat obj/${bench}.out.dynamic_final.taffotmp.ll > stats/${benchsrc}.dynamic_final.mlfeat.txt
   ${OPT} -load=${TAFFOLIB} -S -flttofix -dce -stats obj/${bench}.out.fixp.4.taffotmp.ll -o /dev/null 2> stats/${benchsrc}.llvm.txt
-  dynamic_analysis
 fi
 
 # $3 stats directory
