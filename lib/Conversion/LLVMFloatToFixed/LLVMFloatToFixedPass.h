@@ -23,6 +23,7 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_ANNOTATION "annotation"
 extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
 extern llvm::cl::opt<unsigned int> MinQuotientFrac;
 extern llvm::cl::opt<int> MathZ;
@@ -218,7 +219,7 @@ struct FloatToFixed {
 
   /* libm support */
   bool convertLibmFunction(llvm::Function *oldf, llvm::Function* newfs);
-  
+
 
   /** Returns if a function is a library function which shall not
    *  be cloned.

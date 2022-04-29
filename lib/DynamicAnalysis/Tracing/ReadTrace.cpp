@@ -60,7 +60,7 @@ bool ReadTrace::runOnModule(Module &M) {
   for (const auto &it : ccRanges) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
-    for (auto x : l) {
+    for (auto *x : l) {
       errs() << typeName(*x) << ": ";
       errs() << "[" << range.first << ", " << range.second << "]: ";
       errs() << *x << "\n";
@@ -87,7 +87,7 @@ bool ReadTrace::runOnModule(Module &M) {
   for (const auto &it : ccRanges) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
-    for (auto value : l) {
+    for (auto *value : l) {
       valuesRanges[value] = range;
     }
   }
@@ -95,21 +95,20 @@ bool ReadTrace::runOnModule(Module &M) {
   for (const auto &it: valuesRanges) {
     auto value = it.first;
     auto range = it.second;
-    if (auto Inst = dyn_cast<Instruction>(value)) {
-      if (isa<LoadInst>(Inst) && !Inst->getType()->isFPOrFPVectorTy()) continue;
+    if (auto *Inst = dyn_cast<Instruction>(value)) {
       auto instType = std::shared_ptr<mdutils::FloatType>{};
       auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
       auto instError = std::shared_ptr<double>{};
-      mdutils::InputInfo ii{instType, instRange, instError, false, true};
+      mdutils::InputInfo ii{instType, instRange, instError, true, true};
       mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
       Changed = true;
     }
-    if (auto Arg = dyn_cast<Argument>(value)) {
+    if (auto *Arg = dyn_cast<Argument>(value)) {
       auto F = Arg->getParent();
       auto instType = std::shared_ptr<mdutils::FloatType>{};
       auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
       auto instError = std::shared_ptr<double>{};
-      mdutils::InputInfo ii{instType, instRange, instError, false, true};
+      mdutils::InputInfo ii{instType, instRange, instError, true, true};
       llvm::SmallVector<mdutils::MDInfo *> FunMD;
       mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, FunMD);
       if (!Arg->getType()->isStructTy()) {
@@ -192,6 +191,37 @@ void ReadTrace::connectedComponents(const int n, const std::list<std::pair<int, 
   }
 }
 
+bool isFPType(Type* valueType) {
+  auto* type = valueType;
+  while (type->isPointerTy()) {
+    type = type->getPointerElementType();
+  }
+  return type->isFloatingPointTy();
+}
+
+bool isFPVal(Value* value) {
+  if (auto *inst = dyn_cast<AllocaInst>(value)) {
+    return isFPType(inst->getAllocatedType());
+  }
+  if (auto *inst = dyn_cast<StoreInst>(value)) {
+    return isFPType(inst->getPointerOperandType());
+  }
+  if (auto *inst = dyn_cast<LoadInst>(value)) {
+    return isFPType(inst->getPointerOperandType());
+  }
+  if (auto *inst = dyn_cast<GetElementPtrInst>(value)) {
+    return isFPType(inst->getPointerOperandType());
+  }
+  if (auto *inst = dyn_cast<Argument>(value)) {
+    return isFPType(inst->getType());
+  }
+  if (auto *inst = dyn_cast<Constant>(value)) {
+    return isFPType(inst->getType());
+  }
+  return false;
+}
+
+
 int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& instToIndex,
                                   std::unordered_map<int, Value*>& indexToInst,
                                   std::list<std::pair<int, int>>& edges) {
@@ -199,7 +229,7 @@ int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& ins
 
   auto getIndex = [&instToIndex, &indexToInst, &index](Value* Inst) -> int {
     auto it = instToIndex.find(Inst);
-    errs() << "*** " << *Inst << "\n";
+    //errs() << "*** " << *Inst << "\n";
     if (it != instToIndex.end()) {
       return it->second;
     } else {
@@ -215,32 +245,43 @@ int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& ins
     for (auto &BB: F.getBasicBlockList()) {
       for (auto &Inst: BB.getInstList()) {
         if (Inst.isDebugOrPseudoInst()) continue ;
-        if (isa<AllocaInst, StoreInst, LoadInst, GetElementPtrInst>(Inst)) {
+        if (isa<AllocaInst, StoreInst, LoadInst, GetElementPtrInst>(Inst) && isFPVal(&Inst)) {
           int instIndex = getIndex(&Inst);
           for (auto child: Inst.users()) {
-            int childIndex = getIndex(child);
-            edges.emplace_back(instIndex, childIndex);
+            if (isFPVal(child)) {
+              int childIndex = getIndex(child);
+              edges.emplace_back(instIndex, childIndex);
+            }
           }
 
           if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
             auto storeSrc = storeInst->getValueOperand();
+            if (isFPVal(storeSrc)) {
+              int srcIndex = getIndex(storeSrc);
+              edges.emplace_back(instIndex, srcIndex);
+            }
+
             auto storeDst = storeInst->getPointerOperand();
-            int srcIndex = getIndex(storeSrc);
-            edges.emplace_back(instIndex, srcIndex);
-            int dstIndex = getIndex(storeDst);
-            edges.emplace_back(instIndex, dstIndex);
+            if (isFPVal(storeDst)) {
+              int dstIndex = getIndex(storeDst);
+              edges.emplace_back(instIndex, dstIndex);
+            }
           }
 
           if (auto *loadInst = dyn_cast<LoadInst>(&Inst)) {
             auto loadSrc = loadInst->getPointerOperand();
-            int srcIndex = getIndex(loadSrc);
-            edges.emplace_back(instIndex, srcIndex);
+            if (isFPVal(loadSrc)) {
+              int srcIndex = getIndex(loadSrc);
+              edges.emplace_back(instIndex, srcIndex);
+            }
           }
 
           if (auto *gepInst = dyn_cast<GetElementPtrInst>(&Inst)) {
             auto gepSrc = gepInst->getPointerOperand();
-            int srcIndex = getIndex(gepSrc);
-            edges.emplace_back(instIndex, srcIndex);
+            if (isFPVal(gepSrc)) {
+              int srcIndex = getIndex(gepSrc);
+              edges.emplace_back(instIndex, srcIndex);
+            }
           }
         }
       } // instructions
