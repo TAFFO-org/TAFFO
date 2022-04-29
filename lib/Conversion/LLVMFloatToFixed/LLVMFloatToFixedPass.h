@@ -218,7 +218,7 @@ struct FloatToFixed {
 
   /* libm support */
   bool convertLibmFunction(llvm::Function *oldf, llvm::Function* newfs);
-  
+
 
   /** Returns if a function is a library function which shall not
    *  be cloned.
