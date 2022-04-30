@@ -1,8 +1,9 @@
- # TAFFO Unit Tests
+# TAFFO Unit Tests
 
 A set of unit tests based on the Google Test framework.
 
-Following the same structure of the TAFFO pipeline, there is a test suite for each of the 5 LLVM passes and a suite for the utilities:
+Following the same structure of the TAFFO pipeline, there is a test suite for each of the 5 LLVM passes and a suite for
+the utilities:
 
 - [InitializerTest](#InitializerTest)
 - [RangeAnalysisTest](#RangeAnalysisTest)
@@ -13,7 +14,8 @@ Following the same structure of the TAFFO pipeline, there is a test suite for ea
 
 ## Adding new tests
 
-Let's say we have implemented a `NewPass` and we want to test its component(s): the directory structure will look something like this:
+Let's say we have implemented a `NewPass` and we want to test its component(s): the directory structure will look
+something like this:
 
 ```
 .
@@ -41,7 +43,7 @@ Let's say we have implemented a `NewPass` and we want to test its component(s): 
 
 To correctly detect and run the tests, we have to edit the following CMakeLists.txt files:
 
-- `lib/NewPass/Subfolder/CMakeLists.txt` 
+- `lib/NewPass/Subfolder/CMakeLists.txt`
 
 ```cmake
 set(SELF NewPass)
@@ -58,6 +60,7 @@ set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)
 ```
 
 - `lib/CMakeLists.txt`
+
 ```cmake
 add_subdirectory(NewPass)
 
@@ -117,10 +120,10 @@ TEST_F(NewComponentTest, MockTest) {
 }
 ```
 
-
 ## Running the tests
 
 Once we created our test, we can compile and run the test suite with
+
 ```sh
 mkdir build
 cd build
@@ -128,7 +131,6 @@ cmake .. -DTAFFO_BUILD_ORTOOLS=ON
 cmake --build .
 ctest -VV
 ```
-
 
 # Implemented tests
 
