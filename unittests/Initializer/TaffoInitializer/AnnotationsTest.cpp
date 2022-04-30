@@ -497,4 +497,277 @@ TEST_F(AnnotationsTest, ReadAllLocalAnnos_MultipleStartingPoints) {
   auto md2 = M->getFunction("fun2")->getMetadata("taffo.start");
   EXPECT_NE(md2, nullptr);
 }
+
+
+TEST_F(AnnotationsTest, RemoveNoFloat_BadInstr)
+{
+  /*
+   * TODO: implement this test
+   * (probably) not possible to have annotations on such instructions in
+   * a realistic use case, since the __attribute directive can be applied
+   * only to declarations, which are either alloca or global
+   */
+}
+
+TEST_F(AnnotationsTest, RemoveNoFloat_AllocaFloat)
+{
+  code = R"(
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+      %1 = alloca float, align 4
+      %2 = bitcast float* %1 to i8*
+      call void @llvm.var.annotation(
+        i8* %2,
+        i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0),
+        i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+        i32 3,
+        i8* null
+      )
+      ret i32 0
+    }
+
+    declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  auto instruction = M->getFunction("main")->getBasicBlockList().begin()->getInstList().begin();
+  instruction = instruction.operator++().operator++();
+
+  MultiValueMap<llvm::Value *, ValueInfo> variables;
+  auto *annoPtrInstr = cast<llvm::ConstantExpr>(instruction->getOperand(1));
+  auto *instr = instruction->getOperand(0);
+  bool startingPoint;
+  bool res = initializer.parseAnnotation(variables, annoPtrInstr, instr, &startingPoint);
+  ASSERT_TRUE(res);
+
+  EXPECT_EQ(variables.size(), 1);
+  initializer.removeNoFloatTy(variables);
+  EXPECT_EQ(variables.size(), 1);
+}
+
+TEST_F(AnnotationsTest, RemoveNoFloat_AllocaNoFloat)
+{
+  /*
+   * TODO: test this case, it is not currently possible to test
+   * however, the RemoveNoFloatTy function is not called on local variables (only on global ones)
+   */
+  code = R"(
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+      %1 = alloca i32, align 4
+      %2 = bitcast i32* %1 to i8*
+      call void @llvm.var.annotation(
+        i8* %2,
+        i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0),
+        i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+        i32 3,
+        i8* null
+      )
+      ret i32 0
+    }
+
+    declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  auto instruction = M->getFunction("main")->getBasicBlockList().begin()->getInstList().begin();
+  instruction = instruction.operator++().operator++();
+
+  MultiValueMap<llvm::Value *, ValueInfo> variables;
+  auto *annoPtrInstr = cast<llvm::ConstantExpr>(instruction->getOperand(1));
+  auto *instr = instruction->getOperand(0);
+  bool startingPoint;
+  bool res = initializer.parseAnnotation(variables, annoPtrInstr, instr, &startingPoint);
+  ASSERT_TRUE(res);
+
+  EXPECT_EQ(variables.size(), 1);
+  // initializer.removeNoFloatTy(variables);
+  // EXPECT_EQ(variables.size(), 0);
+}
+
+TEST_F(AnnotationsTest, RemoveNoFloat_GlobalFloat)
+{
+  code = R"(
+    @var = dso_local global float 0.000000e+00, align 4
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global
+    [1 x { i8*, i8*, i8*, i32, i8* }]
+    [{ i8*, i8*, i8*, i32, i8* } {
+      i8* bitcast (float* @var to i8*),
+      i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 1,
+      i8* null
+    }], section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+      ret i32 0
+    }
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  GlobalVariable *globalVars = M->getGlobalVariable("llvm.global.annotations");
+  ASSERT_NE(globalVars, nullptr);
+
+  MultiValueMap<Value *, ValueInfo> variables;
+  auto *anno = cast<ConstantStruct>(globalVars->getInitializer()->getOperand(0));
+  auto *annoPtrInstr = cast<ConstantExpr>(anno->getOperand(1));
+  auto *instr = cast<ConstantExpr>(anno->getOperand(0))->getOperand(0);
+  bool startingPoint;
+  bool res = initializer.parseAnnotation(variables, annoPtrInstr, instr, &startingPoint);
+  ASSERT_TRUE(res);
+
+  EXPECT_EQ(variables.size(), 1);
+  initializer.removeNoFloatTy(variables);
+  EXPECT_EQ(variables.size(), 1);
+}
+
+TEST_F(AnnotationsTest, RemoveNoFloat_GlobalNoFloat)
+{
+  code = R"(
+    @var = dso_local global i32 0, align 4
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global
+    [1 x { i8*, i8*, i8*, i32, i8* }]
+    [{ i8*, i8*, i8*, i32, i8* } {
+      i8* bitcast (i32* @var to i8*),
+      i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 1,
+      i8* null
+    }], section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+      ret i32 0
+    }
+  )";
+  std::unique_ptr<Module> M1 = makeLLVMModule(Context, code);
+  std::unique_ptr<Module> M2 = makeLLVMModule(Context, code);
+
+  MultiValueMap<llvm::Value *, ValueInfo> variables;
+  MultiValueMap<llvm::Value *, ValueInfo> variables2;
+
+
+  // cannot test the function directly
+  initializer.readGlobalAnnotations(*M1, variables, false);
+  EXPECT_EQ(variables.size(), 1);
+  initializer.readGlobalAnnotations(*M2, variables2, true);
+  EXPECT_EQ(variables2.size(), 0);
+}
+
+
+TEST_F(AnnotationsTest, ReadGlobalAnnotations_None)
+{
+  code = R"(
+    define dso_local i32 @main() #0 {
+        ret i32 0
+    }
+    )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+
+  initializer.readGlobalAnnotations(*M, variables, false);
+  ASSERT_EQ(variables.size(), 0);
+}
+
+TEST_F(AnnotationsTest, ReadGlobalAnnotations_Variables)
+{
+  code = R"(
+    @.str = private unnamed_addr constant [28 x i8] c"target('floatfun') scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+    @.str.2 = private unnamed_addr constant [26 x i8] c"target('intfun') scalar()\00", section "llvm.metadata"
+    @.str.3 = private unnamed_addr constant [29 x i8] c"target('unusedfun') scalar()\00", section "llvm.metadata"
+    @floatvar = dso_local global float 0.000000e+00, align 4
+    @.str.4 = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @intvar = dso_local global i32 0, align 4
+    @.str.5 = private unnamed_addr constant [17 x i8] c"struct[scalar()]\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global [5 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @floatfun to i8*), i8* getelementptr inbounds ([28 x i8], [28 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32 ()* @intfun to i8*), i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 18, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @unusedfun to i8*), i8* getelementptr inbounds ([29 x i8], [29 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 22, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float* @floatvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.4, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 1, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32* @intvar to i8*), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.5, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 2, i8* null }], section "llvm.metadata"
+
+    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+    define dso_local i32 @main() #0 {
+      %1 = alloca float, align 4
+      %2 = alloca i32, align 4
+      %3 = call float @floatfun()
+      store float %3, float* %1, align 4
+      %4 = call i32 @intfun()
+      store i32 %4, i32* %2, align 4
+      ret i32 0
+    }
+
+    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+    define dso_local float @floatfun() #0 {
+      ret float 0.000000e+00
+    }
+
+    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+    define dso_local i32 @intfun() #0 {
+      ret i32 0
+    }
+
+    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+    define dso_local float @unusedfun() #0 {
+      ret float 0.000000e+00
+    }
+    )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> queue;
+
+  initializer.readGlobalAnnotations(*M, queue, false);
+  ASSERT_EQ(queue.size(), 2);
+  EXPECT_EQ(queue.count(M->getGlobalVariable("intvar")), 1);
+  EXPECT_EQ(queue.count(M->getGlobalVariable("floatvar")), 1);
+
+  // the check for the consistency of metadata is performed in the ParseAnnotatedVariable test case,
+  // here we just check that the annotation is correct
+  auto globalVar = queue.begin();
+  EXPECT_EQ(globalVar->first->getName(), "floatvar");
+  EXPECT_EQ(globalVar->second.metadata->toString(), "scalar()");
+  globalVar++;
+  EXPECT_EQ(globalVar->first->getName(), "intvar");
+  EXPECT_EQ(globalVar->second.metadata->toString(), "struct(scalar())");
+}
+
+TEST_F(AnnotationsTest, ReadGlobalAnnotations_Functions)
+{
+  code = R"(
+    @.str = private unnamed_addr constant [28 x i8] c"target('floatfun') scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+    @.str.2 = private unnamed_addr constant [26 x i8] c"target('intfun') scalar()\00", section "llvm.metadata"
+    @.str.3 = private unnamed_addr constant [29 x i8] c"target('unusedfun') scalar()\00", section "llvm.metadata"
+    @floatvar = dso_local global float 0.000000e+00, align 4
+    @.str.4 = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @intvar = dso_local global i32 0, align 4
+    @.str.5 = private unnamed_addr constant [17 x i8] c"struct[scalar()]\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global [5 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @floatfun to i8*), i8* getelementptr inbounds ([28 x i8], [28 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32 ()* @intfun to i8*), i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 18, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @unusedfun to i8*), i8* getelementptr inbounds ([29 x i8], [29 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 22, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float* @floatvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.4, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 1, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32* @intvar to i8*), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.5, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 2, i8* null }], section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+      %1 = alloca float, align 4
+      %2 = alloca i32, align 4
+      %3 = call float @floatfun()
+      store float %3, float* %1, align 4
+      %4 = call i32 @intfun()
+      store i32 %4, i32* %2, align 4
+      ret i32 0
+    }
+
+    define dso_local float @floatfun() #0 {
+      ret float 0.000000e+00
+    }
+
+    define dso_local i32 @intfun() #0 {
+      ret i32 0
+    }
+
+    define dso_local float @unusedfun() #0 {
+      ret float 0.000000e+00
+    }
+    )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> queue;
+
+  // TODO: implement this test
+}
 } // namespace
