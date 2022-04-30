@@ -19,6 +19,16 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-init"
 
 
+/**
+ * @brief Looks for the global starting point
+ *
+ * The global starting point is a function annotated with the @c __taffo_vra_starting_function string:
+ * if present, the function is returned and removed from the parent module;
+ * if this annotation is associated with a variable, a fatal error is thrown.
+ *
+ * @param[in,out] M The module to search
+ * @return the function annotated as global starting point if present, nullptr otherwise
+ */
 Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
 {
   GlobalVariable *StartFuncGlob = nullptr;
@@ -54,6 +64,17 @@ Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
 }
 
 
+/**
+ * @brief Parses the the annotated global variables and functions
+ *
+ * Based on the value of @c functionAnnotation parameter, this function parses either
+ * global variables (if @c false) or functions (if @c true). In the latter case,
+ * TODO: describe what removeNoFloatTy does
+ *
+ * @param[in] m the module to search
+ * @param[out] variables the map of annotated values and their metadata
+ * @param[in] functionAnnotation the selector for the type of Value to parse
+ */
 void TaffoInitializer::readGlobalAnnotations(Module &m,
                                              MultiValueMap<Value *, ValueInfo> &variables,
                                              bool functionAnnotation)
@@ -65,9 +86,12 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
       for (unsigned i = 0, n = annos->getNumOperands(); i < n; i++) {
         if (ConstantStruct *anno = dyn_cast<ConstantStruct>(annos->getOperand(i))) {
           /* Structure of the expression (ConstantStruct operand #0 is the expression):
-           * [OpType] operand:
-           *   [BitCast] *function, [GetElementPtr] *annotation,
-           *   [GetElementPtr] *filename, [Int] source code line */
+           * [OpType] operand,
+           * [BitCast] *function,
+           * [GetElementPtr] *annotation,
+           * [GetElementPtr] *filename,
+           * [Int] source code line
+           */
           if (ConstantExpr *expr = dyn_cast<ConstantExpr>(anno->getOperand(0))) {
             if (expr->getOpcode() == Instruction::BitCast && (functionAnnotation ^ !isa<Function>(expr->getOperand(0)))) {
               parseAnnotation(variables, cast<ConstantExpr>(anno->getOperand(1)), expr->getOperand(0));
@@ -82,6 +106,14 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
 }
 
 
+/**
+ * @brief Parses the annotated local variables inside a function
+ *
+ * If at least one variable is annotated as @c target, the whole function is set as starting point.
+ *
+ * @param[in] f the function to search
+ * @param[out] variables the map of annotated variables and their metadata
+ */
 void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Value *, ValueInfo> &variables)
 {
   bool found = false;
@@ -103,6 +135,15 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Val
 }
 
 
+/**
+ * @brief Parses the annotated local variables inside a module
+ *
+ * In order to avoid the dead code elimination pass to ignore the functions of the module,
+ * the @c Attribute::OptimizeNone attributes are removed from all the functions
+ *
+ * @param m the module to search
+ * @param res the map of annotated variables and their metadata
+ */
 void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Value *, ValueInfo> &res)
 {
   for (Function &f : m.functions()) {
@@ -116,19 +157,36 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
   }
 }
 
-// Return true on success, false on error
+
+/**
+ * @brief Parses the annotation associated with a Value (function or variable)
+ *
+ * Based on the subclass of the Value, the first field of the @c variables map is:
+ *   - @b local variable: the register in which the variable is stored
+ *   - @b function: the function's users (one entry per user)
+ *   - @b global variable: the variable itself
+ *
+ * In the case of functions, they are also added to the @c enabledFunction list.
+ *
+ * @param[out] variables the map of annotated values and their metadata
+ * @param[in] annoPtrInst the instruction that contains the annotation pointer
+ * @param[in] instr pointer to the annotated Value
+ * @param[out] startingPoint if the value is annotated as @c target
+ *
+ * @return @c true if the annotation is correctly parsed, @c false otherwise
+ */
 bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variables,
                                        ConstantExpr *annoPtrInst, Value *instr,
                                        bool *startingPoint)
 {
   ValueInfo vi;
 
-  if (!(annoPtrInst->getOpcode() == Instruction::GetElementPtr))
+  if (annoPtrInst->getOpcode() != Instruction::GetElementPtr)
     return false;
-  GlobalVariable *annoContent = dyn_cast<GlobalVariable>(annoPtrInst->getOperand(0));
+  auto *annoContent = dyn_cast<GlobalVariable>(annoPtrInst->getOperand(0));
   if (!annoContent)
     return false;
-  ConstantDataSequential *annoStr = dyn_cast<ConstantDataSequential>(annoContent->getInitializer());
+  auto *annoStr = dyn_cast<ConstantDataSequential>(annoContent->getInitializer());
   if (!annoStr)
     return false;
   if (!(annoStr->isString()))
@@ -137,7 +195,7 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
   StringRef annstr = annoStr->getAsString();
   AnnotationParser parser;
   if (!parser.parseAnnotationString(annstr)) {
-    errs() << "TAFFO annnotation parser syntax error:\n";
+    errs() << "TAFFO annotation parser syntax error: \n";
     errs() << "  In annotation: \"" << annstr << "\"\n";
     errs() << "  " << parser.lastError() << "\n";
     return false;
@@ -163,17 +221,15 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
     *startingPoint = parser.startingPoint;
   vi.target = parser.target;
 
-  if (Instruction *toconv = dyn_cast<Instruction>(instr)) {
+  if (auto *toconv = dyn_cast<Instruction>(instr)) {
     variables.push_back(toconv->getOperand(0), vi);
-
-  } else if (Function *fun = dyn_cast<Function>(instr)) {
+  } else if (auto *fun = dyn_cast<Function>(instr)) {
     enabledFunctions.insert(fun);
     for (auto user : fun->users()) {
       if (!(isa<CallInst>(user) || isa<InvokeInst>(user)))
         continue;
       variables.push_back(user, vi);
     }
-
   } else {
     variables.push_back(instr, vi);
   }
@@ -182,6 +238,15 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
 }
 
 
+/**
+ * Removes Values not having a float type from the map
+ *
+ * Instructions which are not @c alloca nor global variables, if present, are erased;
+ * the remaining ones are checked and, if they don't allocate any kind of float variable,
+ * are erased as well.
+ *
+ * @param[in,out] res the map of annotated values and their metadata
+ */
 void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo> &res)
 {
   for (auto PIt : res) {
@@ -216,6 +281,12 @@ void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo> &res)
   }
 }
 
+
+/**
+ * @brief Shows all the annotated objects (global and local variables, functions) in a module
+ *
+ * @param[in] m the module to show
+ */
 void TaffoInitializer::printAnnotatedObj(Module &m)
 {
   MultiValueMap<Value *, ValueInfo> res;
