@@ -122,7 +122,7 @@ FixedPointType FixedPointType::get(MDInfo *mdnfo, int *enableConversion)
     }
     return FixedPointType(elems);
   }
-  assert("unknown type of MDInfo");
+  assert(0 && "unknown type of MDInfo");
   return FixedPointType();
 }
 
@@ -212,7 +212,7 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, const iterator_ran
       resolvedType = resolvedType->getStructElementType(n);
       tempFixpt = tempFixpt.structItem(n);
     } else {
-      assert("unsupported type in GEP");
+      assert(0 && "unsupported type in GEP");
     }
   }
   return tempFixpt;
@@ -234,7 +234,7 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned>
       resolvedType = resolvedType->getStructElementType(n);
       tempFixpt = tempFixpt.structItem(n);
     } else {
-      assert("unsupported type in GEP");
+      assert(0 && "unsupported type in GEP");
     }
   }
   return tempFixpt;
