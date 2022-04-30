@@ -274,4 +274,227 @@ TEST_F(AnnotationsTest, ParseAnnotation_LocalVariable)
   checkMD(variables.begin()->second);
   EXPECT_TRUE(startingPoint);
 }
+
+
+TEST_F(AnnotationsTest, ReadLocalAnnos_None)
+{
+  code = R"(
+    @var = dso_local global float 0.000000e+00, align 4
+    @.str = private unnamed_addr constant [75 x i8] c"target('test') scalar(range(0, 10) type(1 2) error(3.1415) disabled final)\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global
+    [1 x { i8*, i8*, i8*, i32, i8* }]
+    [{ i8*, i8*, i8*, i32, i8* } {
+      i8* bitcast (float* @var to i8*),
+      i8* getelementptr inbounds ([75 x i8], [75 x i8]* @.str, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 1,
+      i8* null
+    }], section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+      ret i32 0
+    }
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+  auto fun = M->getFunction("main");
+  initializer.readLocalAnnotations(*fun, variables);
+  EXPECT_EQ(variables.size(), 0);
+}
+
+TEST_F(AnnotationsTest, ReadLocalAnnos_MultipleAnnos)
+{
+  code = R"(
+    @.str = private unnamed_addr constant [21 x i8] c"target('x') scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+    @.str.2 = private unnamed_addr constant [21 x i8] c"target('y') scalar()\00", section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+    %1 = alloca float, align 4
+    %2 = alloca i32, align 4
+    %3 = bitcast float* %1 to i8*
+    call void @llvm.var.annotation(
+      i8* %3,
+      i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 3,
+      i8* null
+    )
+    %4 = bitcast i32* %2 to i8*
+    call void @llvm.var.annotation(
+      i8* %4,
+      i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.2, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 4,
+      i8* null
+    )
+    %5 = alloca float, align 4
+    ret i32 0
+    }
+
+    declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+  auto fun = M->getFunction("main");
+  initializer.readLocalAnnotations(*fun, variables);
+  EXPECT_EQ(variables.size(), 2);
+}
+
+TEST_F(AnnotationsTest, ReadLocalAnnos_StartingPointSet)
+{
+  code = R"(
+    @.str = private unnamed_addr constant [21 x i8] c"target('x') scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+    %1 = alloca float, align 4
+    %2 = alloca i32, align 4
+    %3 = bitcast float* %1 to i8*
+    call void @llvm.var.annotation(
+      i8* %3,
+      i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 3,
+      i8* null
+    )
+    ret i32 0
+    }
+
+    declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+  auto fun = M->getFunction("main");
+  initializer.readLocalAnnotations(*fun, variables);
+  auto md = fun->getMetadata("taffo.start");
+  EXPECT_NE(md, nullptr);
+}
+
+TEST_F(AnnotationsTest, ReadLocalAnnos_StartingPointNotSet)
+{
+  code = R"(
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+
+    define dso_local i32 @main() #0 {
+    %1 = alloca float, align 4
+    %2 = alloca i32, align 4
+    %3 = bitcast float* %1 to i8*
+    call void @llvm.var.annotation(
+      i8* %3,
+      i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0),
+      i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+      i32 3,
+      i8* null
+    )
+    ret i32 0
+    }
+
+    declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+  auto fun = M->getFunction("main");
+  initializer.readLocalAnnotations(*fun, variables);
+  auto md = fun->getMetadata("taffo.start");
+  EXPECT_EQ(md, nullptr);
+}
+
+
+TEST_F(AnnotationsTest, ReadAllLocalAnnos) {
+  code = R"(
+  @.str = private unnamed_addr constant [21 x i8] c"target('x') scalar()\00", section "llvm.metadata"
+  @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+  @.str.2 = private unnamed_addr constant [21 x i8] c"target('y') scalar()\00", section "llvm.metadata"
+  @.str.3 = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+
+  ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+  define dso_local i32 @main() #0 {
+  ret i32 0
+  }
+
+  ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+  define dso_local float @fun1() #0 {
+  %1 = alloca float, align 4
+  %2 = bitcast float* %1 to i8*
+  call void @llvm.var.annotation(i8* %2, i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 7, i8* null)
+  %3 = load float, float* %1, align 4
+  ret float %3
+  }
+
+  ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
+  declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+
+  ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+  define dso_local i32 @fun2() #0 {
+  %1 = alloca i32, align 4
+  %2 = bitcast i32* %1 to i8*
+  call void @llvm.var.annotation(i8* %2, i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 12, i8* null)
+  %3 = load i32, i32* %1, align 4
+  ret i32 %3
+  }
+
+  ; Function Attrs: noinline nounwind optnone sspstrong uwtable
+  define dso_local void @fun3() #0 {
+  %1 = alloca double, align 8
+  %2 = bitcast double* %1 to i8*
+  call void @llvm.var.annotation(i8* %2, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 17, i8* null)
+  ret void
+  })";
+
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+  initializer.readAllLocalAnnotations(*M, variables);
+
+  for(auto &fun : M->functions()) {
+    ASSERT_EQ(fun.getMetadata(Attribute::OptimizeNone), nullptr);
+  }
+}
+
+TEST_F(AnnotationsTest, ReadAllLocalAnnos_MultipleStartingPoints) {
+  code = R"(
+  @.str = private unnamed_addr constant [21 x i8] c"target('x') scalar()\00", section "llvm.metadata"
+  @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
+  @.str.2 = private unnamed_addr constant [21 x i8] c"target('y') scalar()\00", section "llvm.metadata"
+
+  define dso_local i32 @main() #0 {
+  %1 = alloca float, align 4
+  %2 = bitcast float* %1 to i8*
+  call void @llvm.var.annotation(
+    i8* %2,
+    i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i32 0, i32 0),
+    i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+    i32 3,
+    i8* null
+  )
+  ret i32 0
+  }
+
+  declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
+
+  define dso_local i32 @fun2() #0 {
+  %1 = alloca i32, align 4
+  %2 = bitcast i32* %1 to i8*
+  call void @llvm.var.annotation(
+    i8* %2,
+    i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.2, i32 0, i32 0),
+    i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0),
+    i32 7,
+    i8* null
+  )
+  %3 = load i32, i32* %1, align 4
+  ret i32 %3
+  }
+  )";
+  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  MultiValueMap<Value *, ValueInfo> variables;
+  initializer.readAllLocalAnnotations(*M, variables);
+
+  auto md1 = M->getFunction("main")->getMetadata("taffo.start");
+  EXPECT_NE(md1, nullptr);
+  auto md2 = M->getFunction("fun2")->getMetadata("taffo.start");
+  EXPECT_NE(md2, nullptr);
+}
 } // namespace
