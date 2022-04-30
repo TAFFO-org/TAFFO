@@ -310,7 +310,7 @@ TEST_F(AnnotationParserTest, ScalarNone)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
   EXPECT_EQ(nullptr, scalarMD->IType);
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
@@ -327,7 +327,7 @@ TEST_F(AnnotationParserTest, ScalarRange)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
   EXPECT_EQ(nullptr, scalarMD->IType);
   EXPECT_EQ(0, scalarMD->IRange->Min);
   EXPECT_EQ(10, scalarMD->IRange->Max);
@@ -345,10 +345,10 @@ TEST_F(AnnotationParserTest, ScalarType)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(1, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(true, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(true, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
   EXPECT_EQ(true, scalarMD->IEnableConversion);
@@ -364,10 +364,10 @@ TEST_F(AnnotationParserTest, ScalarTypeSigned)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(1, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(true, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(true, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
   EXPECT_EQ(true, scalarMD->IEnableConversion);
@@ -383,10 +383,10 @@ TEST_F(AnnotationParserTest, ScalarTypeSignedNegative)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(1, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(true, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(true, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
   EXPECT_EQ(true, scalarMD->IEnableConversion);
@@ -402,10 +402,10 @@ TEST_F(AnnotationParserTest, ScalarTypeUnsigned)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(1, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(false, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(false, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
   EXPECT_EQ(true, scalarMD->IEnableConversion);
@@ -421,10 +421,10 @@ TEST_F(AnnotationParserTest, ScalarTypeUnsignedNegative)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(1, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(false, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(false, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
   EXPECT_EQ(true, scalarMD->IEnableConversion);
@@ -440,7 +440,7 @@ TEST_F(AnnotationParserTest, ScalarError)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
   EXPECT_EQ(nullptr, scalarMD->IType);
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(3.1415, *scalarMD->IError.get());
@@ -457,7 +457,7 @@ TEST_F(AnnotationParserTest, ScalarDisabled)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
   EXPECT_EQ(nullptr, scalarMD->IType);
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
@@ -474,7 +474,7 @@ TEST_F(AnnotationParserTest, ScalarFinal)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
   EXPECT_EQ(nullptr, scalarMD->IType);
   EXPECT_EQ(nullptr, scalarMD->IRange);
   EXPECT_EQ(nullptr, scalarMD->IError);
@@ -491,10 +491,10 @@ TEST_F(AnnotationParserTest, ScalarMultipleDTA)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(1, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(true, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(true, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(0, scalarMD->IRange->Min);
   EXPECT_EQ(10, scalarMD->IRange->Max);
   EXPECT_EQ(3.1415, *scalarMD->IError.get());
@@ -511,10 +511,10 @@ TEST_F(AnnotationParserTest, ScalarRepeatedAttributes)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  scalarMD = static_cast<mdutils::InputInfo *>(parser.metadata.get());
-  EXPECT_EQ(3, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(4, static_cast<mdutils::FPType *>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(false, static_cast<mdutils::FPType *>(scalarMD->IType.get())->isSigned());
+  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
+  EXPECT_EQ(3, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
+  EXPECT_EQ(4, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
+  EXPECT_EQ(false, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
   EXPECT_EQ(15, scalarMD->IRange->Min);
   EXPECT_EQ(20, scalarMD->IRange->Max);
   EXPECT_EQ(1.6180, *scalarMD->IError.get());
@@ -573,7 +573,7 @@ TEST_F(AnnotationParserTest, StructVoid)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  structMD = static_cast<mdutils::StructInfo *>(parser.metadata.get());
+  structMD = dyn_cast<mdutils::StructInfo>(parser.metadata.get());
   EXPECT_EQ(1, structMD->size());
   EXPECT_EQ(nullptr, structMD->getField(0));
 }
@@ -587,8 +587,8 @@ TEST_F(AnnotationParserTest, StructSingleScalar)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  structMD = static_cast<mdutils::StructInfo *>(parser.metadata.get());
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(0).get());
+  structMD = dyn_cast<mdutils::StructInfo>(parser.metadata.get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(0).get());
   EXPECT_EQ(1, structMD->size());
   EXPECT_EQ(3.1415, *scalarMD->IError);
 }
@@ -602,13 +602,13 @@ TEST_F(AnnotationParserTest, StructMultipleScalars)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  structMD = static_cast<mdutils::StructInfo *>(parser.metadata.get());
+  structMD = dyn_cast<mdutils::StructInfo>(parser.metadata.get());
   EXPECT_EQ(3, structMD->size());
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(0).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(0).get());
   EXPECT_EQ(3.1415, *scalarMD->IError);
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(1).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(1).get());
   EXPECT_EQ(1.6180, *scalarMD->IError);
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(2).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(2).get());
   EXPECT_EQ(2.7183, *scalarMD->IError);
 }
 
@@ -621,11 +621,11 @@ TEST_F(AnnotationParserTest, StructSingleStruct)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  structMD = static_cast<mdutils::StructInfo *>(parser.metadata.get());
+  structMD = dyn_cast<mdutils::StructInfo>(parser.metadata.get());
   EXPECT_EQ(1, structMD->size());
-  structMD = static_cast<mdutils::StructInfo *>(structMD->getField(0).get()); // inner struct
+  structMD = dyn_cast<mdutils::StructInfo>(structMD->getField(0).get()); // inner struct
   EXPECT_EQ(1, structMD->size());
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(0).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(0).get());
   EXPECT_EQ(3.1415, *scalarMD->IError);
 }
 
@@ -639,17 +639,17 @@ TEST_F(AnnotationParserTest, StructMultipleStructs)
   ASSERT_TRUE(res);
 
   mdutils::StructInfo *innerStruct;
-  structMD = static_cast<mdutils::StructInfo *>(parser.metadata.get());
+  structMD = dyn_cast<mdutils::StructInfo>(parser.metadata.get());
   EXPECT_EQ(2, structMD->size());
-  innerStruct = static_cast<mdutils::StructInfo *>(structMD->getField(0).get());
+  innerStruct = dyn_cast<mdutils::StructInfo>(structMD->getField(0).get());
   EXPECT_EQ(1, innerStruct->size());
-  scalarMD = static_cast<mdutils::InputInfo *>(innerStruct->getField(0).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(innerStruct->getField(0).get());
   EXPECT_EQ(3.1415, *scalarMD->IError);
-  innerStruct = static_cast<mdutils::StructInfo *>(structMD->getField(1).get());
+  innerStruct = dyn_cast<mdutils::StructInfo>(structMD->getField(1).get());
   EXPECT_EQ(2, innerStruct->size());
-  scalarMD = static_cast<mdutils::InputInfo *>(innerStruct->getField(0).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(innerStruct->getField(0).get());
   EXPECT_EQ(1.6180, *scalarMD->IError);
-  scalarMD = static_cast<mdutils::InputInfo *>(innerStruct->getField(1).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(innerStruct->getField(1).get());
   EXPECT_EQ(2.7183, *scalarMD->IError);
 }
 
@@ -662,13 +662,13 @@ TEST_F(AnnotationParserTest, StructMixedDTP)
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  structMD = static_cast<mdutils::StructInfo *>(parser.metadata.get());
+  structMD = dyn_cast<mdutils::StructInfo>(parser.metadata.get());
   EXPECT_EQ(2, structMD->size());
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(0).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(0).get());
   EXPECT_EQ(3.1415, *scalarMD->IError);
-  structMD = static_cast<mdutils::StructInfo *>(structMD->getField(1).get()); // inner struct
+  structMD = dyn_cast<mdutils::StructInfo>(structMD->getField(1).get()); // inner struct
   EXPECT_EQ(1, structMD->size());
-  scalarMD = static_cast<mdutils::InputInfo *>(structMD->getField(0).get());
+  scalarMD = dyn_cast<mdutils::InputInfo>(structMD->getField(0).get());
   EXPECT_EQ(1.6180, *scalarMD->IError);
 }
 
