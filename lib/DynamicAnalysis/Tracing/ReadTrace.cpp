@@ -11,6 +11,8 @@
 
 #include "TaffoUtils/Metadata.h"
 #include "TaffoUtils/InputInfo.h"
+#include "TaffoUtils/TypeUtils.h"
+#include "RangeAnalysis/TaffoVRA/VRAGlobalStore.hpp"
 
 using namespace llvm;
 
@@ -76,6 +78,7 @@ bool ReadTrace::runOnModule(Module &M) {
     for (auto &BB : F.getBasicBlockList()) {
       for (auto &Inst : BB.getInstList()) {
         if (Inst.isDebugOrPseudoInst()) continue;
+        taffo::VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager::getMetadataManager(), Inst);
         auto InstName = Inst.getName().str();
         if (minVals.count(InstName) > 0) {
           valuesRanges[&Inst] = {minVals.at(InstName), maxVals.at(InstName)};
@@ -91,6 +94,27 @@ bool ReadTrace::runOnModule(Module &M) {
       valuesRanges[value] = range;
     }
   }
+
+  // annotate global variables
+//  for (llvm::GlobalVariable &v : M.globals()) {
+//    if (valuesRanges.count(&v)) {
+//      mdutils::MetadataManager &MDManager = mdutils::MetadataManager::getMetadataManager();
+//      const auto range = valuesRanges.at(&v);
+//      // retrieve info about global var v, if any
+//      if (mdutils::MDInfo *mdi = MDManager.retrieveInputInfo(*dyn_cast<GlobalObject>(&v))) {
+//        auto * cpymdi(dyn_cast<mdutils::InputInfo>(mdi->clone()));
+//        if(cpymdi->isFinal()) continue;
+//        cpymdi->IRange =  std::make_shared<mdutils::Range>(range.first, range.second);
+//        mdutils::MetadataManager::setMDInfoMetadata(&v, cpymdi);
+//      } else {
+//        auto instType = std::shared_ptr<mdutils::FloatType>{};
+//        auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+//        auto instError = std::shared_ptr<double>{};
+//        mdutils::InputInfo ii{instType, instRange, instError, true, true};
+//        mdutils::MetadataManager::setInputInfoMetadata(*dyn_cast<GlobalObject>(&v), ii);
+//      }
+//    }
+//  }
 
   for (const auto &it: valuesRanges) {
     auto value = it.first;
@@ -116,12 +140,49 @@ bool ReadTrace::runOnModule(Module &M) {
         if (!ArgMD) {
           FunMD[Arg->getArgNo()] = new mdutils::InputInfo(ii);
         } else {
-          auto *ArgII = dyn_cast<mdutils::InputInfo>(ArgMD);
+          auto *ArgII = dyn_cast<mdutils::InputInfo>(ArgMD->clone());
           *ArgII = ii;
+          FunMD[Arg->getArgNo()] = ArgII;
         }
         mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
       }
     }
+
+//    if (auto *GlobalVal = dyn_cast<GlobalObject>(value)) {
+//      auto instType = std::shared_ptr<mdutils::FloatType>{};
+//      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+//      auto instError = std::shared_ptr<double>{};
+//      mdutils::InputInfo ii{instType, instRange, instError, true, true};
+//      mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
+//      Changed = true;
+//    }
+//    if (auto *ConstVal = dyn_cast<Constant>(value)) {
+//      auto instType = std::shared_ptr<mdutils::FloatType>{};
+//      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+//      auto instError = std::shared_ptr<double>{};
+//      for (auto *user: ConstVal->users()) {
+//        if (auto * InstUser = dyn_cast<Instruction>(user)) {
+//          mdutils::InputInfo ii{instType, instRange, instError, true, true};
+//          auto ResII = SmallVector<mdutils::InputInfo *>(InstUser->getNumOperands());
+//          mdutils::MetadataManager::getMetadataManager().retrieveConstInfo(*InstUser, ResII);
+//          int i = 0;
+//          for (auto &op: InstUser->operands()) {
+//            if (ConstVal == dyn_cast<Constant>(&op)) {
+//              auto ArgMD = ResII[i];
+//              if (!ArgMD) {
+//                ResII[i] = new mdutils::InputInfo(ii);
+//              } else {
+//                auto *ArgII = dyn_cast<mdutils::InputInfo>(ArgMD);
+//                *ArgII = ii;
+//              }
+//            }
+//            i++;
+//          }
+//          mdutils::MetadataManager::setConstInfoMetadata(*InstUser, ResII);
+//        }
+//      }
+//      Changed = true;
+//    }
   }
 
   return Changed;
@@ -191,32 +252,24 @@ void ReadTrace::connectedComponents(const int n, const std::list<std::pair<int, 
   }
 }
 
-bool isFPType(Type* valueType) {
-  auto* type = valueType;
-  while (type->isPointerTy()) {
-    type = type->getPointerElementType();
-  }
-  return type->isFloatingPointTy();
-}
-
 bool isFPVal(Value* value) {
   if (auto *inst = dyn_cast<AllocaInst>(value)) {
-    return isFPType(inst->getAllocatedType());
+    return taffo::isFloatType(inst->getAllocatedType());
   }
   if (auto *inst = dyn_cast<StoreInst>(value)) {
-    return isFPType(inst->getPointerOperandType());
+    return taffo::isFloatType(inst->getPointerOperandType());
   }
   if (auto *inst = dyn_cast<LoadInst>(value)) {
-    return isFPType(inst->getPointerOperandType());
+    return taffo::isFloatType(inst->getPointerOperandType());
   }
   if (auto *inst = dyn_cast<GetElementPtrInst>(value)) {
-    return isFPType(inst->getPointerOperandType());
+    return taffo::isFloatType(inst->getPointerOperandType());
   }
   if (auto *inst = dyn_cast<Argument>(value)) {
-    return isFPType(inst->getType());
+    return taffo::isFloatType(inst->getType());
   }
   if (auto *inst = dyn_cast<Constant>(value)) {
-    return isFPType(inst->getType());
+    return taffo::isFloatType(inst->getType());
   }
   return false;
 }
