@@ -99,21 +99,21 @@ if [[ -z $DONT_REBUILD ]]; then
             obj/${bench}.out.named.taffotmp.ll \
             -o obj/${bench}.out.dynamic.taffotmp.ll
 
-    ${OPT} -load=${TAFFOLIB} -S \
-                -debug \
-                -stats -taffoVRA \
-                obj/${bench}.out.dynamic.taffotmp.ll \
-                -o obj/${bench}.out.dynamic_vra.taffotmp.ll 2>stats/dynamic_taffovra.error.log
+#    ${OPT} -load=${TAFFOLIB} -S \
+#                -debug \
+#                -stats -taffoVRA \
+#                obj/${bench}.out.dynamic.taffotmp.ll \
+#                -o obj/${bench}.out.dynamic_vra.taffotmp.ll 2>stats/dynamic_taffovra.error.log
 
     ${OPT} -load=${TAFFOLIB} -S \
                 -debug \
                 -stats --taffodta \
-                obj/${bench}.out.dynamic_vra.taffotmp.ll \
+                obj/${bench}.out.dynamic.taffotmp.ll \
                 -o obj/${bench}.out.dynamic_taffodta.taffotmp.ll 2>stats/dynamic_taffodta.error.log
 
     (${OPT} -load=${TAFFOLIB} -S \
                     -debug \
-                    -stats --flttofix \
+                    -stats --flttofix --dce --globaldce \
                     obj/${bench}.out.dynamic_taffodta.taffotmp.ll \
                     -o obj/${bench}.out.dynamic_final.taffotmp.ll) 2>stats/dynamic_flttofix.error.log
 

@@ -15,7 +15,7 @@ bool NameVariables::runOnModule(Module &M) {
   auto &CTX = M.getContext();
   IRBuilder<> Builder(CTX);
   long counter = 0;
-  auto moduleName = M.getModuleIdentifier();
+  auto moduleName = "a";
 
   auto getVarName = [&moduleName](long counter) -> std::string {
     return (Twine(moduleName) + Twine("::var") + Twine(counter)).str();
