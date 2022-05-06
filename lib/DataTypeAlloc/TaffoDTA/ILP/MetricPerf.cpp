@@ -7,7 +7,7 @@
 
 using namespace std;
 using namespace mdutils;
-
+using namespace tuner;
 
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<mdutils::FPType> fpInfo, shared_ptr<mdutils::Range> rangeInfo, shared_ptr<double> suggestedMinError,
                                                                                bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
@@ -61,102 +61,20 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   if (hasBF16)
     model.createVariable(optimizerInfo->getBF16SelectedVariable(), 0, 1);
 
-  // ENOB propagation, free variable
-  model.createVariable(optimizerInfo->getRealEnobVariable(), -BIG_NUMBER, BIG_NUMBER);
+  int enobMaxCost = initRealEnobVariable(optimizerInfo);
 
   auto constraint = vector<pair<string, double>>();
-  int ENOBfloat = getENOBFromRange(rangeInfo, FloatType::Float_float);
-  int ENOBdouble = 0;
-  int ENOBhalf = 0;
-  int ENOBquad = 0;
-  int ENOBppc128 = 0;
-  int ENOBfp80 = 0;
-  int ENOBbf16 = 0;
-
-
-  // Enob constraints fix
-  constraint.clear();
-  constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
-  constraint.push_back(make_pair(optimizerInfo->getFractBitsVariable(), -1.0));
-  constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), BIG_NUMBER));
-  model.insertLinearConstraint(constraint, tuner::Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
-
-  auto enobconstraint = [&](int ENOB, const std::string (tuner::OptimizerScalarInfo::*getVariable)(), const char *desc) mutable {
-    constraint.clear();
-    constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
-    constraint.push_back(make_pair(((*optimizerInfo).*getVariable)(), BIG_NUMBER));
-    model.insertLinearConstraint(constraint, tuner::Model::LE, BIG_NUMBER + ENOB /*, desc*/);
-  };
-  // Enob constraints float
-  enobconstraint(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
-
-  // Enob constraints Double
-  if (hasDouble) {
-    ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
-    enobconstraint(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
-  }
-
-  // Enob constraints Half
-  if (hasHalf) {
-    ENOBhalf = getENOBFromRange(rangeInfo, FloatType::Float_half);
-    enobconstraint(ENOBhalf, &tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
-  }
-
-  // Enob constraints Quad
-  if (hasQuad) {
-    ENOBquad = getENOBFromRange(rangeInfo, FloatType::Float_fp128);
-    enobconstraint(ENOBquad,
-                   &tuner::OptimizerScalarInfo::getQuadSelectedVariable,
-                   "Enob constraint for quad");
-  }
-  // Enob constraints FP80
-
-  if (hasFP80) {
-    ENOBfp80 = getENOBFromRange(rangeInfo, FloatType::Float_x86_fp80);
-    enobconstraint(ENOBfp80,
-                   &tuner::OptimizerScalarInfo::getFP80SelectedVariable,
-                   "Enob constraint for fp80");
-  }
-  // Enob constraints PPC128
-
-  if (hasPPC128) {
-    ENOBppc128 = getENOBFromRange(rangeInfo, FloatType::Float_ppc_fp128);
-    enobconstraint(ENOBppc128,
-                   &tuner::OptimizerScalarInfo::getPPC128SelectedVariable,
-                   "Enob constraint for ppc128");
-  }
-  // Enob constraints FP80
-
-  if (hasBF16) {
-    ENOBbf16 = getENOBFromRange(rangeInfo, FloatType::Float_bfloat);
-    enobconstraint(ENOBbf16,
-                   &tuner::OptimizerScalarInfo::getBF16SelectedVariable,
-                   "Enob constraint for bf16");
-  }
-
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getFractBitsVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), -BIG_NUMBER));
   // DO NOT REMOVE THE CAST OR SOMEONE WILL DEBUG THIS FOR AN WHOLE DAY AGAIN
   model.insertLinearConstraint(constraint, tuner::Model::GE, (-BIG_NUMBER - FIX_DELTA_MAX) + ((int)fpInfo->getPointPos()) /*, "Limit the lower number of frac bits"+to_string(fpInfo->getPointPos())*/);
 
-  int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)fpInfo->getPointPos()});
-
-  enobMaxCost = hasDouble ? max(enobMaxCost, ENOBdouble) : enobMaxCost;
-  enobMaxCost = hasHalf ? max(enobMaxCost, ENOBhalf) : enobMaxCost;
-  enobMaxCost = hasFP80 ? max(enobMaxCost, ENOBfp80) : enobMaxCost;
-  enobMaxCost = hasQuad ? max(enobMaxCost, ENOBquad) : enobMaxCost;
-  enobMaxCost = hasPPC128 ? max(enobMaxCost, ENOBppc128) : enobMaxCost;
-  enobMaxCost = hasBF16 ? max(enobMaxCost, ENOBbf16) : enobMaxCost;
-
-
   if (suggestedMinError) {
     /*If we have a suggested min initial error, that is used for error propagation, we should cap the enob to that erro.
      * In facts, it is not really necessary to "unbound" the minimum error while the input variables are not error free
      * Think about a reading from a sensor (ADC) or something similar, the error there will be even if we use a double to
      * store its result. Therefore we limit the enob to a useful value even for floating points.*/
-
-
     double errorEnob = getENOBFromError(*suggestedMinError);
 
     LLVM_DEBUG(llvm::dbgs() << "We have a suggested min error, limiting the enob in the model to " << errorEnob << "\n";);
@@ -527,9 +445,9 @@ void MetricPerf::saveInfoForValue(Value *value, shared_ptr<tuner::OptimizerInfo>
   assert(optInfo && "optInfo must be a valid info!");
   assert(!valueHasInfo(value) && "Double insertion of value info!");
 
-  LLVM_DEBUG(dbgs() << "Saved info " << optInfo->toString() << " for ";);
-  LLVM_DEBUG(value->print(dbgs()););
-  LLVM_DEBUG(dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "Saved info " << optInfo->toString() << " for ");
+  LLVM_DEBUG(value->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "\n");
 
   auto &valueToVariableName = getValueToVariableName();
   auto &phiWatcher = getPhiWatcher();
@@ -543,7 +461,7 @@ void MetricPerf::saveInfoForValue(Value *value, shared_ptr<tuner::OptimizerInfo>
     closed_phi++;
   }
   if (closed_phi) {
-    LLVM_DEBUG(dbgs() << "Closed " << closed_phi << " PHI loops\n";);
+    LLVM_DEBUG(dbgs() << "Closed " << closed_phi << " PHI loops\n");
   }
 
 
@@ -553,40 +471,41 @@ void MetricPerf::saveInfoForValue(Value *value, shared_ptr<tuner::OptimizerInfo>
     closed_mem++;
   }
   if (closed_mem) {
-    LLVM_DEBUG(dbgs() << "Closed " << closed_mem << " MEM loops\n";);
+    LLVM_DEBUG(dbgs() << "Closed " << closed_mem << " MEM loops\n");
   }
 }
 
 
 void MetricPerf::closePhiLoop(PHINode *phiNode, Value *requestedValue)
 {
-  LLVM_DEBUG(dbgs() << "Closing PhiNode reference!\n";);
-  auto phiInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(phiNode));
-  auto destInfo = allocateNewVariableWithCastCost(requestedValue, phiNode);
-
+  LLVM_DEBUG(dbgs() << "Closing PhiNode reference!\n");
+  auto phiInfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(phiNode));
+  auto oldDestInfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(requestedValue));
+  auto castDestInfo = allocateNewVariableWithCastCost(requestedValue, phiNode);
   assert(phiInfo && "phiInfo not available!");
-  assert(destInfo && "destInfo not available!");
+  assert(oldDestInfo && "oldDestInfo not available!");
+  assert(castDestInfo && "castDestInfo not available!");
 
-  string enob_var;
+  opt->insertTypeEqualityConstraint(phiInfo, castDestInfo, true);
 
-  for (unsigned int index = 0; index < phiNode->getNumIncomingValues(); index++) {
-    if (phiNode->getIncomingValue(index) == requestedValue) {
-      enob_var = getEnobActivationVariable(phiNode, index);
-      break;
-    }
-  }
+  auto &model = getModel();
+  string oldEnobVariable = phiInfo->getRealEnobVariable();
+  string newEnobVariable = oldEnobVariable + "_closePHILoop";
+  phiInfo->overrideEnob(newEnobVariable);
+  initRealEnobVariable(phiInfo);
 
-  assert(!enob_var.empty() && "Enob var not found!");
-
-  opt->insertTypeEqualityConstraint(phiInfo, destInfo, true);
-
-  auto info1 = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(requestedValue));
   auto constraint = vector<pair<string, double>>();
+  // The new Enob is <= the old one
+  constraint.push_back(make_pair(newEnobVariable, 1.0));
+  constraint.push_back(make_pair(oldEnobVariable, -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0);
+
+  // And also <= the one of requestedValue
   constraint.clear();
-  constraint.push_back(make_pair(phiInfo->getRealEnobVariable(), 1.0));
-  constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(enob_var, BIG_NUMBER));
-  getModel().insertLinearConstraint(constraint, tuner::Model::LE, BIG_NUMBER /*, "Enob: forcing phi enob"*/);
+  constraint.push_back(make_pair(newEnobVariable, 1.0));
+  constraint.push_back(make_pair(oldDestInfo->getRealEnobVariable(), -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0);
+
   getPhiWatcher().closePhiLoop(phiNode, requestedValue);
 }
 
@@ -939,4 +858,91 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
     }
     // if no info is to skip
   }
+}
+
+int MetricPerf::initRealEnobVariable(shared_ptr<tuner::OptimizerScalarInfo> optimizerInfo) {
+  assert(optimizerInfo && "Supplied with null OptimizerInfo");
+  auto &model = getModel();
+  shared_ptr<mdutils::Range> rangeInfo = optimizerInfo->getRange();
+
+  // ENOB propagation, free variable
+  model.createVariable(optimizerInfo->getRealEnobVariable(), -BIG_NUMBER, BIG_NUMBER);
+
+  auto constraint = vector<pair<string, double>>();
+  int ENOBfloat = getENOBFromRange(rangeInfo, FloatType::Float_float);
+  int ENOBdouble = 0;
+  int ENOBhalf = 0;
+  int ENOBquad = 0;
+  int ENOBppc128 = 0;
+  int ENOBfp80 = 0;
+  int ENOBbf16 = 0;
+
+  // Enob constraints fix
+  constraint.clear();
+  constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
+  constraint.push_back(make_pair(optimizerInfo->getFractBitsVariable(), -1.0));
+  constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), BIG_NUMBER));
+  model.insertLinearConstraint(constraint, tuner::Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
+
+  auto enobconstraint = [&](int ENOB, const std::string (tuner::OptimizerScalarInfo::*getVariable)(), const char *desc) mutable {
+    constraint.clear();
+    constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
+    constraint.push_back(make_pair(((*optimizerInfo).*getVariable)(), BIG_NUMBER));
+    model.insertLinearConstraint(constraint, tuner::Model::LE, BIG_NUMBER + ENOB /*, desc*/);
+  };
+  // Enob constraints float
+  enobconstraint(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
+
+  // Enob constraints Double
+  if (hasDouble) {
+    ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
+    enobconstraint(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+  }
+
+  // Enob constraints Half
+  if (hasHalf) {
+    ENOBhalf = getENOBFromRange(rangeInfo, FloatType::Float_half);
+    enobconstraint(ENOBhalf, &tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
+  }
+
+  // Enob constraints Quad
+  if (hasQuad) {
+    ENOBquad = getENOBFromRange(rangeInfo, FloatType::Float_fp128);
+    enobconstraint(ENOBquad,
+                   &tuner::OptimizerScalarInfo::getQuadSelectedVariable,
+                   "Enob constraint for quad");
+  }
+
+  // Enob constraints FP80
+  if (hasFP80) {
+    ENOBfp80 = getENOBFromRange(rangeInfo, FloatType::Float_x86_fp80);
+    enobconstraint(ENOBfp80,
+                   &tuner::OptimizerScalarInfo::getFP80SelectedVariable,
+                   "Enob constraint for fp80");
+  }
+
+  // Enob constraints PPC128
+  if (hasPPC128) {
+    ENOBppc128 = getENOBFromRange(rangeInfo, FloatType::Float_ppc_fp128);
+    enobconstraint(ENOBppc128,
+                   &tuner::OptimizerScalarInfo::getPPC128SelectedVariable,
+                   "Enob constraint for ppc128");
+  }
+
+  // Enob constraints BF16
+  if (hasBF16) {
+    ENOBbf16 = getENOBFromRange(rangeInfo, FloatType::Float_bfloat);
+    enobconstraint(ENOBbf16,
+                   &tuner::OptimizerScalarInfo::getBF16SelectedVariable,
+                   "Enob constraint for bf16");
+  }
+
+  int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)optimizerInfo->getMaxBits()});
+  enobMaxCost = hasDouble ? max(enobMaxCost, ENOBdouble) : enobMaxCost;
+  enobMaxCost = hasHalf ? max(enobMaxCost, ENOBhalf) : enobMaxCost;
+  enobMaxCost = hasFP80 ? max(enobMaxCost, ENOBfp80) : enobMaxCost;
+  enobMaxCost = hasQuad ? max(enobMaxCost, ENOBquad) : enobMaxCost;
+  enobMaxCost = hasPPC128 ? max(enobMaxCost, ENOBppc128) : enobMaxCost;
+  enobMaxCost = hasBF16 ? max(enobMaxCost, ENOBbf16) : enobMaxCost;
+  return enobMaxCost;
 }

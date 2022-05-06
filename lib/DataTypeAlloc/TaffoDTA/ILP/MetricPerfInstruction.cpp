@@ -313,7 +313,7 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
   auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
 
-  auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
+  auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos, false);
   if (!res)
     return;
   handleDisabled(res, cpuCosts, "MUL");
@@ -402,6 +402,8 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
   constraint.push_back(make_pair(enob_selection_2, -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, -intbit_2 /*, "Enob: propagation in product 2"*/);
+
+  saveInfoForValue(instr, res);
 }
 
 void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
@@ -735,77 +737,19 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       // getModel().insertComment("Restriction for new enob [STORE]", 2);
       string newEnobVariable = info_pointer->getRealEnobVariable();
       newEnobVariable.append("_storeENOB");
-      getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
       info_pointer->overrideEnob(newEnobVariable);
-
       // We force the enob back to the variable type, just in case!
+      initRealEnobVariable(info_pointer);
+
       auto constraint = vector<pair<string, double>>();
-      int ENOBfloat = getENOBFromRange(info_pointer->getRange(), FloatType::Float_float);
-      int ENOBdouble = getENOBFromRange(info_pointer->getRange(), FloatType::Float_double);
-      int ENOBhalf = getENOBFromRange(info_pointer->getRange(), FloatType::Float_half);
-      int ENOBquad = getENOBFromRange(info_pointer->getRange(), FloatType::Float_fp128);
-      int ENOBfp80 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_x86_fp80);
-      int ENOBppc128 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_ppc_fp128);
-      int ENOBbf16 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_bfloat);
-
-
-      constraint.clear();
-      constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
-      constraint.push_back(make_pair(info_pointer->getFractBitsVariable(), -1.0));
-      constraint.push_back(make_pair(info_pointer->getFixedSelectedVariable(), BIG_NUMBER));
-      getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
-
-
-      auto enoblambda = [&](int ENOB, const std::string (tuner::OptimizerScalarInfo::*getvariable)(), const char *desc) mutable {
-        constraint.clear();
-        constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
-        constraint.push_back(make_pair(((*info_pointer).*getvariable)(), BIG_NUMBER));
-        getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER + ENOB /*, desc*/);
-      };
-
-      // Enob constraints float
-      enoblambda(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
-
-      // Enob constraints Double
-      if (hasDouble) {
-        enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
-      }
-
-      // Enob constraints half
-      if (hasHalf) {
-        enoblambda(ENOBhalf, &tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
-      }
-
-      // Enob constraints quad
-      if (hasQuad) {
-        enoblambda(ENOBquad, &tuner::OptimizerScalarInfo::getQuadSelectedVariable, "Enob constraint for quad");
-      }
-
-      // Enob constraints fp80
-      if (hasFP80) {
-        enoblambda(ENOBfp80, &tuner::OptimizerScalarInfo::getFP80SelectedVariable, "Enob constraint for fp80");
-      }
-
-      // Enob constraints ppc128
-      if (hasPPC128) {
-        enoblambda(ENOBppc128, &tuner::OptimizerScalarInfo::getPPC128SelectedVariable, "Enob constraint for ppc128");
-      }
-
-      // Enob constraints bf16
-      if (hasBF16) {
-        enoblambda(ENOBbf16, &tuner::OptimizerScalarInfo::getBF16SelectedVariable, "Enob constraint for bf16");
-      }
-
       constraint.clear();
       constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
       constraint.push_back(make_pair(info_variable_oeig_t->getRealEnobVariable(), -1.0));
       getModel().insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob constraint ENOB propagation in load/store"*/);
     } else {
       LLVM_DEBUG(dbgs() << "[INFO] The value to store is a constant, not inserting it as may cause problems...\n";);
-      // getModel().insertComment("Storing constant, no new enob.", 1);
       isConstant = true;
     }
-
 
     // We save the infos so we should retrieve them more quickly when using MemSSA
     // We save the ENOB of the stored variable that is the correct one to use
@@ -871,10 +815,10 @@ void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<Val
 
 void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
 {
-  auto *phi = dyn_cast<PHINode>(instruction);
+  auto *phi_n = cast<PHINode>(instruction);
 
-  if (!phi->getType()->isFloatingPointTy()) {
-    LLVM_DEBUG(dbgs() << "Phi node with non float value, skipping...\n";);
+  if (!phi_n->getType()->isFloatingPointTy()) {
+    LLVM_DEBUG(dbgs() << "Phi node with non float value, skipping...\n");
     return;
   }
 
@@ -887,95 +831,60 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
   // We treat phi as normal assignment, without looking at the real "backend" implementation. This may be quite different
   // from the real execution, but the overall meaning is the same.
 
-
-  auto *phi_n = dyn_cast<llvm::PHINode>(phi);
-  if (!phi_n) {
-    llvm_unreachable("Could not convert Phi instruction to PHINode");
-  }
-  if (phi_n->getNumIncomingValues() < 1) {
-    // This phi node has no value, really?
-    llvm_unreachable("Why on earth there is a Phi instruction with no incoming values?");
-  }
+  assert(phi_n->getNumIncomingValues() >= 1
+         && "Why on earth is there a Phi instruction with no incoming values?");
 
   auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
   if (!fieldInfo) {
-    LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+    LLVM_DEBUG(dbgs() << "Not metadata. Bailing out.\n\n");
     return;
   }
 
   if (!fieldInfo->IRange) {
-    LLVM_DEBUG(dbgs() << "Not Range information. Bailing out.\n\n";);
+    LLVM_DEBUG(dbgs() << "Not range information. Bailing out.\n\n");
     return;
   }
 
   auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
   if (!fptype) {
-    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n\n");
     return;
   }
 
   // Allocating variable for result
-  shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                         fieldInfo->IError);
+  shared_ptr<OptimizerScalarInfo> variable =
+    allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange, fieldInfo->IError);
+
+  auto &model = getModel();
   auto constraint = vector<pair<string, double>>();
-  constraint.clear();
-
-
-  for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
-    Value *op = phi_n->getIncomingValue(index);
-    if (auto info = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op))) {
-      if (info->doesReferToConstant()) {
-        // We skip the variable if it is a constant
-        LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-        LLVM_DEBUG(op->print(dbgs()););
-        LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
-        continue;
-      }
-    }
-
-    string enob_selection = getEnobActivationVariable(phi_n, index);
-    getModel().createVariable(enob_selection, 0, 1);
-    constraint.push_back(make_pair(enob_selection, 1.0));
-  }
-
-  if (constraint.size() > 0) {
-    getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-  } else {
-    LLVM_DEBUG(dbgs() << "[INFO] All constants phi node, nothing to do!!!\n";);
-    return;
-  }
-
-
   int missing = 0;
-
   for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
-    LLVM_DEBUG(dbgs() << "[Phi] Handlign operator " << index << "...\n";);
+    LLVM_DEBUG(dbgs() << "[Phi] Handling operand " << index << "...\n");
     Value *op = phi_n->getIncomingValue(index);
 
     if (auto info = getInfoOfValue(op)) {
       if (auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
-          // We skip the variable if it is a constant
-          LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-          LLVM_DEBUG(op->print(dbgs()););
-          LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+          LLVM_DEBUG(dbgs() << "[INFO] Skipping " << *op << " as it is a constant!\n");
           continue;
         }
+
+        LLVM_DEBUG(dbgs() << "[Phi] We have infos, treating as usual.\n");
+        constraint.clear();
+        constraint.push_back(make_pair(variable->getRealEnobVariable(), 1.0));
+        constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
+        model.insertLinearConstraint(constraint, Model::LE, 0);
+      } else {
+        llvm_unreachable("Should be a scalar!");
       }
-
-
-      LLVM_DEBUG(dbgs() << "[Phi] We have infos, treating as usual.\n";);
-      // because yes, integrity checks....
-      openPhiLoop(phi_n, op);
-      closePhiLoop(phi_n, op);
     } else {
-      LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n";);
+      LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n");
       openPhiLoop(phi_n, op);
       missing++;
     }
   }
 
-  LLVM_DEBUG(dbgs() << "[Phi] Elaboration concluded. Missing " << missing << " values.\n";);
+  LLVM_DEBUG(dbgs() << "[Phi] Elaboration concluded. Missing " << missing << " values.\n");
 
   getPhiWatcher().dumpState();
 }

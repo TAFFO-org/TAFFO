@@ -381,8 +381,9 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
   shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError);
+  shared_ptr<OptimizerScalarInfo> result =
+    allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
+                                inputInfo->IError);
 
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
 
@@ -392,7 +393,7 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
 
 shared_ptr<OptimizerScalarInfo>
 MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
-                              shared_ptr<ValueInfo> valueInfos)
+                              shared_ptr<ValueInfo> valueInfos, bool insertInList)
 {
   auto info1 = getInfoOfValue(op1);
   auto info2 = getInfoOfValue(op2);
@@ -420,8 +421,9 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
 
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError);
+  shared_ptr<OptimizerScalarInfo> result =
+    allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
+                                inputInfo->IError, insertInList);
 
   opt->insertTypeEqualityConstraint(varCast1, varCast2, forceFixEquality);
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);

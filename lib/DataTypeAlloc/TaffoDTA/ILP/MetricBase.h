@@ -51,7 +51,8 @@ public:
   shared_ptr<tuner::OptimizerScalarInfo>
   handleBinOpCommon(llvm::Instruction *instr, llvm::Value *op1,
                     llvm::Value *op2, bool forceFixEquality,
-                    shared_ptr<tuner::ValueInfo> valueInfos);
+                    shared_ptr<tuner::ValueInfo> valueInfos,
+                    bool insertInList=true);
 
   shared_ptr<tuner::OptimizerScalarInfo>
   handleUnaryOpCommon(llvm::Instruction *instr, llvm::Value *op1, bool forceFixEquality, shared_ptr<tuner::ValueInfo> valueInfos);
@@ -151,7 +152,7 @@ public:
   void handleFPPrecisionShift(llvm::Instruction *instruction,
                               shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handlePhi(llvm::Instruction *instruction,
-                 shared_ptr<tuner::ValueInfo> valueInfo);
+                 shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handleCastInstruction(llvm::Instruction *instruction,
                              shared_ptr<tuner::ValueInfo> valueInfo) override;
   int getMaxIntBitOfValue(llvm::Value *pValue) override;
@@ -192,6 +193,7 @@ protected:
   void handleSelect(llvm::Instruction *instruction,
                     shared_ptr<tuner::ValueInfo> valueInfo) override;
   std::string getEnobActivationVariable(llvm::Value *value, int cardinal) override;
+  int initRealEnobVariable(shared_ptr<tuner::OptimizerScalarInfo> optimizerInfo);
 };
 
 /*
