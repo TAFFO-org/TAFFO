@@ -359,49 +359,25 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
         MODEL_OBJ_MATHCOST, 0);
   }
 
-  // Precision cost
-  // Handloed in allocating variable
+  // Precision cost handled when allocating variable
+  int intbit_1 = getMaxIntBitOfValue(op1);
+  int intbit_2 = getMaxIntBitOfValue(op2);
 
   auto constraint = vector<pair<string, double>>();
-  // Enob constraints
-  /*constraint.clear();
-  constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
-  constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, 0, "Enob propagation in product");*/
-
-  string enob_selection_1 = getEnobActivationVariable(instr, 1);
-  model.createVariable(enob_selection_1, 0, 1);
-  string enob_selection_2 = getEnobActivationVariable(instr, 2);
-  model.createVariable(enob_selection_2, 0, 1);
-
-
-  int intbit_1 = getMinIntBitOfValue(op1);
-  int intbit_2 = getMinIntBitOfValue(op2);
-
-
-  constraint.clear();
-  constraint.push_back(make_pair(enob_selection_1, 1.0));
-  constraint.push_back(make_pair(enob_selection_2, 1.0));
-  model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-
-
-  // New enob constraint (tighter)
-  // c <= a+b-intbit_a-a+My
+  // Enob constraint
+  // c <= a + b - intbit_a - a
   // That is
-  // c<=b-intbit_a+my
+  // c <= b - intbit_a
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_1 /*, "Enob: propagation in product 1"*/);
+  model.insertLinearConstraint(constraint, Model::LE, -intbit_1);
 
-
+  // c <= a - intbit_b
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(enob_selection_2, -BIG_NUMBER));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_2 /*, "Enob: propagation in product 2"*/);
+  model.insertLinearConstraint(constraint, Model::LE, -intbit_2);
 
   saveInfoForValue(instr, res);
 }
@@ -473,22 +449,22 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
 
   auto constraint = vector<pair<string, double>>();
   // Enob propagation
-  string enob_selection_1 = getEnobActivationVariable(instr, 1);
-  model.createVariable(enob_selection_1, 0, 1);
-  string enob_selection_2 = getEnobActivationVariable(instr, 2);
-  model.createVariable(enob_selection_2, 0, 1);
+  // string enob_selection_1 = getEnobActivationVariable(instr, 1);
+  // model.createVariable(enob_selection_1, 0, 1);
+  // string enob_selection_2 = getEnobActivationVariable(instr, 2);
+  // model.createVariable(enob_selection_2, 0, 1);
 
 
-  int intbit_1 = getMinIntBitOfValue(op1);
-  int intbit_2 = getMinIntBitOfValue(op2);
+  int intbit_1 = getMaxIntBitOfValue(op1);
+  int intbit_2 = getMaxIntBitOfValue(op2);
 
   int maxbits2 = getMaxIntBitOfValue(op2);
 
 
-  constraint.clear();
-  constraint.push_back(make_pair(enob_selection_1, 1.0));
-  constraint.push_back(make_pair(enob_selection_2, 1.0));
-  model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
+  // constraint.clear();
+  // constraint.push_back(make_pair(enob_selection_1, 1.0));
+  // constraint.push_back(make_pair(enob_selection_2, 1.0));
+  // model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
 
 
   // New enob constraint (tighter)
@@ -498,14 +474,14 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
+  // constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, -intbit_1 + 2 * maxbits2 /*, "Enob: propagation in division 1"*/);
 
 
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(enob_selection_2, -BIG_NUMBER));
+  // constraint.push_back(make_pair(enob_selection_2, -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, -intbit_2 + 2 * maxbits2 /*, "Enob: propagation in division 2"*/);
 }
 
