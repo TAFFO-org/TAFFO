@@ -11,7 +11,7 @@ using namespace tuner;
 using namespace mdutils;
 
 
-Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string modelFile, CPUCosts::CostType cType) : model(Model::MIN), module(mm), tuner(tuner), DisabledSkipped(0), metric(met)
+Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string modelFile, CPUCosts::CostType cType) : metric(met), model(Model::MIN), module(mm), tuner(tuner), DisabledSkipped(0)
 {
   auto &TTI = tuner->getAnalysis<llvm::TargetTransformInfoWrapperPass>().getTTI(*(mm.begin()));
   if (cType == CPUCosts::CostType::Performance) {
