@@ -51,8 +51,7 @@ public:
   shared_ptr<tuner::OptimizerScalarInfo>
   handleBinOpCommon(llvm::Instruction *instr, llvm::Value *op1,
                     llvm::Value *op2, bool forceFixEquality,
-                    shared_ptr<tuner::ValueInfo> valueInfos,
-                    bool insertInList=true);
+                    shared_ptr<tuner::ValueInfo> valueInfos);
 
   shared_ptr<tuner::OptimizerScalarInfo>
   handleUnaryOpCommon(llvm::Instruction *instr, llvm::Value *op1, bool forceFixEquality, shared_ptr<tuner::ValueInfo> valueInfos);
