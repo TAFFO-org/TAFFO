@@ -473,11 +473,12 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
 
   for (Use &use : v->uses()) {
     User *user = use.getUser();
-    AbstractCallSite call(&use);
-    if (call.getInstruction() == nullptr)
+    CallBase *call = dyn_cast<CallBase>(user);
+    if (call == nullptr)
       continue;
+    LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall: processing " << *(user) << ")\n");
 
-    Function *fun = dyn_cast<Function>(call.getCalledFunction());
+    Function *fun = dyn_cast<Function>(call->getCalledFunction());
     if (fun == nullptr) {
       LLVM_DEBUG(dbgs() << " --> skipping restoring types from call site " << *user
                         << " because function reference cannot be resolved\n");
@@ -494,8 +495,11 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
     if (hasInfo(arg)) {
       valueInfo(arg)->metadata.reset(finalMd->clone());
       setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
+    } else {
+      LLVM_DEBUG(dbgs() << "Not looking good, formal arg #" << use.getOperandNo() << " (" << *arg << ") has no valueInfo, but actual argument does...\n");
     }
   }
+  LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall ended\n");
 }
 
 
@@ -735,17 +739,16 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     optimizer.handleCallFromRoot(&f);
   }
 
-  assert(optimizer.finish() && "Optimizer did not found a solution!");
-
+  bool result = optimizer.finish();
+  assert(result && "Optimizer did not find a solution!");
 
   for (Value *v : vals) {
+    LLVM_DEBUG(dbgs() << "Processing " << *v << "...\n");
+
     if (!valset.count(v)) {
-      LLVM_DEBUG(dbgs() << "Not in the conversion queue! Skipping!\n";);
+      LLVM_DEBUG(dbgs() << "Not in the conversion queue! Skipping!\n\n";);
       continue;
     }
-    LLVM_DEBUG(dbgs() << "Assigning to ";);
-    LLVM_DEBUG(v->print(dbgs()););
-
 
     std::shared_ptr<ValueInfo> viu = valueInfo(v);
 
@@ -755,19 +758,17 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
       LLVM_DEBUG(dbgs() << "Invalid datatype returned!\n";);
       continue;
     }
+    LLVM_DEBUG(dbgs() << "Datatype: " << fp->toString() << "\n");
 
-    LLVM_DEBUG(dbgs() << " datatype " << fp->toString(););
-
-    LLVM_DEBUG(dbgs() << "\n";);
-
-
-    bool result = mergeDataTypes(viu->metadata, fp);
+    // Write the datatype
+    bool result = overwriteType(viu->metadata, fp);
     if (result) {
       // Some datatype has changed, restore in function call
-      LLVM_DEBUG(dbgs() << "Restoring call type...\n";);
+      LLVM_DEBUG(dbgs() << "Restoring call type because of mergeDataTypes()...\n";);
       restoreTypesAcrossFunctionCall(v);
     }
 
+    LLVM_DEBUG(dbgs() << "done with [" << *v << "]\n\n");
     /*auto *iiv = dyn_cast<InputInfo>(viu->metadata.get());
 
     iiv->IType.reset(fp->clone());*/
@@ -776,7 +777,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
   optimizer.printStatInfos();
 }
 
-bool TaffoTuner::mergeDataTypes(shared_ptr<mdutils::MDInfo> old, shared_ptr<mdutils::MDInfo> model)
+bool TaffoTuner::overwriteType(shared_ptr<mdutils::MDInfo> old, shared_ptr<mdutils::MDInfo> model)
 {
   if (!old || !model)
     return false;
@@ -787,11 +788,10 @@ bool TaffoTuner::mergeDataTypes(shared_ptr<mdutils::MDInfo> old, shared_ptr<mdut
     auto old1 = dynamic_ptr_cast_or_null<InputInfo>(old);
     auto model1 = dynamic_ptr_cast_or_null<InputInfo>(model);
 
-
     if (!old1->IType)
       return false;
     LLVM_DEBUG(dbgs() << "model1: " << model1->IType->toString() << "\n";);
-    LLVM_DEBUG(dbgs() << "old1: " << old1->IType->toString() << "\n\n";);
+    LLVM_DEBUG(dbgs() << "old1: " << old1->IType->toString() << "\n";);
     if (old1->IType->operator==(*model1->IType)) {
       return false;
     }
@@ -804,7 +804,7 @@ bool TaffoTuner::mergeDataTypes(shared_ptr<mdutils::MDInfo> old, shared_ptr<mdut
 
     bool changed = false;
     for (unsigned int i = 0; i < old1->size(); i++) {
-      changed |= mergeDataTypes(old1->getField(i), model1->getField(i));
+      changed |= overwriteType(old1->getField(i), model1->getField(i));
     }
     return changed;
   }

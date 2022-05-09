@@ -1,0 +1,6 @@
+embedded_src/obj
+embedded_src/bench_obj
+*.bin
+*.elf
+*.log
+*.map

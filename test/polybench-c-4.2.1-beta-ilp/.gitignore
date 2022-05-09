@@ -1,0 +1,4 @@
+*.log
+*.ll
+./*/taffo_time.txt
+./*/taffo_out.txt

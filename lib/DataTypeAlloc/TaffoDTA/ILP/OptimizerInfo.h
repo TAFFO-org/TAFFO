@@ -1,4 +1,6 @@
-#include "Infos.h"
+#ifndef __TAFFO_DTA_OPTIMIZERINFO_H__
+#define __TAFFO_DTA_OPTIMIZERINFO_H__
+
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
@@ -8,9 +10,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-
-#ifndef __TAFFO_DTA_OPTIMIZERINFO_H__
-#define __TAFFO_DTA_OPTIMIZERINFO_H__
 
 namespace tuner
 {

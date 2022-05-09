@@ -1,6 +1,10 @@
+#include "MemWatcher.h"
 #include "Optimizer.h"
+#include "llvm/Support/Debug.h"
 
 using namespace tuner;
+using namespace llvm;
+using namespace std;
 
 void MemWatcher::openPhiLoop(LoadInst *load, Value *requestedValue)
 {

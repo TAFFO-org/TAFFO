@@ -4,31 +4,29 @@ set(DTA_SRC
   TaffoDTA.cpp
   TaffoDTA.h
   DTAConfig.h
-  Infos.h
   )
 
 if (TAFFO_BUILD_ILP_DTA)
   set(DTA_SRC ${DTA_SRC}
     ILP/Optimizer.cpp
     ILP/Model.cpp
-    ILP/OptimizerBinaryInstructions.cpp
-    ILP/OptimizerInstructionHandling.cpp
-    ILP/OptimizerConstantsHandling.cpp
     ILP/PhiWatcher.cpp
+    ILP/PhiWatcher.h
     ILP/CPUCosts.cpp
     ILP/MemWatcher.cpp
+    ILP/MemWatcher.h
     ILP/LoopAnalyzerUtil.cpp
     ILP/MetricPerf.cpp
     ILP/MetricBase.cpp
     ILP/MetricPerfInstruction.cpp
     ILP/MetricBase.h
-    ILP/MetricBaseForward.h
     ILP/Optimizer.h
     ILP/OptimizerInfo.h
     ILP/Model.h
-    ILP/MemSSAUtils.hpp
     ILP/CPUCosts.h
     ILP/LoopAnalyzerUtil.h
+    ILP/Utils.h
+    ILP/Utils.cpp
     )
 endif ()
 

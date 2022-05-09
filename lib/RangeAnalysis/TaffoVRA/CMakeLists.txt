@@ -4,7 +4,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   RangeOperationsCallWhitelist.cpp
   RangeOperations.cpp
   ValueRangeAnalysis.cpp
-  MemSSAUtils.cpp
   CodeInterpreter.cpp
   VRAStore.cpp
   VRAnalyzer.cpp
@@ -18,7 +17,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   Range.hpp
   RangeNode.hpp
   ValueRangeAnalysis.hpp
-  MemSSAUtils.hpp
   CodeInterpreter.hpp
   VRAStore.hpp
   VRAnalyzer.hpp
