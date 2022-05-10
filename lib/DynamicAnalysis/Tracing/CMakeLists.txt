@@ -5,11 +5,13 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     InjectFuncCall.cpp
     ReadTrace.cpp
     NameVariables.cpp
+    MemoryGraph.cpp
 
     ADDITIONAL_HEADERS
     InjectFuncCall.h
     ReadTrace.h
     NameVariables.h
+    MemoryGraph.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
