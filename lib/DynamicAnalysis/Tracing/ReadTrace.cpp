@@ -65,13 +65,16 @@ bool ReadTrace::runOnModule(Module &M) {
     for (auto *x : l) {
       errs() << typeName(*x) << ": ";
       errs() << "[" << range.first << ", " << range.second << "]: ";
+      if(disableConversionForExternalFun(x)) {
+        errs() << "[disabled]: ";
+      }
       errs() << *x << "\n";
     }
     errs() << "-----\n";
   }
 
   // assign calculated intervals to the metadata
-  std::unordered_map<Value*, std::pair<double, double>> valuesRanges;
+  std::unordered_map<Value*, std::shared_ptr<DynamicValueInfo>> valuesRanges;
 
   for (auto &F : M) {
     if (!F.hasName() || F.isDeclaration()) continue;
@@ -81,7 +84,8 @@ bool ReadTrace::runOnModule(Module &M) {
         taffo::VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager::getMetadataManager(), Inst);
         auto InstName = Inst.getName().str();
         if (minVals.count(InstName) > 0) {
-          valuesRanges[&Inst] = {minVals.at(InstName), maxVals.at(InstName)};
+          valuesRanges[&Inst] = std::make_shared<DynamicValueInfo>(
+              minVals.at(InstName), maxVals.at(InstName), false);
         }
       } // instructions
     } // basic blocks
@@ -90,8 +94,12 @@ bool ReadTrace::runOnModule(Module &M) {
   for (const auto &it : ccRanges) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
+    bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
+      return disableConversionForExternalFun(item);
+    });
     for (auto *value : l) {
-      valuesRanges[value] = range;
+      valuesRanges[value] = std::make_shared<DynamicValueInfo>(
+          range.first, range.second, disableConversion);
     }
   }
 
@@ -121,18 +129,18 @@ bool ReadTrace::runOnModule(Module &M) {
     auto range = it.second;
     if (auto *Inst = dyn_cast<Instruction>(value)) {
       auto instType = std::shared_ptr<mdutils::FloatType>{};
-      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+      auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
       auto instError = std::shared_ptr<double>{};
-      mdutils::InputInfo ii{instType, instRange, instError, true, true};
+      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
       mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
       Changed = true;
     }
     if (auto *Arg = dyn_cast<Argument>(value)) {
       auto F = Arg->getParent();
       auto instType = std::shared_ptr<mdutils::FloatType>{};
-      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+      auto instRange = std::make_shared<mdutils::Range>(range->min , range->max);
       auto instError = std::shared_ptr<double>{};
-      mdutils::InputInfo ii{instType, instRange, instError, true, true};
+      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
       llvm::SmallVector<mdutils::MDInfo *> FunMD;
       mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, FunMD);
       if (!Arg->getType()->isStructTy()) {
@@ -144,15 +152,18 @@ bool ReadTrace::runOnModule(Module &M) {
           *ArgII = ii;
           FunMD[Arg->getArgNo()] = ArgII;
         }
+        errs() << "annotate arg: " << *Arg
+               << ", metadata: " << dyn_cast<mdutils::InputInfo>(FunMD[Arg->getArgNo()])->toString()
+               << "\n";
         mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
       }
     }
 
 //    if (auto *GlobalVal = dyn_cast<GlobalObject>(value)) {
 //      auto instType = std::shared_ptr<mdutils::FloatType>{};
-//      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+//      auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
 //      auto instError = std::shared_ptr<double>{};
-//      mdutils::InputInfo ii{instType, instRange, instError, true, true};
+//      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
 //      mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
 //      Changed = true;
 //    }
@@ -186,6 +197,23 @@ bool ReadTrace::runOnModule(Module &M) {
   }
 
   return Changed;
+}
+
+bool ReadTrace::disableConversionForExternalFun(const Value* v) {
+  if (auto *arg = dyn_cast<Argument>(v)) {
+    errs() << "check arg: " << *arg << "\n";
+    if (arg->getType()->isPointerTy()) {
+      auto *fun = arg->getParent();
+      if (fun->getBasicBlockList().empty()) {
+        // this is an external function, don't touch it
+        return true;
+      }
+    }
+  }
+  if (auto *fun = dyn_cast<Function>(v)) {
+    return fun->isVarArg();
+  }
+  return false;
 }
 
 void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<Value*>>& ccValues,
@@ -271,7 +299,7 @@ bool isFPVal(Value* value) {
   if (auto *inst = dyn_cast<Constant>(value)) {
     return taffo::isFloatType(inst->getType());
   }
-  return false;
+  return taffo::isFloatType(value->getType());
 }
 
 
@@ -298,7 +326,29 @@ int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& ins
     for (auto &BB: F.getBasicBlockList()) {
       for (auto &Inst: BB.getInstList()) {
         if (Inst.isDebugOrPseudoInst()) continue ;
-        if (isa<AllocaInst, StoreInst, LoadInst, GetElementPtrInst>(Inst) && isFPVal(&Inst)) {
+        if (auto *callInst = dyn_cast<CallInst>(&Inst)) {
+          if (auto *calledFunction = callInst->getCalledFunction()) {
+            errs() << "called function: " << *calledFunction << "\n";
+            int i = -1;
+            for (Use &actualArg: callInst->arg_operands()) {
+              i++;
+              if (isFPVal(actualArg)) {
+                errs() << "called fun arg: " << *actualArg << "\n";
+                int actualArgNodeIndex = getIndex(actualArg);
+                if (calledFunction->isVarArg()) {
+                  int funIndex = getIndex(calledFunction);
+                  edges.emplace_back(funIndex, actualArgNodeIndex);
+                } else {
+                  auto *formalArg = calledFunction->getArg(i);
+                  errs() << "called fun formal arg: " << *formalArg << "\n";
+                  int formalArgNodeIndex = getIndex(formalArg);
+                  edges.emplace_back(formalArgNodeIndex, actualArgNodeIndex);
+                }
+              }
+            }
+          }
+        }
+        if (isa<AllocaInst, StoreInst, LoadInst, GetElementPtrInst, ReturnInst>(Inst) && isFPVal(&Inst)) {
           int instIndex = getIndex(&Inst);
           for (auto child: Inst.users()) {
             if (isFPVal(child)) {
@@ -336,6 +386,19 @@ int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& ins
               edges.emplace_back(instIndex, srcIndex);
             }
           }
+
+          if (auto *retInst = dyn_cast<ReturnInst>(&Inst)) {
+            if (isFPVal(retInst->getReturnValue())) {
+              for (auto *funUse: retInst->getFunction()->users()) {
+                if (auto *callInst = dyn_cast<CallInst>(&Inst)) {
+                  int srcIndex = getIndex(callInst);
+                  int retValueIndex = getIndex(retInst->getReturnValue());
+                  edges.emplace_back(retValueIndex, srcIndex);
+                }
+              }
+            }
+          }
+
         }
       } // instructions
     } // basic blocks

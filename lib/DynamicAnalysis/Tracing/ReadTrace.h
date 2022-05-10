@@ -17,6 +17,15 @@ struct ReadTrace : public llvm::PassInfoMixin<ReadTrace> {
 
 private:
 
+  struct DynamicValueInfo {
+    double min;
+    double max;
+    bool disableConversion = false;
+
+    DynamicValueInfo(double Min, double Max, bool DisableConversion)
+        : min(Min), max(Max), disableConversion(DisableConversion) {}
+  };
+
   std::string typeName(llvm::Value& val);
 
   void calculateCCRanges(const std::unordered_map<int, std::list<llvm::Value*>>& ccValues,
@@ -34,6 +43,7 @@ private:
   void
   parseTraceFiles(std::unordered_map<std::string, double>& minVals, std::unordered_map<std::string, double>& maxVals,
                   std::unordered_map<std::string, mdutils::FloatType::FloatStandard>& valTypes) const;
+  bool disableConversionForExternalFun(const llvm::Value* v);
 };
 
 #endif
