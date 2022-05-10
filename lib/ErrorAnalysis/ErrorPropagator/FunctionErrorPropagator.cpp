@@ -22,7 +22,7 @@
 #include "llvm/Support/Debug.h"
 #include <llvm/IR/InstrTypes.h>
 
-#include "MemSSAUtils.h"
+#include "MemSSAUtils.hpp"
 #include "Metadata.h"
 #include "Propagators.h"
 #include "TypeUtils.h"
@@ -231,7 +231,7 @@ void FunctionErrorPropagator::prepareErrorsForCall(Instruction &I)
       if (RE != nullptr && RE->second.hasValue())
         Args.push_back(Arg);
       else {
-        Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, Arg);
+        Value *OrigPointer = taffo::MemSSAUtils::getOriginPointer(*MemSSA, Arg);
         Args.push_back(OrigPointer);
       }
     } else {
@@ -278,7 +278,7 @@ void FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMa
 
     const AffineForm<inter_t> *Err = RMap.getError(&(*FArg));
     if (Err == nullptr) {
-      Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, &*FArg);
+      Value *OrigPointer = taffo::MemSSAUtils::getOriginPointer(*MemSSA, &*FArg);
       Err = RMap.getError(OrigPointer);
       if (Err == nullptr)
         continue;

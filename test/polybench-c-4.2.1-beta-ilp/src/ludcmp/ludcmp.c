@@ -44,7 +44,7 @@ int BENCH_MAIN(){
 /* Variable declaration/allocation. */
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final error(1e-100))"))) A[N][N];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) b[N];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) x[N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100)) target('x')"))) x[N];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) y[N];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar()"))) B[N][N];
 
@@ -137,7 +137,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

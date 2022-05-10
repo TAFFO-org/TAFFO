@@ -105,6 +105,7 @@ D_CONF="CONF_GOOD"
 RUN_METRICS=0
 ERRORPROP='-enable-err'
 MIXEDMODE=''
+COSTMODEL=""
 
 for arg; do
   case $arg in
@@ -123,8 +124,11 @@ for arg; do
       D_CONF=$arg
       ;;
     --mixedmode)
-      MIXEDMODE='-mixedmode -costmodel i7-4'
+      MIXEDMODE="-mixedmode -costmodel "
       ;;
+    --costmodel=*)
+	    COSTMODEL=${arg#*=}
+	;;
     --only=*)
       ONLY="${arg#*=}"
       ;;
@@ -157,7 +161,7 @@ for bench in $all_benchs; do
       "-O3 -fopenmp \
       -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
       -D$D_CONF -D$D_STANDARD_DATASET \
-      ${MIXEDMODE} -Xdta -totalbits -Xdta $TOT \
+      ${MIXEDMODE} ${COSTMODEL} -Xdta -totalbits -Xdta $TOT \
       $ERRORPROP $opts"
     bpid_fc=$?
     if [[ $bpid_fc == 0 ]]; then

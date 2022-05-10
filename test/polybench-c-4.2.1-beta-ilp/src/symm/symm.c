@@ -48,7 +48,7 @@
 
 int BENCH_MAIN(){
 
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) C[M][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100)) target('C')"))) C[M][N];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) A[M][M];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) B[M][N];
 
@@ -103,7 +103,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

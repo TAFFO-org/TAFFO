@@ -48,7 +48,7 @@ int BENCH_MAIN(){
 
 /* Variable declaration/allocation. */
   PB_STATIC int seq[N];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-500, 500) error(1e-100))"))) table[N][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-500, 500) error(1e-100)) target('table')"))) table[N][N];
 
     TAFFO_DUMPCONFIG();
     TIMING_CPUCLOCK_START();
@@ -106,13 +106,5 @@ int BENCH_MAIN(){
         }
     }
 
-
-
-
-
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

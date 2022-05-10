@@ -338,7 +338,6 @@ void VRAnalyzer::handleReturn(const llvm::Instruction *ret)
   const llvm::ReturnInst *ret_i = cast<llvm::ReturnInst>(ret);
   LLVM_DEBUG(Logger->logInstruction(ret));
   if (const llvm::Value *ret_val = ret_i->getReturnValue()) {
-    const llvm::Function *ret_fun = ret_i->getFunction();
     NodePtrT range = getNode(ret_val);
 
     std::shared_ptr<VRAFunctionStore> FStore =

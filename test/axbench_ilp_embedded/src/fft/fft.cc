@@ -114,7 +114,9 @@ static void radix2DitCooleyTykeyFft(int K,
 
 	for (int i = 0 ; i < K ; i++)
 	{
-		f[i] = x[indices[i]] ;
+		//f[i] = x[indices[i]] ;
+		f[i].real = x[indices[i]].real;
+		f[i].imag = x[indices[i]].imag;
 	}
 }
 

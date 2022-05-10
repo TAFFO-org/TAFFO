@@ -56,7 +56,7 @@ int BENCH_MAIN(){
 
 
 /* Variable declaration/allocation. */
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final error(1e-100))"))) A[NR][NQ][NP];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final error(1e-100)) target('A')"))) A[NR][NQ][NP];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final error(1e-100))"))) sum[NP];
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) C4[NP][NP];
 
@@ -108,7 +108,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

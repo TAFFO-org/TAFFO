@@ -50,8 +50,8 @@ int BENCH_MAIN(){
 
 /* Variable declaration/allocation. */
   PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100))"))) A[M][N];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100))"))) R[N][N];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100))"))) Q[M][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100)) target('R')"))) R[N][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100)) target('Q')"))) Q[M][N];
 
     TAFFO_DUMPCONFIG();
     TIMING_CPUCLOCK_START();
@@ -117,7 +117,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

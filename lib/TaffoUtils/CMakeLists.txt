@@ -16,6 +16,7 @@ add_library(${SELF}
   DebugPrint.h
   MemSSAUtils.cpp
   MemSSAUtils.hpp
+  PtrCasts.h
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_property(TARGET ${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

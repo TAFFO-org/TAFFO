@@ -16,7 +16,7 @@
 #include "Propagators.h"
 
 #include "AffineForms.h"
-#include "MemSSAUtils.h"
+#include "MemSSARE.h"
 #include "Metadata.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
@@ -83,7 +83,7 @@ propagateDiv(const FPInterval &R1, const AffineForm<inter_t> &E1,
   if (AddTrunc)
     return Res + AffineForm<inter_t>(0, R1.getRoundingError());
   else
-    return std::move(Res);
+    return Res;
 }
 
 AffineForm<inter_t>
@@ -229,15 +229,8 @@ bool InstructionPropagator::propagateLoad(Instruction &I)
   }
 
   // Look for range and error in the defining instructions with MemorySSA
-  MemSSAUtils MemUtils(RMap, MemSSA);
-  MemUtils.findMemSSAError(&I, MemSSA.getMemoryAccess(&I));
-
-  // Kludje for when AliasAnalysis fails (i.e. almost always).
-  if (SloppyAA) {
-    MemUtils.findLOEError(&I);
-  }
-
-  MemSSAUtils::REVector &REs = MemUtils.getRangeErrors();
+  MemSSARE MemRE(RMap, MemSSA);
+  MemSSARE::REVector &REs = MemRE.getRangeErrors(&I, SloppyAA);
 
   // If this is a load of a struct element, lookup in the struct errors.
   if (const RangeErrorMap::RangeError *StructRE = RMap.getStructRangeError(LI.getPointerOperand())) {
@@ -456,8 +449,6 @@ extern cl::opt<unsigned> CmpErrorThreshold;
 
 bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I)
 {
-  CmpInst &CI = cast<CmpInst>(I);
-
   LLVM_DEBUG(logInstruction(I));
 
   auto *Op1 = getOperandRangeError(I, 0U);

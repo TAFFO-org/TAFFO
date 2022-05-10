@@ -145,12 +145,12 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
       LLVM_DEBUG(dbgs() << "This value will be converted to fixpoint: ";);
       LLVM_DEBUG(val->print(dbgs()););
       LLVM_DEBUG(dbgs() << "\n";);
-      // Dato che la conversione non è forzata a un tipo specifico, cerco di convertire nel tipo migliore per contenere il dato
-      // Che non è per forza il tipo di destinazione
-      // Anzi, se si usa il tipo di destinazione si rischia di mandare tutto in vacca con overflow
+      // The conversion is not forced to a specific type, so let's choose the best type that contains our value
+      // Which might NOT be the destination type
+      // In fact, if we use the destination type, we risk screwing everything up causing overflows
       if (iofixpt.isFixedPoint()) {
         if (!wasHintForced) {
-          // In questo caso cercare di mettere il fixpoint migliore!
+          // In this case we try to choose the best fixed point type!
           auto info = getInputInfo(val);
           if (!info || !info->IRange) {
             llvm_unreachable("Cannot proceed in converting to a fix point a value without info!");

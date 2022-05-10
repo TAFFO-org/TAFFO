@@ -7,7 +7,7 @@
 #include "llvm/Support/Casting.h"
 #include <memory>
 
-#include "PtrCasts.hpp"
+#include <PtrCasts.h>
 #include <Metadata.h>
 
 namespace taffo

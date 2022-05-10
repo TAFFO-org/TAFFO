@@ -19,7 +19,7 @@ build_one_embedded()
   extra_cxx_includes="$embedded_sysroot"/include/c++/7.3.1/arm-none-eabi
   echo $bench > "$log"
   taffo \
-    *.cc -I../../embedded_src -I../../embedded_src/stm32f207 -c -o "$out" $CFLAGS \
+    *.cc -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out" $CFLAGS \
     -DBENCH_MAIN="$main" \
     -mixedmode \
     -costmodel "$costmodel" \
@@ -61,10 +61,10 @@ build_one_embedded_float()
   for f in *.cc; do
     out_flt="../../embedded_src/bench_obj/${f}_orig.o"
     ${CLANG} \
-      "$f" -I../../embedded_src -I../../embedded_src/stm32f207 -c -o "$out_flt" $CFLAGS \
+      "$f" -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out_flt" $CFLAGS \
       -DBENCH_MAIN="$main_flt" \
       -stdlib=libstdc++ -I${extra_cxx_includes} \
-      --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+      --target="$embedded_sysroot" $embedded_cpu --sysroot="$embedded_sysroot" -fshort-enums \
         &>> "$log"
     err=$?
     if [[ err -ne 0 ]]; then
@@ -99,8 +99,9 @@ if [[ -z $X_IS_CHILD ]]; then
   if [[ -z $CFLAGS ]];     then export CFLAGS="-g -O3"; fi
   if [[ -z $embedded_sysroot ]]; then export embedded_sysroot=/usr/local/arm-none-eabi; fi
   if [[ -z $embedded_triple ]];  then export embedded_triple=arm-none-eabi; fi
-  if [[ -z $embedded_cpu ]];     then export embedded_cpu=cortex-m3; fi
-  if [[ -z $costmodel ]];  then export costmodel=stm32; fi
+  if [[ -z $embedded_cpu ]];     then export embedded_cpu=$(make -C embedded_src cpuflags); fi
+  if [[ -z $costmodel ]];  then export costmodel=$(make -C embedded_src costmodel); fi
+  if [[ -z $TARGET   ]];  then export TARGET=$(make -C embedded_src target); fi
   if [[ -z $instrset ]];   then export instrset=embedded; fi
   if [[ -z $enobweight ]]; then export enobweight=1; fi
   if [[ -z $timeweight ]]; then export timeweight=100; fi
@@ -108,6 +109,7 @@ if [[ -z $X_IS_CHILD ]]; then
 
   printf 'Configuration:\n'
   printf '  CFLAGS           = %s\n' "$CFLAGS"
+  printf '  TARGET           = %s\n' "$TARGET"
   printf '  embedded_sysroot = %s\n' "$embedded_sysroot"
   printf '  embedded_triple  = %s\n' "$embedded_triple"
   printf '  embedded_cpu     = %s\n' "$embedded_cpu"

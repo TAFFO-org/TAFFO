@@ -1,5 +1,7 @@
-embedded_src/obj
-embedded_src/bench_obj
+embedded_src/obj_*/
+embedded_src/bench_obj/
+results/
+src/**/test*
 *.bin
 *.elf
 *.log

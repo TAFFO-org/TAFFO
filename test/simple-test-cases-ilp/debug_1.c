@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-fptype __attribute((annotate("scalar(range(-100, 100))"))) input;
+
 
 fptype CNDF(fptype __attribute((annotate("scalar()"))) InputX) {
 
@@ -18,6 +18,7 @@ fptype CNDF(fptype __attribute((annotate("scalar()"))) InputX) {
 
 
 int main() {
+	fptype __attribute((annotate("target('start') scalar(range(-100, 100))"))) input;
     CNDF(input);
     return 0;
 }

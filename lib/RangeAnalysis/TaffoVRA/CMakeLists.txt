@@ -11,7 +11,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   VRAFunctionStore.cpp
 
   ADDITIONAL_HEADERS
-  PtrCasts.hpp
   RangeOperationsCallWhitelist.hpp
   RangeOperations.hpp
   Range.hpp

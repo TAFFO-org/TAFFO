@@ -467,16 +467,25 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
   std::shared_ptr<MDInfo> finalMd = valueInfo(v)->metadata;
 
   if (Argument *arg = dyn_cast<Argument>(v)) {
+    LLVM_DEBUG(dbgs() << "Is a function argument, propagating to calls\n");
     setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
-    return;
+  } else {
+    LLVM_DEBUG(dbgs() << "Not a function argument, propagating to function arguments\n");
+    setTypesOnFunctionArgumentFromCallArgument(v, finalMd);
   }
+  
+  LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall ended\n");
+}
 
+
+void TaffoTuner::setTypesOnFunctionArgumentFromCallArgument(Value *v, std::shared_ptr<MDInfo> finalMd)
+{
   for (Use &use : v->uses()) {
     User *user = use.getUser();
     CallBase *call = dyn_cast<CallBase>(user);
     if (call == nullptr)
       continue;
-    LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall: processing " << *(user) << ")\n");
+    LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall: processing user " << *(user) << ")\n");
 
     Function *fun = dyn_cast<Function>(call->getCalledFunction());
     if (fun == nullptr) {
@@ -495,11 +504,12 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
     if (hasInfo(arg)) {
       valueInfo(arg)->metadata.reset(finalMd->clone());
       setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
+      LLVM_DEBUG(dbgs() << " --> set new metadata, now checking uses of the argument... (hope there's no recursion!)\n");
+      setTypesOnFunctionArgumentFromCallArgument(arg, finalMd);
     } else {
       LLVM_DEBUG(dbgs() << "Not looking good, formal arg #" << use.getOperandNo() << " (" << *arg << ") has no valueInfo, but actual argument does...\n");
     }
   }
-  LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall ended\n");
 }
 
 

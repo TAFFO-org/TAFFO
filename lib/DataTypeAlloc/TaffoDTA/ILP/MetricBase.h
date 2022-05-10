@@ -19,11 +19,9 @@ class MemWatcher;
 
 class MetricBase
 {
-
 protected:
   enum MetricKind { MK_Perf,
                     MK_Size };
-
 
 public:
   void setOpt(tuner::Optimizer *O) { opt = O; }
@@ -153,7 +151,7 @@ public:
   void handleFPPrecisionShift(llvm::Instruction *instruction,
                               shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handlePhi(llvm::Instruction *instruction,
-                 shared_ptr<tuner::ValueInfo> valueInfo);
+                 shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handleCastInstruction(llvm::Instruction *instruction,
                              shared_ptr<tuner::ValueInfo> valueInfo) override;
   int getMaxIntBitOfValue(llvm::Value *pValue) override;
@@ -194,6 +192,7 @@ protected:
   void handleSelect(llvm::Instruction *instruction,
                     shared_ptr<tuner::ValueInfo> valueInfo) override;
   std::string getEnobActivationVariable(llvm::Value *value, int cardinal) override;
+  int initRealEnobVariable(shared_ptr<tuner::OptimizerScalarInfo> optimizerInfo);
 };
 
 /*

@@ -1,13 +1,13 @@
 #include <stdio.h>
-double a __attribute((annotate("scalar(range(1, 2))")));
-double b __attribute((annotate("scalar(range(102400, 102400))")));
-double *pointer;
-double result;
 
 double resolvePointer(double * pointing);
 
 int main(){
 
+    double a __attribute((annotate("scalar(range(1, 2))")));
+    double b __attribute((annotate("scalar(range(102400, 102400))")));
+    double *pointer;
+    double result;
     pointer = &a;
     //We are forcing the previous assignment, little clang
     printf("pointer: %x\n", pointer);

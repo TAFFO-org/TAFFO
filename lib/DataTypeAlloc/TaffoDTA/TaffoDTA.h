@@ -74,7 +74,7 @@ struct TaffoTuner : public llvm::ModulePass {
                                          mdutils::FPType *fpu) const;
 
   void restoreTypesAcrossFunctionCall(llvm::Value *arg_or_call_param);
-
+  void setTypesOnFunctionArgumentFromCallArgument(llvm::Value *call_param, std::shared_ptr<mdutils::MDInfo> finalMd);
   void setTypesOnCallArgumentFromFunctionArgument(
       llvm::Argument *arg, std::shared_ptr<mdutils::MDInfo> finalMd);
 

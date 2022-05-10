@@ -4,6 +4,7 @@ import sys
 import os
 from pathlib import Path
 import math
+import glob
 from decimal import *
 import argparse
 import re
@@ -25,6 +26,30 @@ def BenchmarkList():
 
 def BenchmarkName(bpath):
   return os.path.basename(os.path.dirname(bpath))
+
+
+
+
+
+def ReadAndComputeDifference(fix_name, flt_name):
+  stream = os.popen('./difference.out ' + str(fix_name) + " " + str(flt_name))
+  output = stream.read()
+  tmp = output.split(",");
+  fix_nofl = Decimal(tmp[0].split(":")[1])
+  flo_nofl = Decimal(tmp[1].split(":")[1])
+  e_perc = Decimal(tmp[2].split(":")[1])
+  e_abs = Decimal(tmp[3].split(":")[1])
+
+  return {'fix_nofl': fix_nofl, \
+        'flo_nofl': flo_nofl, \
+        'e_perc': e_perc,
+        'e_abs': e_abs}
+
+
+  
+
+
+
 
 
 def ReadValues(filename):
@@ -90,24 +115,62 @@ if __name__ == "__main__":
                       help='regex of benchmarks to include (default=".*")')
   args = parser.parse_args()
 
-  g_res = {}
-  for bench in BenchmarkList():
-    if not re.search(args.only, bench):
-      continue
-    name = BenchmarkName(bench)
-    float_dataf = PolybenchRootDir() / 'results-out' / (name+'.float.csv')
-    float_data = ReadValues(str(float_dataf))
-    float_timesf = PolybenchRootDir() / 'results-out' / (name+'.float.time.txt')
-    float_times = ReadValues(str(float_timesf))
-    fixp_dataf = PolybenchRootDir() / 'results-out' / (name+'.csv')
-    fixp_data = ReadValues(str(fixp_dataf))
-    fixp_timesf = PolybenchRootDir() / 'results-out' / (name+'.time.txt')
-    fixp_times = ReadValues(str(fixp_timesf))
-    
-    res = ComputeDifference(fixp_data, float_data)
-    res.update(ComputeSpeedups(float_times, fixp_times))
-    g_res[BenchmarkName(bench)] = res
-    
-  print(PrettyPrint(g_res))
+
+
+  for resul in glob.glob(r"./result*"):
+    results=glob.glob(resul + r"/*")
+    print(resul)
+
+
+    g_res = {}
+    for bench in BenchmarkList():
+      if not re.search(args.only, bench):
+        continue
+      name = BenchmarkName(bench)
+
+
+
+
+
+      partial_result = [x for x in results if name in x]
+
+      partial_result = [x.split(".")[1] for x in partial_result if "float"  not in x]
+      partial_result= list(dict.fromkeys(partial_result))
+
+      
+
+
+
+
+      for fixed in partial_result:
+        float_result = [x for x in results if name in x]
+        float_result = [x for x in float_result if bench.split("/")[-1].split(".")[0] in x]
+        float_dataf = PolybenchRootDir() / [x for x in float_result if '.float.csv' in x][0]        
+        float_timesf = PolybenchRootDir() / [x for x in float_result if '.float.time.txt' in x][0]
+
+
+
+
+
+        fixp_dataf = PolybenchRootDir() /  str("."+fixed+'.csv')        
+        fixp_timesf = PolybenchRootDir() / str("."+fixed+'.time.txt')
+
+
+        """
+        res = ReadAndComputeDifference(fixp_dataf, float_dataf)
+        """
+
+        
+        float_data = ReadValues(str(float_dataf))  
+        fixp_data = ReadValues(str(fixp_dataf))  
+        res = ComputeDifference(fixp_data, float_data)
+        
+
+        float_times = ReadValues(str(float_timesf))
+        fixp_times = ReadValues(str(fixp_timesf))
+        res.update(ComputeSpeedups(float_times, fixp_times))
+        g_res[fixed.split("/")[-1]] = res
+      
+    print(PrettyPrint(g_res))
     
 

@@ -137,11 +137,11 @@ for opt in $raw_opts; do
           ;;
         -debug)
           if [[ $llvm_debug -ne 0 ]]; then
-            init_flags="$init_flags -debug";
-            dta_flags="$dta_flags -debug";
-            conversion_flags="$conversion_flags -debug";
-            vra_flags="$vra_flags -debug";
-            errorprop_flags="$errorprop_flags -debug";
+            init_flags="$init_flags -debug --stats";
+            dta_flags="$dta_flags -debug --stats";
+            conversion_flags="$conversion_flags -debug --stats";
+            vra_flags="$vra_flags -debug --stats";
+            errorprop_flags="$errorprop_flags -debug --stats";
           fi
           LOG=/dev/stderr
           ;;

@@ -1,7 +1,7 @@
 #ifndef TAFFO_VRA_RANGE_HPP
 #define TAFFO_VRA_RANGE_HPP
 
-#include "PtrCasts.hpp"
+#include <PtrCasts.h>
 
 #include <limits>
 #include <vector>

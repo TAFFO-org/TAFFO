@@ -43,7 +43,7 @@ int BENCH_MAIN(){
 
 
 /* Variable declaration/allocation. */
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) path[N][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(error(1e-100)) target('path')"))) path[N][N];
 
     TAFFO_DUMPCONFIG();
     TIMING_CPUCLOCK_START();
@@ -91,7 +91,3 @@ int BENCH_MAIN(){
 
     return 0;
 }
-
-#ifdef __TAFFO__
-void *__taffo_vra_starting_function = BENCH_MAIN;
-#endif

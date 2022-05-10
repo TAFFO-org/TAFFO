@@ -90,7 +90,7 @@ void MetadataManager::
       ResII.push_back(retrieveStructInfo(cast<MDNode>(ArgMDOp->get())).get());
       break;
     default:
-      assert("invalid funinfo type id");
+      assert(0 && "invalid funinfo type id");
     }
     ArgMDOp++;
   }

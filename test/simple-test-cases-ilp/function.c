@@ -20,7 +20,7 @@ int funInt(float x, float y){
 
 int main() {
     float a=10.2049;
-    float __attribute((annotate("range -7 40000"))) b=10.1024;
+    float __attribute((annotate("target('start') scalar(range(-7, 40000))"))) b=10.1024;
     int c = 2;
     
     
