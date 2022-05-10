@@ -96,43 +96,5 @@ Value *addAllocaToStart(FloatToFixed *ref, Function *oldf,
                         llvm::Value *ArraySize = (llvm::Value *)nullptr,
                         const llvm::Twine &Name = "");
 
-template <typename... Args>
-void wrapper_printf(llvm::IRBuilder<> &builder, Function *new_f, const std::string &str, Args... args)
-{
-
-  // %call3.flt = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.3, i64 0, i64 0), double %6), !taffo.info !31, !taffo.
-  /*
-  auto cntx = &new_f->getContext();
-  std::string function_name("printf");
-
-  Function *print = nullptr;
-  if ((print = new_f->getParent()->getFunction(function_name)) == 0) {
-    std::vector<llvm::Type *> fun_arguments;
-    fun_arguments.push_back(
-        llvm::Type::getInt8PtrTy(*cntx)); // depends on your type
-    FunctionType *fun_type = FunctionType::get(
-        llvm::Type::getInt32Ty(*cntx), fun_arguments, true);
-    print = llvm::Function::Create(fun_type, GlobalValue::ExternalLinkage,
-                                   function_name, new_f->getParent());
-  }
-
-  auto constant_string = builder.CreateGlobalStringPtr(str);
-  llvm::SmallVector<Value *, 4> small;
-
-  small.insert(small.begin(), constant_string);
-  small.insert(small.end(), {args...});
-
-  llvm::dbgs() << "Pizza\n";
-
-  print->dump();
-
-  for (const auto &a : small)
-    a->dump();
-
-
-  builder.CreateCall(print, small);
-*/
-}
-
 
 } // namespace TaffoMath

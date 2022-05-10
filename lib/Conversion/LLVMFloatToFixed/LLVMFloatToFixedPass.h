@@ -2,6 +2,7 @@
 #define __LLVM_FLOAT_TO_FIXED_PASS_H__
 
 #include "CallSiteVersions.h"
+#include "DebugUtils.h"
 #include "FixedPointType.h"
 #include "HandleSpecialFunction.h"
 #include "InputInfo.h"
@@ -12,12 +13,19 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedUser.h"
+#include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/Value.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "taffo-conversion"
 #define DEBUG_ANNOTATION "annotation"
@@ -354,6 +362,9 @@ struct FloatToFixed : public llvm::ModulePass {
       ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval);
       if (ip)
         ip = ip->getNextNode();
+      else if (llvm::Argument *arg = llvm::dyn_cast<llvm::Argument>(cvtfallval)) {
+        ip = &*arg->getParent()->begin()->begin();
+      }
       assert(ip && "ip mandatory for non-instruction values");
     }
     /*Nel caso in cui la chiave (valore rimosso in precedenze) è un float

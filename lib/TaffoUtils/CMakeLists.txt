@@ -13,6 +13,7 @@ add_library(${SELF}
   LLVMVersions.cpp
   LLVMVersions.h
   DebugUtils.h
+  DebugPrint.h
   MemSSAUtils.cpp
   MemSSAUtils.hpp
 )

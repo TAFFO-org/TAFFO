@@ -1,4 +1,5 @@
 #include "CreateSpecialFunction.h"
+#include "DebugPrint.h"
 #include "TAFFOMath.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -130,16 +131,17 @@ bool create_asin_acos(flttofix::FloatToFixed *float_to_fixed,
                       llvm::Function *new_f, llvm::Function *old_f, const flttofix::FixedPointType *old_ret_fxpt,
                       const flttofix::FixedPointType *old_arg_fxpt, std::function<Value *(flttofix::FloatToFixed *, Function *, flttofix::FixedPointType &, llvm::IRBuilder<> &)> lut_creator)
 {
+  auto &m = *new_f->getParent();
   LLVM_DEBUG(llvm::dbgs() << "####" << __func__ << " ####");
   Value *generic;
   // retrive context used in later instruction
   llvm::LLVMContext &cntx(old_f->getContext());
-  //retruve the data llayout
+  // retruve the data llayout
   DataLayout dataLayout(old_f->getParent());
   // Create new block
   BasicBlock::Create(cntx, "Entry", new_f);
   BasicBlock *where = &(new_f->getEntryBlock());
-  //builder to new_f
+  // builder to new_f
   llvm::IRBuilder<> builder(where, where->getFirstInsertionPt());
   // get return type fixed point
   flttofix::FixedPointType fxpret = *old_ret_fxpt;
@@ -153,7 +155,7 @@ bool create_asin_acos(flttofix::FloatToFixed *float_to_fixed,
   auto arg_store = builder.CreateAlloca(new_arg_type);
 
   builder.CreateStore(new_f->getArg(0), arg_store);
-  TaffoMath::wrapper_printf(builder, new_f, std::string("Angle stored %i\n"), builder.CreateLoad(arg_store));
+  wrapper_printf(builder, m, "Angle stored %i\n", builder.CreateLoad(arg_store));
 
 
   generic = builder.CreateLoad(arg_store);
@@ -174,14 +176,14 @@ bool create_asin_acos(flttofix::FloatToFixed *float_to_fixed,
       }
     }
     builder.CreateStore(generic, arg_store);
-    TaffoMath::wrapper_printf(builder, new_f, std::string("After Shift %i\n"), builder.CreateLoad(arg_store));
+    wrapper_printf(builder, m, "After Shift %i\n", builder.CreateLoad(arg_store));
 
     builder.CreateStore(builder.CreateSelect(
                             builder.CreateICmpSGE(ConstantInt::get(new_arg_type, 0), generic),
                             builder.CreateAdd(one.first, generic),
                             builder.CreateAdd(generic, one.first)),
                         arg_store);
-    TaffoMath::wrapper_printf(builder, new_f, std::string("Angle +1 and unsigned %i\n"), builder.CreateLoad(arg_store));
+    wrapper_printf(builder, m, "Angle +1 and unsigned %i\n", builder.CreateLoad(arg_store));
 
     fxparg.scalarIsSigned() = false;
 
@@ -196,7 +198,7 @@ bool create_asin_acos(flttofix::FloatToFixed *float_to_fixed,
     //  2 bit to store number +1 (to divide by 2) +  number of bit to store the multiplication of the table lenght
     generic = builder.CreateLShr(builder.CreateLoad(arg_store), ConstantInt::get(new_arg_type, fxparg.scalarBitsAmt() - 2 + 1 - static_cast<int>(log2(MathZ))));
 
-    TaffoMath::wrapper_printf(builder, new_f, std::string("Arc sin gep: %i\n"), generic);
+    wrapper_printf(builder, m, "Arc sin gep: %i\n", generic);
     builder.CreateStore(builder.CreateLoad(builder.CreateGEP(lut, {ConstantInt::get(new_arg_type, 0), generic})),
                         arg_store);
     if (fxparg.scalarBitsAmt() - 2 > fxpret.scalarFracBitsAmt()) {

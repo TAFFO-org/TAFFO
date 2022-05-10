@@ -1,4 +1,5 @@
 #include "CreateSpecialFunction.h"
+#include "DebugPrint.h"
 #include "TAFFOMath.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -9,7 +10,6 @@
 #include <llvm/ADT/APInt.h>
 #include <llvm/IR/Type.h>
 #include <string>
-
 
 namespace taffo
 {
@@ -31,6 +31,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
                     flttofix::FixedPointType &fxpret, Value *arg_value,
                     llvm::IRBuilder<> &builder)
 {
+  auto &m = *new_f->getParent();
   if (!fxparg.isFloatingPoint()) {
     assert(fxparg.scalarBitsAmt() == fxpret.scalarBitsAmt() &&
            "different type arg and ret");
@@ -54,7 +55,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
     }
 
     if (fxparg.scalarFracBitsAmt() > fxparg.scalarBitsAmt() - 3) {
-      TaffoMath::wrapper_printf(builder, new_f, std::string("Not to normalize\n"));
+      wrapper_printf(builder, m, "Not to normalize\n");
       can_continue = false;
     }
 
@@ -100,7 +101,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
 
       int current_arg_point = fxparg.scalarFracBitsAmt();
       int current_ret_point = fxpret.scalarFracBitsAmt();
-      TaffoMath::wrapper_printf(builder, new_f, std::string("Start Normalization\n"));
+      wrapper_printf(builder, m, "Start Normalization\n");
 
       Value *iterator_pi_2 =
           TaffoMath::addAllocaToStart(ref, new_f, builder, int_type, nullptr, "Iterator_pi_2");
@@ -122,16 +123,16 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
             BasicBlock::Create(cont, "bigger_than_2pi", new_f);
         BasicBlock *end_loop = BasicBlock::Create(cont, "body", new_f);
         builder.CreateStore(ConstantInt::get(int_type, 0), iterator_pi_2);
-        TaffoMath::wrapper_printf(builder, new_f, std::string("ArgValue: %i \n"), builder.CreateLoad(arg_value));
+        wrapper_printf(builder, m, "ArgValue: %i \n", builder.CreateLoad(arg_value));
         builder.CreateBr(normalize_cond);
 
         LLVM_DEBUG(dbgs() << "add Normalize\n");
         // normalize cond
         builder.SetInsertPoint(normalize_cond);
 
-        TaffoMath::wrapper_printf(builder, new_f, std::string("iterator_pi_2: %i \n"), builder.CreateLoad(iterator_pi_2));
-        TaffoMath::wrapper_printf(builder, new_f, std::string("point_ret: %i \n"), builder.CreateLoad(point_ret));
-        TaffoMath::wrapper_printf(builder, new_f, std::string("point_arg: %i \n"), builder.CreateLoad(point_arg));
+        wrapper_printf(builder, m, "iterator_pi_2: %i \n", builder.CreateLoad(iterator_pi_2));
+        wrapper_printf(builder, m, "point_ret: %i \n", builder.CreateLoad(point_ret));
+        wrapper_printf(builder, m, "point_arg: %i \n", builder.CreateLoad(point_arg));
 
 
         Value *last_bit_mask =
@@ -146,7 +147,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
         builder.CreateCondBr(generic, normalize, cmp_bigger_than_2pi);
         // normalize
         builder.SetInsertPoint(normalize);
-        TaffoMath::wrapper_printf(builder, new_f, std::string("Normalize \n"));
+        wrapper_printf(builder, m, "Normalize \n");
         builder.CreateStore(builder.CreateShl(builder.CreateLoad(arg_value),
                                               ConstantInt::get(int_type, 1)),
                             arg_value);
@@ -164,7 +165,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
             pointer_to_array,
             {ConstantInt::get(int_type, 0), builder.CreateLoad(iterator_pi_2)});
         generic = builder.CreateLoad(generic);
-        TaffoMath::wrapper_printf(builder, new_f, std::string("%i < %i \n"), generic, builder.CreateLoad(arg_value));
+        wrapper_printf(builder, m, "%i < %i \n", generic, builder.CreateLoad(arg_value));
         builder.CreateCondBr(builder.CreateICmpULE(generic,
                                                    builder.CreateLoad(arg_value)),
                              bigger_than_2pi, end_loop);
@@ -173,7 +174,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
         builder.CreateStore(builder.CreateSub(builder.CreateLoad(arg_value),
                                               generic),
                             arg_value);
-        TaffoMath::wrapper_printf(builder, new_f, std::string("ArgValue subtracted: %i \n"), builder.CreateLoad(arg_value));
+        wrapper_printf(builder, m, "ArgValue subtracted: %i \n", builder.CreateLoad(arg_value));
 
         builder.CreateBr(normalize_cond);
         builder.SetInsertPoint(end_loop);
@@ -191,7 +192,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
             pointer_to_array,
             {ConstantInt::get(int_type, 0), builder.CreateSub(ConstantInt::get(int_type, max - min + 1), builder.CreateLoad(iterator_pi_2))});
         generic = builder.CreateLoad(generic);
-        TaffoMath::wrapper_printf(builder, new_f, std::string("PI selected: %i \n"), generic);
+        wrapper_printf(builder, m, "PI selected: %i \n", generic);
         builder.CreateCondBr(builder.CreateICmpULE(generic,
                                                    builder.CreateLoad(arg_value)),
                              bigger_than_2pi, body);
@@ -204,7 +205,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
       }
       // set point at same position
       {
-        TaffoMath::wrapper_printf(builder, new_f, std::string("ArgValue end: %i \n"), builder.CreateLoad(arg_value));
+        wrapper_printf(builder, m, "ArgValue end: %i \n", builder.CreateLoad(arg_value));
         LLVM_DEBUG(dbgs() << "set point at same position\n");
         builder.CreateStore(ConstantInt::get(int_type, 0), iterator_pi_2);
         BasicBlock *body_2 = BasicBlock::Create(cont, "body", new_f);
@@ -231,13 +232,13 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
         builder.CreateStore(
             builder.CreateAShr(builder.CreateLoad(arg_value), generic), arg_value);
 
-        TaffoMath::wrapper_printf(builder, new_f, std::string("ArgValue shifted: %i \n"), builder.CreateLoad(arg_value));
+        wrapper_printf(builder, m, "ArgValue shifted: %i \n", builder.CreateLoad(arg_value));
         builder.CreateBr(end);
         builder.SetInsertPoint(end);
-        TaffoMath::wrapper_printf(builder, new_f, std::string("End Normalization\n"));
+        wrapper_printf(builder, m, "End Normalization\n");
       }
     } else {
-      TaffoMath::wrapper_printf(builder, new_f, std::string("Pre out value %i\n"), builder.CreateLoad(arg_value));
+      wrapper_printf(builder, m, "Pre out value %i\n", builder.CreateLoad(arg_value));
       if (fxparg.scalarFracBitsAmt() > fxpret.scalarFracBitsAmt()) {
         builder.CreateStore(
             builder.CreateLShr(builder.CreateLoad(arg_value), fxparg.scalarFracBitsAmt() - fxpret.scalarFracBitsAmt()), arg_value);
@@ -246,7 +247,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
         builder.CreateStore(
             builder.CreateShl(builder.CreateLoad(arg_value), fxpret.scalarFracBitsAmt() - fxparg.scalarFracBitsAmt()), arg_value);
       }
-      TaffoMath::wrapper_printf(builder, new_f, std::string("Output value %i\n"), builder.CreateLoad(arg_value));
+      wrapper_printf(builder, m, "Output value %i\n", builder.CreateLoad(arg_value));
     }
   } else {
     builder.CreateStore(builder.CreateFRem(builder.CreateLoad(arg_value), llvm::ConstantFP::get(arg_value->getType(), TaffoMath::pi_2)), arg_value);
@@ -312,22 +313,23 @@ Value *generateSinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::Fi
 }
 
 
-//Common function that create both sin and cos
+// Common function that create both sin and cos
 bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
                   llvm::Function *new_f, llvm::Function *old_f, const flttofix::FixedPointType *old_ret_fxpt,
                   const flttofix::FixedPointType *old_arg_fxpt)
 {
+  auto &m = *new_f->getParent();
   LLVM_DEBUG(llvm::dbgs() << "####" << __func__ << " ####");
   Value *generic;
   bool is_sin = taffo::start_with(taffo::HandledSpecialFunction::demangle((std::string)old_f->getName()), "sin");
   // retrive context used in later instruction
   llvm::LLVMContext &cntx(old_f->getContext());
-  //retruve the data llayout
+  // retruve the data llayout
   DataLayout dataLayout(old_f->getParent());
   // Create new block
   BasicBlock::Create(cntx, "Entry", new_f);
   BasicBlock *where = &(new_f->getEntryBlock());
-  //builder to new_f
+  // builder to new_f
   llvm::IRBuilder<> builder(where, where->getFirstInsertionPt());
   // get return type fixed point
   flttofix::FixedPointType fxpret = *old_ret_fxpt;
@@ -341,7 +343,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
   auto new_arg_type = new_f->getArg(0)->getType();
 
 
-  //common part
+  // common part
   auto internal_fxpt = !fxparg.isFloatingPoint() ? flttofix::FixedPointType(false, fxparg.scalarBitsAmt() - 3, fxparg.scalarBitsAmt()) : fxparg;
 
 
@@ -382,10 +384,10 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
   builder.SetInsertPoint(body);
 
 
-  //handle fxp arg
+  // handle fxp arg
   if (!new_arg_type->isFloatingPointTy()) {
 
-    TaffoMath::wrapper_printf(builder, new_f, std::string("start arg: %i\n"), builder.CreateLoad(arg_value));
+    wrapper_printf(builder, m, "start arg: %i\n", builder.CreateLoad(arg_value));
 
     // handle unsigned arg
     if (!fxparg.scalarIsSigned()) {
@@ -437,14 +439,14 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
       }
     }
 
-    TaffoMath::wrapper_printf(builder, new_f, std::string("pre norm: %i\n"), builder.CreateLoad(arg_value));
+    wrapper_printf(builder, m, "pre norm: %i\n", builder.CreateLoad(arg_value));
     if (fxparg.scalarIsSigned()) {
       builder.CreateStore(builder.CreateShl(builder.CreateLoad(arg_value), ConstantInt::get(new_arg_type, 1)), arg_value);
       fxparg.scalarFracBitsAmt() = fxparg.scalarFracBitsAmt() + 1;
       fxparg.scalarIsSigned() = false;
     }
 
-    TaffoMath::wrapper_printf(builder, new_f, std::string("Fxparg scalarfrac %i\n"), ConstantInt::get(new_arg_type, fxparg.scalarFracBitsAmt()));
+    wrapper_printf(builder, m, "Fxparg scalarfrac %i\n", ConstantInt::get(new_arg_type, fxparg.scalarFracBitsAmt()));
 
 
     fixrangeSinCos(float_to_fixed, new_f, fxparg, internal_fxpt, arg_value, builder);
@@ -599,7 +601,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
     }
 
   } else {
-    //handle float arg
+    // handle float arg
 
     // handle negative
     if (is_sin) {
@@ -798,7 +800,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
 
 
   Value *sin_g = generateSinLUT(float_to_fixed, new_f, internal_fxpt, builder);
-  //Value *cos_g = generateCosLUT(this, oldf, internal_fxpt, builder);
+  // Value *cos_g = generateCosLUT(this, oldf, internal_fxpt, builder);
   auto zero_arg = zero.first;
   Value *tmp_angle = builder.CreateLoad(arg_value);
 
@@ -807,7 +809,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
     std::string function_name("llvm.udiv.fix.i");
     function_name.append(std::to_string(internal_fxpt.scalarToLLVMType(cntx)->getScalarSizeInBits()));
 
-    TaffoMath::wrapper_printf(builder, new_f, std::string("post subtraction %i \n"), builder.CreateLoad(arg_value));
+    wrapper_printf(builder, m, "post subtraction %i \n", builder.CreateLoad(arg_value));
 
     Function *udiv = nullptr;
     if ((udiv = new_f->getParent()->getFunction(function_name)) == 0) {
@@ -843,7 +845,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
     generic = builder.CreateFPToUI(generic, llvm::Type::getInt32Ty(cntx));
   }
 
-  TaffoMath::wrapper_printf(builder, new_f, std::string("post div %i \n"), generic);
+  wrapper_printf(builder, m, "post div %i \n", generic);
 
   auto y_value = builder.CreateAlloca(new_arg_type);
   auto x_value = builder.CreateAlloca(new_arg_type);
@@ -855,8 +857,8 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
                       x_value);
 
 
-  TaffoMath::wrapper_printf(builder, new_f, std::string("x %i \n"), builder.CreateLoad(x_value));
-  TaffoMath::wrapper_printf(builder, new_f, std::string("y %i \n"), builder.CreateLoad(y_value));
+  wrapper_printf(builder, m, "x %i \n", builder.CreateLoad(x_value));
+  wrapper_printf(builder, m, "y %i \n", builder.CreateLoad(y_value));
 
 
   BasicBlock *return_point =
@@ -894,7 +896,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
 
 
   auto ret = builder.CreateLoad(arg_value);
-  TaffoMath::wrapper_printf(builder, new_f, std::string("ret :%i\n"), ret);
+  wrapper_printf(builder, m, "ret :%i\n", ret);
   builder.CreateRet(ret);
 
   return true;

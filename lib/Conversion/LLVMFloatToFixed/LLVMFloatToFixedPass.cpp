@@ -1,6 +1,7 @@
 #include "LLVMFloatToFixedPass.h"
 #include "CallSiteVersions.h"
 #include "CreateSpecialFunction.h"
+#include "DebugPrint.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -170,6 +171,9 @@ bool FloatToFixed::runOnModule(Module &m)
   cleanup(vals);
 
   convertIndirectCalls(m);
+
+  addDebugBBPrint(m);
+
 
   return true;
 }
@@ -488,15 +492,15 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
           newIt->setName(newIt->getName() + "." + fixtype.toString());
 
           /* Create a fake value to maintain type consistency because
-         * createFixFun has RAUWed all arguments
-         * FIXME: is there a cleaner way to do this? */
+           * createFixFun has RAUWed all arguments
+           * FIXME: is there a cleaner way to do this? */
           std::string name("placeholder");
           if (newIt->hasName()) {
             name += newIt->getName().str() + ".";
           }
           Value *placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
           /* Reimplement RAUW to defeat the same-type check (which is ironic because
-         * we are attempting to fix a type mismatch here) */
+           * we are attempting to fix a type mismatch here) */
           while (!newIt->materialized_use_empty()) {
             Use &U = *(newIt->uses().begin());
             U.set(placehValue);
@@ -508,7 +512,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
           newVals.push_back(placehValue);
 
           /* No need to mark the argument itself, readLocalMetadata will
-         * do it in a bit as its metadata has been cloned as well */
+           * do it in a bit as its metadata has been cloned as well */
         }
       }
 
