@@ -12,6 +12,7 @@
 #include "TaffoUtils/Metadata.h"
 #include "TaffoUtils/InputInfo.h"
 #include "TaffoUtils/TypeUtils.h"
+#include "MemoryGraph.h"
 #include "RangeAnalysis/TaffoVRA/VRAGlobalStore.hpp"
 
 using namespace llvm;
@@ -34,19 +35,19 @@ bool ReadTrace::runOnModule(Module &M) {
   std::unordered_map<Instruction*, double> derivedMinVals, derivedMaxVals;
 
   // calculate connected components on the memory operations
-  std::unordered_map<Value*, int> instToIndex;
-  std::unordered_map<int, Value*> indexToInst;
-  std::list<std::pair<int, int>> edges;
-  int instCount = buildMemEdgesList(M, instToIndex, indexToInst, edges);
+  taffo::MemoryGraph graph{M};
+  const std::list<std::pair<int, int>> &edges = graph.getEdges();
+  int instCount = graph.getNodeCount();
+  errs() << instCount << "\n";
   std::unordered_map<int, std::list<int>> cc;
-  std::unordered_map<int, std::list<Value*>> ccValues;
+  std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
   std::unordered_map<int, std::pair<double, double>> ccRanges;
   connectedComponents(instCount, edges, cc);
 
   for (auto &it : cc) {
     std::list<int> l = it.second;
     for (auto x : l) {
-      ccValues[it.first].emplace_back(indexToInst[x]);
+      ccValues[it.first].emplace_back(graph.getNode(x));
 //      errs() << typeName(*indexToInst[x]) << ": ";
 //      errs() << *indexToInst[x] << "\n";
     }
@@ -62,13 +63,16 @@ bool ReadTrace::runOnModule(Module &M) {
   for (const auto &it : ccRanges) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
-    for (auto *x : l) {
-      errs() << typeName(*x) << ": ";
+    for (auto &x : l) {
+      errs() << typeName(*(x->value)) << ": ";
       errs() << "[" << range.first << ", " << range.second << "]: ";
-      if(disableConversionForExternalFun(x)) {
-        errs() << "[disabled]: ";
+      if(x->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
+        auto *funCall = static_cast<taffo::FunCallArgWrapper *>(&(*x));
+        if (funCall->isExternalFunc) {
+          errs() << "[disabled]: ";
+        }
       }
-      errs() << *x << "\n";
+      errs() << *(x->value) << "\n";
     }
     errs() << "-----\n";
   }
@@ -95,10 +99,16 @@ bool ReadTrace::runOnModule(Module &M) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
     bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
-      return disableConversionForExternalFun(item);
+      if(item->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
+        auto *funCall = static_cast<const taffo::FunCallArgWrapper *>(&(*item));
+        if (funCall->isExternalFunc) {
+          return true;
+        }
+      }
+      return false;
     });
-    for (auto *value : l) {
-      valuesRanges[value] = std::make_shared<DynamicValueInfo>(
+    for (auto &value : l) {
+      valuesRanges[value->value] = std::make_shared<DynamicValueInfo>(
           range.first, range.second, disableConversion);
     }
   }
@@ -216,15 +226,15 @@ bool ReadTrace::disableConversionForExternalFun(const Value* v) {
   return false;
 }
 
-void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<Value*>>& ccValues,
+void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>>& ccValues,
                                   const std::unordered_map<std::string, double>& minVals,
                                   const std::unordered_map<std::string, double>& maxVals,
                                   std::unordered_map<int, std::pair<double, double>>& ccRanges) {
   for (const auto& it: ccValues) {
     double minV, maxV;
     bool hasValue = false;
-    for (const auto value: it.second) {
-      auto valueName = value->getName().str();
+    for (const auto &value: it.second) {
+      auto valueName = value->value->getName().str();
       if (minVals.count(valueName) > 0) {
         if (!hasValue) {
           hasValue = true;
@@ -242,7 +252,7 @@ void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<Value*
   }
 }
 
-std::string ReadTrace::typeName(Value& val) {
+std::string ReadTrace::typeName(const Value& val) {
   if (isa<Argument>(val)) {
     return "Argument";
   } else if (isa<Constant>(val)) {

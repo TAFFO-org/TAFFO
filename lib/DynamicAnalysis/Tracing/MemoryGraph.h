@@ -25,7 +25,7 @@ protected:
 
 public:
   const ValueType type;
-  const llvm::Value *value;
+  llvm::Value *value;
   virtual bool operator==(const ValueWrapper &other) const
   {
     return type == other.type && value == other.value;
@@ -91,6 +91,14 @@ public:
     return edges;
   }
 
+  int getNodeCount() {
+    return index + 1;
+  }
+
+  std::shared_ptr<ValueWrapper> getNode(int i) {
+    return indexToInst.at(i);
+  }
+
 private:
   llvm::Module &M;
 
@@ -119,7 +127,8 @@ private:
   void handleLoadInst(llvm::LoadInst* loadInst);
   void handleGEPInst(llvm::GetElementPtrInst* gepInst);
   void addUsesToGraph(llvm::Value* V);
-  std::shared_ptr<ValueWrapper> wrapValue(llvm::Value *V, int argNo = -1);
+  std::shared_ptr<ValueWrapper> wrapValue(llvm::Value *V);
+  std::shared_ptr<ValueWrapper> wrapValueUse(llvm::Use *V);
 };
 
 } // namespace taffo
