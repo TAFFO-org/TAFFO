@@ -67,6 +67,10 @@ llvm::Value *MemoryGraph::queuePop()
 
 void MemoryGraph::seedRoots()
 {
+  for (llvm::GlobalVariable &V : M.globals()) {
+    queuePush(&V);
+  }
+
   for (auto &F : M) {
     if (!F.hasName() || F.isDeclaration()) {
       continue;
@@ -96,9 +100,15 @@ bool MemoryGraph::isExternalCallWithPointer(const llvm::CallInst *callInst, int 
   }
   if (argType->getType()->isPointerTy() && fun->getBasicBlockList().empty()) {
     // this is an external function, don't touch it
-    return true;
+    return !isSafeExternalFunction(fun);
   }
   return false;
+}
+
+bool MemoryGraph::isSafeExternalFunction(const llvm::Function *F) const
+{
+  const llvm::StringRef FName = F->getName();
+  return FName == "free";
 }
 
 std::shared_ptr<ValueWrapper> MemoryGraph::wrapValue(llvm::Value *V)
@@ -150,12 +160,22 @@ void MemoryGraph::makeGraph()
     }
     if (auto *allocaInst = dyn_cast<AllocaInst>(Inst)) {
       handleAllocaInst(allocaInst);
+    } else if (isMallocLike(Inst)) {
+      handleMallocLikeInst(dyn_cast<CallInst>(Inst));
+    } else if (auto *globalVar = dyn_cast<GlobalVariable>(Inst)) {
+      handleGlobalVar(globalVar);
     } else if (auto *storeInst = dyn_cast<StoreInst>(Inst)) {
       handleStoreInst(storeInst);
     } else if (auto *loadInst = dyn_cast<LoadInst>(Inst)) {
       handleLoadInst(loadInst);
     } else if (auto *gepInst = dyn_cast<GetElementPtrInst>(Inst)) {
       handleGEPInst(gepInst);
+    } else if (auto *castInst = dyn_cast<CastInst>(Inst)) {
+      if (castInst->getDestTy()->isPointerTy()) {
+        handlePointerCastInst(castInst);
+      } else if (auto *ptrToIntCastInst = dyn_cast<PtrToIntInst>(Inst)) {
+        handlePtrToIntCast(ptrToIntCastInst);
+      }
     }
     markVisited(Inst);
   }
@@ -177,6 +197,16 @@ void MemoryGraph::handleAllocaInst(llvm::AllocaInst *allocaInst)
   addUsesToGraph(allocaInst);
 }
 
+void MemoryGraph::handleMallocLikeInst(llvm::CallInst *mallocLikeInst)
+{
+  addUsesToGraph(mallocLikeInst);
+}
+
+void MemoryGraph::handleGlobalVar(llvm::GlobalVariable *globalVariable)
+{
+  addUsesToGraph(globalVariable);
+}
+
 void MemoryGraph::handleStoreInst(llvm::StoreInst *storeInst)
 {
   auto *dstInst = storeInst->getValueOperand();
@@ -196,6 +226,38 @@ void MemoryGraph::handleLoadInst(llvm::LoadInst *loadInst)
 void MemoryGraph::handleGEPInst(llvm::GetElementPtrInst *gepInst)
 {
   addUsesToGraph(gepInst);
+}
+
+void MemoryGraph::handlePointerCastInst(llvm::CastInst *castInst)
+{
+  addUsesToGraph(castInst);
+}
+
+void MemoryGraph::handlePtrToIntCast(llvm::PtrToIntInst *ptrToIntInst)
+{
+  auto srcWrapper = wrapValue(ptrToIntInst);
+
+  std::list<llvm::Value*> localQueue;
+  std::unordered_map<llvm::Value*, bool> localVisited;
+  localQueue.push_back(ptrToIntInst);
+
+  while (!localQueue.empty()) {
+    auto *localInst = localQueue.front();
+    localQueue.pop_front();
+    if (localVisited.count(localInst) > 0) {
+      continue ;
+    }
+    for (auto &Inst: localInst->uses()) {
+      auto *dstInst = Inst.getUser();
+      if (auto *intToPtrInst = dyn_cast<IntToPtrInst>(dstInst)) {
+        auto dstWrapper = wrapValue(intToPtrInst);
+        addToGraph(srcWrapper, dstWrapper);
+      } else if (localVisited.count(dstInst) == 0) {
+        localQueue.push_back(dstInst);
+      }
+      localVisited[localInst] = true;
+    }
+  }
 }
 
 } // namespace taffo

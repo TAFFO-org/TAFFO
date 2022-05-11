@@ -122,10 +122,15 @@ private:
   bool isMallocLike(const llvm::Function *F) const;
   bool isMallocLike(const llvm::Value *Inst) const;
   bool isExternalCallWithPointer(const llvm::CallInst *V, int argNo) const;
+  bool isSafeExternalFunction(const llvm::Function *F) const;
   void handleAllocaInst(llvm::AllocaInst* allocaInst);
   void handleStoreInst(llvm::StoreInst* storeInst);
   void handleLoadInst(llvm::LoadInst* loadInst);
   void handleGEPInst(llvm::GetElementPtrInst* gepInst);
+  void handleMallocLikeInst(llvm::CallInst* mallocLikeInst);
+  void handleGlobalVar(llvm::GlobalVariable* globalVariable);
+  void handlePointerCastInst(llvm::CastInst* castInst);
+  void handlePtrToIntCast(llvm::PtrToIntInst* ptrToIntInst);
   void addUsesToGraph(llvm::Value* V);
   std::shared_ptr<ValueWrapper> wrapValue(llvm::Value *V);
   std::shared_ptr<ValueWrapper> wrapValueUse(llvm::Use *V);
