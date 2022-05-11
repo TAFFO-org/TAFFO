@@ -6,6 +6,7 @@
 #include "llvm/Pass.h"
 
 #include "TaffoUtils/InputInfo.h"
+#include "MemoryGraph.h"
 
 //------------------------------------------------------------------------------
 // New PM interface
@@ -26,9 +27,9 @@ private:
         : min(Min), max(Max), disableConversion(DisableConversion) {}
   };
 
-  std::string typeName(llvm::Value& val);
+  std::string typeName(const llvm::Value& val);
 
-  void calculateCCRanges(const std::unordered_map<int, std::list<llvm::Value*>>& ccValues,
+  void calculateCCRanges(const std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>>& ccValues,
                                     const std::unordered_map<std::string, double>& minVals,
                                     const std::unordered_map<std::string, double>& maxVals,
                                     std::unordered_map<int, std::pair<double, double>>& ccRanges);
