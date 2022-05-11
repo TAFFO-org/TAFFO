@@ -143,6 +143,9 @@ bool ReadTrace::runOnModule(Module &M) {
       auto instError = std::shared_ptr<double>{};
       mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
       mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
+      errs() << "annotate inst:\n " << *Inst
+             << ", metadata:\n " << ii.toString()
+             << "\n";
       Changed = true;
     }
     if (auto *Arg = dyn_cast<Argument>(value)) {
@@ -162,21 +165,25 @@ bool ReadTrace::runOnModule(Module &M) {
           *ArgII = ii;
           FunMD[Arg->getArgNo()] = ArgII;
         }
-        errs() << "annotate arg: " << *Arg
-               << ", metadata: " << dyn_cast<mdutils::InputInfo>(FunMD[Arg->getArgNo()])->toString()
+        errs() << "annotate arg:\n " << *Arg
+               << ", metadata:\n " << dyn_cast<mdutils::InputInfo>(FunMD[Arg->getArgNo()])->toString()
                << "\n";
         mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
+        Changed = true;
       }
     }
 
-//    if (auto *GlobalVal = dyn_cast<GlobalObject>(value)) {
-//      auto instType = std::shared_ptr<mdutils::FloatType>{};
-//      auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
-//      auto instError = std::shared_ptr<double>{};
-//      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
-//      mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
-//      Changed = true;
-//    }
+    if (auto *GlobalVal = dyn_cast<GlobalObject>(value)) {
+      auto instType = std::shared_ptr<mdutils::FloatType>{};
+      auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
+      auto instError = std::shared_ptr<double>{};
+      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
+      mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
+      errs() << "annotate global:\n " << *GlobalVal
+             << ", metadata:\n " << ii.toString()
+             << "\n";
+      Changed = true;
+    }
 //    if (auto *ConstVal = dyn_cast<Constant>(value)) {
 //      auto instType = std::shared_ptr<mdutils::FloatType>{};
 //      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
