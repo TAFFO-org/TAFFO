@@ -13,6 +13,7 @@
 #include "TaffoUtils/InputInfo.h"
 #include "TaffoUtils/TypeUtils.h"
 #include "MemoryGraph.h"
+#include "ConnectedComponents.h"
 #include "RangeAnalysis/TaffoVRA/VRAGlobalStore.hpp"
 
 using namespace llvm;
@@ -39,10 +40,10 @@ bool ReadTrace::runOnModule(Module &M) {
   const std::list<std::pair<int, int>> &edges = graph.getEdges();
   int instCount = graph.getNodeCount();
   errs() << instCount << "\n";
-  std::unordered_map<int, std::list<int>> cc;
+  taffo::ConnectedComponents ccAlg{instCount, edges};
+  const std::unordered_map<int, std::list<int>> &cc = ccAlg.getResult();
   std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
   std::unordered_map<int, std::pair<double, double>> ccRanges;
-  connectedComponents(instCount, edges, cc);
 
   for (auto &it : cc) {
     std::list<int> l = it.second;
@@ -143,9 +144,9 @@ bool ReadTrace::runOnModule(Module &M) {
       auto instError = std::shared_ptr<double>{};
       mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
       mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
-      errs() << "annotate inst:\n " << *Inst
-             << ", metadata:\n " << ii.toString()
-             << "\n";
+//      errs() << "annotate inst:\n " << *Inst
+//             << ", metadata:\n " << ii.toString()
+//             << "\n";
       Changed = true;
     }
     if (auto *Arg = dyn_cast<Argument>(value)) {
