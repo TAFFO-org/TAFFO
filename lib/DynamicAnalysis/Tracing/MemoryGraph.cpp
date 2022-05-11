@@ -210,10 +210,12 @@ void MemoryGraph::handleGlobalVar(llvm::GlobalVariable *globalVariable)
 void MemoryGraph::handleStoreInst(llvm::StoreInst *storeInst)
 {
   auto *dstInst = storeInst->getValueOperand();
-  auto srcWrapper = wrapValue(storeInst);
-  auto dstWrapper = wrapValue(dstInst);
-  addToGraph(srcWrapper, dstWrapper);
-  queuePush(dstInst);
+  if (dstInst->getType()->isPointerTy()) {
+    auto srcWrapper = wrapValue(storeInst);
+    auto dstWrapper = wrapValue(dstInst);
+    addToGraph(srcWrapper, dstWrapper);
+    queuePush(dstInst);
+  }
 }
 
 void MemoryGraph::handleLoadInst(llvm::LoadInst *loadInst)
