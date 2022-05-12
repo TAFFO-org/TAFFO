@@ -825,6 +825,12 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
       return builder.CreateBitCast(operand, newType);
     }
   }
+  if (IntToPtrInst *intToPtrInst = dyn_cast<IntToPtrInst>(cast)) {
+    Type *newType = getLLVMFixedPointTypeForFloatType(intToPtrInst->getDestTy(), fixpt);
+    if (newType) {
+      return builder.CreateIntToPtr(operand, newType);
+    }
+  }
   if (operand->getType()->isFloatingPointTy()) {
     /* fptosi, fptoui, fptrunc, fpext */
     if (cast->getOpcode() == Instruction::FPToSI) {

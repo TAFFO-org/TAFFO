@@ -3,6 +3,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 
+#include "TracingUtils.h"
+
 namespace taffo
 {
 
@@ -14,39 +16,23 @@ MemoryGraph::MemoryGraph(llvm::Module &Module): M{Module}
   makeGraph();
 }
 
-bool MemoryGraph::isMallocLike(const llvm::Function *F) const
-{
-  const llvm::StringRef FName = F->getName();
-  // TODO make sure this works in other platforms
-  return FName == "malloc" || FName == "calloc" || FName == "_Znwm" || FName == "_Znam";
-}
-
-bool MemoryGraph::isMallocLike(const llvm::Value *Inst) const
-{
-  if (auto *callInst = dyn_cast<CallInst>(Inst)) {
-    auto *callee = callInst->getCalledFunction();
-    return callee && isMallocLike(callee);
-  }
-  return false;
-}
-
 int MemoryGraph::assignOrGetIndex(std::shared_ptr<ValueWrapper> Inst)
 {
-  errs() << "assignOrGetIndex:" << "\n";
-  errs() << "-------" << "\n";
+//  errs() << "assignOrGetIndex:" << "\n";
+//  errs() << "-------" << "\n";
   auto it = instToIndex.find(Inst);
   if (it != instToIndex.end()) {
-    errs() << "index exists:" << "\n";
-    errs() << it->second << "\n";
-    errs() << *(Inst->value) << "\n";
+//    errs() << "index exists:" << "\n";
+//    errs() << it->second << "\n";
+//    errs() << *(Inst->value) << "\n";
     return it->second;
   } else {
     index++;
     instToIndex[Inst] = index;
     indexToInst[index] = Inst;
-    errs() << "new index:" << "\n";
-    errs() << index << "\n";
-    errs() << *(Inst->value) << "\n";
+//    errs() << "new index:" << "\n";
+//    errs() << index << "\n";
+//    errs() << *(Inst->value) << "\n";
     return index;
   }
 }
@@ -82,51 +68,12 @@ void MemoryGraph::seedRoots()
         }
         if (auto *allocaInst = dyn_cast<AllocaInst>(&Inst)) {
           queuePush(allocaInst);
-        } else if (isMallocLike(&Inst)) {
+        } else if (TracingUtils::isMallocLike(&Inst)) {
           queuePush(&Inst);
         }
       }
     }
   }
-}
-
-bool MemoryGraph::isExternalCallWithPointer(const llvm::CallInst *callInst, int argNo) const
-{
-  auto &argType = callInst->getOperandUse(argNo);
-  auto *fun = callInst->getCalledFunction();
-  if (!fun) {
-    // conservatively consider all unknown functions with pointer arg as external
-    return argType->getType()->isPointerTy();
-  }
-  if (argType->getType()->isPointerTy() && fun->getBasicBlockList().empty()) {
-    // this is an external function, don't touch it
-    return !isSafeExternalFunction(fun);
-  }
-  return false;
-}
-
-bool MemoryGraph::isSafeExternalFunction(const llvm::Function *F) const
-{
-  const llvm::StringRef FName = F->getName();
-  return FName == "free";
-}
-
-std::shared_ptr<ValueWrapper> MemoryGraph::wrapValue(llvm::Value *V)
-{
-  return std::make_shared<InstWrapper>(V);
-}
-
-std::shared_ptr<ValueWrapper> MemoryGraph::wrapValueUse(llvm::Use *V)
-{
-  std::shared_ptr<ValueWrapper> wrapper;
-  auto *callInst = dyn_cast<CallInst>(V->getUser());
-  if (callInst && !isMallocLike(callInst)) {
-    wrapper = std::make_shared<FunCallArgWrapper>(
-        callInst, V->getOperandNo(), isExternalCallWithPointer(callInst, V->getOperandNo()));
-  } else {
-    wrapper = std::make_shared<InstWrapper>(V->getUser());
-  }
-  return wrapper;
 }
 
 void MemoryGraph::addToGraph(std::shared_ptr<ValueWrapper> src, std::shared_ptr<ValueWrapper> dst)
@@ -160,7 +107,7 @@ void MemoryGraph::makeGraph()
     }
     if (auto *allocaInst = dyn_cast<AllocaInst>(Inst)) {
       handleAllocaInst(allocaInst);
-    } else if (isMallocLike(Inst)) {
+    } else if (TracingUtils::isMallocLike(Inst)) {
       handleMallocLikeInst(dyn_cast<CallInst>(Inst));
     } else if (auto *globalVar = dyn_cast<GlobalVariable>(Inst)) {
       handleGlobalVar(globalVar);
@@ -183,10 +130,10 @@ void MemoryGraph::makeGraph()
 
 void MemoryGraph::addUsesToGraph(llvm::Value *V)
 {
-  auto srcWrapper = wrapValue(V);
+  auto srcWrapper = ValueWrapper::wrapValue(V);
   for (auto &Inst: V->uses()) {
     auto *dstInst = Inst.getUser();
-    auto dstWrapper = wrapValueUse(&Inst);
+    auto dstWrapper = ValueWrapper::wrapValueUse(&Inst);
     addToGraph(srcWrapper, dstWrapper);
     queuePush(dstInst);
   }
@@ -211,8 +158,8 @@ void MemoryGraph::handleStoreInst(llvm::StoreInst *storeInst)
 {
   auto *dstInst = storeInst->getValueOperand();
   if (dstInst->getType()->isPointerTy()) {
-    auto srcWrapper = wrapValue(storeInst);
-    auto dstWrapper = wrapValue(dstInst);
+    auto srcWrapper = ValueWrapper::wrapValue(storeInst);
+    auto dstWrapper = ValueWrapper::wrapValue(dstInst);
     addToGraph(srcWrapper, dstWrapper);
     queuePush(dstInst);
   }
@@ -237,7 +184,7 @@ void MemoryGraph::handlePointerCastInst(llvm::CastInst *castInst)
 
 void MemoryGraph::handlePtrToIntCast(llvm::PtrToIntInst *ptrToIntInst)
 {
-  auto srcWrapper = wrapValue(ptrToIntInst);
+  auto srcWrapper = ValueWrapper::wrapValue(ptrToIntInst);
 
   std::list<llvm::Value*> localQueue;
   std::unordered_map<llvm::Value*, bool> localVisited;
@@ -252,7 +199,7 @@ void MemoryGraph::handlePtrToIntCast(llvm::PtrToIntInst *ptrToIntInst)
     for (auto &Inst: localInst->uses()) {
       auto *dstInst = Inst.getUser();
       if (auto *intToPtrInst = dyn_cast<IntToPtrInst>(dstInst)) {
-        auto dstWrapper = wrapValue(intToPtrInst);
+        auto dstWrapper = ValueWrapper::wrapValue(intToPtrInst);
         addToGraph(srcWrapper, dstWrapper);
       } else if (localVisited.count(dstInst) == 0) {
         localQueue.push_back(dstInst);
