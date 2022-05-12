@@ -11,7 +11,7 @@ namespace taffo
 class ConnectedComponents
 {
 public:
-  ConnectedComponents(const int NodeCount, const std::list<std::pair<int, int>> &Edges);
+  ConnectedComponents(int NodeCount, const std::list<std::pair<int, int>> &Edges);
 
   const std::unordered_map<int, std::list<int>>& getResult() {
       return cc;
