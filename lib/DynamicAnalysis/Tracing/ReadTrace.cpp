@@ -14,6 +14,7 @@
 #include "TaffoUtils/TypeUtils.h"
 #include "MemoryGraph.h"
 #include "ConnectedComponents.h"
+#include "ExpandEqualValue.h"
 #include "RangeAnalysis/TaffoVRA/VRAGlobalStore.hpp"
 
 using namespace llvm;
@@ -39,7 +40,7 @@ bool ReadTrace::runOnModule(Module &M) {
   taffo::MemoryGraph graph{M};
   const std::list<std::pair<int, int>> &edges = graph.getEdges();
   int instCount = graph.getNodeCount();
-  errs() << instCount << "\n";
+  errs() << "Nodes in memory graph: " << instCount << "\n";
   taffo::ConnectedComponents ccAlg{instCount, edges};
   const std::unordered_map<int, std::list<int>> &cc = ccAlg.getResult();
   std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
@@ -55,15 +56,18 @@ bool ReadTrace::runOnModule(Module &M) {
 //    errs() << "-----\n";
   }
 
+  taffo::ExpandEqualValue expand{ccValues};
+  auto &expandedCCValues = expand.getResult();
+
   // read the trace file
   parseTraceFiles(minVals, maxVals, valTypes);
 
   // calculate value ranges for every component
-  calculateCCRanges(ccValues, minVals, maxVals, ccRanges);
+  calculateCCRanges(expandedCCValues, minVals, maxVals, ccRanges);
 
   for (const auto &it : ccRanges) {
     const auto range = it.second;
-    const auto l = ccValues[it.first];
+    const auto l = expandedCCValues[it.first];
     for (auto &x : l) {
       errs() << typeName(*(x->value)) << ": ";
       errs() << "[" << range.first << ", " << range.second << "]: ";
@@ -98,7 +102,7 @@ bool ReadTrace::runOnModule(Module &M) {
 
   for (const auto &it : ccRanges) {
     const auto range = it.second;
-    const auto l = ccValues[it.first];
+    const auto l = expandedCCValues[it.first];
     bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
       if(item->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCall = static_cast<const taffo::FunCallArgWrapper *>(&(*item));
@@ -217,23 +221,6 @@ bool ReadTrace::runOnModule(Module &M) {
   return Changed;
 }
 
-bool ReadTrace::disableConversionForExternalFun(const Value* v) {
-  if (auto *arg = dyn_cast<Argument>(v)) {
-    errs() << "check arg: " << *arg << "\n";
-    if (arg->getType()->isPointerTy()) {
-      auto *fun = arg->getParent();
-      if (fun->getBasicBlockList().empty()) {
-        // this is an external function, don't touch it
-        return true;
-      }
-    }
-  }
-  if (auto *fun = dyn_cast<Function>(v)) {
-    return fun->isVarArg();
-  }
-  return false;
-}
-
 void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>>& ccValues,
                                   const std::unordered_map<std::string, double>& minVals,
                                   const std::unordered_map<std::string, double>& maxVals,
@@ -274,30 +261,6 @@ std::string ReadTrace::typeName(const Value& val) {
   }
 }
 
-int merge(int* parent, int x)
-{
-  if (parent[x] == x)
-    return x;
-  return merge(parent, parent[x]);
-}
-
-void ReadTrace::connectedComponents(const int n, const std::list<std::pair<int, int>>& edges,
-                                    std::unordered_map<int, std::list<int>>& cc) {
-  int parent[n];
-  for (int i = 0; i < n; i++) {
-    parent[i] = i;
-  }
-  for (auto x : edges) {
-    parent[merge(parent, x.first)] = merge(parent, x.second);
-  }
-  for (int i = 0; i < n; i++) {
-    parent[i] = merge(parent, parent[i]);
-  }
-  for (int i = 0; i < n; i++) {
-    cc[parent[i]].push_back(i);
-  }
-}
-
 bool isFPVal(Value* value) {
   if (auto *inst = dyn_cast<AllocaInst>(value)) {
     return taffo::isFloatType(inst->getAllocatedType());
@@ -319,111 +282,6 @@ bool isFPVal(Value* value) {
   }
   return taffo::isFloatType(value->getType());
 }
-
-
-int ReadTrace::buildMemEdgesList(Module &M, std::unordered_map<Value*, int>& instToIndex,
-                                  std::unordered_map<int, Value*>& indexToInst,
-                                  std::list<std::pair<int, int>>& edges) {
-  int index = -1;
-
-  auto getIndex = [&instToIndex, &indexToInst, &index](Value* Inst) -> int {
-    auto it = instToIndex.find(Inst);
-    //errs() << "*** " << *Inst << "\n";
-    if (it != instToIndex.end()) {
-      return it->second;
-    } else {
-      index++;
-      instToIndex[Inst] = index;
-      indexToInst[index] = Inst;
-      return index;
-    }
-  };
-
-  for (auto &F : M) {
-    if (!F.hasName() || F.isDeclaration()) continue;
-    for (auto &BB: F.getBasicBlockList()) {
-      for (auto &Inst: BB.getInstList()) {
-        if (Inst.isDebugOrPseudoInst()) continue ;
-        if (auto *callInst = dyn_cast<CallInst>(&Inst)) {
-          if (auto *calledFunction = callInst->getCalledFunction()) {
-            errs() << "called function: " << *calledFunction << "\n";
-            int i = -1;
-            for (Use &actualArg: callInst->arg_operands()) {
-              i++;
-              if (isFPVal(actualArg)) {
-                errs() << "called fun arg: " << *actualArg << "\n";
-                int actualArgNodeIndex = getIndex(actualArg);
-                if (calledFunction->isVarArg()) {
-                  int funIndex = getIndex(calledFunction);
-                  edges.emplace_back(funIndex, actualArgNodeIndex);
-                } else {
-                  auto *formalArg = calledFunction->getArg(i);
-                  errs() << "called fun formal arg: " << *formalArg << "\n";
-                  int formalArgNodeIndex = getIndex(formalArg);
-                  edges.emplace_back(formalArgNodeIndex, actualArgNodeIndex);
-                }
-              }
-            }
-          }
-        }
-        if (isa<AllocaInst, StoreInst, LoadInst, GetElementPtrInst, ReturnInst>(Inst) && isFPVal(&Inst)) {
-          int instIndex = getIndex(&Inst);
-          for (auto child: Inst.users()) {
-            if (isFPVal(child)) {
-              int childIndex = getIndex(child);
-              edges.emplace_back(instIndex, childIndex);
-            }
-          }
-
-          if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
-            auto storeSrc = storeInst->getValueOperand();
-            if (isFPVal(storeSrc)) {
-              int srcIndex = getIndex(storeSrc);
-              edges.emplace_back(instIndex, srcIndex);
-            }
-
-            auto storeDst = storeInst->getPointerOperand();
-            if (isFPVal(storeDst)) {
-              int dstIndex = getIndex(storeDst);
-              edges.emplace_back(instIndex, dstIndex);
-            }
-          }
-
-          if (auto *loadInst = dyn_cast<LoadInst>(&Inst)) {
-            auto loadSrc = loadInst->getPointerOperand();
-            if (isFPVal(loadSrc)) {
-              int srcIndex = getIndex(loadSrc);
-              edges.emplace_back(instIndex, srcIndex);
-            }
-          }
-
-          if (auto *gepInst = dyn_cast<GetElementPtrInst>(&Inst)) {
-            auto gepSrc = gepInst->getPointerOperand();
-            if (isFPVal(gepSrc)) {
-              int srcIndex = getIndex(gepSrc);
-              edges.emplace_back(instIndex, srcIndex);
-            }
-          }
-
-          if (auto *retInst = dyn_cast<ReturnInst>(&Inst)) {
-            if (isFPVal(retInst->getReturnValue())) {
-              for (auto *funUse: retInst->getFunction()->users()) {
-                if (auto *callInst = dyn_cast<CallInst>(&Inst)) {
-                  int srcIndex = getIndex(callInst);
-                  int retValueIndex = getIndex(retInst->getReturnValue());
-                  edges.emplace_back(retValueIndex, srcIndex);
-                }
-              }
-            }
-          }
-
-        }
-      } // instructions
-    } // basic blocks
-  } // functions
-
-  return index + 1; // number of nodes in the graph
-} // buildMemEdgesList
 
 void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals,
                                 std::unordered_map<std::string, double>& maxVals,

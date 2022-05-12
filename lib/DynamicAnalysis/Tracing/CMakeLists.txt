@@ -7,6 +7,8 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     NameVariables.cpp
     MemoryGraph.cpp
     ConnectedComponents.cpp
+    ExpandEqualValue.cpp
+    TracingUtils.cpp
 
     ADDITIONAL_HEADERS
     InjectFuncCall.h
@@ -14,6 +16,8 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     NameVariables.h
     MemoryGraph.h
     ConnectedComponents.h
+    ExpandEqualValue.h
+    TracingUtils.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
