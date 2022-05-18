@@ -123,6 +123,12 @@ void MemoryGraph::makeGraph()
       } else if (auto *ptrToIntCastInst = dyn_cast<PtrToIntInst>(Inst)) {
         handlePtrToIntCast(ptrToIntCastInst);
       }
+    } else if (auto *funArg = dyn_cast<Argument>(Inst)) {
+      if (funArg->getType()->isPointerTy()) {
+        addUsesToGraph(funArg);
+      }
+    } else if (Inst->getType()->isPointerTy()) {
+      addUsesToGraph(Inst);
     }
     markVisited(Inst);
   }
@@ -136,6 +142,18 @@ void MemoryGraph::addUsesToGraph(llvm::Value *V)
     auto dstWrapper = ValueWrapper::wrapValueUse(&Inst);
     addToGraph(srcWrapper, dstWrapper);
     queuePush(dstInst);
+    if (isa<CallInst, InvokeInst>(dstInst) && V->getType()->isPointerTy()) {
+      auto *callSite = dyn_cast<CallBase>(dstInst);
+      auto argNo = callSite->getArgOperandNo(&Inst);
+      auto *fun = callSite->getCalledFunction();
+      if (fun && !fun->getBasicBlockList().empty() && !fun->isVarArg()) {
+        errs() << "Arg: " << *V << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
+        auto *formalArg = fun->getArg(argNo);
+        auto dstArgWrapper = ValueWrapper::wrapValue(formalArg);
+        addToGraph(srcWrapper, dstArgWrapper);
+        queuePush(formalArg);
+      }
+    }
   }
 }
 

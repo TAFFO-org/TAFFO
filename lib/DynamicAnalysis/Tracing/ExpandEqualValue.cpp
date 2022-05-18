@@ -51,12 +51,30 @@ void ExpandEqualValue::expandEqualValues()
         if (!loadInst->getType()->isPointerTy()) {
           for (auto &use: loadInst->uses()) {
             auto * user = use.getUser();
-            if (isa<CallInst>(user)) {
+            if (isa<CallInst, StoreInst>(user)) {
               expandedValueList.push_back(ValueWrapper::wrapValueUse(&use));
+              addToQueue(user);
+            } else {
               addToQueue(user);
             }
           }
         }
+      } else if (auto *funArg = llvm::dyn_cast<llvm::Argument>(V)) {
+//        auto *F = funArg->getParent();
+//        for (auto *user: F->users()) {
+//          if (isa<CallInst>(user) || isa<InvokeInst>(user)) {
+//            auto *call = dyn_cast<CallBase>(user);
+//            auto &callArg = call->getArgOperandUse(funArg->getArgNo());
+//            if (!callArg.get()->getType()->isPointerTy()) {
+//              errs() << "expanding arg: "
+//                     << *funArg
+//                     << ": " << *(callArg.get()) << "\n";
+//              expandedValueList.push_back(ValueWrapper::wrapValueUse(&callArg));
+//              expandedValueList.push_back(ValueWrapper::wrapValue(callArg.get()));
+//              //            addToQueue(callArg.getUser());
+//            }
+//          }
+//        }
       }
 
       visited.insert(V);
