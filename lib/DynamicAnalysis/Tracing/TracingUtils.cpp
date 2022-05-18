@@ -12,8 +12,8 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapValue(llvm::Value *V)
 std::shared_ptr<ValueWrapper> ValueWrapper::wrapValueUse(llvm::Use *V)
 {
   std::shared_ptr<ValueWrapper> wrapper;
-  auto *callInst = dyn_cast<llvm::CallInst>(V->getUser());
-  if (callInst && !TracingUtils::isMallocLike(callInst)) {
+  if (isa<CallInst, InvokeInst>(V->getUser()) && !TracingUtils::isMallocLike(V->getUser())) {
+    auto *callInst = dyn_cast<llvm::CallBase>(V->getUser());
     wrapper = std::make_shared<FunCallArgWrapper>(
         callInst, V->getOperandNo(),
         TracingUtils::isExternalCallWithPointer(callInst, V->getOperandNo())
@@ -40,7 +40,7 @@ bool TracingUtils::isMallocLike(const llvm::Value *Inst)
   return false;
 }
 
-bool TracingUtils::isExternalCallWithPointer(const CallInst *callInst, int argNo)
+bool TracingUtils::isExternalCallWithPointer(const CallBase *callInst, int argNo)
 {
   auto &argType = callInst->getOperandUse(argNo);
   auto *fun = callInst->getCalledFunction();

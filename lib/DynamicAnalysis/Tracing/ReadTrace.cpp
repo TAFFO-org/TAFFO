@@ -76,6 +76,7 @@ bool ReadTrace::runOnModule(Module &M) {
         if (funCall->isExternalFunc) {
           errs() << "[disabled]: ";
         }
+        errs() << "[arg: " << funCall->argPos << "]: ";
       }
       errs() << *(x->value) << "\n";
     }
@@ -229,7 +230,15 @@ void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<std::s
     double minV, maxV;
     bool hasValue = false;
     for (const auto &value: it.second) {
-      auto valueName = value->value->getName().str();
+      Value *valueInst;
+      if (value->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
+        auto *funCallWrapper = static_cast<taffo::FunCallArgWrapper *>(&(*value));
+        auto *callSite = dyn_cast<CallBase>(funCallWrapper->value);
+        valueInst = callSite->getArgOperand(funCallWrapper->argPos);
+      } else {
+        valueInst = value->value;
+      }
+      auto valueName = valueInst->getName().str();
       if (minVals.count(valueName) > 0) {
         if (!hasValue) {
           hasValue = true;
