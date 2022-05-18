@@ -19,7 +19,7 @@ struct TracingUtils
 
   static bool isMallocLike(const llvm::Value *Inst);
 
-  static bool isExternalCallWithPointer(const llvm::CallInst *callInst, int argNo);
+  static bool isExternalCallWithPointer(const llvm::CallBase *callInst, int argNo);
 
   static bool isSafeExternalFunction(const llvm::Function *F);
 };
