@@ -55,36 +55,36 @@ if [[ -z $DONT_REBUILD ]]; then
   shopt -s extglob
   files='src/*.@(cc|cpp|c)'
 
-  taffo -temp-dir obj \
-    -o bin/${bench}.out.fixp \
-    -float-output bin/${bench}.out \
-    -O3 \
-    -I../common/src \
-    ${files} \
-    ${debug} \
-    ${errorprop} \
-    ${no_mem2reg} \
-    -lm \
-    2> stats/taffo.log
+#  taffo -temp-dir obj \
+#    -o bin/${bench}.out.fixp \
+#    -float-output bin/${bench}.out \
+#    -O3 \
+#    -I../common/src \
+#    ${files} \
+#    ${debug} \
+#    ${errorprop} \
+#    ${no_mem2reg} \
+#    -lm \
+#    2> stats/taffo.log
 
   dynamic_analysis() {
     orig_files='src_original/*.@(cc|cpp|c)'
-    ${CLANGXX} -D__TAFFO__ \
-    -O0 -Xclang -disable-O0-optnone -emit-llvm -S \
-    -I../common/src \
-     ${orig_files} \
-     -o obj/${bench}.out.original.ll
-
-    ${OPT} -load=${TAFFOLIB} -S \
-    -debug \
-    --taffoinit -stats \
-    obj/${bench}.out.original.ll \
-    -o obj/${bench}.out.taffoinit.taffotmp.ll 2>stats/dynamic_taffoinit.error.log
+    taffo -temp-dir obj \
+        -o bin/${bench}.out.original \
+        -float-output bin/${bench}.out \
+        -O3 \
+        -I../common/src \
+        ${orig_files} \
+        ${debug} \
+        ${errorprop} \
+        ${no_mem2reg} \
+        -lm \
+        2> stats/taffo_original.log
 
     ${OPT} -load=${TAFFOLIB} -S \
         -debug \
         --taffo-name-variables -stats \
-        obj/${bench}.out.taffoinit.taffotmp.ll \
+        obj/${bench}.out.original.2.taffotmp.ll \
         -o obj/${bench}.out.named.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
