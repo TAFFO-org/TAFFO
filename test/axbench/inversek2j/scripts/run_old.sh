@@ -17,7 +17,14 @@ do
 	
 	echo -e "\e[96m*** Fix Version ***\e[0m"
 	time ./bin/inversek2j.out.fixp ${f} data/output/${filename}_${benchmark}_out.data.fixp
-	
+
+  echo -e "\e[96m*** Dynamic Tuned Fix Version ***\e[0m"
+  time ./bin/${benchmark}.out.dynamic_final ${f} data/output/${filename}_${benchmark}_out.data.dynamic_final
+
 	echo -e "\e[32m### QoS ###\e[0m"
-	./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
+	python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
+
+	echo -e "\e[32m### QoS Dynamic ###\e[0m"
+  python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.dynamic_final
+
 done

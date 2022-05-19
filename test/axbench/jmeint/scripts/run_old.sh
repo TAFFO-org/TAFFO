@@ -17,13 +17,6 @@ for f in *.data.bz2; do
   fi
 done
 popd > /dev/null
-# cleanup stale data files
-for f in data/input/*.data; do
-  compressed="${f}.bz2"
-  if [[ -e ${compressed} ]]; then
-    rm ${f}
-  fi
-done
 
 for f in data/input/*.data
 do
@@ -38,7 +31,21 @@ do
 	
 	echo -e "\e[96m*** Fix Version ***\e[0m"
 	time ./bin/${benchmark}.out.fixp ${f} data/output/${filename}_${benchmark}_out.data.fixp 2> log_${filename}_fixp.txt
-	
+
+  echo -e "\e[96m*** Dynamic Tuned Fix Version ***\e[0m"
+  time ./bin/${benchmark}.out.dynamic_final ${f} data/output/${filename}_${benchmark}_out.data.dynamic_final
+
 	echo -e "\e[32m### QoS ###\e[0m"
-	./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
+	python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
+
+	echo -e "\e[32m### QoS Dynamic ###\e[0m"
+  python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.dynamic_final
+done
+
+# cleanup stale data files
+for f in data/input/*.data; do
+  compressed="${f}.bz2"
+  if [[ -e ${compressed} ]]; then
+    rm ${f}
+  fi
 done
