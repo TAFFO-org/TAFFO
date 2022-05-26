@@ -16,7 +16,6 @@ build_one_embedded()
   main=${main/-/_}
   out="../../embedded_src/bench_obj/${main}.o"
   log="$logdir/$main.log"
-  extra_cxx_includes="$embedded_sysroot"/include/c++/7.3.1/arm-none-eabi
   echo $bench > "$log"
   taffo \
     *.cc -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out" $CFLAGS \
@@ -31,7 +30,7 @@ build_one_embedded()
     -debug-taffo \
     -temp-dir "$logdir" \
     -stdlib=libstdc++ -I$extra_cxx_includes \
-    --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+    --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
       &>> "$log"
   err=$?
   if [[ err -eq 0 ]]; then
@@ -55,7 +54,6 @@ build_one_embedded_float()
   main_flt="bench_${bench}_orig"
   main=${main_flt/-/_}
   log="$logdir/${main_flt}.log"
-  extra_cxx_includes="$embedded_sysroot"/include/c++/7.3.1/arm-none-eabi
   echo $bench > "$log"
   CLANG=$(taffo -print-clang)
   for f in *.cc; do
@@ -64,7 +62,7 @@ build_one_embedded_float()
       "$f" -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out_flt" $CFLAGS \
       -DBENCH_MAIN="$main_flt" \
       -stdlib=libstdc++ -I${extra_cxx_includes} \
-      --target="$embedded_sysroot" $embedded_cpu --sysroot="$embedded_sysroot" -fshort-enums \
+      --target="$embedded_triple" $embedded_cpu --sysroot="$embedded_sysroot" -fshort-enums \
         &>> "$log"
     err=$?
     if [[ err -ne 0 ]]; then
@@ -99,9 +97,9 @@ if [[ -z $X_IS_CHILD ]]; then
   if [[ -z $CFLAGS ]];     then export CFLAGS="-g -O3"; fi
   if [[ -z $embedded_sysroot ]]; then export embedded_sysroot=/usr/local/arm-none-eabi; fi
   if [[ -z $embedded_triple ]];  then export embedded_triple=arm-none-eabi; fi
-  if [[ -z $embedded_cpu ]];     then export embedded_cpu=$(make -C embedded_src cpuflags); fi
-  if [[ -z $costmodel ]];  then export costmodel=$(make -C embedded_src costmodel); fi
-  if [[ -z $TARGET   ]];  then export TARGET=$(make -C embedded_src target); fi
+  if [[ -z $embedded_cpu ]];     then export embedded_cpu=$(make -s -C embedded_src cpuflags); fi
+  if [[ -z $costmodel ]];  then export costmodel=$(make -s -C embedded_src costmodel); fi
+  if [[ -z $TARGET   ]];  then export TARGET=$(make -s -C embedded_src target); fi
   if [[ -z $instrset ]];   then export instrset=embedded; fi
   if [[ -z $enobweight ]]; then export enobweight=1; fi
   if [[ -z $timeweight ]]; then export timeweight=100; fi
@@ -116,6 +114,10 @@ if [[ -z $X_IS_CHILD ]]; then
   printf '  costmodel        = %s\n' "$costmodel"
   printf '  instrset         = %s\n' "$instrset"
 fi
+
+# find extra include path that clang does not include automatically for some reason
+embedded_gcc_ver=$(${embedded_triple}-gcc -dumpfullversion)
+extra_cxx_includes="$embedded_sysroot"/include/c++/"$embedded_gcc_ver"/"$embedded_triple"
 
 if [[ ( $# -gt 0 ) && ( $1 == clean ) ]]; then
   action=clean
