@@ -175,7 +175,7 @@ Value *FloatToFixed::convertStore(StoreInst *store)
     } else {
       /* store fixp <value ptr?> into original <value ptr?> pointer
        * try to match the stored value if possible */
-      newval = fallbackMatchValue(val, peltype, store);
+      newval = fallbackMatchValue(val, peltype);
       if (!newval)
         return Unsupported;
     }
