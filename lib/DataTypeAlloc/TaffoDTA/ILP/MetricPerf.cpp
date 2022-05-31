@@ -513,40 +513,31 @@ void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
 {
   LLVM_DEBUG(dbgs() << "Closing MemPhi reference!\n";);
   auto phiInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(load));
-  // auto destInfo = allocateNewVariableWithCastCost(requestedValue, load);
-
+  auto destInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(requestedValue));;
   assert(phiInfo && "phiInfo not available!");
-  // assert(destInfo && "destInfo not available!");
+  assert(destInfo && "destInfo not available!");
 
-  string enob_var;
+  // We do not need to add a cast cost or a type-equality constraint
+  // because this is a load, and its type is implicitly equal to the defining value.
 
-  MemorySSA &memssa = getTuner()->getAnalysis<llvm::MemorySSAWrapperPass>(*load->getFunction()).getMSSA();
-  taffo::MemSSAUtils memssa_utils(memssa);
-  SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
-  def_vals.push_back(load->getPointerOperand());
+  auto &model = getModel();
+  string oldEnobVariable = phiInfo->getRealEnobVariable();
+  string newEnobVariable = oldEnobVariable + "_closeMemLoop";
+  phiInfo->overrideEnob(newEnobVariable);
+  initRealEnobVariable(phiInfo);
 
-  for (unsigned int index = 0; index < def_vals.size(); index++) {
-    if (def_vals[index] == requestedValue) {
-      enob_var = getEnobActivationVariable(load, index);
-      break;
-    }
-  }
-
-  assert(!enob_var.empty() && "Enob var not found!");
-
-  // as this is a load, it is implicit that the type is equal!
-  // insertTypeEqualityConstraint(phiInfo, destInfo, true);
-
-  auto info1 = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(requestedValue));
-  assert(info1 && "No info for the just saved value!");
-
-  // getModel().insertComment("Closing MEM phi loop...", 3);
   auto constraint = vector<pair<string, double>>();
+  // The new Enob is <= the old one
+  constraint.push_back(make_pair(newEnobVariable, 1.0));
+  constraint.push_back(make_pair(oldEnobVariable, -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0);
+
+  // And also <= the one of requestedValue
   constraint.clear();
-  constraint.push_back(make_pair(phiInfo->getRealEnobVariable(), 1.0));
-  constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  constraint.push_back(make_pair(enob_var, BIG_NUMBER));
-  getModel().insertLinearConstraint(constraint, tuner::Model::LE, BIG_NUMBER /*, "Enob: forcing MEM phi enob"*/);
+  constraint.push_back(make_pair(newEnobVariable, 1.0));
+  constraint.push_back(make_pair(destInfo->getRealEnobVariable(), -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0);
+
   getMemWatcher().closePhiLoop(load, requestedValue);
 }
 

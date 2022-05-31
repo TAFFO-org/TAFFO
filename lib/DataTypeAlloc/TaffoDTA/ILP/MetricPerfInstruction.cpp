@@ -855,6 +855,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     return;
   }
 
+  auto &model = getModel();
   if (load->getType()->isFloatingPointTy()) {
     auto sinfos = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(pinfos->getOptInfo());
     if (!sinfos) {
@@ -863,32 +864,29 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     }
     // We are copying the infos, still using variable types and all, the only problem is the enob
 
-    // getModel().insertComment("Restriction for new enob [LOAD]", 1);
     string newEnobVariable = sinfos->getBaseEnobVariable();
     newEnobVariable.append("_memphi_");
     newEnobVariable.append(load->getFunction()->getName().str());
     newEnobVariable.append("_");
     newEnobVariable.append(uniqueIDForValue(load));
     std::replace(newEnobVariable.begin(), newEnobVariable.end(), '.', '_');
-    LLVM_DEBUG(dbgs() << "New enob for load: " << newEnobVariable << "\n";);
-    getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
+    LLVM_DEBUG(dbgs() << "New enob for load: " << newEnobVariable << "\n");
+    model.createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
 
     auto constraint = vector<pair<string, double>>();
     constraint.clear();
     constraint.push_back(make_pair(newEnobVariable, 1.0));
     constraint.push_back(make_pair(sinfos->getBaseEnobVariable(), -1.0));
-    getModel().insertLinearConstraint(constraint, Model::LE, 0 /*,
-                                  "Enob constraint, new enob at most original variable enob"*/
-    );
+    model.insertLinearConstraint(constraint, Model::LE, 0);
 
     auto a = make_shared<OptimizerScalarInfo>(sinfos->getBaseName(),
                                               sinfos->getMinBits(),
                                               sinfos->getMaxBits(), sinfos->getTotalBits(),
                                               sinfos->isSigned,
                                               *sinfos->getRange(), newEnobVariable);
+    saveInfoForValue(instruction, a);
 
-
-    // We are loading a floating point, which means we have it's value in a register.
+    // We are loading a floating point, which means we have its value in a register.
     // As we cannot cast anything during a load, the register will use the very same variable
 
     // Running MemorySSA to find Values from which the load can actually load
@@ -897,88 +895,44 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
     def_vals.push_back(load->getPointerOperand());
 
-    assert(def_vals.size() > 0 && "Loading a not defined value?");
+    assert(def_vals.size() > 0 && "Loading an undefined value?");
 
-    /*This is the same as for phi nodes. In particular, when using the MemSSA usually the most important
-     * instructions that defines a values are store. In particular, when looking at a store, we can use the enob
+    /* This is the same as for phi nodes. In particular, when using the MemSSA usually the most important
+     * instructions that defines a values are stores. In particular, when looking at a store, we can use the enob
      * given to that store to understand the enob propagation. This enob will not change during the computation as
-     * usually every store is only touched once, differently from the */
-
-    saveInfoForValue(instruction, a);
-
-    constraint.clear();
-
-    vector<bool> toSkip(def_vals.size());
-
-    for (unsigned index = 0; index < def_vals.size(); index++) {
-      toSkip[index] = true;
-      Value *op = def_vals[index];
-      if (!op) {
-        LLVM_DEBUG(dbgs() << "Skipping null value!\n";);
-        continue;
-      }
-
+     * usually every store is only touched once, differently from PHINodes */
+    for (Value *op: def_vals) {
       auto store = dyn_cast_or_null<StoreInst>(op);
       if (!store) {
         // We skip the variable if it is not a store
-        LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-        LLVM_DEBUG(op->print(dbgs()););
-        LLVM_DEBUG(dbgs() << " as it is NOT a store!\n";);
-        continue;
-      }
-      if (auto info = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op))) {
-        if (info->doesReferToConstant()) {
-          // We skip the variable if it is a constant
-          LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-          LLVM_DEBUG(op->print(dbgs()););
-          LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
-          continue;
+        if (op) {
+          LLVM_DEBUG(dbgs() << "[INFO] Skipping " << *op << " as it is NOT a store!\n");
+        } else {
+          LLVM_DEBUG(dbgs() << "[INFO] Skipping null def.\n");
         }
-      }
-
-      string enob_selection = getEnobActivationVariable(instruction, index);
-      LLVM_DEBUG(dbgs() << "Declaring " << enob_selection << " for enob...\n";);
-      if (!getModel().isVariableDeclared(enob_selection)) {
-        getModel().createVariable(enob_selection, 0, 1);
-      }
-      constraint.push_back(make_pair(enob_selection, 1.0));
-      toSkip[index] = false;
-    }
-
-    if (constraint.size() > 0) {
-      getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-    } else {
-      LLVM_DEBUG(dbgs() << "[INFO] All constants memPhi node, nothing to do!!!\n";);
-      // return;
-    }
-
-
-    int missing = 0;
-
-    for (unsigned index = 0; index < def_vals.size(); index++) {
-      LLVM_DEBUG(dbgs() << "[memPhi] Handlign operator " << index << "...\n";);
-      Value *op = def_vals[index];
-
-      if (toSkip[index]) {
-        LLVM_DEBUG(dbgs() << "Need to skip this...\n";);
         continue;
       }
-
       if (auto info = getInfoOfValue(op)) {
-        LLVM_DEBUG(dbgs() << "[memPhi] We have infos, treating as usual.\n";);
-        // because yes, integrity checks....
-        openMemLoop(load, op);
-        closeMemLoop(load, op);
+        if (auto sinfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info)) {
+          if (sinfo->doesReferToConstant()) {
+            // We skip the variable if it is a constant
+            LLVM_DEBUG(dbgs() << "[INFO] Skipping " << *op << " as it is a constant!\n");
+            continue;
+          }
+
+          LLVM_DEBUG(dbgs() << "[memPhi] We have infos, treating as usual.\n");
+          constraint.clear();
+          constraint.push_back(make_pair(a->getRealEnobVariable(), 1.0));
+          constraint.push_back(make_pair(sinfo->getRealEnobVariable(), -1.0));
+          model.insertLinearConstraint(constraint, Model::LE, 0);
+        } else {
+          llvm_unreachable("Should be a scalar!");
+        }
       } else {
-        LLVM_DEBUG(dbgs() << "[memPhi] No value available, inserting in delayed set.\n";);
+        LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n");
         openMemLoop(load, op);
-        missing++;
       }
     }
-
-
-    LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n";);
-
   } else if (load->getType()->isPointerTy()) {
     LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n";);
     // Unwrap the pointer, hoping that it is pointing to something
@@ -994,7 +948,6 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     saveInfoForValue(instruction, info);
 
   } else {
-    LLVM_DEBUG(dbgs() << "Loading a non floating point value, ingoring.\n";);
-    return;
+    LLVM_DEBUG(dbgs() << "Loading a non floating point value, ingoring.\n");
   }
 }
