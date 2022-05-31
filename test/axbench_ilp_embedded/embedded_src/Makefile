@@ -5,7 +5,7 @@ AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
 
 OUTPUT = embedded_main
-TARGET ?= stm32f407
+TARGET ?= stm32l101
 
 OBJ_DIR = ./obj_$(TARGET)
 OUTPUT_ELF = $(OUTPUT).elf

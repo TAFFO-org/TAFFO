@@ -11,10 +11,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <fstream>
-#include <iostream>
-#include <vector>
-#include <iomanip>
 #include "benchmark.hpp"
 #include "data.hpp"
 
@@ -298,7 +294,7 @@ extern "C" int BENCH_MAIN(int argc, char **argv)
 
     buffer2 = (int *) malloc(numOptions * sizeof(fptype) + PAD);
     if (buffer2 == NULL) {
-      std::cout << "OUT OF MEMORY\n";
+      printf("OUT OF MEMORY\n");
       return 0;
     }
     otype = (int *) (((unsigned long long)buffer2 + PAD) & ~(LINESIZE - 1));
@@ -319,8 +315,9 @@ extern "C" int BENCH_MAIN(int argc, char **argv)
     int tid=0;
     bs_thread(&tid);
 
-    uint64_t time = timer.cyclesSinceReset();
-	  std::cout << "kernel time = " << time << " cycles\n";
+    uint32_t time = timer.cyclesSinceReset();
+    time = time + 1;
+    printf("kernel time = %u units\n", time);
 
     //Write prices to output file
     for(i=0; i<numOptions; i++) {
