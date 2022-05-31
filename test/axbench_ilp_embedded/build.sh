@@ -152,7 +152,7 @@ for benchdir in $benchs; do
       out=$?
       if [[ $out -eq 0 ]]; then
         printf ' OK!\n'
-        printf 'printf("%%s\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+        printf 'printf("%%s\\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
       else
