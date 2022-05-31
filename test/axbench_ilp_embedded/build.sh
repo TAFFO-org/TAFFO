@@ -3,6 +3,42 @@
 export SCRIPTPATH=$(cd $(dirname "$BASH_SOURCE") && pwd)
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM
 
+build_one_local()
+{
+  # $1: bench name
+
+  bench="$1"
+  pushd "$bench" > /dev/null
+  logdir="../../log/$bench"
+  mkdir -p "../../bench_obj"
+  mkdir -p "$logdir"
+  main="bench_local_${bench}_${costmodel}_${enobweight}_${timeweight}_${castweight}"
+  main=${main/-/_}
+  out="../../bench_obj/${main}"
+  log="$logdir/$main.log"
+  float_out="../../bench_obj/${bench}_unmodified"
+  taffo \
+    *.cc -I.. -o "$out" $CFLAGS -lm \
+    -float-output "$float_out" \
+    -mixedmode \
+    -costmodel "$costmodel" \
+    -instructionsetfile="$TAFFO_PREFIX/share/ILP/constrain/$instrset" \
+    -Xdta -mixedtuningenob -Xdta "$enobweight" \
+    -Xdta -mixedtuningtime -Xdta "$timeweight" \
+    -Xdta -mixedtuningcastingtime -Xdta "$castweight" \
+    -Xvra -unroll -Xvra 0 \
+    -debug-taffo \
+    -temp-dir "$logdir" \
+      &>> "$log"
+  err=$?
+  if [[ err -eq 0 ]]; then
+    printf "%s" "$main"
+  fi
+
+  popd > /dev/null
+  return $err
+}
+
 build_one_embedded()
 {
   # $1: bench name
@@ -74,6 +110,23 @@ build_one_embedded_float()
   printf "%s" "$main"
 }
 
+run_one()
+{
+  executable="${bench}_${costmodel}_${enobweight}_${timeweight}_${castweight}"
+  float_executable="${bench}_unmodified"
+
+  pushd "$bench" > /dev/null
+  ./$executable > taffo_out.txt 2> taffo_time.txt
+  ./$float_executable > float_out.txt 2> float_time.txt
+
+  nfo=$($SCRIPTPATH/error.py float_out.txt taffo_out.txt)
+  err=$?
+  printf '%-19s' "$nfo"
+
+  popd > /dev/null
+  return $err
+}
+
 clean_one()
 {
   # $1: bench name
@@ -91,7 +144,23 @@ fi
 
 TAFFO_PREFIX=$(dirname $(which taffo))/..
 
-if [[ -z $X_IS_CHILD ]]; then
+if [[ ( $# -gt 0 ) && ( $1 == clean ) ]]; then
+  action=clean
+  shift
+fi
+if [[ ( $# -gt 0 ) && ( $1 == build_experiment ) ]]; then
+  action=build_experiment
+  shift
+fi
+if [[ ( $# -gt 0 ) && ( $1 == build_local ) ]]; then
+  action=build_local
+  shift
+fi
+if [[ -z $action ]]; then
+  action=build
+fi
+
+if [[ ( -z $X_IS_CHILD ) && ( $action != "build_local" ) ]]; then
   echo > "$SCRIPTPATH"/embedded_src/bench_main.c.in
   echo > "$SCRIPTPATH"/embedded_src/bench_main.h
   rm -rf "$SCRIPTPATH"/embedded_src/bench_obj
@@ -99,9 +168,9 @@ if [[ -z $X_IS_CHILD ]]; then
   if [[ -z $CFLAGS ]];     then export CFLAGS="-g -O3"; fi
   if [[ -z $embedded_sysroot ]]; then export embedded_sysroot=/usr/local/arm-none-eabi; fi
   if [[ -z $embedded_triple ]];  then export embedded_triple=arm-none-eabi; fi
-  if [[ -z $embedded_cpu ]];     then export embedded_cpu=$(make -C embedded_src cpuflags); fi
-  if [[ -z $costmodel ]];  then export costmodel=$(make -C embedded_src costmodel); fi
-  if [[ -z $TARGET   ]];  then export TARGET=$(make -C embedded_src target); fi
+  if [[ -z $embedded_cpu ]];     then export embedded_cpu=$(make -s -C embedded_src cpuflags); fi
+  if [[ -z $costmodel ]];  then export costmodel=$(make -s -C embedded_src costmodel); fi
+  if [[ -z $TARGET   ]];  then export TARGET=$(make -s -C embedded_src target); fi
   if [[ -z $instrset ]];   then export instrset=embedded; fi
   if [[ -z $enobweight ]]; then export enobweight=1; fi
   if [[ -z $timeweight ]]; then export timeweight=100; fi
@@ -115,18 +184,21 @@ if [[ -z $X_IS_CHILD ]]; then
   printf '  embedded_cpu     = %s\n' "$embedded_cpu"
   printf '  costmodel        = %s\n' "$costmodel"
   printf '  instrset         = %s\n' "$instrset"
-fi
+elif [[ $action == "build_local" ]]; then
+  if [[ -z $costmodel ]];  then export costmodel=i7-4; fi
+  if [[ -z $instrset ]];   then export instrset=fix; fi
+  if [[ -z $enobweight ]]; then export enobweight=1; fi
+  if [[ -z $timeweight ]]; then export timeweight=100; fi
+  if [[ -z $castweight ]]; then export castweight=100; fi
+  if [[ -z $CFLAGS ]];     then export CFLAGS="-g -O3"; fi
 
-if [[ ( $# -gt 0 ) && ( $1 == clean ) ]]; then
-  action=clean
-  shift
-fi
-if [[ ( $# -gt 0 ) && ( $1 == build_experiment ) ]]; then
-  action=build_experiment
-  shift
-fi
-if [[ -z $action ]]; then
-  action=build
+  printf 'Configuration:\n'
+  printf '  costmodel        = %s\n' "$costmodel"
+  printf '  instrset         = %s\n' "$instrset"
+  printf '  enobweight       = %s\n' "$enobweight"
+  printf '  timeweight       = %s\n' "$timeweight"
+  printf '  castweight       = %s\n' "$castweight"
+  printf '  CFLAGS           = %s\n' "$CFLAGS"
 fi
 
 printf '  action           = %s\n' "$action"
@@ -208,6 +280,16 @@ for benchdir in $benchs; do
           printf ' fail %d\n' $out > /dev/stderr
         fi
       done
+      ;;
+    build_local)
+      printf '%-5s %-16s' "$action" "$bench"
+      main=$(build_one_local $bench)
+      out=$?
+      if [[ $out -eq 0 ]]; then
+        printf ' OK!\n'
+      else
+        printf ' fail %d\n' $out
+      fi
       ;;
     clean)
       printf '%-5s %-16s' "$action" "$bench"
