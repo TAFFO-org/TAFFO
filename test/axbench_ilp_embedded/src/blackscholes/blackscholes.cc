@@ -316,7 +316,6 @@ extern "C" int BENCH_MAIN(int argc, char **argv)
     bs_thread(&tid);
 
     uint32_t time = timer.cyclesSinceReset();
-    time = time + 1;
     printf("kernel time = %u units\n", time);
 
     //Write prices to output file

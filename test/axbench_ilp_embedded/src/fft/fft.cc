@@ -1,6 +1,4 @@
 #include <cstdio>
-#include <iostream>
-#include <fstream>
 #include <cmath>
 #include <time.h>
 #include "benchmark.hpp"
@@ -127,7 +125,7 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 {
 	int i ;
 
-	int __attribute((annotate("target('n') scalar(range(1,65536) final disabled)"))) n = 2048;
+	int __attribute((annotate("target('n') scalar(range(1,65536) final disabled)"))) n = 512;
 
 	// create the arrays
 	x 		= (Complex*)malloc(n * sizeof (Complex));
@@ -136,7 +134,7 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 
 	if(x == NULL || f == NULL || indices == NULL)
 	{
-		std::cout << "cannot allocate memory for the triangle coordinates!" << std::endl;
+                printf("cannot allocate memory for the triangle coordinates!\n");
 		return -1 ;
 	}
 
@@ -148,18 +146,18 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 		x[i].imag = 0 ;
 	}
 
-  {
+        {
 	AxBenchTimer timer;
 
 	radix2DitCooleyTykeyFft(K, indices, x, f) ;
 
-	uint64_t time = timer.cyclesSinceReset();
-	std::cout << "kernel time = " << time << " cycles \n";
+	uint32_t time = timer.cyclesSinceReset();
+        printf("kernel time = %u units \n", time);
 	}
 
 	for(i = 0;i < K ; i++)
 	{
-	  std::cout << f[i].real << " " << f[i].imag << " " << indices[i] << std::endl;
+          printf("%f %f %d\n", f[i].real, f[i].imag, indices[i]);
 	}
 	
 	free(x);
