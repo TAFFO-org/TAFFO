@@ -5,10 +5,12 @@
 #include "Metadata.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include <string>
 
 #define DEBUG_TYPE "taffo-dta"
 #define DEBUG_FUN "tunerfunction"

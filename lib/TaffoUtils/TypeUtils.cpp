@@ -54,7 +54,8 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
   }
 
   double max = std::max(std::abs(rng.Min), std::abs(rng.Max));
-  int intBit = std::lround(std::ceil(std::log2(static_cast<int>(max) + 1.0))) + (isSigned ? 1 : 0);
+  // int intBit = std::lround(std::ceil(std::log2(max + 1.0))) + (isSigned ? 1 : 0);
+  int intBit = std::lround(std::ceil(std::log2(std::trunc(max) + 1.0))) + (isSigned ? 1 : 0);
   int bitsAmt = totalBits;
 
   int maxFracBitsAmt;

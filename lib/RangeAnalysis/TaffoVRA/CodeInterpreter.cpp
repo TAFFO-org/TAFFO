@@ -233,6 +233,7 @@ static llvm::ICmpInst *getLatchCmpInst(llvm::BasicBlock *BB)
 
 void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
 {
+  llvm::dbgs() << "DefaultTripCount " << DefaultTripCount << "MaxTripCount " << MaxTripCount << "\n";
   assert(LoopInfo && F);
   llvm::ScalarEvolution *SE = nullptr;
   for (llvm::Loop *L : LoopInfo->getLoopsInPreorder()) {
@@ -294,6 +295,7 @@ void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
         TripCount = (TripCount > 0U) ? TripCount : DefaultTripCount;
         LoopTripCount[Latch] = (TripCount > MaxTripCount) ? MaxTripCount : TripCount;
       } else {
+
         // Loop unrolling disabled
         LoopTripCount[Latch] = 1U;
       }

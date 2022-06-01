@@ -209,19 +209,23 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
   if (!newval)
     return valueInfo(gep)->noTypeConversion ? Unsupported : nullptr;
   if (!isConvertedFixedPoint(newval)) {
+    LLVM_DEBUG(llvm::dbgs() << "is not Converted Fixed Point\n");
     /* just replace the arguments, they should stay the same type */
     return Unsupported;
   }
   FixedPointType tempFixpt = fixPType(newval);
   Type *type = gep->getPointerOperand()->getType();
   fixpt = tempFixpt.unwrapIndexList(type, gep->indices());
+  LLVM_DEBUG(llvm::dbgs() << "conversion " << valueInfo(gep)->noTypeConversion << " or Valid " << !fixpt.isRecursivelyInvalid() << "\n");
   /* if conversion is disabled, we can extract values that didn't get a type
    * change, but we cannot extract values that didn't */
-  if (valueInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid())
+  if (valueInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid()) {
     return Unsupported;
+  }
   std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
   return builder.CreateInBoundsGEP(newval, idxlist);
 }
+
 Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
                                          FixedPointType &fixpt)
 {

@@ -280,7 +280,7 @@ VRAGlobalStore::toMDInfo(const RangeNodePtrT r)
     if (range_ptr_t SRange = Scalar->getRange()) {
       return std::make_shared<InputInfo>(nullptr,
                                          std::make_shared<Range>(SRange->min(), SRange->max()),
-                                         nullptr);
+                                         nullptr, true);
     }
     return nullptr;
   } else if (const std::shared_ptr<VRAStructNode> structr =

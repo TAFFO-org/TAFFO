@@ -114,25 +114,12 @@ int main(int argc, char** argv)
 
   /* Start timer. */
   polybench_start_instruments;
-  printf("DATA\n");
-   for(int i = 0; i < n; ++i)
-    for(int j = 0; j < m; ++j)
-      printf("%f  ", data[i][j]);
-
-  printf("\nCOV\n");
-   for(int i = 0; i < m; ++i)
-    for(int j = 0; j < m; ++j)
-      printf("%f  ", cov[i][j]);
-
-  printf("\nMEAN\n");
-    for(int j = 0; j < m; ++j)
-      printf("%f  ", mean[j]);
 
   /* Run kernel. */
-  // kernel_covariance (m, n, float_n,
-	// 	     POLYBENCH_ARRAY(data),
-	// 	     POLYBENCH_ARRAY(cov),
-	// 	     POLYBENCH_ARRAY(mean));
+  kernel_covariance (m, n, float_n,
+		     POLYBENCH_ARRAY(data),
+		     POLYBENCH_ARRAY(cov),
+		     POLYBENCH_ARRAY(mean));
 
   /* Stop and print timer. */
   polybench_stop_instruments;
@@ -140,7 +127,7 @@ int main(int argc, char** argv)
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
-  //polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(cov)));
+  polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(cov)));
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(data);

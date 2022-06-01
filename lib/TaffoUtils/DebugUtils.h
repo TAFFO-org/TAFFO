@@ -21,6 +21,17 @@
       llvm::dbgs() << "\tisa<Operator> " << isa<llvm::Operator>(val) << "\n";);
 
 
+#define DUMP_STACK(val, str)            \
+  {                                     \
+    std::string stri;                   \
+    llvm::raw_string_ostream tmp(stri); \
+    tmp << *val;                        \
+    if (tmp.str().find(str) == 0) {     \
+      assert(0 && "DUMP STACK");        \
+    }                                   \
+  }
+
+
 #else
 
 #define IF_TAFFO_DEBUG if (false)
