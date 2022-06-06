@@ -99,10 +99,17 @@ void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res
 
 bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *raw, Value *instr)
 {
+  if (hasInfo(instr)) {
+    auto existing = valueInfo(instr);  
+    if (existing->isArgumentPlaceholder) {
+      LLVM_DEBUG(dbgs() << "Skipping MD collection for " << *instr << " because it's a placeholder and has fake metadata anyway\n");
+      return false;
+    }
+  }
+
   LLVM_DEBUG(dbgs() << "Collecting metadata for:";);
   LLVM_DEBUG(instr->print(dbgs()););
   LLVM_DEBUG(dbgs() << "\n";);
-
 
   ValueInfo vi;
 

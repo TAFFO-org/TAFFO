@@ -431,6 +431,7 @@ void FloatToFixed::cleanup(const std::vector<Value *> &q)
 
 void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global)
 {
+  mdutils::MetadataManager &MM = mdutils::MetadataManager::getMetadataManager();
   SmallPtrSet<Function *, 16> oldFuncs;
 
   for (int i = 0; i < vals.size(); i++) {
@@ -466,6 +467,9 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     CloneFunctionInto(newF, oldF, origValToCloned, true, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
 
+    SmallVector<mdutils::MDInfo *, 4> ArgsII;
+    MM.retrieveArgumentInputInfo(*oldF, ArgsII);
+
     std::vector<Value *> newVals; // propagate fixp conversion
     oldIt = oldF->arg_begin();
     newIt = newF->arg_begin();
@@ -493,8 +497,15 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
         *(newValueInfo(placehValue)) = *(valueInfo(oldIt));
         operandPool[placehValue] = newIt;
 
-        valueInfo(placehValue)->isArgumentPlaceholder = true;
+        valueInfo(placehValue)->isArgumentPlaceholder = true ;
         newVals.push_back(placehValue);
+
+        /* Copy input info to the placeholder because it's the only place where+
+         * ranges are stored */
+        mdutils::InputInfo *II = dyn_cast_or_null<mdutils::InputInfo>(ArgsII[i]);
+        if (II) {
+          MM.setInputInfoMetadata(*(dyn_cast<Instruction>(placehValue)), *II);
+        }
 
         /* No need to mark the argument itself, readLocalMetadata will
          * do it in a bit as its metadata has been cloned as well */
