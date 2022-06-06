@@ -497,7 +497,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
         *(newValueInfo(placehValue)) = *(valueInfo(oldIt));
         operandPool[placehValue] = newIt;
 
-        valueInfo(placehValue)->isArgumentPlaceholder = true ;
+        valueInfo(placehValue)->isArgumentPlaceholder = true;
         newVals.push_back(placehValue);
 
         /* Copy input info to the placeholder because it's the only place where+
