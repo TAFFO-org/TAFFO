@@ -485,7 +485,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
          * FIXME: is there a cleaner way to do this? */
         std::string name("placeholder");
         if (newIt->hasName()) {
-          name += newIt->getName().str() + ".";
+          name += "." + newIt->getName().str();
         }
         Value *placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
         /* Reimplement RAUW to defeat the same-type check (which is ironic because
