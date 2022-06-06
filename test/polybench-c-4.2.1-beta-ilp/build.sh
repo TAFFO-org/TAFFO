@@ -52,7 +52,7 @@ build_one_embedded()
     -Xvra -unroll -Xvra 0 \
     -debug-taffo \
     -temp-dir . \
-    --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+    --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
       &> "$out.log"
   err=$?
   if [[ err -eq 0 ]]; then
@@ -66,11 +66,11 @@ build_one_embedded()
     ${CLANG} \
       *.c -I../../embedded_src -I../../embedded_src/stm32f207 -S -o "$asm_flt" $CFLAGS -D$pb_dataset \
       -DBENCH_MAIN="$main_flt" \
-      --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+      --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
         &>> "$out.log"
     ${CLANG} \
       "$asm_flt" -c -o "$out_flt" \
-      --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+      --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
         &>> "$out.log"
     printf '%s();\n' "$main" >> ../../embedded_src/bench_main.c.in
     printf '%s();\n' "$main_flt" >> ../../embedded_src/bench_main.c.in

@@ -52,7 +52,6 @@ build_one_embedded()
   main=${main/-/_}
   out="../../embedded_src/bench_obj/${main}.o"
   log="$logdir/$main.log"
-  extra_cxx_includes="$embedded_sysroot"/include/c++/7.3.1/arm-none-eabi
   echo $bench > "$log"
   taffo \
     *.cc -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out" $CFLAGS \
@@ -67,7 +66,7 @@ build_one_embedded()
     -debug-taffo \
     -temp-dir "$logdir" \
     -stdlib=libstdc++ -I$extra_cxx_includes \
-    --target="$embedded_sysroot" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+    --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
       &>> "$log"
   err=$?
   if [[ err -eq 0 ]]; then
@@ -83,7 +82,7 @@ build_one_embedded_float()
 {
   # $1: bench name
   bench="$1"
-  
+
   pushd "$bench" > /dev/null
   logdir="../../log/$bench"
   mkdir -p "../../embedded_src/bench_obj"
@@ -91,7 +90,6 @@ build_one_embedded_float()
   main_flt="bench_${bench}_orig"
   main=${main_flt/-/_}
   log="$logdir/${main_flt}.log"
-  extra_cxx_includes="$embedded_sysroot"/include/c++/7.3.1/arm-none-eabi
   echo $bench > "$log"
   CLANG=$(taffo -print-clang)
   for f in *.cc; do
@@ -100,7 +98,7 @@ build_one_embedded_float()
       "$f" -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out_flt" $CFLAGS \
       -DBENCH_MAIN="$main_flt" \
       -stdlib=libstdc++ -I${extra_cxx_includes} \
-      --target="$embedded_sysroot" $embedded_cpu --sysroot="$embedded_sysroot" -fshort-enums \
+      --target="$embedded_triple" $embedded_cpu --sysroot="$embedded_sysroot" -fshort-enums \
         &>> "$log"
     err=$?
     if [[ err -ne 0 ]]; then
@@ -184,6 +182,11 @@ if [[ ( -z $X_IS_CHILD ) && ( $action != "build_local" ) ]]; then
   printf '  embedded_cpu     = %s\n' "$embedded_cpu"
   printf '  costmodel        = %s\n' "$costmodel"
   printf '  instrset         = %s\n' "$instrset"
+
+  # find extra include path that clang does not include automatically for some reason
+  embedded_gcc_ver=$(${embedded_triple}-gcc -dumpfullversion)
+  extra_cxx_includes="$embedded_sysroot"/include/c++/"$embedded_gcc_ver"/"$embedded_triple"
+
 elif [[ $action == "build_local" ]]; then
   if [[ -z $costmodel ]];  then export costmodel=i7-4; fi
   if [[ -z $instrset ]];   then export instrset=fix; fi
@@ -226,7 +229,7 @@ for benchdir in $benchs; do
         printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
       else
-        printf ' fail %d\n' $out 
+        printf ' fail %d\n' $out
       fi
       ;;
     build_float)
@@ -239,7 +242,7 @@ for benchdir in $benchs; do
         printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
       else
-        printf ' fail %d\n' $out 
+        printf ' fail %d\n' $out
       fi
       ;;
     build_experiment)
@@ -252,7 +255,7 @@ for benchdir in $benchs; do
         printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
         printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
       else
-        printf ' fail %d\n' $out 
+        printf ' fail %d\n' $out
       fi
       if [[ -z $wstart ]]; then export wstart=0; fi
       if [[ -z $wend   ]]; then export wend=100000; fi

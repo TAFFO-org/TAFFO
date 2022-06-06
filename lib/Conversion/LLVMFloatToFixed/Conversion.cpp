@@ -153,10 +153,11 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
           // In this case we try to choose the best fixed point type!
           auto info = getInputInfo(val);
           if (!info || !info->IRange) {
-            llvm_unreachable("Cannot proceed in converting to a fix point a value without info!");
+            LLVM_DEBUG(dbgs() << "No metadata found, rolling with the suggested type and hoping for the best!\n");
+          } else {
+            associateFixFormat(info, iofixpt);
+            LLVM_DEBUG(dbgs() << "We have a new fixed point suggested type: " << iofixpt.toString() << "\n";);
           }
-          associateFixFormat(info, iofixpt);
-          LLVM_DEBUG(dbgs() << "We have a new fixed point suggested type: " << iofixpt.toString() << "\n";);
         } else {
           LLVM_DEBUG(dbgs() << "Not associating better fixed point data type as the datatype was originally forced!\n";);
         }
