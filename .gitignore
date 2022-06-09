@@ -5,7 +5,7 @@ build.log
 dist
 *.magiclangtmp.ll
 *.magiclangtmp.s
-.vscode
+.vscode*
 *.out
 *.log
 working-dist
