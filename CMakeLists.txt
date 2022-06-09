@@ -19,7 +19,7 @@ include(AddLLVM)
 include(LLVMConfig)
 include(HandleLLVMOptions)
 
-if ((${LLVM_VERSION_MAJOR} LESS 12) OR (${LLVM_VERSION_MAJOR} GREATER 12))
+if ((${LLVM_VERSION_MAJOR} LESS 12) OR (${LLVM_VERSION_MAJOR} GREATER 13))
   message(FATAL_ERROR "LLVM version ${LLVM_VERSION_MAJOR} is not supported!")
 endif ()
 
