@@ -8,6 +8,7 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Support/Casting.h"
 #include <cstdio>
+#include <stack>
 #include <unordered_map>
 
 namespace tuner
