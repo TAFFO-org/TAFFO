@@ -1,7 +1,11 @@
 #pragma once
 
 //Precision to use for calculations
+#ifdef EMBEDDED
 #define fptype float
+#else
+#define fptype double
+#endif
 
 struct blackscholes_line {
   fptype s, stk, r, divq, v, t;

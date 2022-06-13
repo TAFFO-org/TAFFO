@@ -55,7 +55,7 @@ build_one_embedded()
   echo $bench > "$log"
   taffo \
     *.cc -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out" $CFLAGS \
-    -DBENCH_MAIN="$main" \
+    -DBENCH_MAIN="$main" -DEMBEDDED \
     -mixedmode \
     -costmodel "$costmodel" \
     -instructionsetfile="$TAFFO_PREFIX/share/ILP/constrain/$instrset" \

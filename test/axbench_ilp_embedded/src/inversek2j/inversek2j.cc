@@ -73,7 +73,11 @@ extern "C" int BENCH_MAIN(int argc, const char* argv[])
 
   n = INVERSEK2J_DATA_SIZE;
 
+  #ifndef EMBEDDED
 	float* __attribute((annotate("target('t1t2xy') scalar()"))) t1t2xy = (float*)malloc(n * 2 * 2 * sizeof(float));
+  #else
+  float* __attribute((annotate("target('t1t2xy') scalar()"))) t1t2xy = (float*)malloc(n * 2 * 2 * sizeof(float) * 2);
+  #endif
 
 	if(t1t2xy == NULL)
 	{
@@ -83,10 +87,10 @@ extern "C" int BENCH_MAIN(int argc, const char* argv[])
 
 	//srand (time(NULL));
 
-	for (int i=0; i<n*2*2; i+=2*2) {
+	for (int i=0, j=0; j<n; j++, i+=2*2) {
 		float __attribute((annotate("scalar(" ANNOTATION_RANGE " error(1e-8) disabled)"))) theta1, __attribute((annotate("scalar(" ANNOTATION_RANGE " error(1e-8) disabled)"))) theta2;
-    theta1 = inversek2j_data[i].x;
-    theta2 = inversek2j_data[i].y;
+    theta1 = inversek2j_data[j].x;
+    theta2 = inversek2j_data[j].y;
 		t1t2xy[i] = theta1;
 		t1t2xy[i + 1] = theta2;
 	}

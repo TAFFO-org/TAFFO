@@ -26,8 +26,8 @@ static Complex* __attribute((annotate("target('f') " ANNOTATION_COMPLEX(,)))) f;
 static void fftSinCos(float __attribute((annotate("scalar()"))) x,
 	       float* __attribute((annotate("scalar()"))) s,
 	       float* __attribute((annotate("scalar()"))) c) {
-    *s = sinf(-2 * PI * x);
-    *c = cosf(-2 * PI * x);
+    *s = std::sin(-2 * PI * x);
+    *c = std::cos(-2 * PI * x);
 }
 
 static void calcFftIndices(int K, int* indices)
@@ -35,7 +35,7 @@ static void calcFftIndices(int K, int* indices)
 	int i, j;
 	int N;
 
-	N = (int)log2f(K) ;
+	N = (int)std::log2(K) ;
 
 	indices[0] = 0 ;
 	indices[1 << 0] = 1 << (N - (0 + 1)) ;
@@ -102,7 +102,8 @@ static void radix2DitCooleyTykeyFft(int K,
 				fftCos = dataOut[1];
 */
 				// Non-approximate
-				t =  x[indices[eI]] ;
+				t.real =  x[indices[eI]].real;
+				t.imag =  x[indices[eI]].imag;
 				x[indices[eI]].real = t.real + (x[indices[oI]].real * fftCos - x[indices[eI]].imag * fftSin);
 				x[indices[eI]].imag = t.imag + (x[indices[eI]].imag * fftCos + x[indices[oI]].real * fftSin);
 
@@ -130,8 +131,13 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 	int __attribute((annotate("target('n') scalar(range(1,65536) final disabled)"))) n = 2048;
 
 	// create the arrays
-	x 		= (Complex*)malloc(n * sizeof (Complex));
+  #ifdef EMBEDDED
+  x 		= (Complex*)malloc(n * sizeof (Complex));
 	f 		= (Complex*)malloc(n * sizeof (Complex));
+  #else
+  x 		= (Complex*)malloc(n * sizeof (Complex)*2);
+	f 		= (Complex*)malloc(n * sizeof (Complex)*2);
+  #endif
 	indices = (int*)malloc(n * sizeof (int));
 
 	if(x == NULL || f == NULL || indices == NULL)
