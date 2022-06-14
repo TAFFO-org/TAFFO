@@ -40,12 +40,16 @@ static RegisterPass<TaffoInitializer> X(
 llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
                                           llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
 
+llvm::cl::opt<bool> Hero("hero",
+                         llvm::cl::desc("Enables TAFFO to work with hero"), llvm::cl::init(false));
+
 
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
-
+  handleHero(m, Hero);
   manageIndirectCalls(m);
+
 
   ConvQueueT local;
   ConvQueueT global;

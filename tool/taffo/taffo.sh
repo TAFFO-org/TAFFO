@@ -178,6 +178,9 @@ for opt in $raw_opts; do
         -no-mem2reg)
           mem2reg=
           ;;
+        -hero)
+          init_flags="$init_flags -hero=1"
+          ;;
         -mixedmode)
           dta_flags="$dta_flags -mixedmode=1"
           if [[ -z "$dta_inst_set" ]]; then
@@ -304,6 +307,7 @@ Options:
     -costmodelfilename=<file>  Loads the given the cost model file
                                (produced by taffo-costmodel)
     -instructionsetfile=<file> Loads the given instruction whitelist file
+  -hero                 Enables TAFFO to work with hero
   -enable-err           Enable the error propagator (disabled by default)
   -err-out <file>       Produce a textual report about the estimates performed
                         by the Error Propagator in the specified file.
