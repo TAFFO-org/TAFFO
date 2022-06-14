@@ -1,5 +1,6 @@
 embedded_src/obj_*/
 embedded_src/bench_obj/
+bench_obj/
 results/
 src/**/test*
 *.bin
