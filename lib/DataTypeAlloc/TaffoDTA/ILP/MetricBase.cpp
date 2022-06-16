@@ -56,25 +56,24 @@ tuner::CPUCosts &MetricBase::getCpuCosts() { return opt->cpuCosts; }
 
 shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
 {
-  // Constant variable should, in general, not be saved anywhere.
-  // In fact, the same constant may be used in different ways, but by the fact that
-  // it is a constant, it may be modified in the final code
-  // For example, a double 1.00 can become a float 1.00 in one place and a fixp 1 in another!
-  LLVM_DEBUG(dbgs() << "Processing constant...\n";);
+  assert(constant && "Passes null constant!");
 
-  if (dyn_cast_or_null<GlobalObject>(constant)) {
-    if (getTuner()->hasInfo(constant)) {
-      llvm_unreachable("This should already have been handled!");
-    } else {
-      LLVM_DEBUG(dbgs() << "Trying to process a non float global...\n";);
-      return nullptr;
-    }
+  // Constants should, in general, not be saved anywhere.
+  // In fact, the same constant may be used in different places, and be allocated different types.
+  // For example, a double 1.00 can become a float 1.00 in one place and a fixp 1 in another!
+  // TODO: actually, we could gather constants by their uses, to reduce the number of variables in the model.
+  LLVM_DEBUG(dbgs() << "Processing constant " << *constant << "...\n");
+
+  if (dyn_cast<GlobalObject>(constant)) {
+    assert(!getTuner()->hasInfo(constant) && "This should already have been handled!");
+    LLVM_DEBUG(dbgs() << "Trying to process a non float global...\n");
+    return nullptr;
   }
 
-  if (dyn_cast_or_null<ConstantData>(constant)) {
+  if (dyn_cast<ConstantData>(constant)) {
     // ATM: only handling FP types, should be enough
-    if (auto constantFP = dyn_cast_or_null<ConstantFP>(constant)) {
-      LLVM_DEBUG(dbgs() << "Processing FPconstant...\n";);
+    if (ConstantFP *constantFP = dyn_cast<ConstantFP>(constant)) {
+      LLVM_DEBUG(dbgs() << "Processing FPconstant...\n");
 
       APFloat tmp = constantFP->getValueAPF();
       bool losesInfo;
@@ -91,36 +90,31 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
       FPType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
       if (fpgerr != FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(dbgs() << "Error generating infos for constant propagation!"
-                          << "\n";);
+                          << "\n");
         return nullptr;
       }
 
-      // ENOB should not be considered for constant.... It is a constant and will be converted as best as possible
-      // WE DO NOT SAVE CONSTANTS INFO!
+      // ENOB should not be considered for constants... It is a constant and will be converted as best as possible
+      // WE DO NOT SAVE CONSTANTS' INFO!
       auto info = allocateNewVariableForValue(constantFP, make_shared<FPType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
       info->setReferToConstant(true);
       return info;
     }
 
-    LLVM_DEBUG(dbgs() << "[ERROR] handling unknown ConstantData, I don't know what to do: ";);
-    LLVM_DEBUG(constant->print(dbgs()););
-    LLVM_DEBUG(dbgs() << "\n";);
+    LLVM_DEBUG(dbgs() << "[ERROR] handling unknown ConstantData, I don't know what to do: "
+                      << *constant << "\n");
     return nullptr;
   }
 
-  if (auto constantExpr = dyn_cast_or_null<ConstantExpr>(constant)) {
+  if (auto constantExpr = dyn_cast<ConstantExpr>(constant)) {
     if (constantExpr->isGEPWithNoNotionalOverIndexing()) {
       return handleGEPConstant(constantExpr);
     }
-    LLVM_DEBUG(dbgs() << "Unknown constant expr!\n";);
+    LLVM_DEBUG(dbgs() << "Unknown constant expr!\n");
     return nullptr;
   }
 
-
-  LLVM_DEBUG(dbgs() << "Cannot handle ";);
-  LLVM_DEBUG(constant->print(dbgs()););
-  LLVM_DEBUG(dbgs() << "!\n\n";);
-  LLVM_DEBUG(constant->getType()->print(dbgs()););
+  LLVM_DEBUG(dbgs() << "Cannot handle " << *constant << "of type" << *constant->getType() << "!\n\n");
   llvm_unreachable("Constant not handled!");
 }
 
