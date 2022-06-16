@@ -691,7 +691,7 @@ int MetricPerf::getMinIntBitOfValue(Value *pValue)
   }
 
   double exponentOfExponent = log2(smallestRepresentableNumber);
-  bits = round(exponentOfExponent);
+  bits = (int) lround(exponentOfExponent);
 
   return bits;
 }
@@ -731,8 +731,13 @@ int MetricPerf::getMaxIntBitOfValue(Value *pValue)
     biggestRepresentableNumber = max(abs(range->Min), abs(range->Max));
   }
 
+  if (biggestRepresentableNumber <= 0) {
+    // Avoid log(0)
+    return 0;
+  }
+
   double exponentOfExponent = log2(biggestRepresentableNumber);
-  bits = round(exponentOfExponent);
+  bits = min((int) lround(exponentOfExponent), bits);
 
   return bits;
 }

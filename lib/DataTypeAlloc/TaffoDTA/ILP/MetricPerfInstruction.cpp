@@ -438,7 +438,6 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
         MODEL_OBJ_MATHCOST, 0);
   }
 
-
   if (hasBF16) {
     model.insertObjectiveElement(
         make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_BF16)),
@@ -453,19 +452,21 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   int minbits2 = getMinIntBitOfValue(op2);
 
   // Enob constraint
-  // c <= a + b - intbit_a - a - 2 * minbits_a
+  // Consider c = a / b, we have
+  // c <= a + 2 * minbits_b + b - (intbit_a + a)
   // That is
-  // c <= b - intbit_a - 2 * minbits_a
+  // c <= 2 * minbits_b + b - intbit_a
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_1 + 2 * minbits2);
+  model.insertLinearConstraint(constraint, Model::LE, 2 * minbits2 - intbit_1);
 
-  // c <= a - intbit_b - 2 * minbits_a
+  // c <= a + 2 * minbits_b + b - (intbit_b + b)
+  // c <= a + 2 * minbits_b - intbit_b
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_2 + 2 * minbits2);
+  model.insertLinearConstraint(constraint, Model::LE, 2 * minbits2 - intbit_2);
 
   saveInfoForValue(instr, res);
 }
