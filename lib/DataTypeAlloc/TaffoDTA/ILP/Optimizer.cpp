@@ -20,19 +20,19 @@ Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string mode
     cpuCosts = CPUCosts(mm, TTI);
   }
 
-  LLVM_DEBUG(dbgs() << "\n\n\n[WARNING] Mixed precision mode enabled. This is an experimental feature. Use it at your own risk!\n\n\n";);
+  LLVM_DEBUG(dbgs() << "\n\n\n[WARNING] Mixed precision mode enabled. This is an experimental feature. Use it at your own risk!\n\n\n");
   cpuCosts.dump();
-  LLVM_DEBUG(dbgs() << "ENOB tuning knob: " << to_string(TUNING_ENOB) << "\n";);
-  LLVM_DEBUG(dbgs() << "Time tuning knob: " << to_string(TUNING_MATH) << "\n";);
-  LLVM_DEBUG(dbgs() << "Time tuning CAST knob: " << to_string(TUNING_CASTING) << "\n";);
+  LLVM_DEBUG(dbgs() << "ENOB tuning knob: " << to_string(TUNING_ENOB) << "\n");
+  LLVM_DEBUG(dbgs() << "Time tuning knob: " << to_string(TUNING_MATH) << "\n");
+  LLVM_DEBUG(dbgs() << "Time tuning CAST knob: " << to_string(TUNING_CASTING) << "\n");
   metric->setOpt(this);
 
-  LLVM_DEBUG(dbgs() << "has double: " << to_string(hasDouble) << "\n";);
-  LLVM_DEBUG(dbgs() << "has half: " << to_string(hasHalf) << "\n";);
-  LLVM_DEBUG(dbgs() << "has Quad: " << to_string(hasQuad) << "\n";);
-  LLVM_DEBUG(dbgs() << "has PPC128: " << to_string(hasPPC128) << "\n";);
-  LLVM_DEBUG(dbgs() << "has FP80: " << to_string(hasFP80) << "\n";);
-  LLVM_DEBUG(dbgs() << "has BF16: " << to_string(hasBF16) << "\n";);
+  LLVM_DEBUG(dbgs() << "has double: " << to_string(hasDouble) << "\n");
+  LLVM_DEBUG(dbgs() << "has half: " << to_string(hasHalf) << "\n");
+  LLVM_DEBUG(dbgs() << "has Quad: " << to_string(hasQuad) << "\n");
+  LLVM_DEBUG(dbgs() << "has PPC128: " << to_string(hasPPC128) << "\n");
+  LLVM_DEBUG(dbgs() << "has FP80: " << to_string(hasFP80) << "\n");
+  LLVM_DEBUG(dbgs() << "has BF16: " << to_string(hasBF16) << "\n");
 }
 
 Optimizer::~Optimizer() = default;
@@ -153,13 +153,13 @@ void Optimizer::handleCallFromRoot(Function *f)
 {
   // Therefore this should be added as a cost, not simply ignored
 
-  LLVM_DEBUG(dbgs() << "\n============ FUNCTION FROM ROOT: " << f->getName() << " ============\n";);
+  LLVM_DEBUG(dbgs() << "\n============ FUNCTION FROM ROOT: " << f->getName() << " ============\n");
   const std::string calledFunctionName = f->getName().str();
-  LLVM_DEBUG(dbgs() << ("We are calling " + calledFunctionName + " from root\n"););
+  LLVM_DEBUG(dbgs() << ("We are calling " + calledFunctionName + " from root\n"));
 
   auto function = known_functions.find(calledFunctionName);
   if (function == known_functions.end()) {
-    LLVM_DEBUG(dbgs() << "Calling an external function, UNSUPPORTED at the moment.\n";);
+    LLVM_DEBUG(dbgs() << "Calling an external function, UNSUPPORTED at the moment.\n");
     return;
   }
 
@@ -170,19 +170,19 @@ void Optimizer::handleCallFromRoot(Function *f)
   // fetch ranges of arguments
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
   std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors;
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  LLVM_DEBUG(dbgs() << ("Arguments:\n"));
   for (auto arg = f->arg_begin(); arg != f->arg_end(); arg++) {
-      LLVM_DEBUG(dbgs() << "info for ";);
-      (arg)->print(LLVM_DEBUG(dbgs()););
-      LLVM_DEBUG(dbgs() << " --> ";);
+      LLVM_DEBUG(dbgs() << "info for ");
+      (arg)->print(LLVM_DEBUG(dbgs()));
+      LLVM_DEBUG(dbgs() << " --> ");
 
       //if a variable was declared for type
       auto info = getInfoOfValue(arg);
       if (!info) {
           //This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-          LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
+          LLVM_DEBUG(dbgs() << "No error for the argument!\n");
       } else {
-          LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
+          LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n");
       }
 
       //Even if is a null value, we push it!
@@ -194,7 +194,7 @@ void Optimizer::handleCallFromRoot(Function *f)
           arg_scalar_errors.push_back(arg_info_scalar);
       }
       //}
-      LLVM_DEBUG(dbgs() << "\n\n";);
+      LLVM_DEBUG(dbgs() << "\n\n");
   }
   LLVM_DEBUG(dbgs() << ("Arguments end.");*/
 
@@ -203,9 +203,9 @@ void Optimizer::handleCallFromRoot(Function *f)
   if (it != functions_still_to_visit.end()) {
     // We mark the called function as visited from the global queue, so we will not visit it starting from root.
     functions_still_to_visit.erase(calledFunctionName);
-    LLVM_DEBUG(dbgs() << "Function " << calledFunctionName << " marked as visited in global queue.\n";);
+    LLVM_DEBUG(dbgs() << "Function " << calledFunctionName << " marked as visited in global queue.\n");
   } else {
-    LLVM_DEBUG(dbgs() << "[WARNING] We already visited this function, for example when called from another function. Ignoring.\n";);
+    LLVM_DEBUG(dbgs() << "[WARNING] We already visited this function, for example when called from another function. Ignoring.\n");
 
     return;
   }
@@ -216,18 +216,18 @@ void Optimizer::handleCallFromRoot(Function *f)
   if (auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata)) {
       auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
       if (fptype) {
-          LLVM_DEBUG(dbgs() << fptype->toString(););
+          LLVM_DEBUG(dbgs() << fptype->toString());
           shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype, inputInfo->IRange);
           retInfo = result;
       } else {
-          LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n";);
+          LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n");
       }
   } else if (auto pInfo = dynamic_ptr_cast_or_null<StructInfo>(valueInfo->metadata)) {
       auto info = loadStructInfo(instruction, pInfo, "");
       saveInfoForValue(instruction, info);
       retInfo = info;
   } else {
-      LLVM_DEBUG(dbgs() << "No info available on return value, maybe it is not a floating point call.\n";);
+      LLVM_DEBUG(dbgs() << "No info available on return value, maybe it is not a floating point call.\n");
   }*/
 
   // in retInfo we now have a variable for the return value of the function. Every return should be casted against it!
@@ -237,7 +237,7 @@ void Optimizer::handleCallFromRoot(Function *f)
   // In this case we have no known math function.
   // We will have, when enabled, math functions. In this case these will be handled here!
 
-  LLVM_DEBUG(dbgs() << ("The function belongs to the current module.\n"););
+  LLVM_DEBUG(dbgs() << ("The function belongs to the current module.\n"));
   // got the llvm::Function
 
 
@@ -251,13 +251,13 @@ void Optimizer::handleCallFromRoot(Function *f)
   }*/
 
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  LLVM_DEBUG(dbgs() << ("Arguments:\n"));
   for (auto arg_i = f->arg_begin(); arg_i != f->arg_end(); arg_i++) {
     // Even if is a null value, we push it!
     arg_errors.push_back(nullptr);
   }
 
-  LLVM_DEBUG(dbgs() << ("Processing function...\n"););
+  LLVM_DEBUG(dbgs() << ("Processing function...\n"));
 
   // Initialize trip count
   currentInstruction = nullptr;
@@ -274,19 +274,19 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
   // fetch ranges of arguments
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
   //std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors; // UNUSED
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  LLVM_DEBUG(dbgs() << ("Arguments:\n"));
   for (auto arg_it = call_i->arg_begin(); arg_it != call_i->arg_end(); ++arg_it) {
-    LLVM_DEBUG(dbgs() << "info for ";);
-    LLVM_DEBUG((*arg_it)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << " --> ";);
+    LLVM_DEBUG(dbgs() << "info for ");
+    LLVM_DEBUG((*arg_it)->print(dbgs()));
+    LLVM_DEBUG(dbgs() << " --> ");
 
     // if a variable was declared for type
     auto info = getInfoOfValue(*arg_it, call_i);
     if (!info) {
       // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-      LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
+      LLVM_DEBUG(dbgs() << "No error for the argument!\n");
     } else {
-      LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n");
     }
 
     // Even if is a null value, we push it!
@@ -299,9 +299,9 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
     //  arg_scalar_errors.push_back(arg_info_scalar);
     //}
     //}
-    LLVM_DEBUG(dbgs() << "\n\n";);
+    LLVM_DEBUG(dbgs() << "\n\n");
   }
-  LLVM_DEBUG(dbgs() << ("Arguments end.\n"););
+  LLVM_DEBUG(dbgs() << ("Arguments end.\n"));
   
   return arg_errors;
 }
@@ -310,19 +310,16 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
 void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> argInfo,
                                 shared_ptr<OptimizerInfo> retInfo)
 {
-  LLVM_DEBUG(dbgs() << "\n============ FUNCTION " << f.getName() << " ============\n";);
-
-  if (f.arg_size() != argInfo.size()) {
-    llvm_unreachable("Sizes should be equal!");
-  }
+  LLVM_DEBUG(dbgs() << "\n============ FUNCTION " << f.getName() << " ============\n");
+  assert(f.arg_size() == argInfo.size() && "Sizes should be equal!");
 
   auto argInfoIt = argInfo.begin();
   for (auto arg = f.arg_begin(); arg != f.arg_end(); arg++, argInfoIt++) {
     if (*argInfoIt) {
-      LLVM_DEBUG(dbgs() << "Copying info of this value.\n";);
+      LLVM_DEBUG(dbgs() << "Copying info of this value.\n");
       metric->saveInfoForValue(&(*arg), *argInfoIt);
     } else {
-      LLVM_DEBUG(dbgs() << "No info for this value.\n";);
+      LLVM_DEBUG(dbgs() << "No info for this value.\n");
     }
   }
 
@@ -335,12 +332,12 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
     Instruction *I = &(*iIt);
     LLVM_DEBUG(dbgs() << *I << "     -having-     ");
     if (!tuner->hasInfo(I) || !tuner->valueInfo(I)->metadata) {
-      LLVM_DEBUG(dbgs() << "No info available.\n";);
+      LLVM_DEBUG(dbgs() << "No info available.\n");
     } else {
-      LLVM_DEBUG(dbgs() << tuner->valueInfo(I)->metadata->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << tuner->valueInfo(I)->metadata->toString() << "\n");
 
       if (!tuner->valueInfo(I)->metadata->getEnableConversion()) {
-        LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!\n";);
+        LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!\n");
         DisabledSkipped++;
         continue;
       } else {
@@ -351,14 +348,14 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
         std::shared_ptr<mdutils::MDInfo> MDI = VI->metadata;
         mdutils::InputInfo *II = dyn_cast<mdutils::InputInfo>(MDI.get());
         if (II && II->IRange == nullptr && I->getType()->isFloatingPointTy()) {
-          LLVM_DEBUG(dbgs() << "Skipping because there is no range!\n";);
+          LLVM_DEBUG(dbgs() << "Skipping because there is no range!\n");
           continue;
         }
       }
     }
 
     handleInstruction(I, tuner->valueInfo(I));
-    LLVM_DEBUG(dbgs() << "\n\n";);
+    LLVM_DEBUG(dbgs() << "\n\n");
   }
 
   // When the analysis is completed, we remove the info from the stack, as it is no more necessary.
@@ -402,7 +399,7 @@ void Optimizer::handleBinaryInstruction(Instruction *instr, const unsigned OpCod
 {
   // We are only handling operations between floating point, as we do not care about other values when building the model
   // This is ok as floating point instruction can only be used inside floating point operations in LLVM! :D
-  auto binop = dyn_cast_or_null<BinaryOperator>(instr);
+  auto binop = dyn_cast<BinaryOperator>(instr);
 
 
   switch (OpCode) {
@@ -435,7 +432,7 @@ void Optimizer::handleBinaryInstruction(Instruction *instr, const unsigned OpCod
   case llvm::Instruction::And:
   case llvm::Instruction::Or:
   case llvm::Instruction::Xor:
-    LLVM_DEBUG(dbgs() << "Skipping operation between integers...\n";);
+    LLVM_DEBUG(dbgs() << "Skipping operation between integers...\n");
     break;
   default:
     emitError("Unhandled binary operator " + to_string(OpCode)); // unsupported operation
@@ -501,7 +498,7 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
       emitError("Handling of AtomicRMW not supported yet");
       break; // TODO implement
 
-      // other operations
+    // other operations
     case llvm::Instruction::ICmp: {
       LLVM_DEBUG(dbgs() << "Comparing two integers, skipping...\n");
       break;
@@ -544,14 +541,13 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
       emitError("unknown instruction " + std::to_string(opCode));
       break;
     }
-    // TODO here be dragons
   } // end else
 
   currentInstruction = nullptr;
   currentInstructionTripCount = prevInstrTripCount;
 }
 
-int Optimizer::getCurrentInstructionCost()
+unsigned Optimizer::getCurrentInstructionCost()
 {
   if (MixedTripCount == false) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": option -mixedtripcount off, returning 1.\n");
@@ -638,7 +634,7 @@ void Optimizer::insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1
   // Inserting constraint about of the very same type
 
 
-  auto eqconstraintlambda = [&](const string (tuner::OptimizerScalarInfo::*getFirstVariable)(), const std::string desc) mutable {
+  auto eqconstraintlambda = [&](const string (tuner::OptimizerScalarInfo::*getFirstVariable)(), const std::string &desc) mutable {
     constraint.clear();
     constraint.push_back(make_pair(((*op1).*getFirstVariable)(), 1.0));
     constraint.push_back(make_pair(((*op2).*getFirstVariable)(), -1.0));
@@ -819,7 +815,6 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
     return make_shared<mdutils::FloatType>(FloatType::Float_bfloat, 0);
   }
 
-
   llvm_unreachable("Trying to implement a new datatype? look here :D");
 }
 
@@ -833,17 +828,5 @@ void Optimizer::printStatInfos()
 
   int total = StatSelectedFixed + StatSelectedFloat + StatSelectedDouble + StatSelectedHalf;
 
-  LLVM_DEBUG(dbgs() << "Conversion entropy as equally distributed variables: " << -(((double)StatSelectedDouble / total) * log2(((double)StatSelectedDouble) / total) + ((double)StatSelectedFloat / total) * log2(((double)StatSelectedFloat) / total) + ((double)StatSelectedDouble / total) * log2(((double)StatSelectedDouble) / total)) << "\n";);
-
-  /*
-      ofstream statFile;
-      statFile.open("./stats.txt", ios::out|ios::trunc);
-      assert(statFile.is_open() && "File open failed!");
-      statFile << "TOFIX, " << StatSelectedFixed << "\n";
-      statFile << "TOFLOAT, " << StatSelectedFloat << "\n";
-      statFile << "TODOUBLE, " << StatSelectedDouble << "\n";
-      statFile << "TOHALF, " << StatSelectedHalf << "\n";
-      statFile.flush();
-      statFile.close();
-  */
+  LLVM_DEBUG(dbgs() << "Conversion entropy as equally distributed variables: " << -(((double)StatSelectedDouble / total) * log2(((double)StatSelectedDouble) / total) + ((double)StatSelectedFloat / total) * log2(((double)StatSelectedFloat) / total) + ((double)StatSelectedDouble / total) * log2(((double)StatSelectedDouble) / total)) << "\n");
 }

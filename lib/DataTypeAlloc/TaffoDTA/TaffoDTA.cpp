@@ -143,7 +143,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
       // FIXME: hack to propagate itofp metadata
       if (isa<UIToFPInst>(v) ||
           isa<SIToFPInst>(v)) {
-        LLVM_DEBUG(dbgs() << "FORCING CONVERSION OF A ITOFP!\n";);
+        LLVM_DEBUG(dbgs() << "FORCING CONVERSION OF A ITOFP!\n");
         II->IEnableConversion = true;
       }
 
@@ -377,7 +377,7 @@ bool TaffoTuner::mergeFixFormat(llvm::Value *v, llvm::Value *u)
       LLVM_DEBUG(dbgs() << "Merged fixp : \n"
                         << "\t" << *v << " fix type " << fpv->toString() << "\n"
                         << "\t" << *u << " fix type " << fpu->toString() << "\n"
-                        << "Final format " << fp->toString() << "\n";);
+                        << "Final format " << fp->toString() << "\n");
 
       iiv->IType.reset(fp->clone());
       iiu->IType.reset(fp->clone());
@@ -421,7 +421,7 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
       LLVM_DEBUG(dbgs() << "Merged fixp : \n"
                         << "\t" << *v << " fix type " << fpv->toString() << "\n"
                         << "\t" << *u << " fix type " << fpu->toString() << "\n"
-                        << "Final format " << fp->toString() << "\n";);
+                        << "Final format " << fp->toString() << "\n");
 
       iiv->IType.reset(fp->clone());
       iiu->IType.reset(fp->clone());
@@ -516,7 +516,7 @@ void TaffoTuner::setTypesOnFunctionArgumentFromCallArgument(Value *v, std::share
 void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::shared_ptr<MDInfo> finalMd)
 {
   Function *fun = arg->getParent();
-  int n = arg->getArgNo();
+  unsigned n = arg->getArgNo();
   LLVM_DEBUG(dbgs() << " --> setting types to " << finalMd->toString() << " on call arguments from function "
                     << fun->getName() << " argument " << n << "\n");
   for (auto it = fun->user_begin(); it != fun->user_end(); it++) {
@@ -540,10 +540,10 @@ std::vector<Function *> TaffoTuner::collapseFunction(Module &m)
     if (MDNode *mdNode = f.getMetadata(CLONED_FUN_METADATA)) {
       if (std::find(toDel.begin(), toDel.end(), &f) != toDel.end())
         continue;
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "Analyzing original function " << f.getName() << "\n";);
+      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "Analyzing original function " << f.getName() << "\n");
 
       for (auto mdIt = mdNode->op_begin(); mdIt != mdNode->op_end(); mdIt++) {
-        DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Clone : " << **mdIt << "\n";);
+        DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Clone : " << **mdIt << "\n");
 
         ValueAsMetadata *md = dyn_cast<ValueAsMetadata>(*mdIt);
         Function *fClone = dyn_cast<Function>(md->getValue());
@@ -552,7 +552,7 @@ std::vector<Function *> TaffoTuner::collapseFunction(Module &m)
                                             << " because it's not used anywhere\n");
         } else if (Function *eqFun = findEqFunction(fClone, &f)) {
           DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Replace function " << fClone->getName()
-                                            << " with " << eqFun->getName() << "\n";);
+                                            << " with " << eqFun->getName() << "\n");
           fClone->replaceAllUsesWith(eqFun);
           toDel.push_back(fClone);
         }
@@ -580,8 +580,8 @@ bool compareTypesOfMDInfo(MDInfo &mdi1, MDInfo &mdi2)
     StructInfo &si1 = cast<StructInfo>(mdi1);
     StructInfo &si2 = cast<StructInfo>(mdi2);
     if (si1.size() == si2.size()) {
-      int c = si1.size();
-      for (int i = 0; i < c; i++) {
+      StructInfo::size_type c = si1.size();
+      for (StructInfo::size_type i = 0; i < c; i++) {
         std::shared_ptr<MDInfo> p1 = si1.getField(i);
         std::shared_ptr<MDInfo> p2 = si1.getField(i);
         if ((p1.get() == nullptr) != (p2.get() == nullptr))
@@ -607,14 +607,14 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   std::vector<std::pair<int, std::shared_ptr<MDInfo>>> fixSign;
 
   DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Search eq function for " << fun->getName()
-                                    << " in " << origin->getName() << " pool\n";);
+                                    << " in " << origin->getName() << " pool\n");
 
   if (isFloatType(fun->getReturnType()) && hasInfo(*fun->user_begin())) {
     std::shared_ptr<MDInfo> retval = valueInfo(*fun->user_begin())->metadata;
     if (retval) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(-1, retval)); // ret value in signature
       DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Return type : "
-                                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
+                                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n");
     }
   }
 
@@ -623,7 +623,7 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
     if (hasInfo(&arg) && valueInfo(&arg)->metadata) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(i, valueInfo(&arg)->metadata));
       DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Arg " << i << " type : "
-                                        << valueInfo(&arg)->metadata->toString() << "\n";);
+                                        << valueInfo(&arg)->metadata->toString() << "\n");
     }
     i++;
   }
@@ -648,7 +648,7 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   funInfo.newFun = fun;
   funInfo.fixArgs = fixSign;
   functionPool[origin].push_back(funInfo);
-  DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Function " << fun->getName() << " used\n";);
+  DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Function " << fun->getName() << " used\n");
   return nullptr;
 }
 
@@ -706,7 +706,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
   LLVM_DEBUG(dbgs() << "\n============ GLOBALS ============\n");
 
   for (GlobalObject &globObj : m.globals()) {
-    LLVM_DEBUG(globObj.print(dbgs()););
+    LLVM_DEBUG(globObj.print(dbgs()));
     LLVM_DEBUG(dbgs() << "     -having-     ");
     if (!hasInfo(&globObj)) {
       LLVM_DEBUG(dbgs() << "No info available, skipping.");
@@ -715,7 +715,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
 
       optimizer.handleGlobal(&globObj, valueInfo(&globObj));
     }
-    LLVM_DEBUG(dbgs() << "\n\n";);
+    LLVM_DEBUG(dbgs() << "\n\n");
   }
 
   // FIXME: this is an hack to prevent multiple visit of the same function if it will be called somewhere from the program
@@ -725,7 +725,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
       continue;
 
     if (!f.isIntrinsic() && !f.empty() && f.getName().equals("main")) {
-      LLVM_DEBUG(dbgs() << "========== GLOBAL ENTRY POINT main ==========";);
+      LLVM_DEBUG(dbgs() << "========== GLOBAL ENTRY POINT main ==========");
 
       optimizer.handleCallFromRoot(&f);
       break;
@@ -736,13 +736,13 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
   for (Function &f : m.functions()) {
     // Skip compiler provided functions
     if (f.isIntrinsic()) {
-      LLVM_DEBUG(dbgs() << "Skipping intrinsic function " << f.getName() << "\n";);
+      LLVM_DEBUG(dbgs() << "Skipping intrinsic function " << f.getName() << "\n");
       continue;
     }
 
     // Skip empty functions
     if (f.empty()) {
-      LLVM_DEBUG(dbgs() << "Skipping empty function " << f.getName() << "\n";);
+      LLVM_DEBUG(dbgs() << "Skipping empty function " << f.getName() << "\n");
       continue;
     }
 
@@ -756,7 +756,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     LLVM_DEBUG(dbgs() << "Processing " << *v << "...\n");
 
     if (!valset.count(v)) {
-      LLVM_DEBUG(dbgs() << "Not in the conversion queue! Skipping!\n\n";);
+      LLVM_DEBUG(dbgs() << "Not in the conversion queue! Skipping!\n\n");
       continue;
     }
 
@@ -765,7 +765,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     // Read from the model, search for the data type associated with that value and convert it!
     auto fp = optimizer.getAssociatedMetadata(v);
     if (!fp) {
-      LLVM_DEBUG(dbgs() << "Invalid datatype returned!\n";);
+      LLVM_DEBUG(dbgs() << "Invalid datatype returned!\n");
       continue;
     }
     LLVM_DEBUG(dbgs() << "Datatype: " << fp->toString() << "\n");
@@ -774,7 +774,7 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     bool result = overwriteType(viu->metadata, fp);
     if (result) {
       // Some datatype has changed, restore in function call
-      LLVM_DEBUG(dbgs() << "Restoring call type because of mergeDataTypes()...\n";);
+      LLVM_DEBUG(dbgs() << "Restoring call type because of mergeDataTypes()...\n");
       restoreTypesAcrossFunctionCall(v);
     }
 
@@ -800,8 +800,8 @@ bool TaffoTuner::overwriteType(shared_ptr<mdutils::MDInfo> old, shared_ptr<mduti
 
     if (!old1->IType)
       return false;
-    LLVM_DEBUG(dbgs() << "model1: " << model1->IType->toString() << "\n";);
-    LLVM_DEBUG(dbgs() << "old1: " << old1->IType->toString() << "\n";);
+    LLVM_DEBUG(dbgs() << "model1: " << model1->IType->toString() << "\n");
+    LLVM_DEBUG(dbgs() << "old1: " << old1->IType->toString() << "\n");
     if (old1->IType->operator==(*model1->IType)) {
       return false;
     }

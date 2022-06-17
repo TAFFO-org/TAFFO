@@ -164,7 +164,7 @@ llvm::Type *CPUCosts::getType(unsigned int n, const string &tmpString, llvm::LLV
     return llvm::Type::getBFloatTy(context);
   }
 
-  llvm_unreachable("");
+  llvm_unreachable("Unknown type.");
 }
 
 
@@ -187,7 +187,7 @@ void CPUCosts::SizeInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       cost_inst = (double)type->getPrimitiveSizeInBits();
     } else {
       int first_start = 5;
-      int second_start = tmpString.find("_", first_start) + 1;
+      size_t second_start = tmpString.find('_', first_start) + 1;
       llvm::Type *second_type = getType(second_start, tmpString, context, module);
       LLVM_DEBUG(llvm::dbgs() << "Size of " << tmpString << " " << second_type->getPrimitiveSizeInBits() << "\n");
       cost_inst = second_type->getPrimitiveSizeInBits();
@@ -254,7 +254,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       first_alloca->eraseFromParent();
     } else {
       int first_start = 5;
-      int second_start = tmpString.find("_", first_start) + 1;
+      size_t second_start = tmpString.find('_', first_start) + 1;
       llvm::Type *first_type = getType(first_start, tmpString, context, module);
       llvm::Type *second_type = getType(second_start, tmpString, context, module);
       auto *first_alloca = builder.CreateAlloca(first_type);
@@ -297,8 +297,8 @@ void CPUCosts::ApplyAttribute(string &attr)
     if (attr.find("CAST") != 0) {
       disableNum.at(attr.substr(N, string::npos))++;
     } else {
-      disableNum.at(attr.substr(N, attr.find("_", N) - N))++;
-      disableNum.at(attr.substr(attr.find("_", N) + 1, string::npos))++;
+      disableNum.at(attr.substr(N, attr.find('_', N) - N))++;
+      disableNum.at(attr.substr(attr.find('_', N) + 1, string::npos))++;
     }
   } break;
   case static_cast<int>('N'):
@@ -381,7 +381,7 @@ void CPUCosts::loadInstructionSet()
         LLVM_DEBUG(llvm::dbgs() << "No double\n");
         hasDouble = false;
       } else {
-        llvm_unreachable((string("Not supported disabled type ") + values.first).c_str());
+        llvm_unreachable("Unsupported type.");
       }
     }
   }
@@ -419,7 +419,7 @@ void CPUCosts::loadModelFile(string &modelFile)
     }
 
     if (row.size() != 2) {
-      LLVM_DEBUG(llvm::dbgs() << "Malformed line found: [" << line << "] on line" << nline << ", skipping...\n";);
+      LLVM_DEBUG(llvm::dbgs() << "Malformed line found: [" << line << "] on line" << nline << ", skipping...\n");
       continue;
     }
 
@@ -427,7 +427,7 @@ void CPUCosts::loadModelFile(string &modelFile)
     value = stod(row[1]);
 
     if (costsMap.find(id) != costsMap.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "Found duplicated info: [" << line << "], skipping...\n";);
+      LLVM_DEBUG(llvm::dbgs() << "Found duplicated info: [" << line << "], skipping...\n");
       continue;
     }
 
@@ -449,18 +449,17 @@ CPUCosts::CostsId CPUCosts::decodeId(const string &basicString)
   auto it = std::find(CostsIdValues.cbegin(), CostsIdValues.cend(), basicString);
 
   if (it != CostsIdValues.cend()) {
-    int index = it - CostsIdValues.cbegin();
-    // LLVM_DEBUG(llvm::dbgs() <<  " found [" << *it <<"]\n" );
+    long index = it - CostsIdValues.cbegin();
     return CostsId(index);
   }
 
   LLVM_DEBUG(
       {
         for (const auto &i : CostsIdValues) {
-          LLVM_DEBUG(llvm::dbgs() << i << " = " << basicString << " : " << std::to_string(basicString == i) << "\n";);
+          LLVM_DEBUG(llvm::dbgs() << i << " = " << basicString << " : " << std::to_string(basicString == i) << "\n");
         }
       });
-  LLVM_DEBUG(llvm::dbgs() << "Unknown value: " << basicString << "\n";);
+  LLVM_DEBUG(llvm::dbgs() << "Unknown value: " << basicString << "\n");
 
   llvm_unreachable("Unknown cost value!");
 }
@@ -472,9 +471,9 @@ string CPUCosts::CostsIdToString(CostsId id)
 
 void CPUCosts::dump()
 {
-  LLVM_DEBUG(llvm::dbgs() << "Available model costs:\n";);
+  LLVM_DEBUG(llvm::dbgs() << "Available model costs:\n");
   for (auto pair : costsMap) {
-    LLVM_DEBUG(llvm::dbgs() << "[" << CostsIdToString(pair.first) << ", " << pair.second << "]\n";);
+    LLVM_DEBUG(llvm::dbgs() << "[" << CostsIdToString(pair.first) << ", " << pair.second << "]\n");
   }
 }
 

@@ -52,24 +52,21 @@ public:
     GE  // Greater or equal
   }; // Usually, strict inequalities are not handled by the tools.
 
-  // void createVariable(const std::string &varName);
-  void insertLinearConstraint(const std::vector<std::pair<std::string, double>> &variables, ConstraintType constraintType, double rightSide /*, std::string& comment*/);
+  void insertLinearConstraint(const std::vector<std::pair<std::string, double>> &variables, ConstraintType constraintType, double rightSide);
   bool isVariableDeclared(const std::string &variable);
   bool finalizeAndSolve();
   void createVariable(const std::string &varName, double min, double max);
-  void insertObjectiveElement(const std::pair<std::string, double> &variables, std::string costName, double maxValue);
+  void insertObjectiveElement(const std::pair<std::string, double> &variables, const std::string &costName, double maxValue);
   void writeOutObjectiveFunction();
-  bool VARIABLE_NOT_DECLARED(std::string var);
+  bool VARIABLE_NOT_DECLARED(const std::string &var);
   bool loadResultsFromFile(std::string modelFile);
-  double getVariableValue(std::string variable);
-  double getMultiplier(std::string var);
+  double getVariableValue(const std::string &variable);
+  double getMultiplier(const std::string &var);
 
 #ifndef NDEBUG
   void dumpModel();
   void dumpSolution();
 #endif
-
-  // void insertComment(std::string comment, int spaceBefore=0, int spaceAfter=0);
 };
 } // namespace tuner
 

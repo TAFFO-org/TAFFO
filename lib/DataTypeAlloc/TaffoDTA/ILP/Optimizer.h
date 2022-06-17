@@ -11,17 +11,8 @@
 #include "PhiWatcher.h"
 #include "MemWatcher.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
 #include <PtrCasts.h>
-#include <fstream>
-#include <set>
 #include <stack>
 #include <unordered_map>
 
@@ -119,7 +110,7 @@ public:
   void handleInstruction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo);
 
   /** Returns the cost of the instruction currently being processed by handleInstruction. */
-  int getCurrentInstructionCost();
+  unsigned getCurrentInstructionCost();
 
   void emitError(const string &stringhina);
 
@@ -160,8 +151,6 @@ public:
   friend class MetricBase;
 };
 
-
 } // namespace tuner
-
 
 #endif

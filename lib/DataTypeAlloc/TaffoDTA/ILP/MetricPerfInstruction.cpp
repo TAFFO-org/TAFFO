@@ -639,7 +639,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
     return;
   }
 
-  llvm_unreachable("Did I really forgot something?");
+  llvm_unreachable("Did I really forget something?");
 }
 
 
@@ -654,7 +654,7 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
   if (opRegister->getType()->isFloatingPointTy()) {
     auto info1 = getInfoOfValue(opWhereToStore, store);
     if (!info1 || !info2) {
-      LLVM_DEBUG(dbgs() << "One of the two values does not have info, ignoring...\n";);
+      LLVM_DEBUG(dbgs() << "One of the two values does not have info, ignoring...\n");
       return;
     }
 
@@ -684,7 +684,6 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
     if (!info_variable_oeig_t->doesReferToConstant()) {
       isConstant = false;
       // We do this only if storing a real result from a computation, if it comes from a constant we do not override the enob.
-      // getModel().insertComment("Restriction for new enob [STORE]", 2);
       string newEnobVariable = info_pointer->getRealEnobVariable();
       newEnobVariable.append("_storeENOB");
       info_pointer->overrideEnob(newEnobVariable);
@@ -716,12 +715,12 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
   } else if (opRegister->getType()->isPointerTy()) {
     // Storing a pointer. In the value there should be a pointer already, and the value where to store is, in fact,
     // a pointer to a pointer
-    LLVM_DEBUG(dbgs() << "The register is: ";);
-    LLVM_DEBUG(opRegister->print(dbgs()););
-    LLVM_DEBUG(dbgs() << "\n";);
-    LLVM_DEBUG(dbgs() << "Storing a pointer...\n";);
+    LLVM_DEBUG(dbgs() << "The register is: ");
+    LLVM_DEBUG(opRegister->print(dbgs()));
+    LLVM_DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(dbgs() << "Storing a pointer...\n");
     if (!info2) {
-      LLVM_DEBUG(dbgs() << "Skipping, as the value to save does not have any info...\n";);
+      LLVM_DEBUG(dbgs() << "Skipping, as the value to save does not have any info...\n");
       return;
     }
 
@@ -735,7 +734,7 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
     saveInfoForPointer(opWhereToStore, make_shared<OptimizerPointerInfo>(info2));
 
   } else {
-    LLVM_DEBUG(dbgs() << "Storing a non-floating point, skipping...\n";);
+    LLVM_DEBUG(dbgs() << "Storing a non-floating point, skipping...\n");
     return;
   }
 }
@@ -936,17 +935,17 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
       }
     }
   } else if (load->getType()->isPointerTy()) {
-    LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n";);
+    LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n");
     // Unwrap the pointer, hoping that it is pointing to something
     auto info = pinfos->getOptInfo();
     if (info->getKind() != OptimizerInfo::K_Pointer) {
-      LLVM_DEBUG(dbgs() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, wrapping it...";);
+      LLVM_DEBUG(dbgs() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, wrapping it...");
       // FIXME: hack to prevent problem when using global pointer as arrays
-      LLVM_DEBUG(dbgs() << "Unfortunately got " << info->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "Unfortunately got " << info->toString() << "\n");
 
       info = make_shared<OptimizerPointerInfo>(info);
     }
-    LLVM_DEBUG(dbgs() << "The final register will have as info: " << info->toString() << "\n";);
+    LLVM_DEBUG(dbgs() << "The final register will have as info: " << info->toString() << "\n");
     saveInfoForValue(instruction, info);
 
   } else {

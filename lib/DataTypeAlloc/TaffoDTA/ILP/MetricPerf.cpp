@@ -29,19 +29,17 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
     counter++;
   }
 
-  LLVM_DEBUG(llvm::dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
+  LLVM_DEBUG(llvm::dbgs() << "Allocating new variable, will have the following name: " << varName << "\n");
 
   auto optimizerInfo = make_shared<tuner::OptimizerScalarInfo>(varName, 0, fpInfo->getPointPos(), fpInfo->getWidth(),
                                                                fpInfo->isSigned(), *rangeInfo, "");
 
 
-  LLVM_DEBUG(llvm::dbgs() << "Allocating variable " << varName << " with limits [" << optimizerInfo->minBits << ", " << optimizerInfo->maxBits << "];\n";);
+  LLVM_DEBUG(llvm::dbgs() << "Allocating variable " << varName << " with limits [" << optimizerInfo->minBits << ", " << optimizerInfo->maxBits << "];\n");
 
   string out;
   raw_string_ostream stream(out);
   value->print(stream);
-
-  // model.insertComment("Stuff for " + stream.str(), 3);
 
   model.createVariable(optimizerInfo->getFractBitsVariable(), optimizerInfo->minBits, optimizerInfo->maxBits);
 
@@ -77,7 +75,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
      * store its result. Therefore we limit the enob to a useful value even for floating points.*/
     double errorEnob = getENOBFromError(*suggestedMinError);
 
-    LLVM_DEBUG(llvm::dbgs() << "We have a suggested min error, limiting the enob in the model to " << errorEnob << "\n";);
+    LLVM_DEBUG(llvm::dbgs() << "We have a suggested min error, limiting the enob in the model to " << errorEnob << "\n");
 
     constraint.clear();
     constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
@@ -147,24 +145,14 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Value *toUse, User *whereToUse)
 {
   auto info_t = getInfoOfValue(toUse, whereToUse);
+  assert(info_t && "Every value should have an info here!");
   auto &model = getModel();
-  if (!info_t) {
-    llvm_unreachable("Every value should have an info here!");
-  }
-
-  auto info = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(info_t);
-  if (!info) {
-    llvm_unreachable("Here we should only have floating variable, not aggregate.");
-  }
+  auto info = static_ptr_cast<tuner::OptimizerScalarInfo>(info_t);
 
   auto originalVar = info->getBaseName();
-
   string endName = tuner::uniqueIDForValue(whereToUse);
   std::replace(endName.begin(), endName.end(), '.', '_');
-
-
   string varNameBase((originalVar + ("_CAST_") + endName));
-
   string varName(varNameBase);
 
   int counter = 0;
@@ -173,23 +161,19 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
     counter++;
   }
 
-  LLVM_DEBUG(dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
-
+  LLVM_DEBUG(dbgs() << "Allocating new variable, will have the following name: " << varName << "\n");
 
   unsigned minBits = info->minBits;
   unsigned maxBits = info->maxBits;
 
   auto optimizerInfo = make_shared<tuner::OptimizerScalarInfo>(varName, minBits, maxBits, info->totalBits, info->isSigned, *info->getRange(), info->getOverridedEnob());
 
-
   LLVM_DEBUG(dbgs() << "Allocating variable " << varName << " with limits [" << minBits << ", " << maxBits
-                    << "] with casting cost from " << info->getBaseName() << "\n";);
+                    << "] with casting cost from " << info->getBaseName() << "\n");
 
   string out;
   raw_string_ostream stream(out);
   whereToUse->print(stream);
-
-  // model.insertComment("Constraint for cast for " + stream.str(), 3);
 
   model.createVariable(optimizerInfo->getFractBitsVariable(), minBits, maxBits);
 
@@ -208,7 +192,6 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
     model.createVariable(optimizerInfo->getFP80SelectedVariable(), 0, 1);
   if (hasBF16)
     model.createVariable(optimizerInfo->getBF16SelectedVariable(), 0, 1);
-  // model.createVariable(optimizerInfo->getRealEnobVariable(), -BIG_NUMBER, BIG_NUMBER);
 
   auto constraint = vector<pair<string, double>>();
   // Constraint for mixed precision: only one constraint active at one time:
@@ -230,7 +213,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
     constraint.push_back(make_pair(optimizerInfo->getBF16SelectedVariable(), 1.0));
 
 
-  model.insertLinearConstraint(constraint, tuner::Model::EQ, 1 /*, "exactly 1 type"*/);
+  model.insertLinearConstraint(constraint, tuner::Model::EQ, 1);
 
 
   // Real enob is still the same!
@@ -511,7 +494,7 @@ void MetricPerf::closePhiLoop(PHINode *phiNode, Value *requestedValue)
 
 void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
 {
-  LLVM_DEBUG(dbgs() << "Closing MemPhi reference!\n";);
+  LLVM_DEBUG(dbgs() << "Closing MemPhi reference!\n");
   auto phiInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(load, nullptr));
   auto destInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(requestedValue, load));;
   assert(phiInfo && "phiInfo not available!");
@@ -566,7 +549,7 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
 {
   assert(range && "We must have a valid range here!");
 
-  int fractionalDigits;
+  unsigned fractionalDigits;
   int minExponentPower; // eheheh look at this
   switch (standard) {
   case mdutils::FloatType::Float_half:
@@ -625,14 +608,13 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
     exponentInt = minExponentPower;
 
 
-  return (-exponentInt) + fractionalDigits;
+  return (-exponentInt) + (int) fractionalDigits;
 }
 
 
-std::string MetricPerf::getEnobActivationVariable(Value *value, int cardinal)
+std::string MetricPerf::getEnobActivationVariable(Value *value, unsigned cardinal)
 {
   assert(value && "Value must not be null!");
-  assert(cardinal >= 0 && "Cardinal should be a positive number!");
   string valueName;
 
   valueName = tuner::uniqueIDForValue(value);
@@ -656,18 +638,18 @@ int MetricPerf::getMinIntBitOfValue(Value *pValue)
     bool losesInfo;
     tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
     auto a = tmp.convertToDouble();
-    LLVM_DEBUG(dbgs() << "Getting max bits of constant " << a << "!\n";);
+    LLVM_DEBUG(dbgs() << "Getting max bits of constant " << a << "!\n");
     smallestRepresentableNumber = abs(a);
   } else {
     if (!tuner->hasInfo(pValue)) {
-      LLVM_DEBUG(dbgs() << "No info available for IntBit computation. Using default value\n";);
+      LLVM_DEBUG(dbgs() << "No info available for IntBit computation. Using default value\n");
       return bits;
     }
 
     auto metadata = tuner->valueInfo(pValue)->metadata;
 
     if (!metadata) {
-      LLVM_DEBUG(dbgs() << "No metadata available for IntBit computation. Using default value\n";);
+      LLVM_DEBUG(dbgs() << "No metadata available for IntBit computation. Using default value\n");
       return bits;
     }
 
@@ -679,7 +661,7 @@ int MetricPerf::getMinIntBitOfValue(Value *pValue)
 
 
     if (range->Min <= 0 && range->Max >= 0) {
-      LLVM_DEBUG(dbgs() << "The lowest possible number is a 0, infinite ENOB wooooo.\n";);
+      LLVM_DEBUG(dbgs() << "The lowest possible number is a 0, infinite ENOB wooooo.\n");
       return bits;
     } else if (range->Min >= 0) {
       // both are greater than 0
@@ -707,18 +689,18 @@ int MetricPerf::getMaxIntBitOfValue(Value *pValue)
     APFloat tmp = fp_i->getValueAPF();
     bool losesInfo;
     tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
-    LLVM_DEBUG(dbgs() << "Getting max bits of constant!\n";);
+    LLVM_DEBUG(dbgs() << "Getting max bits of constant!\n");
     biggestRepresentableNumber = abs(tmp.convertToDouble());
   } else {
     if (!tuner->hasInfo(pValue)) {
-      LLVM_DEBUG(dbgs() << "No info available for IntBit computation. Using default value\n";);
+      LLVM_DEBUG(dbgs() << "No info available for IntBit computation. Using default value\n");
       return bits;
     }
 
     auto metadata = tuner->valueInfo(pValue)->metadata;
 
     if (!metadata) {
-      LLVM_DEBUG(dbgs() << "No metadata available for IntBit computation. Using default value\n";);
+      LLVM_DEBUG(dbgs() << "No metadata available for IntBit computation. Using default value\n");
       return bits;
     }
 
@@ -744,31 +726,24 @@ int MetricPerf::getMaxIntBitOfValue(Value *pValue)
 
 void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueInfo> valueInfo)
 {
-  auto *select = dyn_cast<SelectInst>(instruction);
+  auto *select = cast<SelectInst>(instruction);
 
   if (!select->getType()->isFloatingPointTy()) {
-    LLVM_DEBUG(dbgs() << "select node with non float value, skipping...\n";);
+    LLVM_DEBUG(dbgs() << "select node with non float value, skipping...\n");
     return;
   }
 
-  // The select is different from phi because we have all the value in the current basic block, therefore we will have
-  //  them while computing top down
-
-
-  if (!select) {
-    llvm_unreachable("Could not convert Select instruction to Selectinstruction");
-  }
-
-
+  // The select is different from phi because we have all operands in the current basic block,
+  // so we will have them while computing top down
   auto fieldInfo = tuner::dynamic_ptr_cast_or_null<mdutils::InputInfo>(valueInfo->metadata);
   if (!fieldInfo) {
-    LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+    LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n");
     return;
   }
 
   auto fptype = tuner::dynamic_ptr_cast_or_null<mdutils::FPType>(fieldInfo->IType);
   if (!fptype) {
-    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
     return;
   }
 
@@ -789,16 +764,16 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
     if (auto info = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(op, select))) {
       if (info->doesReferToConstant()) {
         // We skip the variable if it is a constant
-        LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-        LLVM_DEBUG(op->print(dbgs()););
-        LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+        LLVM_DEBUG(dbgs() << "[INFO] Skipping ");
+        LLVM_DEBUG(op->print(dbgs()));
+        LLVM_DEBUG(dbgs() << " as it is a constant!\n");
         continue;
       }
     }
     if (!valueHasInfo(op)) {
-      LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-      LLVM_DEBUG(op->print(dbgs()););
-      LLVM_DEBUG(dbgs() << " as it is does not have an info!\n";);
+      LLVM_DEBUG(dbgs() << "[INFO] Skipping ");
+      LLVM_DEBUG(op->print(dbgs()));
+      LLVM_DEBUG(dbgs() << " as it is does not have an info!\n");
       continue;
     }
 
@@ -811,29 +786,29 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
   if (constraint.size() > 0) {
     model.insertLinearConstraint(constraint, tuner::Model::EQ, 1 /*, "Enob: one selected constraint"*/);
   } else {
-    LLVM_DEBUG(dbgs() << "[INFO] All constants or unknown nodes, nothing to do!!!\n";);
+    LLVM_DEBUG(dbgs() << "[INFO] All constants or unknown nodes, nothing to do!!!\n");
     return;
   }
 
   for (unsigned index = 0; index < incomingValues.size(); index++) {
-    LLVM_DEBUG(dbgs() << "[Select] Handlign operator " << index << "...\n";);
+    LLVM_DEBUG(dbgs() << "[Select] Handlign operator " << index << "...\n");
     Value *op = incomingValues[index];
 
     if (auto info = getInfoOfValue(op, select)) {
       if (auto info2 = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
           // We skip the variable if it is a constant
-          LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-          LLVM_DEBUG(op->print(dbgs()););
-          LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+          LLVM_DEBUG(dbgs() << "[INFO] Skipping ");
+          LLVM_DEBUG(op->print(dbgs()));
+          LLVM_DEBUG(dbgs() << " as it is a constant!\n");
           continue;
         }
       } else {
-        LLVM_DEBUG(dbgs() << "Strange select value as it is not a number...\n";);
+        LLVM_DEBUG(dbgs() << "Strange select value as it is not a number...\n");
       }
 
 
-      LLVM_DEBUG(dbgs() << "[Select] We have infos, treating as usual.\n";);
+      LLVM_DEBUG(dbgs() << "[Select] We have infos, treating as usual.\n");
 
       auto destInfo = allocateNewVariableWithCastCost(op, select);
 

@@ -24,7 +24,7 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Instruction *
   unsigned info;
   info = computeFullTripCount(tuner, loop);
 
-  LLVM_DEBUG(dbgs() << "Total trip count: " << info << "\n";);
+  LLVM_DEBUG(dbgs() << "Total trip count: " << info << "\n");
   return info;
 }
 
@@ -33,7 +33,7 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
   unsigned int LocalTrip;
 
   if (!loop) {
-    LLVM_DEBUG(dbgs() << "Loop Info: loop is null! Not part of a loop, finishing search!\n";);
+    LLVM_DEBUG(dbgs() << "Loop Info: loop is null! Not part of a loop, finishing search!\n");
     return 1;
   }
 
@@ -57,7 +57,7 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
                     .getSE()
                     .getSmallConstantTripCount(loop);
     if (LocalTrip > 0) {
-      LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n";);
+      LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n");
       TripCountDetectionSuccessCount++;
     } else {
       LocalTrip = 2;

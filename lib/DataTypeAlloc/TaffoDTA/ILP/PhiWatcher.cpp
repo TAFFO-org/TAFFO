@@ -29,9 +29,7 @@ PHINode *PhiWatcher::getPhiNodeToClose(Value *value)
 void PhiWatcher::closePhiLoop(PHINode *phiNode, Value *requestedValue)
 {
   auto workingEntry = pairsToClose.find(requestedValue);
-  if (workingEntry == pairsToClose.end()) {
-    llvm_unreachable("Tried to close an already closed phiLoop!");
-  }
+  assert(workingEntry != pairsToClose.end() && "Tried to close an already closed phiLoop!");
 
   auto toDelete = std::find(workingEntry->getSecond().begin(),
                             workingEntry->getSecond().end(),
@@ -46,14 +44,14 @@ void PhiWatcher::closePhiLoop(PHINode *phiNode, Value *requestedValue)
 void PhiWatcher::dumpState()
 {
   if (pairsToClose.empty()) {
-    LLVM_DEBUG(dbgs() << "All Phi loops closed!\n";);
+    LLVM_DEBUG(dbgs() << "All Phi loops closed!\n");
   }
   for (auto pair : pairsToClose) {
-    LLVM_DEBUG(pair.first->print(dbgs()););
-    LLVM_DEBUG(dbgs() << " STILL MISSING; will close:\n";);
+    LLVM_DEBUG(pair.first->print(dbgs()));
+    LLVM_DEBUG(dbgs() << " STILL MISSING; will close:\n");
     for (auto a : pair.second) {
-      LLVM_DEBUG(a->print(dbgs()););
-      LLVM_DEBUG(dbgs() << "\n";);
+      LLVM_DEBUG(a->print(dbgs()));
+      LLVM_DEBUG(dbgs() << "\n");
     }
   }
 }

@@ -58,8 +58,7 @@ public:
 
   MetricKind getKind() const noexcept { return Kind; }
   shared_ptr<tuner::OptimizerStructInfo>
-  loadStructInfo(llvm::Value *glob, shared_ptr<mdutils::StructInfo> pInfo,
-                 string name);
+  loadStructInfo(llvm::Value *glob, shared_ptr<mdutils::StructInfo> pInfo, const string &name);
   virtual void handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res, const tuner::CPUCosts &cpuCosts, const char *start) = 0;
   virtual void handleFAdd(llvm::BinaryOperator *instr, const unsigned OpCode,
                           const shared_ptr<tuner::ValueInfo> &valueInfos) = 0;
@@ -84,7 +83,7 @@ public:
   virtual void closePhiLoop(llvm::PHINode *phiNode,
                             llvm::Value *requestedValue) = 0;
   virtual void closeMemLoop(llvm::LoadInst *load, llvm::Value *requestedValue) = 0;
-  virtual string getEnobActivationVariable(llvm::Value *value, int cardinal) = 0;
+  virtual string getEnobActivationVariable(llvm::Value *value, unsigned cardinal) = 0;
   virtual void openPhiLoop(llvm::PHINode *phiNode, llvm::Value *value) = 0;
   virtual void openMemLoop(llvm::LoadInst *load, llvm::Value *value) = 0;
   virtual void handleLoad(llvm::Instruction *instruction,
@@ -191,7 +190,7 @@ protected:
                               mdutils::FloatType::FloatStandard standard);
   void handleSelect(llvm::Instruction *instruction,
                     shared_ptr<tuner::ValueInfo> valueInfo) override;
-  std::string getEnobActivationVariable(llvm::Value *value, int cardinal) override;
+  std::string getEnobActivationVariable(llvm::Value *value, unsigned cardinal) override;
   int initRealEnobVariable(shared_ptr<tuner::OptimizerScalarInfo> optimizerInfo);
 };
 

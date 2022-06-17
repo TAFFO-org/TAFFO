@@ -22,12 +22,8 @@
 
 using namespace tuner;
 using namespace llvm;
-void Model::insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide /*, string&  comment*/)
+void Model::insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide)
 {
-  // modelFile << "inserting constraint: ";
-  // solver.Add(x + 7 * y <= 17.5)
-  // Example of
-
   auto constraint = solver->MakeRowConstraint();
   switch (constraintType) {
   case EQ:
@@ -41,7 +37,7 @@ void Model::insertLinearConstraint(const vector<pair<string, double>> &variables
     break;
   }
 
-  for (auto p : variables) {
+  for (const auto &p : variables) {
     assert(isVariableDeclared(p.first) || VARIABLE_NOT_DECLARED(p.first));
     if (p.second == HUGE_VAL || p.second == -HUGE_VAL) {
       constraint->SetCoefficient(variablesPool.at(p.first), p.second > 0 ? M_BIG : -M_BIG);
@@ -50,13 +46,11 @@ void Model::insertLinearConstraint(const vector<pair<string, double>> &variables
     constraint->SetCoefficient(variablesPool.at(p.first), p.second);
   }
 
-  // TODO what to do about comment
-
   IF_TAFFO_DEBUG
   {
     dbgs() << "constraint: ";
     bool first = true;
-    for (auto v : variables) {
+    for (const auto &v : variables) {
       if (first)
         first = false;
       else
@@ -86,9 +80,7 @@ void Model::createVariable(const string &varName, double min, double max)
 Model::Model(ProblemType type) : solver(operations_research::MPSolver::CreateSolver("CBC_MIXED_INTEGER_PROGRAMMING"))
 {
   this->problemType = type;
-  if (!solver) {
-    llvm_unreachable("CBC solver unavailable.");
-  }
+  assert(solver && "CBC solver unavailable.");
 }
 
 bool Model::finalizeAndSolve()
@@ -157,90 +149,6 @@ bool Model::finalizeAndSolve()
   return true;
 }
 
-// bool Model::loadResultsFromFile(string modelFile) {
-//     fstream fin;
-
-//     fin.open(modelFile, ios::in);
-
-//     assert(fin.is_open() && "Cannot open results file!");
-
-//     string line, field, temp;
-//     vector<string> row;
-
-//     //for each line in the file
-//     int nline=0;
-//     while (getline(fin, line)) {
-
-//         //read the file until a newline is found (discarded from final string)
-//         row.clear();
-//         double value = 0;
-//         nline++;
-
-
-//         //Generate a stream in order to be used by getLine
-//         stringstream lineStream(line);
-//         //llvm::dbgs() << "Line: " << line << "\n";
-
-//         while (getline(lineStream, field, ',')) {
-//             row.push_back(field);
-//         }
-
-//         if (row.size() != 2) {
-//             LLVM_DEBUG(llvm::dbgs() << "Malformed line found: [" << line << "] on line"<< nline << ", skipping...\n";);
-//             continue;
-//         }
-
-//         string varName = row[0];
-//         value = stod(row[1]);
-
-//         if(varName == "__ERROR__"){
-//             if(value==0){
-//                 LLVM_DEBUG(dbgs() << "The model was solved correctly!\n";);
-//             }else{
-//                 LLVM_DEBUG(dbgs() << "[ERROR] The Python solver signalled an
-// error!\n\n";);
-//                 return false;
-//             }
-//             //Skips any other computation as this is a state message
-//             continue;
-//         }
-
-//         if(varName == "__COST_ENOB__"){
-//             costEnob = value;
-//             continue;
-//         }
-
-//         if(varName == "__COST_TIME__"){
-//             costTime = value;
-//             continue;
-//         }
-
-//         if(varName == "__COST_CONV__"){
-//             costCast=value;
-//             continue;
-//         }
-
-//         if(!isVariableDeclared(varName)){
-//             LLVM_DEBUG(dbgs() << "Trying to load results for an unknown variable!\nThis may be signal of a more problematic error!\n\n";);
-//             VARIABLE_NOT_DECLARED(varName);
-//         }
-
-//         if(variableValues.find(varName) != variableValues.end()){
-//             LLVM_DEBUG(dbgs() << "Found duplicated result: [" << line << "], skipping...\n";);
-//             continue;
-//         }
-
-//         variableValues.insert(make_pair(varName, value));
-
-
-//     }
-
-//     if(variableValues.size() != variablesPool.size()){
-//         LLVM_DEBUG(dbgs() << "[ERROR] The number of variables in the file and in the model does not match!\n";);
-//         return false;
-//     }
-//     return true;
-// }
 
 bool Model::isVariableDeclared(const string &variable)
 {
@@ -248,7 +156,7 @@ bool Model::isVariableDeclared(const string &variable)
 }
 
 
-void Model::insertObjectiveElement(const pair<string, double> &p, string costName, double maxVal)
+void Model::insertObjectiveElement(const pair<string, double> &p, const string &costName, double maxVal)
 {
   assert(isVariableDeclared(p.first) && "Variable not declared!");
 
@@ -289,7 +197,7 @@ void Model::writeOutObjectiveFunction()
   }
 }
 
-double Model::getMultiplier(string var)
+double Model::getMultiplier(const string &var)
 {
   if (var == MODEL_OBJ_CASTCOST) {
     return MixedTuningCastingTime;
@@ -306,19 +214,19 @@ double Model::getMultiplier(string var)
   llvm_unreachable("Cost variable not declared.");
 }
 
-bool Model::VARIABLE_NOT_DECLARED(string var)
+bool Model::VARIABLE_NOT_DECLARED(const string &var)
 {
-  LLVM_DEBUG(dbgs() << "THIS VARIABLE WAS NOT DECLARED >>" << var << "<<\n";);
-  LLVM_DEBUG(dbgs() << "Here is a list of declared vars:\n";);
+  LLVM_DEBUG(dbgs() << "THIS VARIABLE WAS NOT DECLARED >>" << var << "<<\n");
+  LLVM_DEBUG(dbgs() << "Here is a list of declared vars:\n");
 
   for (auto &a : variablesPool) {
-    LLVM_DEBUG(dbgs() << ">>" << a.first << "<<\n";);
+    LLVM_DEBUG(dbgs() << ">>" << a.first << "<<\n");
   }
 
   assert(false);
 }
 
-double Model::getVariableValue(string variable)
+double Model::getVariableValue(const string &variable)
 {
   if (!isVariableDeclared(variable)) {
     VARIABLE_NOT_DECLARED(variable);
@@ -404,23 +312,3 @@ void Model::dumpSolution()
   }
 }
 #endif
-
-// void Model::insertComment(string comment, int spaceBefore, int spaceAfter) {
-//     int i;
-
-//     for(i=0; i<spaceBefore; i++){
-//         modelFile << "\n";
-//     }
-
-
-//     //delete newline
-//     std::replace(comment.begin(), comment.end(), '\n', '_');
-//     std::replace(comment.begin(), comment.end(), '\r', '_');
-//     modelFile << "#" << comment << "\n";
-
-//     for(i=0; i<spaceAfter; i++){
-//         modelFile << "\n";
-//     }
-
-//
-// }

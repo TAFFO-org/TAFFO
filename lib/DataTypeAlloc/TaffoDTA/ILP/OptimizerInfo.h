@@ -62,7 +62,7 @@ struct OptimizerScalarInfo : public OptimizerInfo {
 
 
   OptimizerScalarInfo(string _variableName, unsigned _minBits, unsigned _maxBits, unsigned _totalBits,
-                      bool _isSigned, mdutils::Range _range, string _overriddenEnob)
+                      bool _isSigned, mdutils::Range _range, const string &_overriddenEnob)
       : OptimizerInfo(K_Field), referToConstant(false)
   {
     minBits = _minBits;
@@ -189,7 +189,7 @@ struct OptimizerScalarInfo : public OptimizerInfo {
     return isSigned;
   }
 
-  void overrideEnob(string newEnob)
+  void overrideEnob(const string &newEnob)
   {
     overridedEnob = newEnob;
   }
