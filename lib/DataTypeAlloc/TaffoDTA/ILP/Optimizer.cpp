@@ -281,7 +281,7 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
     LLVM_DEBUG(dbgs() << " --> ";);
 
     // if a variable was declared for type
-    auto info = getInfoOfValue(*arg_it);
+    auto info = getInfoOfValue(*arg_it, call_i);
     if (!info) {
       // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
       LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
@@ -366,24 +366,35 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
 }
 
 
-shared_ptr<OptimizerInfo> Optimizer::getInfoOfValue(Value *value)
+shared_ptr<OptimizerInfo> Optimizer::getInfoOfValue(Value *value, const User *user)
 {
   assert(value && "Value must not be nullptr!");
 
-  // Global object are constant too but we have already seen them :)
+  // Global objects are constants too, but we have already seen them :)
   auto findIt = valueToVariableName.find(value);
   if (findIt != valueToVariableName.end()) {
     return findIt->second;
   }
 
-  if (auto constant = dyn_cast_or_null<Constant>(value)) {
-    return metric->processConstant(constant);
+  if (Constant *constant = dyn_cast<Constant>(value)) {
+    // We create a different variable for each constant's use.
+    // In fact, the same constant may be used in different places, and be allocated different types.
+    // For example, a double 1.00 can become a float 1.00 in one place and a fixp 1 in another!
+    assert(user && "We need a user to locate a constant's use.");
+    // Look if we have already processed this constant's use
+    auto key = std::make_pair(user, value);
+    auto constInfo = constantInfo.find(key);
+    if (constInfo != constantInfo.end()) {
+      return constInfo->second;
+    }
+
+    // Otherwise we create its OptimizerInfo, and store ir for later uses
+    shared_ptr<OptimizerInfo> newInfo = metric->processConstant(constant);
+    constantInfo.insert(std::make_pair(key, newInfo));
+    return newInfo;
   }
 
-  LLVM_DEBUG(dbgs() << "Could not find any info for ");
-  LLVM_DEBUG(value->print(dbgs()););
-  LLVM_DEBUG(dbgs() << "     :( \n");
-
+  LLVM_DEBUG(dbgs() << "Could not find any info for " << *value << "\n");
   return nullptr;
 }
 
@@ -674,7 +685,7 @@ bool Optimizer::valueHasInfo(Value *value)
 /*This is ugly as hell, but we use this data type to prevent creating other custom classes for nothing*/
 shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
 {
-  auto res = getInfoOfValue(pValue);
+  auto res = getInfoOfValue(pValue, nullptr);
   if (res == nullptr) {
     return nullptr;
   }

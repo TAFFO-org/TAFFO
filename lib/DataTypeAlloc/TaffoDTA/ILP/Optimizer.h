@@ -67,6 +67,7 @@ public:
 
 
   DenseMap<llvm::Value *, std::shared_ptr<OptimizerInfo>> valueToVariableName;
+  DenseMap<std::pair<const llvm::User *, llvm::Value *>, std::shared_ptr<OptimizerInfo>> constantInfo;
   Model model;
   llvm::Module &module;
   TaffoTuner *tuner;
@@ -123,7 +124,7 @@ public:
   void emitError(const string &stringhina);
 
 
-  shared_ptr<OptimizerInfo> getInfoOfValue(Value *value);
+  shared_ptr<OptimizerInfo> getInfoOfValue(Value *value, const User *user);
 
   void
   handleBinaryInstruction(Instruction *instr, const unsigned int OpCode, const shared_ptr<ValueInfo> &valueInfos);

@@ -144,9 +144,9 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
 }
 
 
-shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Value *toUse, Value *whereToUse)
+shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Value *toUse, User *whereToUse)
 {
-  auto info_t = getInfoOfValue(toUse);
+  auto info_t = getInfoOfValue(toUse, whereToUse);
   auto &model = getModel();
   if (!info_t) {
     llvm_unreachable("Every value should have an info here!");
@@ -479,8 +479,8 @@ void MetricPerf::saveInfoForValue(Value *value, shared_ptr<tuner::OptimizerInfo>
 void MetricPerf::closePhiLoop(PHINode *phiNode, Value *requestedValue)
 {
   LLVM_DEBUG(dbgs() << "Closing PhiNode reference!\n");
-  auto phiInfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(phiNode));
-  auto oldDestInfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(requestedValue));
+  auto phiInfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(phiNode, nullptr));
+  auto oldDestInfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(requestedValue, phiNode));
   auto castDestInfo = allocateNewVariableWithCastCost(requestedValue, phiNode);
   assert(phiInfo && "phiInfo not available!");
   assert(oldDestInfo && "oldDestInfo not available!");
@@ -512,8 +512,8 @@ void MetricPerf::closePhiLoop(PHINode *phiNode, Value *requestedValue)
 void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
 {
   LLVM_DEBUG(dbgs() << "Closing MemPhi reference!\n";);
-  auto phiInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(load));
-  auto destInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(requestedValue));;
+  auto phiInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(load, nullptr));
+  auto destInfo = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(requestedValue, load));;
   assert(phiInfo && "phiInfo not available!");
   assert(destInfo && "destInfo not available!");
 
@@ -786,7 +786,7 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
   // Yes yes there is not the need to do a loop, but it has the same structure of the phi instruction!
   for (unsigned index = 0; index < incomingValues.size(); index++) {
     Value *op = incomingValues[index];
-    if (auto info = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(op))) {
+    if (auto info = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(getInfoOfValue(op, select))) {
       if (info->doesReferToConstant()) {
         // We skip the variable if it is a constant
         LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
@@ -819,7 +819,7 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<tuner::ValueI
     LLVM_DEBUG(dbgs() << "[Select] Handlign operator " << index << "...\n";);
     Value *op = incomingValues[index];
 
-    if (auto info = getInfoOfValue(op)) {
+    if (auto info = getInfoOfValue(op, select)) {
       if (auto info2 = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
           // We skip the variable if it is a constant

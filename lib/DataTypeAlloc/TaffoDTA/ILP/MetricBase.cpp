@@ -39,9 +39,9 @@ std::stack<shared_ptr<tuner::OptimizerInfo>> &MetricBase::getRetStack()
 
 void MetricBase::addDisabledSkipped() { opt->DisabledSkipped++; }
 
-shared_ptr<tuner::OptimizerInfo> MetricBase::getInfoOfValue(llvm::Value *value)
+shared_ptr<tuner::OptimizerInfo> MetricBase::getInfoOfValue(llvm::Value *value, const llvm::User *user)
 {
-  return opt->getInfoOfValue(value);
+  return opt->getInfoOfValue(value, user);
 }
 
 tuner::TaffoTuner *MetricBase::getTuner() { return opt->tuner; }
@@ -57,11 +57,6 @@ tuner::CPUCosts &MetricBase::getCpuCosts() { return opt->cpuCosts; }
 shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
 {
   assert(constant && "Passes null constant!");
-
-  // Constants should, in general, not be saved anywhere.
-  // In fact, the same constant may be used in different places, and be allocated different types.
-  // For example, a double 1.00 can become a float 1.00 in one place and a fixp 1 in another!
-  // TODO: actually, we could gather constants by their uses, to reduce the number of variables in the model.
   LLVM_DEBUG(dbgs() << "Processing constant " << *constant << "...\n");
 
   if (dyn_cast<GlobalObject>(constant)) {
@@ -139,7 +134,7 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp
     }
     LLVM_DEBUG(dbgs() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
-    auto optInfo_t = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(getInfoOfValue(operand));
+    auto optInfo_t = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(getInfoOfValue(operand, cexp_i));
     if (!optInfo_t) {
       LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
       return nullptr;
@@ -227,7 +222,7 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
     }
     LLVM_DEBUG(dbgs() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
-    auto baseinfo = getInfoOfValue(operand);
+    auto baseinfo = getInfoOfValue(operand, gep);
     if (!baseinfo) {
       LLVM_DEBUG(dbgs() << "Operand pointer info missing; probably trying to access a non float element, bailing out.\n";);
       return;
@@ -306,9 +301,8 @@ void MetricBase::handleFCmp(Instruction *instr, shared_ptr<ValueInfo> valueInfo)
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-
-  auto info1 = getInfoOfValue(op1);
-  auto info2 = getInfoOfValue(op2);
+  auto info1 = getInfoOfValue(op1, instr);
+  auto info2 = getInfoOfValue(op2, instr);
 
   if (!info1 || !info2) {
     LLVM_DEBUG(dbgs() << "One of the two values does not have info, ignoring...\n";);
@@ -353,7 +347,7 @@ void MetricBase::openMemLoop(LoadInst *load, Value *value)
 shared_ptr<OptimizerScalarInfo>
 MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEquality, shared_ptr<ValueInfo> valueInfos)
 {
-  auto info1 = getInfoOfValue(op1);
+  auto info1 = getInfoOfValue(op1, instr);
 
   if (!info1) {
     LLVM_DEBUG(dbgs() << "Value does not have info, ignoring...\n";);
@@ -389,8 +383,8 @@ shared_ptr<OptimizerScalarInfo>
 MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
                               shared_ptr<ValueInfo> valueInfos)
 {
-  auto info1 = getInfoOfValue(op1);
-  auto info2 = getInfoOfValue(op2);
+  auto info1 = getInfoOfValue(op1, instr);
+  auto info2 = getInfoOfValue(op2, instr);
 
   if (!info1 || !info2) {
     LLVM_DEBUG(dbgs() << "One of the two values does not have info, ignoring...\n";);
@@ -623,7 +617,7 @@ void MetricBase::handleReturn(Instruction *instr, shared_ptr<ValueInfo> valueInf
 
   // When returning, we must return the same data type used.
   // Therefore we should eventually take into account the conversion cost.
-  auto regInfo = getInfoOfValue(ret_val);
+  auto regInfo = getInfoOfValue(ret_val, ret_i);
   if (!regInfo) {
     LLVM_DEBUG(dbgs() << "No info on returned value, maybe a non float return, forgetting about it.\n";);
     return;
@@ -650,7 +644,7 @@ void MetricBase::saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInf
   assert(value && "Value cannot be null!");
   assert(pointerInfo && "Pointer info cannot be nullptr!");
 
-  auto info = getInfoOfValue(value);
+  auto info = getInfoOfValue(value, nullptr);
   if (!info) {
     LLVM_DEBUG(dbgs() << "Storing new info for the value!\n";);
     saveInfoForValue(value, pointerInfo);
@@ -769,7 +763,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
     LLVM_DEBUG(dbgs() << " --> ";);
 
     // if a variable was declared for type
-    auto info = getInfoOfValue(*arg_it);
+    auto info = getInfoOfValue(*arg_it, call_i);
     if (!info) {
       // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
       LLVM_DEBUG(dbgs() << "No info for the argument!\n";);

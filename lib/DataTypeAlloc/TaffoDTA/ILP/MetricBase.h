@@ -90,7 +90,7 @@ public:
   virtual void handleLoad(llvm::Instruction *instruction,
                           const shared_ptr<tuner::ValueInfo> &valueInfo) = 0;
   virtual shared_ptr<tuner::OptimizerScalarInfo>
-  allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::Value *whereToUse) = 0;
+  allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::User *whereToUse) = 0;
   virtual void handleStore(llvm::Instruction *instruction,
                            const shared_ptr<tuner::ValueInfo> &valueInfo) = 0;
   virtual void handleFPPrecisionShift(llvm::Instruction *instruction,
@@ -119,7 +119,7 @@ protected:
   getValueToVariableName();
   std::stack<shared_ptr<tuner::OptimizerInfo>> &getRetStack();
   void addDisabledSkipped();
-  shared_ptr<tuner::OptimizerInfo> getInfoOfValue(llvm::Value *value);
+  shared_ptr<tuner::OptimizerInfo> getInfoOfValue(llvm::Value *value, const llvm::User *user);
   tuner::TaffoTuner *getTuner();
   tuner::PhiWatcher &getPhiWatcher();
   std::unordered_map<std::string, llvm::Function *> &getKnown_functions();
@@ -182,7 +182,7 @@ public:
       bool respectFloatingPointConstraint = true) override;
 
   shared_ptr<tuner::OptimizerScalarInfo>
-  allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::Value *whereToUse) override;
+  allocateNewVariableWithCastCost(llvm::Value *toUse, llvm::User *whereToUse) override;
 
 protected:
   MetricPerf(MetricKind k) : MetricBase(k) {}

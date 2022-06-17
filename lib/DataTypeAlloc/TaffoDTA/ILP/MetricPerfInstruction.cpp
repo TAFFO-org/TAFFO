@@ -1,6 +1,7 @@
 #include "MetricBase.h"
 #include "Optimizer.h"
 #include "Utils.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -82,8 +83,8 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   auto op2 = instr->getOperand(1);
 
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1, instr));
+  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2, instr));
 
 
   auto res = handleBinOpCommon(instr, op1, op2, true, valueInfos);
@@ -162,7 +163,7 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
 
   auto op1 = instr->getOperand(0);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1, instr));
 
   /* adds type cast constraints for operands and returns the variable set of this instruction */
   auto res = handleUnaryOpCommon(instr, op1, true, valueInfos);
@@ -234,8 +235,8 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1, instr));
+  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2, instr));
 
   auto res = handleBinOpCommon(instr, op1, op2, true, valueInfos);
   if (!res)
@@ -311,8 +312,8 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1, instr));
+  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2, instr));
 
   auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
   if (!res)
@@ -393,8 +394,8 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1, instr));
+  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2, instr));
 
   auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
   if (!res)
@@ -648,10 +649,10 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
 
   auto opWhereToStore = store->getPointerOperand();
   auto opRegister = store->getValueOperand();
-  auto info2 = getInfoOfValue(opRegister);
+  auto info2 = getInfoOfValue(opRegister, store);
 
   if (opRegister->getType()->isFloatingPointTy()) {
-    auto info1 = getInfoOfValue(opWhereToStore);
+    auto info1 = getInfoOfValue(opWhereToStore, store);
     if (!info1 || !info2) {
       LLVM_DEBUG(dbgs() << "One of the two values does not have info, ignoring...\n";);
       return;
@@ -744,7 +745,7 @@ void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<Val
 {
   auto operand = instruction->getOperand(0); // The argument to be casted
 
-  auto info = getInfoOfValue(operand);
+  auto info = getInfoOfValue(operand, instruction);
   auto sinfos = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
   if (!sinfos) {
     LLVM_DEBUG(dbgs() << "No info for the operand, ignoring...\n");
@@ -810,7 +811,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
     LLVM_DEBUG(dbgs() << "[Phi] Handling operand " << index << "...\n");
     Value *op = phi_n->getIncomingValue(index);
 
-    if (auto info = getInfoOfValue(op)) {
+    if (auto info = getInfoOfValue(op, phi_n)) {
       if (auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
           LLVM_DEBUG(dbgs() << "[INFO] Skipping " << *op << " as it is a constant!\n");
@@ -848,7 +849,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
 
   auto *load = cast<LoadInst>(instruction);
   auto loaded = load->getPointerOperand();
-  shared_ptr<OptimizerInfo> infos = getInfoOfValue(loaded);
+  shared_ptr<OptimizerInfo> infos = getInfoOfValue(loaded, load);
 
   auto pinfos = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(infos);
   if (!pinfos) {
@@ -913,7 +914,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
         }
         continue;
       }
-      if (auto info = getInfoOfValue(op)) {
+      if (auto info = getInfoOfValue(op, nullptr)) {
         if (auto sinfo = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info)) {
           if (sinfo->doesReferToConstant()) {
             // We skip the variable if it is a constant
