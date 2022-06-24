@@ -5,8 +5,7 @@
  * 			Author: Amir Yazdanbakhsh <a.yazdanbakhsh@gatech.edu>
  */
 
-#include <fstream>
-#include <iostream>
+#include <cstdio>
 #include <cmath>
 #include "benchmark.hpp"
 #include "data.hpp"
@@ -558,7 +557,6 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 	int x;
 	int n;
 
-	std::cout.precision(8);
 
 	n = JMEINT_DATA_SIZE;
 	
@@ -566,7 +564,7 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 	float* __attribute((annotate("scalar(range(-1,1) error(1e-8)) backtracking(2)"))) xyz = (float*)malloc(n * 6 * 3 * sizeof(float)) ;
 	if(xyz == NULL)
 	{
-		std::cout << "cannot allocate memory for the triangle coordinates!" << std::endl;
+                printf("cannot allocate memory for the triangle coordinates!\n");
 		return -1 ;
 	}
 
@@ -586,7 +584,7 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 	int totalCount = 0;
 	int outputAggreg[6] = {0};
 
-  uint64_t kernel_time = 0;
+  uint32_t kernel_time = 0;
   AxBenchTimer timer;
 
 	for(i = 0 ; i < (n * 6 * 3); i += 6 * 3)
@@ -645,7 +643,7 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 		kernel_time += timer.cyclesSinceReset();
 		
 		PRINT_INSTR("exit type = %d\n", output);
-		std::cout << x << " 0 0 " << output << std::endl;
+                printf("%d 0 0 %d\n", x, output);
 		outputAggreg[output] += 1;
 		
 		timer.reset();
@@ -655,8 +653,8 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 	
 	for (int i=0; i<6; i++)
 	  PRINT_INSTR("exit type %d total = %d\n", i, outputAggreg[i]);
-	
-  std::cout << "kernel time = " << (kernel_time) << " cycles" << std::endl;
+
+        printf("kernel time = %u cycles\n", kernel_time);
 
 	free(xyz) ;
 	xyz = NULL ;
