@@ -125,7 +125,7 @@ extern "C" int BENCH_MAIN(int argc, char* argv[])
 {
 	int i ;
 
-	int __attribute((annotate("target('n') scalar(range(1,65536) final disabled)"))) n = 512;
+	int __attribute((annotate("target('n') scalar(range(1,65536) final disabled)"))) n = 2048;
 
 	// create the arrays
 	x 		= (Complex*)malloc(n * sizeof (Complex));
