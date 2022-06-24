@@ -5,12 +5,9 @@
  *			Author: Amir Yazdanbakhsh <yazdanbakhsh@wisc.edu>
  */
 
-#include <iostream>
+#include <cstdio>
 #include <cstdlib>
-#include <fstream> 
 #include <time.h>
-#include <iomanip>
-#include <string>
 #include <cmath>
 #include "data.hpp"
 #include "benchmark.hpp"
@@ -77,7 +74,7 @@ extern "C" int BENCH_MAIN(int argc, const char* argv[])
 
 	if(t1t2xy == NULL)
 	{
-		std::cerr << "# Cannot allocate memory for the coordinates an angles!" << std::endl;
+	        printf("# Cannot allocate memory for the coordinates an angles!\n");
 		return -1 ;
 	}
 
@@ -104,12 +101,12 @@ extern "C" int BENCH_MAIN(int argc, const char* argv[])
 		inversek2j(t1t2xy[i + 2], t1t2xy[i + 3], t1t2xy + (i + 0), t1t2xy + (i + 1));
 	}
 
-	uint64_t time = timer.cyclesSinceReset();
-	std::cout << "kernel time = " << time << " cycles\n";
+        uint32_t time = timer.cyclesSinceReset();
+        printf("kernel time = %u cycles\n", time);
 
 	for(int i = 0 ; i < n * 2 * 2 ; i += 2 * 2)
 	{
-		std::cout <<  t1t2xy[i+0] << "\t" << t1t2xy[i+1] << "\n";
+                printf("%f\t%f\n", t1t2xy[i+0], t1t2xy[i+1]);
 	}
 
 	free(t1t2xy) ; 
