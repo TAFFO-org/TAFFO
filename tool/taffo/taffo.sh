@@ -105,6 +105,7 @@ temporary_dir=$(mktemp -d)
 del_temporary_dir=1
 help=0
 print_version=0
+dynamic_training_data=
 for opt in $raw_opts; do
   case $parse_state in
     0)
@@ -215,6 +216,9 @@ for opt in $raw_opts; do
           ;;
         -time-profile-file)
           parse_state=14
+          ;;
+        -dynamic-training-data)
+          parse_state=20
           ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
@@ -328,6 +332,10 @@ for opt in $raw_opts; do
       time_profile_file="$opt";
       parse_state=0;
       ;;
+    20)
+      dynamic_training_data="$opt";
+      parse_state=0;
+      ;;
   esac;
 done
 
@@ -393,6 +401,7 @@ Options:
   -debug-taffo          Enable TAFFO-only debug logging during the compilation.
   -temp-dir <dir>       Store various temporary files related to the execution
                         of TAFFO to the specified directory.
+  -dynamic-training-data  Path to the file with the training data for the dynamic tuning mode
 
 Available builtin cost models:
 HELP_END
@@ -480,6 +489,8 @@ build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_c
 # line args are all parsed, and because -load does not register new pass manager
 # passes at all.
 
+if [ -z "$dynamic_training_data" ]; then
+#  Static tuning
 ###
 ###  TAFFO initialization
 ###
@@ -563,6 +574,59 @@ while [[ $feedback_stop -eq 0 ]]; do
     dta_flags="${base_dta_flags} ${newflgs}"
   fi
 done
+
+else
+#  Dynamic tuning
+  ${OPT} \
+    -load "$TAFFOLIB" -S \
+    --taffo-strip-annotations \
+    "${temporary_dir}/${output_basename}.1.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" || exit $?
+
+  ${OPT} \
+    -load=${TAFFOLIB} -S \
+    --taffoinit \
+    ${init_flags} \
+    "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" || exit $?
+
+  ${OPT} -load=${TAFFOLIB} -S \
+    --taffo-name-variables \
+    "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.named.taffotmp.ll" || exit $?
+
+  ${OPT} -load=${TAFFOLIB} -S \
+    --taffo-inject-func-call \
+    "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.instrumented.taffotmp.ll" || exit $?
+
+  ${iscpp} \
+    "${temporary_dir}/${output_basename}.instrumented.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.instrumented" || exit $?
+
+  "${temporary_dir}/${output_basename}.instrumented" \
+    "$dynamic_training_data" \
+    /dev/null \
+    > "${temporary_dir}/${output_basename}.instrumented.trace" || exit $?
+
+  ${OPT} -load=${TAFFOLIB} -S \
+    --taffo-read-trace \
+    -trace_file "${temporary_dir}/${output_basename}.instrumented.trace" \
+    "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" || exit $?
+
+  ${OPT} -load=${TAFFOLIB} -S \
+    --taffodta \
+    ${dta_flags} \
+    "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" || exit $?
+
+  ${OPT} -load=${TAFFOLIB} -S \
+    --flttofix --dce --globaldce \
+    ${conversion_flags} \
+    "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
+fi
 
 ###
 ###  Backend
