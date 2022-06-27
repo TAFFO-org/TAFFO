@@ -296,7 +296,7 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
                                 std::unordered_map<std::string, double>& maxVals,
                                 std::unordered_map<std::string, mdutils::FloatType::FloatStandard>& valTypes) const {
   for (auto &filename: Filenames) {
-    std::cout << "arg: " << filename << std::endl;
+    errs() << "training data file: " << filename << "\n";
     std::string myText;
     std::ifstream MyReadFile(filename);
     while (getline (MyReadFile, myText)) {
