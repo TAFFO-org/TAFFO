@@ -55,36 +55,35 @@ if [[ -z $DONT_REBUILD ]]; then
   shopt -s extglob
   files='src/*.@(cc|cpp|c)'
 
-#  taffo -temp-dir obj \
-#    -o bin/${bench}.out.fixp \
-#    -float-output bin/${bench}.out \
-#    -O3 \
-#    -I../common/src \
-#    ${files} \
-#    ${debug} \
-#    ${errorprop} \
-#    ${no_mem2reg} \
-#    -lm \
-#    2> stats/taffo.log
+  taffo -temp-dir obj \
+    -o bin/${bench}.out.fixp \
+    -float-output bin/${bench}.out \
+    -O3 \
+    -I../common/src \
+    ${files} \
+    ${debug} \
+    ${errorprop} \
+    ${no_mem2reg} \
+    -lm \
+    2> stats/taffo.log
 
   dynamic_analysis() {
-    orig_files='src_original/*.@(cc|cpp|c)'
-    taffo -temp-dir obj \
-        -o bin/${bench}.out.original \
-        -float-output bin/${bench}.out \
-        -O3 \
-        -I../common/src \
-        ${orig_files} \
-        ${debug} \
-        ${errorprop} \
-        ${no_mem2reg} \
-        -lm \
-        2> stats/taffo_original.log
+    (${OPT} -load=${TAFFOLIB} -S \
+            -debug \
+            --taffo-strip-annotations -stats \
+            obj/${bench}.out.fixp.1.taffotmp.ll \
+            -o obj/${bench}.out.cleaned.taffotmp.ll) 2>stats/dynamic_strip_annotations.error.log
+
+    ${OPT} -load=${TAFFOLIB} -S \
+                -debug \
+                --taffoinit -stats \
+                obj/${bench}.out.cleaned.taffotmp.ll \
+                -o obj/${bench}.out.taffoinit.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
         -debug \
         --taffo-name-variables -stats \
-        obj/${bench}.out.original.2.taffotmp.ll \
+        obj/${bench}.out.taffoinit.taffotmp.ll \
         -o obj/${bench}.out.named.taffotmp.ll
 
     ${OPT} -load=${TAFFOLIB} -S \
@@ -101,10 +100,10 @@ if [[ -z $DONT_REBUILD ]]; then
     /dev/null \
     > obj/${bench}.out.instrumented.trace
 
-    ${OPT} -load=${TAFFOLIB} -S \
+    (${OPT} -load=${TAFFOLIB} -S \
             -O0 --taffo-read-trace -stats -trace_file obj/${bench}.out.instrumented.trace \
             obj/${bench}.out.named.taffotmp.ll \
-            -o obj/${bench}.out.dynamic.taffotmp.ll
+            -o obj/${bench}.out.dynamic.taffotmp.ll) 2>stats/dynamic_read_trace.error.log
 
 #    ${OPT} -load=${TAFFOLIB} -S \
 #                -debug \
