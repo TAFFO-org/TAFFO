@@ -4,6 +4,7 @@
 #include "InjectFuncCall.h"
 #include "ReadTrace.h"
 #include "NameVariables.h"
+#include "StripAnnotations.h"
 
 using namespace llvm;
 
@@ -26,6 +27,10 @@ llvm::PassPluginLibraryInfo getInjectFuncCallPluginInfo() {
                       }
                       if (Name == "name-variables") {
                         MPM.addPass(NameVariables());
+                        return true;
+                      }
+                      if (Name == "strip-annotations") {
+                        MPM.addPass(StripAnnotations());
                         return true;
                       }
                       return false;
@@ -74,9 +79,21 @@ struct LegacyReadTrace : public llvm::ModulePass {
   ReadTrace Impl;
 };
 
+struct LegacyStripAnnotations : public llvm::ModulePass {
+  static char ID;
+  LegacyStripAnnotations() : ModulePass(ID) {}
+  bool runOnModule(llvm::Module &M) override {
+    bool Changed = Impl.runOnModule(M);
+    return Changed;
+  }
+
+  StripAnnotations Impl;
+};
+
 char LegacyInjectFuncCall::ID = 0;
 char LegacyNameVariables::ID = 0;
 char LegacyReadTrace::ID = 0;
+char LegacyStripAnnotations::ID = 0;
 
 // Register the pass - required for (among others) opt
 static RegisterPass<LegacyInjectFuncCall>
@@ -90,4 +107,8 @@ static RegisterPass<LegacyNameVariables>
 static RegisterPass<LegacyReadTrace>
         Z(/*PassArg=*/"taffo-read-trace", /*Name=*/"TAFFO Framework read range information from trace files",
         /*CFGOnly=*/false, /*is_analysis=*/false);
+
+static RegisterPass<LegacyStripAnnotations>
+    U(/*PassArg=*/"taffo-strip-annotations", /*Name=*/"TAFFO Framework strip annotations from file",
+      /*CFGOnly=*/false, /*is_analysis=*/false);
 
