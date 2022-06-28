@@ -39,9 +39,9 @@ public:
   }
   
   
-  uint64_t cyclesSinceReset()
+  uint32_t cyclesSinceReset()
   {
-    uint64_t diff;
+    uint32_t diff;
   
     #ifdef __APPLE__
       uint64_t etime;
