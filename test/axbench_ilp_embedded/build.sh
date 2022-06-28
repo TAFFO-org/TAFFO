@@ -72,6 +72,49 @@ build_one_embedded_float()
   printf "%s" "$main"
 }
 
+build_one_embedded_dynamic()
+{
+  # $1: bench name
+  bench="$1"
+
+  pushd "$bench" > /dev/null
+  logdir="../../log/$bench"
+  mkdir -p "../../embedded_src/bench_obj"
+  mkdir -p "$logdir"
+  main="bench_${bench}_dynamic"
+  main=${main/-/_}
+  out_instrumented="$logdir/${main}_instrumented.o"
+  trace_file="${logdir}/${main}_trace.trace"
+  out="../../embedded_src/bench_obj/${main}.o"
+  log="${logdir}/${main}.log"
+  echo $bench > "$log"
+  taffo \
+      *.cc -I../ -o "$out_instrumented" $CFLAGS \
+      -DBENCH_MAIN="main" \
+      -debug-taffo \
+      -dynamic-instrument \
+      -temp-dir "$logdir" \
+      -stdlib=libstdc++ -I$extra_cxx_includes \
+        &>> "$log"
+  "$out_instrumented" ./training_data/data.data /dev/null > "$trace_file"
+  taffo \
+    *.cc -I../../embedded_src -I../../embedded_src/$TARGET -c -o "$out" $CFLAGS \
+    -DBENCH_MAIN="$main" \
+    -debug-taffo \
+    -dynamic-trace "$trace_file" \
+    -temp-dir "$logdir" \
+    -stdlib=libstdc++ -I$extra_cxx_includes \
+    --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
+      &>> "$log"
+  err=$?
+  if [[ err -eq 0 ]]; then
+    printf "%s" "$main"
+  fi
+
+  popd > /dev/null
+  return $err
+}
+
 clean_one()
 {
   # $1: bench name
@@ -123,6 +166,10 @@ if [[ ( $# -gt 0 ) && ( $1 == clean ) ]]; then
   action=clean
   shift
 fi
+if [[ ( $# -gt 0 ) && ( $1 == build_dynamic ) ]]; then
+  action=build_dynamic
+  shift
+fi
 if [[ ( $# -gt 0 ) && ( $1 == build_experiment ) ]]; then
   action=build_experiment
   shift
@@ -172,6 +219,23 @@ for benchdir in $benchs; do
         printf ' fail %d\n' $out 
       fi
       ;;
+    build_dynamic)
+      if [ -e "${bench}/training_data/data.data" ]; then
+        printf '%-5s %-16s' "$action" "$bench"
+        main=$(build_one_embedded_dynamic $bench)
+        out=$?
+        if [[ $out -eq 0 ]]; then
+          printf ' OK!\n'
+          printf 'printf("%%s\\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+          printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+          printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
+        else
+          printf ' fail %d\n' $out
+        fi
+      else
+        printf 'no training data available in ./training_data/data.data\n'
+      fi
+      ;;
     build_experiment)
       printf '%-5s %-16s' "$action" "$bench"
       main=$(build_one_embedded_float $bench)
@@ -184,6 +248,20 @@ for benchdir in $benchs; do
       else
         printf ' fail %d\n' $out 
       fi
+
+      if [ -e "${bench}/training_data/data.data" ]; then
+        main=$(build_one_embedded_dynamic $bench)
+        out=$?
+        if [[ $out -eq 0 ]]; then
+          printf ' OK!\n'
+          printf 'printf("%%s\\n", "%s");\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+          printf '%s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.c.in
+          printf 'void %s();\n' "$main" >> "$SCRIPTPATH"/embedded_src/bench_main.h
+        else
+          printf ' fail %d\n' $out
+        fi
+      fi
+
       if [[ -z $wstart ]]; then export wstart=0; fi
       if [[ -z $wend   ]]; then export wend=100000; fi
       if [[ -z $wstep  ]]; then export wstep=50000; fi
