@@ -320,7 +320,7 @@ extern "C" int BENCH_MAIN(int argc, char **argv)
 
     //Write prices to output file
     for(i=0; i<numOptions; i++) {
-      //rv = printf("%.18f\n", prices[i]);
+      rv = printf("%.18f\n", prices[i]);
     }
 
     free(buffer);
