@@ -45,6 +45,9 @@ void FloatToFixed::getAnalysisUsage(llvm::AnalysisUsage &au) const
 }
 
 
+// extern llvm::cl::opt<bool> Hero;
+
+
 using MLHVec = std::vector<std::pair<llvm::User *, llvm::Type *>>;
 
 MLHVec collectMallocLikeHandler(Module &m)
@@ -171,6 +174,7 @@ bool FloatToFixed::runOnModule(Module &m)
   cleanup(vals);
 
   convertIndirectCalls(m);
+  handleHero(m);
 
   addDebugBBPrint(m);
 

@@ -436,6 +436,10 @@ struct FloatToFixed : public llvm::ModulePass {
                                                 const FixedPointType &baset,
                                                 bool *hasfloats = nullptr);
 
+  /** find all target mapped region and fix the call to the new function created by TAFFO 
+  */
+  void handleHero(llvm::Module &m);
+
   llvm::Instruction *getFirstInsertionPointAfter(llvm::Instruction *i)
   {
     llvm::Instruction *ip = i->getNextNode();

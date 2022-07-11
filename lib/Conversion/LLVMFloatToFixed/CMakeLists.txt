@@ -12,6 +12,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   SinCosHandler.cpp
   TAFFOMath.cpp
   ASinACosHandler.cpp
+  handleHero.cpp
 
   ADDITIONAL_HEADERS
   FixedPointType.h

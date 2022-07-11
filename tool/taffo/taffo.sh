@@ -381,7 +381,9 @@ build_float="${iscpp} $opts ${optimization} ${float_opts} ${temporary_dir}/${out
 ###  TAFFO initialization
 ###
 ${OPT} \
+  -verify-each \
   -load "$TAFFOLIB" \
+  ${mem2reg} \
   -taffoinit \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?

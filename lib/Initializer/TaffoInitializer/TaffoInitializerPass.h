@@ -6,7 +6,6 @@
 #include "HandleSpecialFunction.h"
 #include "InputInfo.h"
 #include "MultiValueMap.h"
-#include "handleHero.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -72,6 +71,10 @@ struct TaffoInitializer : public llvm::ModulePass {
 
   void setMetadataOfValue(llvm::Value *v, ValueInfo &VI);
   void setFunctionArgsMetadata(llvm::Module &m, ConvQueueT &Q);
+
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void handleHero(llvm::Module &host_module, bool Hero);
 
   bool isSpecialFunction(const llvm::Function *f)
   {

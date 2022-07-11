@@ -17,6 +17,10 @@ add_library(${SELF}
   MemSSAUtils.cpp
   MemSSAUtils.hpp
   PtrCasts.h
+  OpenMPAnalyzer.cpp
+  OpenMPAnalyzer.h
+  ModuleCloneUtils.h
+  ModuleCloneUtils.cpp
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_property(TARGET ${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

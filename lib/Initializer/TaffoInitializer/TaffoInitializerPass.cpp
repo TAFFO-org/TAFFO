@@ -6,6 +6,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/MemorySSA.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -15,6 +17,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -22,7 +25,6 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <climits>
 #include <cmath>
-
 
 using namespace llvm;
 using namespace taffo;
@@ -41,7 +43,7 @@ llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
                                           llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
 
 llvm::cl::opt<bool> Hero("hero",
-                         llvm::cl::desc("Enables TAFFO to work with hero"), llvm::cl::init(false));
+                                llvm::cl::desc("Enables TAFFO to work with hero"), llvm::cl::init(false));
 
 
 bool TaffoInitializer::runOnModule(Module &m)
@@ -80,7 +82,6 @@ bool TaffoInitializer::runOnModule(Module &m)
 
   LLVM_DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m, vals);
-
   return true;
 }
 
@@ -104,6 +105,14 @@ void TaffoInitializer::removeAnnotationCalls(ConvQueueT &q)
 
     i++;
   }
+}
+
+
+void TaffoInitializer::getAnalysisUsage(AnalysisUsage &AU) const
+{
+  AU.addRequiredTransitive<BasicAAWrapperPass>();
+  AU.addRequiredTransitive<MemorySSAWrapperPass>();
+  AU.setPreservesAll();
 }
 
 
@@ -220,7 +229,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           UVInfo = UI->second;
           queue.erase(UI);
         }
-        UI = queue.push_back(u, std::move(UVInfo)).first;
+        UI = queue.push_back(u, UVInfo).first;
         LLVM_DEBUG(dbgs() << "[U] " << *u);
         if (Instruction *i = dyn_cast<Instruction>(u))
           LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
@@ -237,6 +246,17 @@ void TaffoInitializer::buildConversionQueueForRootValues(
             vdepth = 2;
           }
         }
+        if (Hero)
+          if (llvm::StoreInst *store = llvm::dyn_cast<llvm::StoreInst>(u)) {
+            for (const auto user_of_alloca : store->getPointerOperand()->users()) {
+              if (auto call_inst = dyn_cast<llvm::CallInst>(user_of_alloca)) {
+                if (call_inst->getCalledFunction()->getName().startswith("hero-")) {
+                  vdepth = 2;
+                }
+              }
+            }
+          }
+
         if (vdepth > 0) {
           unsigned int udepth = UI->second.backtrackingDepthLeft;
           UI->second.backtrackingDepthLeft = std::max(vdepth, udepth);
@@ -249,16 +269,19 @@ void TaffoInitializer::buildConversionQueueForRootValues(
     for (next = queue.end(); next != queue.begin();) {
       Value *v = (--next)->first;
       unsigned int mydepth = next->second.backtrackingDepthLeft;
+
+#ifdef LOG_BACKTRACK
+      dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
+#endif
+
       if (mydepth == 0)
         continue;
+
 
       Instruction *inst = dyn_cast<Instruction>(v);
       if (!inst)
         continue;
 
-#ifdef LOG_BACKTRACK
-      dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
-#endif
 
       for (Value *u : inst->operands()) {
         if (!isa<User>(u) && !isa<Argument>(u)) {
@@ -304,7 +327,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 #ifdef LOG_BACKTRACK
           dbgs() << "  enqueued\n";
 #endif
-          next = UI = queue.insert(next, u, std::move(VIU)).first;
+          next = UI = queue.insert(next, u, VIU).first;
           ++next;
         } else {
 #ifdef LOG_BACKTRACK
