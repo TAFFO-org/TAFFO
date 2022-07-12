@@ -452,8 +452,17 @@ void VRAnalyzer::handleBitCastInstr(const llvm::Instruction *I)
 {
   LLVM_DEBUG(Logger->logInstruction(I));
   if (NodePtrT Node = getNode(I->getOperand(0U))) {
-    setNode(I, Node);
-    LLVM_DEBUG(Logger->logRangeln(Node));
+    llvm::Type *InputT = I->getOperand(0U)->getType();
+    llvm::Type *OutputT = I->getType();
+    bool InputIsStruct = fullyUnwrapPointerOrArrayType(InputT)->isStructTy();
+    bool OutputIsStruct = fullyUnwrapPointerOrArrayType(OutputT)->isStructTy();
+    if (!InputIsStruct && !OutputIsStruct) {
+      setNode(I, Node);
+      LLVM_DEBUG(Logger->logRangeln(Node));
+    } else {
+      LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
+      LLVM_DEBUG(dbgs() << "This instruction is converting to/from a struct type. Ignoring to avoid generating invalid metadata\n");
+    }
   } else {
     LLVM_DEBUG(Logger->logInfoln("no node"));
   }
