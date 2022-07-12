@@ -1,4 +1,5 @@
 #include "LLVMVersions.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 
 using namespace llvm;
 
@@ -35,5 +36,15 @@ void taffo::CloneFunction(Function *New, const Function *Old,
   CloneFunctionInto(New, Old, VMap, CloneFunctionChangeType::GlobalChanges, Returns);
 #else
   CloneFunctionInto(New, Old, VMap, true, Returns);
+#endif
+}
+
+
+unsigned numFuncArgs(const llvm::CallBase *CB)
+{
+#if (LLVM_VERSION_MAJOR >= 14)
+  return CB->arg_size();
+#else
+  return CB->getNumArgOperands();
 #endif
 }

@@ -17,16 +17,17 @@
 #include "TypeUtils.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
 #include <memory>
+
+#define DEBUG_TYPE "errorprop"
 
 namespace ErrorProp
 {
 
 using namespace llvm;
 using namespace mdutils;
-
-#define DEBUG_TYPE "errorprop"
 
 StructNode::StructNode(const StructInfo *SI, StructType *ST, StructTree *Parent)
     : StructTree(STK_Node, Parent), Fields(), SType(ST)
@@ -147,7 +148,7 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P)
 
     return navigatePointerTreeToRoot(GEPI->getPointerOperand());
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(P)) {
-    if (CE->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(CE)) {
       auto OpIt = CE->op_begin();
 
       // Get the Pointer Operand.

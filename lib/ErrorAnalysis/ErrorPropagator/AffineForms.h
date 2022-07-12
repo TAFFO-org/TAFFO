@@ -500,7 +500,8 @@ LinearErrorApproximationIncr(FunDer dF, const Interval<T> &R, const AffineForm<T
   return E.scalarMultiply(dFx);
 }
 
-
 } // end namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif // ERRORPROPAGATOR_AFFINE_FORMS_H

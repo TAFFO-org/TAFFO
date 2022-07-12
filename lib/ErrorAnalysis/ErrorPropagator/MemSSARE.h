@@ -5,6 +5,8 @@
 #include "MemSSAUtils.hpp"
 #include "RangeErrorMap.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
@@ -25,5 +27,7 @@ private:
 };
 
 } // end of namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif

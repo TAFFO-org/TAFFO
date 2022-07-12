@@ -1,8 +1,8 @@
-#include "CallSiteVersions.h"
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
+#include "LLVMVersions.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -11,14 +11,18 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <unordered_set>
+#include <map>
 
 using namespace taffo;
 using namespace llvm;
+
+#define DEBUG_TYPE "taffo-init"
 
 /// Check recursively whether an unsupported function is called.
 bool containsUnsupportedFunctions(
@@ -54,7 +58,7 @@ bool containsUnsupportedFunctions(
 /// In case an unsupported function is called, keep the indirect function and
 /// attach the OMP disabled metadata to the the shared variables.
 void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
-                    CallInst *curCallInstruction, const CallSite *curCall,
+                    CallInst *curCallInstruction, const CallBase *curCall,
                     Function *indirectFunction)
 {
 
@@ -93,7 +97,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   copy_n(params.begin(), 2, back_inserter(paramsFunc));
   // Skip the third argument (outlined function) and copy the dynamic arguments'
   // types from the call
-  for (unsigned i = 3; i < curCall->getNumArgOperands(); i++)
+  for (unsigned i = 3; i < numFuncArgs(curCall); i++)
     paramsFunc.push_back(curCall->getArgOperand(i)->getType());
 
   // Create the new function with the parsed types and signature
@@ -105,7 +109,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                        trampolineFunctionName, indirectFunction->getParent());
 
   // Shift back the argument name since the third argument is skipped
-  for (unsigned i = 3; i < curCall->getNumArgOperands(); i++) {
+  for (unsigned i = 3; i < numFuncArgs(curCall); i++) {
     trampolineFunction->getArg(i - 1)->setName(
         curCall->getArgOperand(i)->getName());
   }
@@ -169,7 +173,7 @@ void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
   using handler_function = void (*)(const llvm::Module &m,
                                     std::vector<llvm::Instruction *> &toDelete,
                                     llvm::CallInst *curCallInstruction,
-                                    const CallSite *curCall,
+                                    const CallBase *curCall,
                                     llvm::Function *indirectFunction);
   const static std::map<const std::string, handler_function> indirectCallFunctions = {
       {"__kmpc_fork_call", &handleKmpcFork}};

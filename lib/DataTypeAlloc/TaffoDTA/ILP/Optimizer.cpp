@@ -1,11 +1,12 @@
-#include "Optimizer.h"
-#include "LoopAnalyzerUtil.h"
-#include "MetricBase.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include <llvm/Analysis/ScalarEvolution.h>
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "Optimizer.h"
+#include "LoopAnalyzerUtil.h"
+#include "MetricBase.h"
 
+#define DEBUG_TYPE "taffo-dta"
 
 using namespace tuner;
 using namespace mdutils;

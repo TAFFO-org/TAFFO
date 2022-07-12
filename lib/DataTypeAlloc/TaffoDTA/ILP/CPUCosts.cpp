@@ -216,8 +216,8 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       type = getType(N, tmpString, context, module);
       auto *first_alloca = builder.CreateAlloca(type);
       auto *second_alloca = builder.CreateAlloca(type);
-      auto *first_load = builder.CreateLoad(first_alloca);
-      auto *second_load = builder.CreateLoad(second_alloca);
+      auto *first_load = builder.CreateLoad(first_alloca->getType()->getPointerElementType(), first_alloca);
+      auto *second_load = builder.CreateLoad(second_alloca->getType()->getPointerElementType(), second_alloca);
       if (tmpString.find("ADD") == 0) {
         if (type->isIntegerTy())
           inst = llvm::cast<llvm::Instruction>(builder.CreateAdd(first_load, second_load));
@@ -258,7 +258,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       llvm::Type *first_type = getType(first_start, tmpString, context, module);
       llvm::Type *second_type = getType(second_start, tmpString, context, module);
       auto *first_alloca = builder.CreateAlloca(first_type);
-      auto *first_load = builder.CreateLoad(first_alloca);
+      auto *first_load = builder.CreateLoad(first_alloca->getType()->getPointerElementType(), first_alloca);
       if (first_type->isIntegerTy() && second_type->isIntegerTy()) {
         inst = llvm::cast<llvm::Instruction>(builder.CreateIntCast(first_load, second_type, false));
       } else if (first_type->isIntegerTy() && !second_type->isIntegerTy()) {

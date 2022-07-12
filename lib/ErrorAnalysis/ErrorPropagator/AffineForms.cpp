@@ -15,4 +15,6 @@
 
 #include "AffineForms.h"
 
+#define DEBUG_TYPE "errorprop"
+
 ErrorProp::NoiseTermBase::SymbolT ErrorProp::NoiseTermBase::SymId = 0;

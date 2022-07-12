@@ -7,6 +7,7 @@
 #ifndef __ANNOTATION_PARSER_H__
 #define __ANNOTATION_PARSER_H__
 
+#define DEBUG_TYPE "taffo-init"
 
 namespace taffo
 {
@@ -57,5 +58,6 @@ public:
 
 } // namespace taffo
 
+#undef DEBUG_TYPE
 
 #endif // __ANNOTATION_PARSER_H__

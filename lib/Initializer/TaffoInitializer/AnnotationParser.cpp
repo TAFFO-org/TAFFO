@@ -9,6 +9,8 @@ using namespace llvm;
 using namespace taffo;
 using namespace mdutils;
 
+#define DEBUG_TYPE "taffo-init"
+
 
 void AnnotationParser::reset()
 {

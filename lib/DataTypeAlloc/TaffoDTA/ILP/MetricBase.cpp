@@ -109,7 +109,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
   }
 
   if (auto constantExpr = dyn_cast_or_null<ConstantExpr>(constant)) {
-    if (constantExpr->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(constantExpr)) {
       return handleGEPConstant(constantExpr);
     }
     LLVM_DEBUG(dbgs() << "Unknown constant expr!\n";);

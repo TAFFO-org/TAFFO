@@ -1,15 +1,10 @@
 #ifndef __TAFFO_DTA_OPTIMIZER_H__
 #define __TAFFO_DTA_OPTIMIZER_H__
 
-#include "CPUCosts.h"
-#include "InputInfo.h"
-#include "Metadata.h"
-#include "Model.h"
-#include "OptimizerInfo.h"
-#include "TaffoDTA.h"
-#include "TypeUtils.h"
-#include "PhiWatcher.h"
-#include "MemWatcher.h"
+#include <fstream>
+#include <set>
+#include <stack>
+#include <unordered_map>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -19,10 +14,15 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include <fstream>
-#include <set>
-#include <stack>
-#include <unordered_map>
+#include "CPUCosts.h"
+#include "InputInfo.h"
+#include "Metadata.h"
+#include "Model.h"
+#include "OptimizerInfo.h"
+#include "TaffoDTA.h"
+#include "TypeUtils.h"
+#include "PhiWatcher.h"
+#include "MemWatcher.h"
 
 extern bool hasDouble;
 extern bool hasHalf;

@@ -1,6 +1,3 @@
-#include "TaffoDTA.h"
-#include "DTAConfig.h"
-#include "Metadata.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
@@ -10,8 +7,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Debug.h"
-#include <llvm/Analysis/MemorySSA.h>
-#include <llvm/Analysis/ScalarEvolution.h>
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "DTAConfig.h"
+#include "Metadata.h"
+#include "TaffoDTA.h"
 #ifdef TAFFO_BUILD_ILP_DTA
 #include "ILP/MetricBase.h"
 #include "ILP/Optimizer.h"
@@ -522,7 +522,7 @@ void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::
   for (auto it = fun->user_begin(); it != fun->user_end(); it++) {
     if (isa<CallInst>(*it) || isa<InvokeInst>(*it)) {
       Value *callarg = it->getOperand(n);
-      LLVM_DEBUG(dbgs() << " --> target " << *callarg << ", callsite " << **it << "\n");
+      LLVM_DEBUG(dbgs() << " --> target " << *callarg << ", CallBase " << **it << "\n");
       if (!hasInfo(callarg)) {
         LLVM_DEBUG(dbgs() << " --> argument doesn't get converted; skipping\n");
       } else {

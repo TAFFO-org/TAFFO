@@ -1,5 +1,7 @@
 #include "MemSSARE.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 

@@ -15,6 +15,8 @@
 #ifndef __FIXED_POINT_TYPE_H__
 #define __FIXED_POINT_TYPE_H__
 
+#define DEBUG_TYPE "taffo-conversion"
+
 
 namespace flttofix
 {
@@ -188,5 +190,7 @@ public:
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &stm, const flttofix::FixedPointType &f);
 
+
+#undef DEBUG_TYPE
 
 #endif

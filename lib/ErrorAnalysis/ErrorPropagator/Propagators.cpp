@@ -22,10 +22,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
-
-#define DEBUG_TYPE "errorprop"
 
 namespace
 {

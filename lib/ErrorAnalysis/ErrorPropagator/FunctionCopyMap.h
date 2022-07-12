@@ -20,6 +20,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <map>
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
@@ -123,5 +125,7 @@ protected:
 };
 
 } // end namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif

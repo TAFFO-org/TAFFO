@@ -23,6 +23,8 @@
 #include "FunctionCopyMap.h"
 #include "RangeErrorMap.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
@@ -78,5 +80,7 @@ protected:
 }; // end of class ErrorPropagator
 
 } // end namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif

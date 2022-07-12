@@ -7,6 +7,8 @@
 using namespace llvm;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-vra"
+
 void VRAGlobalStore::convexMerge(const AnalysisStore &Other)
 {
   // Since llvm::dyn_cast<T>() does not do cross-casting, we must do this:
@@ -498,7 +500,7 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     return nullptr;
   }
   if (const llvm::ConstantExpr *cexp_i = dyn_cast<llvm::ConstantExpr>(kval)) {
-    if (cexp_i->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(cexp_i)) {
       llvm::Value *pointer_op = cexp_i->getOperand(0U);
       llvm::Type *source_element_type =
           llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getElementType();

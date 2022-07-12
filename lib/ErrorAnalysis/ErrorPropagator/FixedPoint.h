@@ -26,6 +26,8 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
@@ -279,5 +281,7 @@ protected:
 };
 
 } // end namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif // ERRORPROPAGATOR_FIXED_POINT_H

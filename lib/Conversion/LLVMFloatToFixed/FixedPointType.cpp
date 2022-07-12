@@ -18,6 +18,8 @@ using namespace flttofix;
 using namespace mdutils;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-conversion"
+
 
 FixedPointType::FixedPointType()
 {

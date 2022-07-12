@@ -9,6 +9,8 @@
 using namespace llvm;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-vra"
+
 void VRAnalyzer::convexMerge(const AnalysisStore &Other)
 {
   // Since llvm::dyn_cast<T>() does not do cross-casting, we must do this:

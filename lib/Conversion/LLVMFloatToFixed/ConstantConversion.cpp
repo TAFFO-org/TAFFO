@@ -1,5 +1,6 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
+#include "LLVMVersions.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -19,6 +20,8 @@
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
+
+#define DEBUG_TYPE "taffo-conversion"
 
 #define defaultFixpType @SYNTAX_ERROR@
 
@@ -51,7 +54,7 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
                                             FixedPointType &fixpt,
                                             TypeMatchPolicy typepol)
 {
-  if (cexp->isGEPWithNoNotionalOverIndexing()) {
+  if (isa<GEPOperator>(cexp)) {
     Value *newval = operandPool[cexp->getOperand(0)];
     if (!newval) {
       LLVM_DEBUG(dbgs() << "[Warning] Operand of constant GEP not found in operandPool!\n");
@@ -73,6 +76,9 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
 
     ArrayRef<Constant *> idxlist(vals);
     return ConstantExpr::getInBoundsGetElementPtr(nullptr, newconst, idxlist);
+
+  } else {
+    LLVM_DEBUG(dbgs() << "constant expression " << *cexp << " is not handled explicitly yet\n");
   }
   return nullptr;
 }

@@ -1,4 +1,3 @@
-#include "CallSiteVersions.h"
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
 #include "LLVMVersions.h"
@@ -26,6 +25,8 @@
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
+
+#define DEBUG_TYPE "taffo-conversion"
 
 
 char FloatToFixed::ID = 0;
@@ -437,7 +438,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
 
   for (int i = 0; i < vals.size(); i++) {
     Value *valsi = vals[i];
-    CallSite *call = dyn_cast<CallBase>(valsi);
+    CallBase *call = dyn_cast<CallBase>(valsi);
 
     if (call == nullptr)
       continue;
@@ -577,7 +578,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
 }
 
 
-Function *FloatToFixed::createFixFun(CallSite *call, bool *old)
+Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
 {
   Function *oldF = call->getCalledFunction();
   assert(oldF && "bitcasted function pointers and such not handled atm");

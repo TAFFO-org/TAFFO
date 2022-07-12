@@ -19,6 +19,8 @@ using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-conversion"
+
 
 Value *ConversionError = (Value *)(&ConversionError);
 Value *Unsupported = (Value *)(&Unsupported);

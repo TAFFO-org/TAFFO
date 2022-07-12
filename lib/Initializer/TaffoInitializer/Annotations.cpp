@@ -15,6 +15,8 @@
 using namespace llvm;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-init"
+
 
 Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
 {

@@ -28,6 +28,7 @@
 using namespace llvm;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-init"
 
 char TaffoInitializer::ID = 0;
 
@@ -44,7 +45,7 @@ llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
 
 bool TaffoInitializer::runOnModule(Module &m)
 {
-  DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
+  LLVM_DEBUG(printAnnotatedObj(m));
 
   manageIndirectCalls(m);
 
@@ -425,7 +426,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
     Value *v = VVI->first;
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
-    CallSite *call = dyn_cast<CallSite>(v);
+    CallBase *call = dyn_cast<CallBase>(v);
 
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
@@ -491,7 +492,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
 }
 
 
-Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue)
+Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
 
@@ -520,7 +521,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
-  LLVM_DEBUG(dbgs() << "  callsite instr " << *call << " [" << call->getFunction()->getName() << "]\n");
+  LLVM_DEBUG(dbgs() << "  CallBase instr " << *call << " [" << call->getFunction()->getName() << "]\n");
   for (int i = 0; oldArgumentI != oldF->arg_end(); oldArgumentI++, newArgumentI++, i++) {
     auto user_begin = newArgumentI->user_begin();
     if (user_begin == newArgumentI->user_end()) {

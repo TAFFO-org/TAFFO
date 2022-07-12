@@ -20,13 +20,13 @@
 #include "llvm/Support/Debug.h"
 #include <utility>
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
 using namespace llvm;
 using namespace mdutils;
-
-#define DEBUG_TYPE "errorprop"
 
 const FPInterval *RangeErrorMap::getRange(const Value *I) const
 {

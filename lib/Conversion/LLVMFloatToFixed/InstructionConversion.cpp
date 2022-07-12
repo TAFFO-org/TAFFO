@@ -13,12 +13,18 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "LLVMVersions.h"
 #include <cassert>
 #include <cmath>
+
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
-#define defaultFixpType @SYNTAX_ERROR @
+
+#define DEBUG_TYPE "taffo-conversion"
+
+#define defaultFixpType @SYNTAX_ERROR@
+
 /* also inserts the new value in the basic blocks, alongside the old one */
 Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
                                         FixedPointType &fixpt)
@@ -220,7 +226,7 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
   if (valueInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid())
     return Unsupported;
   std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
-  return builder.CreateInBoundsGEP(newval, idxlist);
+  return builder.CreateInBoundsGEP(newval->getType()->getPointerElementType(), newval, idxlist);
 }
 Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
                                          FixedPointType &fixpt)
@@ -326,7 +332,7 @@ Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
   newsel->insertAfter(sel);
   return newsel;
 }
-Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
+Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
 {
   /* If the function return a float the new return type will be a fix point of
    * type fixpt, otherwise the return type is left unchanged.*/
@@ -417,7 +423,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
     newInvk->insertBefore(invk);
     return newInvk;
   }
-  assert(false && "Unknown CallSite type");
+  assert(false && "Unknown CallBase type");
   return Unsupported;
 }
 Value *FloatToFixed::convertRet(ReturnInst *ret, FixedPointType &fixpt)

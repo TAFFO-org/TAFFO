@@ -8,6 +8,8 @@ using namespace llvm;
 using namespace taffo;
 using namespace mdutils;
 
+#define DEBUG_TYPE "taffo-vra"
+
 char ValueRangeAnalysis::ID = 0;
 
 static RegisterPass<ValueRangeAnalysis> X(

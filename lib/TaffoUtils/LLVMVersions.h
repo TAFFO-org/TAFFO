@@ -5,6 +5,8 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
@@ -19,6 +21,8 @@ unsigned getStaticElementCount(const llvm::ConstantAggregateZero *V);
 void CloneFunction(llvm::Function *New, const llvm::Function *Old,
                    llvm::ValueToValueMapTy &VMap,
                    llvm::SmallVectorImpl<llvm::ReturnInst *> &Returns);
+
+unsigned numFuncArgs(const llvm::CallBase *CB);
 
 }
 

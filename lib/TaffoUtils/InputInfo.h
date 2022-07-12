@@ -21,6 +21,8 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include <memory>
 #include <sstream>
 

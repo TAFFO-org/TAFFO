@@ -2,7 +2,6 @@
 #define __TAFFO_INITIALIZER_PASS_H__
 
 
-#include "CallSiteVersions.h"
 #include "InputInfo.h"
 #include "MultiValueMap.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -13,6 +12,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueMap.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -20,7 +20,6 @@
 
 
 #define DEBUG_TYPE "taffo-init"
-#define DEBUG_ANNOTATION "annotation"
 
 
 STATISTIC(AnnotationCount, "Number of valid annotations found");
@@ -64,7 +63,7 @@ struct TaffoInitializer : public llvm::ModulePass {
                                                        std::shared_ptr<mdutils::MDInfo> user_mdi,
                                                        std::shared_ptr<mdutils::MDInfo> used_mdi);
   void generateFunctionSpace(ConvQueueT &vals, ConvQueueT &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
+  llvm::Function *createFunctionAndQueue(llvm::CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
   void printConversionQueue(ConvQueueT &vals);
   void removeAnnotationCalls(ConvQueueT &vals);
 
@@ -81,5 +80,7 @@ struct TaffoInitializer : public llvm::ModulePass {
 
 } // namespace taffo
 
+
+#undef DEBUG_TYPE
 
 #endif
