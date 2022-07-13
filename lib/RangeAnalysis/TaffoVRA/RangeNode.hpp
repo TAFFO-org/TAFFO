@@ -10,6 +10,8 @@
 
 #include <memory>
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -136,5 +138,7 @@ protected:
 };
 
 } // namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif /* end of include guard: TAFFO_VRA_RANGE_NODE_HPP */

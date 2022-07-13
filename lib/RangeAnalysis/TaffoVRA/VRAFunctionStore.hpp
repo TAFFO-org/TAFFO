@@ -5,6 +5,8 @@
 #include "VRALogger.hpp"
 #include "VRAStore.hpp"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -49,5 +51,7 @@ protected:
 };
 
 } // end namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

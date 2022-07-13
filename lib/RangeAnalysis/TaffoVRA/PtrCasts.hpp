@@ -46,5 +46,4 @@ bool isa_ptr(const std::shared_ptr<U> &r) noexcept
 
 } // end namespace std
 
-
 #endif

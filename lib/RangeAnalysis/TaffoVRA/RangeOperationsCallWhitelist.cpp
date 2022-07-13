@@ -7,6 +7,8 @@
 #include <list>
 #include <string>
 
+#define DEBUG_TYPE "taffo-vra"
+
 using namespace taffo;
 
 #define PI 0x1.921FB54442D18p+1

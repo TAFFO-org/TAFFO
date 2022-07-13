@@ -6,6 +6,8 @@
 #include <limits>
 #include <vector>
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -185,5 +187,7 @@ static inline range_s_ptr_t make_s_range(Args &&...args)
 }
 
 } // namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif /* end of include guard: TAFFO_VRA_RANGE_HPP */

@@ -8,6 +8,7 @@
 #include <cassert>
 #include <deque>
 
+#define DEBUG_TYPE "taffo-vra"
 
 namespace taffo
 {

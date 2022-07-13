@@ -11,6 +11,8 @@
 #include "RangeNode.hpp"
 #include "VRALogger.hpp"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -56,5 +58,7 @@ private:
 };
 
 } // end namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

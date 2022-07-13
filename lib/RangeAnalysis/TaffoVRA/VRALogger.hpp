@@ -6,11 +6,11 @@
 #include "llvm/Support/Debug.h"
 #include <string>
 
-namespace taffo
-{
-
 #define DEBUG_TYPE "taffo-vra"
 #define DEBUG_HEAD "[TAFFO][VRA]"
+
+namespace taffo
+{
 
 class VRALogger : public CILogger
 {
@@ -147,5 +147,7 @@ private:
 };
 
 } // namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

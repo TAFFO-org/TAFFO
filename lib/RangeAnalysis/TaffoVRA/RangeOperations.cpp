@@ -7,6 +7,8 @@
 #include <limits>
 #include <map>
 
+#define DEBUG_TYPE "taffo-vra"
+
 using namespace taffo;
 
 //-----------------------------------------------------------------------------

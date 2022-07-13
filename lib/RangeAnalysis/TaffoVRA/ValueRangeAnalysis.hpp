@@ -6,6 +6,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -42,5 +44,7 @@ private:
 };
 
 } // namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

@@ -6,6 +6,8 @@
 #include <list>
 #include <map>
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -21,5 +23,7 @@ namespace taffo
 using map_value_t = range_ptr_t (*)(const std::list<range_ptr_t> &);
 extern const std::map<const std::string, map_value_t> functionWhiteList;
 }; // namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif /* end of include guard: TAFFO_RANGE_OPERATIONS_CALL_WHITELIST_HPP */

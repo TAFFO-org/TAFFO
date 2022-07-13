@@ -4,6 +4,8 @@
 #include "VRAGlobalStore.hpp"
 #include "VRAnalyzer.hpp"
 
+#define DEBUG_TYPE "taffo-vra"
+
 using namespace taffo;
 
 void VRAFunctionStore::convexMerge(const AnalysisStore &Other)
