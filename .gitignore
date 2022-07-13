@@ -1,8 +1,8 @@
-build*/
+build*
 .idea
 build.log
 *.zip
-dist
+dist*
 *.magiclangtmp.ll
 *.magiclangtmp.s
 .vscode*
