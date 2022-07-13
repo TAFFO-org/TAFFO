@@ -88,4 +88,7 @@ llvm::cl::opt<std::string> DumpModelFile("dumpmodel",
 #endif // TAFFO_BUILD_ILP_DTA
 
 STATISTIC(FixCast, "Number of fixed point format cast");
+
+#undef DEBUG_TYPE
+
 #endif

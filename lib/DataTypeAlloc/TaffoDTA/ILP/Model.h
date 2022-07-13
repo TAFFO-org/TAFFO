@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#define DEBUG_TYPE "taffo-dta"
+
 #define MODEL_OBJ_CASTCOST "castCostObj"
 #define MODEL_OBJ_ENOB "enobCostObj"
 #define MODEL_OBJ_MATHCOST "mathCostObj"
@@ -72,5 +74,7 @@ public:
   // void insertComment(std::string comment, int spaceBefore=0, int spaceAfter=0);
 };
 } // namespace tuner
+
+#undef DEBUG_TYPE
 
 #endif

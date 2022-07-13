@@ -24,6 +24,8 @@
 #include "PhiWatcher.h"
 #include "MemWatcher.h"
 
+#define DEBUG_TYPE "taffo-dta"
+
 extern bool hasDouble;
 extern bool hasHalf;
 extern bool hasQuad;
@@ -170,5 +172,6 @@ public:
 
 } // namespace tuner
 
+#undef DEBUG_TYPE
 
 #endif

@@ -11,7 +11,6 @@
 #include "llvm/Pass.h"
 
 #define DEBUG_TYPE "taffo-dta"
-#define DEBUG_FUN "tunerfunction"
 
 namespace tuner
 {
@@ -143,5 +142,6 @@ struct TaffoTuner : public llvm::ModulePass {
 
 } // namespace tuner
 
+#undef DEBUG_TYPE
 
 #endif

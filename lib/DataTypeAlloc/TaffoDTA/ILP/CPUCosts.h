@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#define DEBUG_TYPE "taffo-dta"
+
 using namespace std;
 
 namespace tuner
@@ -207,7 +209,8 @@ public:
   }
 };
 
-
 } // namespace tuner
+
+#undef DEBUG_TYPE
 
 #endif

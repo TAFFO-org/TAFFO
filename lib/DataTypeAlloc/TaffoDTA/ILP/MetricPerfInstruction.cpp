@@ -7,6 +7,7 @@ using namespace llvm;
 using namespace mdutils;
 using namespace tuner;
 
+#define DEBUG_TYPE "taffo-dta"
 
 static void emitError(const string &stringhina)
 {

@@ -8,6 +8,7 @@
 using namespace std;
 using namespace mdutils;
 
+#define DEBUG_TYPE "taffo-dta"
 
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<mdutils::FPType> fpInfo, shared_ptr<mdutils::Range> rangeInfo, shared_ptr<double> suggestedMinError,
                                                                                bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)

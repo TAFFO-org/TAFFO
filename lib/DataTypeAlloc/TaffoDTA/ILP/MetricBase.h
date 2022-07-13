@@ -11,6 +11,8 @@
 #include <stack>
 #include <unordered_map>
 
+#define DEBUG_TYPE "taffo-dta"
+
 namespace tuner
 {
 class Optimizer;
@@ -257,3 +259,5 @@ protected:
 
 };
 */
+
+#undef DEBUG_TYPE

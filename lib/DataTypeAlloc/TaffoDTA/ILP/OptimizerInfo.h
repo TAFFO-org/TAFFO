@@ -11,6 +11,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 
+#define DEBUG_TYPE "taffo-dta"
+
 namespace tuner
 {
 using namespace std;
@@ -348,5 +350,7 @@ public:
 };
 
 } // namespace tuner
+
+#undef DEBUG_TYPE
 
 #endif

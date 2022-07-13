@@ -9,6 +9,8 @@
 
 using namespace llvm;
 
+#define DEBUG_TYPE "taffo-dta"
+
 std::string tuner::uniqueIDForValue(Value *value)
 {
   std::string buf;

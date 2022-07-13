@@ -4,7 +4,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/Debug.h"
 
-
 extern llvm::cl::opt<int> TotalBits;
 extern llvm::cl::opt<int> FracThreshold;
 
@@ -13,6 +12,7 @@ using namespace mdutils;
 using namespace std;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-dta"
 
 bool MetricBase::valueHasInfo(llvm::Value *value) { return opt->valueHasInfo(value); }
 

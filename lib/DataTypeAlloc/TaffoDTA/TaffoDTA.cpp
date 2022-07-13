@@ -17,12 +17,12 @@
 #include "ILP/Optimizer.h"
 #endif // TAFFO_BUILD_ILP_DTA
 
-
 using namespace llvm;
 using namespace tuner;
 using namespace mdutils;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-dta"
 
 char TaffoTuner::ID = 0;
 
@@ -540,19 +540,19 @@ std::vector<Function *> TaffoTuner::collapseFunction(Module &m)
     if (MDNode *mdNode = f.getMetadata(CLONED_FUN_METADATA)) {
       if (std::find(toDel.begin(), toDel.end(), &f) != toDel.end())
         continue;
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "Analyzing original function " << f.getName() << "\n";);
+      LLVM_DEBUG(dbgs() << "Analyzing original function " << f.getName() << "\n";);
 
       for (auto mdIt = mdNode->op_begin(); mdIt != mdNode->op_end(); mdIt++) {
-        DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Clone : " << **mdIt << "\n";);
+        LLVM_DEBUG(dbgs() << "\t Clone : " << **mdIt << "\n";);
 
         ValueAsMetadata *md = dyn_cast<ValueAsMetadata>(*mdIt);
         Function *fClone = dyn_cast<Function>(md->getValue());
         if (fClone->user_begin() == fClone->user_end()) {
-          DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Ignoring " << fClone->getName()
-                                            << " because it's not used anywhere\n");
+          LLVM_DEBUG(dbgs() << "\t Ignoring " << fClone->getName()
+              << " because it's not used anywhere\n");
         } else if (Function *eqFun = findEqFunction(fClone, &f)) {
-          DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Replace function " << fClone->getName()
-                                            << " with " << eqFun->getName() << "\n";);
+          LLVM_DEBUG(dbgs() << "\t Replace function " << fClone->getName()
+              << " with " << eqFun->getName() << "\n";);
           fClone->replaceAllUsesWith(eqFun);
           toDel.push_back(fClone);
         }
@@ -606,15 +606,15 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
 {
   std::vector<std::pair<int, std::shared_ptr<MDInfo>>> fixSign;
 
-  DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Search eq function for " << fun->getName()
-                                    << " in " << origin->getName() << " pool\n";);
+  LLVM_DEBUG(dbgs() << "\t\t Search eq function for " << fun->getName()
+      << " in " << origin->getName() << " pool\n";);
 
   if (isFloatType(fun->getReturnType()) && hasInfo(*fun->user_begin())) {
     std::shared_ptr<MDInfo> retval = valueInfo(*fun->user_begin())->metadata;
     if (retval) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(-1, retval)); // ret value in signature
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Return type : "
-                                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "\t\t Return type : "
+          << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
     }
   }
 
@@ -622,8 +622,8 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   for (Argument &arg : fun->args()) {
     if (hasInfo(&arg) && valueInfo(&arg)->metadata) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(i, valueInfo(&arg)->metadata));
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Arg " << i << " type : "
-                                        << valueInfo(&arg)->metadata->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "\t\t Arg " << i << " type : "
+          << valueInfo(&arg)->metadata->toString() << "\n";);
     }
     i++;
   }
@@ -648,7 +648,7 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   funInfo.newFun = fun;
   funInfo.fixArgs = fixSign;
   functionPool[origin].push_back(funInfo);
-  DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Function " << fun->getName() << " used\n";);
+  LLVM_DEBUG(dbgs() << "\t Function " << fun->getName() << " used\n";);
   return nullptr;
 }
 
