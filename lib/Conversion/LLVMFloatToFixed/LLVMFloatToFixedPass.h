@@ -74,8 +74,6 @@ struct PHIInfo {
 struct FloatToFixed : public llvm::ModulePass {
   static char ID;
 
-  FixedPointType defaultFixpType;
-
   /** Map from original values to converted values.
    *  Values not to be converted do not appear in the map.
    *  Values which have not been converted successfully are mapped to

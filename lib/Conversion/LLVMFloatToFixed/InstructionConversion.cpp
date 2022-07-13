@@ -23,8 +23,6 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-#define defaultFixpType @SYNTAX_ERROR@
-
 /* also inserts the new value in the basic blocks, alongside the old one */
 Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
                                         FixedPointType &fixpt)

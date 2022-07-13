@@ -23,8 +23,6 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-#define defaultFixpType @SYNTAX_ERROR@
-
 Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt,
                                         TypeMatchPolicy typepol)
 {
