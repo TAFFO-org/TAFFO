@@ -13,6 +13,7 @@ add_llvm_library(Taffo MODULE
   $<TARGET_OBJECTS:obj.TaffoDTA>
   $<TARGET_OBJECTS:obj.LLVMFloatToFixed>
   $<TARGET_OBJECTS:obj.LLVMErrorPropagator>
+  PassPluginInfo.cpp
   ../cmake/dummy.cpp
 
   LINK_LIBS

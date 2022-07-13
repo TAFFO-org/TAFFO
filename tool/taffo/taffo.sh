@@ -390,8 +390,8 @@ fi
 ###  TAFFO initialization
 ###
 ${OPT} \
-  -load "$TAFFOLIB" ${pmflag} \
-  -taffoinit \
+  --load-pass-plugin="$TAFFOLIB" \
+  -passes='taffoinit' \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
   

@@ -24,26 +24,17 @@
 #include <climits>
 #include <cmath>
 
+#define DEBUG_TYPE "taffo-init"
 
 using namespace llvm;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-init"
-
-char TaffoInitializer::ID = 0;
-
-static RegisterPass<TaffoInitializer> X(
-    "taffoinit",
-    "TAFFO Framework Initialization Stage",
-    false /* does not affect the CFG */,
-    true /* Optimization Pass (sorta) */);
+cl::opt<bool> ManualFunctionCloning("manualclone",
+    cl::desc("Enables function cloning only for annotated functions"),
+    cl::init(false));
 
 
-llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
-                                          llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
-
-
-bool TaffoInitializer::runOnModule(Module &m)
+PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
 {
   LLVM_DEBUG(printAnnotatedObj(m));
 
@@ -79,7 +70,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   LLVM_DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m, vals);
 
-  return true;
+  return PreservedAnalyses::all();
 }
 
 
