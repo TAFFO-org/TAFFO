@@ -40,7 +40,7 @@ void taffo::CloneFunction(Function *New, const Function *Old,
 }
 
 
-unsigned numFuncArgs(const llvm::CallBase *CB)
+unsigned taffo::numFuncArgs(const llvm::CallBase *CB)
 {
 #if (LLVM_VERSION_MAJOR >= 14)
   return CB->arg_size();
