@@ -92,7 +92,7 @@ conversion_flags=
 enable_errorprop=0
 errorprop_flags=
 errorprop_out=
-mem2reg=-mem2reg
+mem2reg='function(mem2reg),'
 dontlink=
 iscpp=$CLANG
 feedback=0
@@ -386,12 +386,17 @@ if [[ $llvm_has_new_pm -ne 0 ]]; then
   pmflag='--enable-new-pm=0'
 fi
 
+# Note: in the following we load the plugin both with -load and --load-pass-plugin
+# because the latter does not load the .so until later in the game after command
+# line args are all parsed, and because -load does not register new pass manager
+# passes at all.
+
 ###
 ###  TAFFO initialization
 ###
 ${OPT} \
-  --load-pass-plugin="$TAFFOLIB" \
-  -passes='taffoinit' \
+  -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+  --passes='no-op-module,taffoinit' \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
   
@@ -400,8 +405,8 @@ ${OPT} \
 ###
 if [[ $disable_vra -eq 0 ]]; then
   ${OPT} \
-    -load "$TAFFOLIB" ${pmflag} \
-    ${mem2reg} -taffoVRA \
+    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+    --passes="no-op-module,${mem2reg}taffovra" \
     ${vra_flags} \
     -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
 else

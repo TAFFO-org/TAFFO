@@ -3,6 +3,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/Debug.h"
 #include <Metadata.h>
 #include <cassert>
@@ -219,7 +220,8 @@ void CodeInterpreter::interpretCall(std::shared_ptr<CodeAnalyzer> CurAnalyzer,
 void CodeInterpreter::updateLoopInfo(llvm::Function *F)
 {
   assert(F);
-  LoopInfo = &Pass.getAnalysis<llvm::LoopInfoWrapperPass>(*F).getLoopInfo();
+  auto &FAM = getMAM().getResult<llvm::FunctionAnalysisManagerModuleProxy>(*F->getParent()).getManager();
+  LoopInfo = &(FAM.getResult<llvm::LoopAnalysis>(*F));
 }
 
 /// Get the latch condition instruction.
@@ -293,8 +295,10 @@ void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
           TripCount = OUC.getValue();
         } else {
           // Compute loop trip count
-          if (!SE)
-            SE = &Pass.getAnalysis<llvm::ScalarEvolutionWrapperPass>(*F).getSE();
+          if (!SE) {
+            auto &FAM = getMAM().getResult<llvm::FunctionAnalysisManagerModuleProxy>(*F->getParent()).getManager();
+            SE = &(FAM.getResult<llvm::ScalarEvolutionAnalysis>(*F));
+          }
           TripCount = SE->getSmallConstantTripCount(L);
 
           // Handle OMP load of boundary with external call
@@ -329,12 +333,5 @@ bool CodeInterpreter::updateRecursionCount(llvm::Function *F)
   }
   return false;
 }
-
-void CodeInterpreter::getAnalysisUsage(llvm::AnalysisUsage &AU)
-{
-  AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<llvm::ScalarEvolutionWrapperPass>();
-}
-
 
 } // end namespace taffo

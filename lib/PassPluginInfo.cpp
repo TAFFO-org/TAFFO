@@ -2,6 +2,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "Initializer/TaffoInitializer/TaffoInitializerPass.h"
+#include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
 
 using namespace llvm;
 using namespace taffo;
@@ -17,6 +18,9 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
             [](StringRef Name, ModulePassManager &PM, ArrayRef<PassBuilder::PipelineElement>) {
               if (Name == "taffoinit") {
                 PM.addPass(TaffoInitializer());
+                return true;
+              } else if (Name == "taffovra") {
+                PM.addPass(ValueRangeAnalysis());
                 return true;
               }
               return false;

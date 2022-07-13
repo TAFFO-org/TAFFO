@@ -3,7 +3,7 @@
 
 #include "CodeInterpreter.hpp"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "taffo-vra"
@@ -11,33 +11,13 @@
 namespace taffo
 {
 
-llvm::cl::opt<bool> PropagateAll("propagate-all",
-                                 llvm::cl::desc("Propagate ranges for all functions, "
-                                                "not only those marked as starting point."),
-                                 llvm::cl::init(false));
-llvm::cl::opt<unsigned> Unroll("unroll",
-                               llvm::cl::desc("Default loop unroll count. "
-                                              "Setting this to 0 disables loop unrolling. "
-                                              "(Default: 1)"),
-                               llvm::cl::value_desc("count"),
-                               llvm::cl::init(1U));
+extern llvm::cl::opt<bool> PropagateAll;
+extern llvm::cl::opt<unsigned> Unroll;
+extern llvm::cl::opt<unsigned> MaxUnroll;
 
-llvm::cl::opt<unsigned> MaxUnroll("max-unroll",
-                                  llvm::cl::desc("Max loop unroll count. "
-                                                 "Setting this to 0 disables loop unrolling. "
-                                                 "(Default: 256)"),
-                                  llvm::cl::value_desc("count"),
-                                  llvm::cl::init(256U));
-
-struct ValueRangeAnalysis : public llvm::ModulePass {
-  static char ID;
-
+class ValueRangeAnalysis : public llvm::PassInfoMixin<ValueRangeAnalysis> {
 public:
-  ValueRangeAnalysis() : ModulePass(ID) {}
-
-  bool runOnModule(llvm::Module &M) override;
-
-  void getAnalysisUsage(llvm::AnalysisUsage &) const override;
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 
 private:
   void processModule(CodeInterpreter &CodeInt, llvm::Module &M);

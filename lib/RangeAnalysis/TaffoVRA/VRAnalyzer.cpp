@@ -406,9 +406,9 @@ void VRAnalyzer::handleLoadInstr(llvm::Instruction *I)
 
   if (std::shared_ptr<VRAScalarNode> Scalar =
           std::dynamic_ptr_cast_or_null<VRAScalarNode>(Loaded)) {
-    MemorySSA &memssa = CodeInt.getPass().getAnalysis<MemorySSAWrapperPass>(
-                                             *I->getFunction())
-                            .getMSSA();
+    auto &FAM = CodeInt.getMAM().getResult<FunctionAnalysisManagerModuleProxy>(*I->getFunction()->getParent()).getManager();
+    auto *SSARes = &(FAM.getResult<MemorySSAAnalysis>(*I->getFunction()));
+    MemorySSA &memssa = SSARes->getMSSA();
     MemSSAUtils memssa_utils(memssa);
     SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(Load);
 

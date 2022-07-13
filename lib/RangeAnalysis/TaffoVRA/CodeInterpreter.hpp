@@ -3,7 +3,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/Casting.h"
 #include <memory>
 
@@ -93,10 +93,10 @@ struct FunctionScope {
 class CodeInterpreter
 {
 public:
-  CodeInterpreter(llvm::Pass &P, std::shared_ptr<AnalysisStore> GlobalStore,
+  CodeInterpreter(llvm::ModuleAnalysisManager &MAM, std::shared_ptr<AnalysisStore> GlobalStore,
                   unsigned LoopUnrollCount = 1U, unsigned LoopMaxUnrollCount = 256U)
       : GlobalStore(GlobalStore), Scopes(),
-        Pass(P), LoopInfo(nullptr), LoopTripCount(), RecursionCount(),
+        MAM(MAM), LoopInfo(nullptr), LoopTripCount(), RecursionCount(),
         DefaultTripCount(LoopUnrollCount),
         MaxTripCount(LoopMaxUnrollCount) {}
 
@@ -113,17 +113,15 @@ public:
     return Scopes.back().FunctionStore;
   }
 
-  llvm::Pass &getPass() const
+  llvm::ModuleAnalysisManager &getMAM() const
   {
-    return Pass;
+    return MAM;
   }
-
-  static void getAnalysisUsage(llvm::AnalysisUsage &AU);
 
 protected:
   std::shared_ptr<AnalysisStore> GlobalStore;
   llvm::SmallVector<FunctionScope, 4U> Scopes;
-  llvm::Pass &Pass;
+  llvm::ModuleAnalysisManager &MAM;
   llvm::LoopInfo *LoopInfo;
   llvm::DenseMap<llvm::BasicBlock *, unsigned> LoopTripCount;
   llvm::DenseMap<llvm::Function *, unsigned> RecursionCount;
