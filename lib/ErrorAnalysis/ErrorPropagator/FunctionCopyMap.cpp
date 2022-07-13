@@ -10,12 +10,12 @@
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Config/llvm-config.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
 using namespace llvm;
-
-#define DEBUG_TYPE "errorprop"
 
 void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned MaxUnroll)
 {

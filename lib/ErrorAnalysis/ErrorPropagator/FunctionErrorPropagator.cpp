@@ -27,13 +27,13 @@
 #include "Propagators.h"
 #include "TypeUtils.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
 using namespace llvm;
 using namespace mdutils;
-
-#define DEBUG_TYPE "errorprop"
 
 void FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
                                                     SmallVectorImpl<Value *> *Args,
