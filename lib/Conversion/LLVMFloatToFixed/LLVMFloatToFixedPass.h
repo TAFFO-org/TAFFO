@@ -13,7 +13,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -71,9 +71,12 @@ struct PHIInfo {
 };
 
 
-struct FloatToFixed : public llvm::ModulePass {
-  static char ID;
+class Conversion : public llvm::PassInfoMixin<Conversion> {
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
 
+struct FloatToFixed {
   /** Map from original values to converted values.
    *  Values not to be converted do not appear in the map.
    *  Values which have not been converted successfully are mapped to
@@ -90,9 +93,7 @@ struct FloatToFixed : public llvm::ModulePass {
 
   llvm::ValueMap<llvm::PHINode *, PHIInfo> phiReplacementData;
 
-  FloatToFixed() : ModulePass(ID){};
-  void getAnalysisUsage(llvm::AnalysisUsage &) const override;
-  bool runOnModule(llvm::Module &M) override;
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
   void readGlobalMetadata(llvm::Module &m,
                           llvm::SmallPtrSetImpl<llvm::Value *> &res,
                           bool functionAnnotation = false);
@@ -647,6 +648,8 @@ struct FloatToFixed : public llvm::ModulePass {
 
   void handleKmpcFork(llvm::CallInst *patchedDirectCall, llvm::Function *indirectFunction);
 
+private:
+  llvm::ModuleAnalysisManager *MAM;
 };
 
 } // namespace flttofix

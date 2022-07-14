@@ -29,19 +29,10 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-conversion"
 
 
-char FloatToFixed::ID = 0;
-
-static RegisterPass<FloatToFixed> X(
-    "flttofix",
-    "Floating Point to Fixed Point conversion pass",
-    true /* Does not only look at CFG */,
-    true /* Optimization Pass */);
-
-
-void FloatToFixed::getAnalysisUsage(llvm::AnalysisUsage &au) const
+PreservedAnalyses Conversion::run(Module &M, ModuleAnalysisManager &AM)
 {
-  au.addRequiredTransitive<LoopInfoWrapperPass>();
-  au.setPreservesAll();
+  FloatToFixed Impl;
+  return Impl.run(M, AM);
 }
 
 
@@ -148,10 +139,12 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
 }
 
 
-bool FloatToFixed::runOnModule(Module &m)
+PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM)
 {
-  llvm::SmallPtrSet<llvm::Value *, 32> local;
-  llvm::SmallPtrSet<llvm::Value *, 32> global;
+  MAM = &AM;
+
+  SmallPtrSet<Value *, 32> local;
+  SmallPtrSet<Value *, 32> global;
   readAllLocalMetadata(m, local);
   readGlobalMetadata(m, global);
 
@@ -172,18 +165,19 @@ bool FloatToFixed::runOnModule(Module &m)
 
   convertIndirectCalls(m);
 
-  return true;
+  return PreservedAnalyses::none();
 }
 
 
-int FloatToFixed::getLoopNestingLevelOfValue(llvm::Value *v)
+int FloatToFixed::getLoopNestingLevelOfValue(Value *v)
 {
   Instruction *inst = dyn_cast<Instruction>(v);
   if (!inst)
     return 0;
 
   Function *fun = inst->getFunction();
-  LoopInfo &li = this->getAnalysis<LoopInfoWrapperPass>(*fun).getLoopInfo();
+  FunctionAnalysisManager &FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(*(fun->getParent())).getManager();
+  LoopInfo &li = FAM.getResult<LoopAnalysis>(*fun);
   BasicBlock *bb = inst->getParent();
   return li.getLoopDepth(bb);
 }

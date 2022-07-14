@@ -433,8 +433,8 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###  TAFFO Conversion
   ###
   ${OPT} \
-    -load "$TAFFOLIB" ${pmflag} \
-    -flttofix -globaldce -dce \
+    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+    --passes='no-op-module,taffoconv,globaldce,dce' \
     ${conversion_flags} \
     -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" "${temporary_dir}/${output_basename}.4.taffotmp.ll" || exit $?
     

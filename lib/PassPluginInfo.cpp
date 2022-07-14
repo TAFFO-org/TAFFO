@@ -4,6 +4,7 @@
 #include "Initializer/TaffoInitializer/TaffoInitializerPass.h"
 #include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
 #include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
+#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -25,6 +26,9 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
                 return true;
               } else if (Name == "taffodta") {
                 PM.addPass(tuner::TaffoTuner());
+                return true;
+              } else if (Name == "taffoconv") {
+                PM.addPass(flttofix::Conversion());
                 return true;
               }
               return false;
