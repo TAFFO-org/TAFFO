@@ -6,11 +6,13 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   AnnotationParser.cpp
   IndirectCallPatcher.cpp
   handleHero.cpp
+  ModuleCloneUtils.cpp
 
   ADDITIONAL_HEADERS
   TaffoInitializerPass.h
   AnnotationParser.h
   IndirectCallPatcher.h
+  ModuleCloneUtils.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils

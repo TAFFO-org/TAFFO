@@ -1,8 +1,6 @@
 #include "ModuleCloneUtils.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 std::unique_ptr<llvm::Module> getModule(llvm::StringRef Filename, llvm::LLVMContext &cntx)
@@ -15,6 +13,7 @@ std::unique_ptr<llvm::Module> getModule(llvm::StringRef Filename, llvm::LLVMCont
 //Clone all global but not the one that start with hero as they are target dependant (contains assembly code)
 void cloneGlobalVariable(llvm::Module &host_module, llvm::Module &dev_module, llvm::ValueToValueMapTy &GtoG, llvm::Twine prefix)
 {
+
   using namespace llvm;
   //Loop over all of the global variables, making corresponding globals in the
   // new module.  Here we add them to the VMap and to the new Module.  We
@@ -104,6 +103,10 @@ void cloneGlobalVariable(llvm::Module &host_module, llvm::Module &dev_module, ll
 
 std::unique_ptr<llvm::Module> cloneModuleInto(llvm::StringRef Filename, llvm::Module &host_module, llvm::Twine prefix)
 {
+  if (Filename.find('/') != llvm::StringRef::npos) {
+    Filename = Filename.split('/').second;
+  }
+
   auto new_module = getModule(Filename, host_module.getContext());
   llvm::ValueToValueMapTy GtoG{};
   cloneGlobalVariable(host_module, *new_module, GtoG, prefix);

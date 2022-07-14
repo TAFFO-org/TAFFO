@@ -174,9 +174,10 @@ bool FloatToFixed::runOnModule(Module &m)
   cleanup(vals);
 
   convertIndirectCalls(m);
-  handleHero(m);
+
 
   addDebugBBPrint(m);
+  handleHero(m);
 
 
   return true;

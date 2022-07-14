@@ -1,30 +1,14 @@
+
 #include "ModuleCloneUtils.h"
 #include "OpenMPAnalyzer.h"
 #include "TaffoInitializerPass.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/MemorySSA.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IRReader/IRReader.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include <cassert>
-#include <utility>
+
+
 #define DEBUG_TYPE "taffo-init"
 
 
@@ -122,7 +106,7 @@ llvm::Value *find_original_value(llvm::Value *StoredValues, llvm::StoreInst *las
 
   auto walker = Mssa.getSkipSelfWalker();
   llvm::MemoryAccess *clobber;
-  if (auto load = llvm::dyn_cast<LoadInst>(StoredValues)) {
+  if (auto load = llvm::dyn_cast<llvm::LoadInst>(StoredValues)) {
     llvm::dbgs()
         << "\n\nClobber di " << *load << " \n";
     clobber = walker->getClobberingMemoryAccess(Mssa.getMemoryAccess(load));
@@ -139,14 +123,14 @@ llvm::Value *find_original_value(llvm::Value *StoredValues, llvm::StoreInst *las
     if (auto stampa = dyn_cast<llvm::MemoryUseOrDef>(clobber)) {
       auto inst = stampa->getMemoryInst();
       llvm::dbgs() << "\t\t-->  " << *inst << "\n";
-      if (auto store_inst = llvm::dyn_cast<StoreInst>(inst)) {
+      if (auto store_inst = llvm::dyn_cast<llvm::StoreInst>(inst)) {
         llvm::dbgs() << "Found: " << *store_inst << "\n";
         return store_inst->getValueOperand();
       }
 
-      clobber = walker->getClobberingMemoryAccess(stampa->getDefiningAccess(), MemoryLocation::get(llvm::dyn_cast<LoadInst>(StoredValues)));
+      clobber = walker->getClobberingMemoryAccess(stampa->getDefiningAccess(), llvm::MemoryLocation::get(llvm::dyn_cast<llvm::LoadInst>(StoredValues)));
     } else {
-      llvm::dbgs() << "\t\t-->" << *cast<MemoryPhi>(clobber) << "\n";
+      llvm::dbgs() << "\t\t-->" << *cast<llvm::MemoryPhi>(clobber) << "\n";
     }
   }
   llvm::dbgs() << "\t\t-->  " << *dyn_cast<llvm::MemoryUseOrDef>(clobber) << "\n\n\n";
@@ -165,7 +149,7 @@ void insert_call_to_new_function(llvm::Function *function_to_call, OffloadArray 
     auto value_to_pass = OAs[0].StoredValues[i];
     auto last_access = OAs[0].LastAccesses[i];
 
-    if (llvm::isa<LoadInst>(value_to_pass)) {
+    if (llvm::isa<llvm::LoadInst>(value_to_pass)) {
       value_to_pass = find_original_value(value_to_pass, last_access, Mssa);
       auto &first_BB = *insert_point->getFunction()->begin();
       llvm::IRBuilder<> builder(insert_point);
