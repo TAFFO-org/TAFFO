@@ -184,7 +184,7 @@ std::string FixedPointType::toString() const
     stm << scalarData.toString();
   } else {
     stm << '<';
-    for (int i = 0; i < structData->size(); i++) {
+    for (size_t i = 0; i < structData->size(); i++) {
       stm << (*structData)[i].toString();
       if (i != structData->size() - 1)
         stm << ',';
@@ -257,7 +257,7 @@ bool FixedPointType::operator==(const FixedPointType &rhs) const
   } else {
     if (structData->size() != rhs.structData->size())
       return false;
-    for (int i = 0; i < structData->size(); i++) {
+    for (size_t i = 0; i < structData->size(); i++) {
       if (!((*structData)[i] == (*rhs.structData)[i]))
         return false;
     }

@@ -270,7 +270,7 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals)
 
       /* Insert u at the end of the queue.
        * If u exists already in the queue, *move* it to the end instead. */
-      for (int i = 0; i < vals.size();) {
+      for (size_t i = 0; i < vals.size();) {
         if (vals[i] == u) {
           vals.erase(vals.begin() + i);
           if (i < next)
@@ -430,7 +430,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
   mdutils::MetadataManager &MM = mdutils::MetadataManager::getMetadataManager();
   SmallPtrSet<Function *, 16> oldFuncs;
 
-  for (int i = 0; i < vals.size(); i++) {
+  for (size_t i = 0; i < vals.size(); i++) {
     Value *valsi = vals[i];
     CallBase *call = dyn_cast<CallBase>(valsi);
 
@@ -549,7 +549,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
   }
 
   /* Remove instructions of the old functions from the queue */
-  int removei, removej;
+  size_t removei, removej;
   for (removei = 0, removej = 0; removej < vals.size(); removej++) {
     vals[removei] = vals[removej];
     Value *val = vals[removej];

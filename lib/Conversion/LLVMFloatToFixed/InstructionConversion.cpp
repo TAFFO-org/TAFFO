@@ -279,7 +279,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
      * that information across the phi. If at least one of them was converted
      * the phi is converted as well; otherwise it is not. */
     bool donesomething = false;
-    for (int i = 0; i < phi->getNumIncomingValues(); i++) {
+    for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
       Value *thisval = phi->getIncomingValue(i);
       Value *newval = fallbackMatchValue(thisval, thisval->getType(), phi);
       if (newval && newval != ConversionError) {
@@ -294,7 +294,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
    * and thus all of its incoming values were floats */
   PHINode *newphi = PHINode::Create(fixpt.scalarToLLVMType(phi->getContext()),
                                     phi->getNumIncomingValues());
-  for (int i = 0; i < phi->getNumIncomingValues(); i++) {
+  for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
     Value *thisval = phi->getIncomingValue(i);
     BasicBlock *thisbb = phi->getIncomingBlock(i);
     Value *newval =
@@ -474,6 +474,8 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
     updateConstTypeMetadata(fixop, 0U, fixpt);
     return fixop;
   }
+  
+  return Unsupported;
 }
 
 
