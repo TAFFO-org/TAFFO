@@ -24,16 +24,6 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-dta"
 
-/*
-void TaffoTuner::getAnalysisUsage(AnalysisUsage &AU) const
-{
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<MemorySSAWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.setPreservesAll();
-}
-*/
 
 PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
 {
