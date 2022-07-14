@@ -602,7 +602,7 @@ void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
 
   string enob_var;
 
-  MemorySSA &memssa = getTuner()->getAnalysis<llvm::MemorySSAWrapperPass>(*load->getFunction()).getMSSA();
+  MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<llvm::MemorySSAAnalysis>(*load->getFunction()).getMSSA();
   taffo::MemSSAUtils memssa_utils(memssa);
   SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
   def_vals.push_back(load->getPointerOperand());

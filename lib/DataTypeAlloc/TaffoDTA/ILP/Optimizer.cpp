@@ -14,10 +14,10 @@ using namespace mdutils;
 
 Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string modelFile, CPUCosts::CostType cType) : model(Model::MIN), module(mm), tuner(tuner), DisabledSkipped(0), metric(met)
 {
-  auto &TTI = tuner->getAnalysis<llvm::TargetTransformInfoWrapperPass>().getTTI(*(mm.begin()));
   if (cType == CPUCosts::CostType::Performance) {
     cpuCosts = CPUCosts(modelFile);
   } else if (cType == CPUCosts::CostType::Size) {
+    auto &TTI = tuner->getFunctionAnalysisResult<llvm::TargetIRAnalysis>(*(mm.begin()));
     cpuCosts = CPUCosts(mm, TTI);
   }
 
@@ -439,7 +439,8 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
   // This will be a mess. God bless you.
   LLVM_DEBUG(llvm::dbgs() << "Handling instruction " << (instruction->dump(), "\n"));
   currentInstruction = instruction;
-  unsigned int info = LoopAnalyzerUtil::computeFullTripCount(tuner, instruction);
+  llvm::Module& M = *(instruction->getFunction()->getParent());
+  unsigned int info = computeFullTripCount(tuner->getFAM(M), instruction);
   LLVM_DEBUG(dbgs() << "Optimizer: got trip count " << info << "\n");
   unsigned int prevInstrTripCount = currentInstructionTripCount;
   currentInstructionTripCount *= info;

@@ -1038,7 +1038,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     // As we cannot cast anything during a load, the register will use the very same variable
 
     // Running MemorySSA to find Values from which the load can actually load
-    MemorySSA &memssa = getTuner()->getAnalysis<MemorySSAWrapperPass>(*load->getFunction()).getMSSA();
+    MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<MemorySSAAnalysis>(*load->getFunction()).getMSSA();
     taffo::MemSSAUtils memssa_utils(memssa);
     SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
     def_vals.push_back(load->getPointerOperand());

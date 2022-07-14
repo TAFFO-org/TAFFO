@@ -3,6 +3,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "Initializer/TaffoInitializer/TaffoInitializerPass.h"
 #include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
+#include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -21,6 +22,9 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
                 return true;
               } else if (Name == "taffovra") {
                 PM.addPass(ValueRangeAnalysis());
+                return true;
+              } else if (Name == "taffodta") {
+                PM.addPass(tuner::TaffoTuner());
                 return true;
               }
               return false;

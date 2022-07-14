@@ -14,21 +14,22 @@ STATISTIC(TripCountDetectionFailCount, "Number of times the trip count of a loop
 STATISTIC(TripCountDetectionSuccessCount, "Number of times the trip count of a loop was found");
 
 using namespace llvm;
+using namespace tuner;
 
-unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Instruction *instruction)
+unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction *instruction)
 {
   auto bb = instruction->getParent();
   auto f = instruction->getParent()->getParent();
-  auto loop = tuner->getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo().getLoopFor(bb);
+  auto loop = FAM.getResult<llvm::LoopAnalysis>(*f).getLoopFor(bb);
 
   unsigned info;
-  info = computeFullTripCount(tuner, loop);
+  info = computeFullTripCount(FAM, loop);
 
   LLVM_DEBUG(dbgs() << "Total trip count: " << info << "\n";);
   return info;
 }
 
-unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
+unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop *loop)
 {
   unsigned int LocalTrip;
 
@@ -38,7 +39,7 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
   }
 
   Function *F = (*(loop->block_begin()))->getParent();
-  LoopInfo &LI = tuner->getAnalysis<llvm::LoopInfoWrapperPass>(*F).getLoopInfo();
+  LoopInfo &LI = FAM.getResult<LoopAnalysis>(*F);
   llvm::Optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*loop, &LI);
 
   if (OUC.hasValue()) {
@@ -52,10 +53,7 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
       TripCountDetectionFailCount++;
     }
   } else {
-    LocalTrip = tuner->getAnalysis<ScalarEvolutionWrapperPass>(
-                        *loop->getHeader()->getParent())
-                    .getSE()
-                    .getSmallConstantTripCount(loop);
+    LocalTrip = FAM.getResult<ScalarEvolutionAnalysis>(*loop->getHeader()->getParent()).getSmallConstantTripCount(loop);
     if (LocalTrip > 0) {
       LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n";);
       TripCountDetectionSuccessCount++;
@@ -66,5 +64,5 @@ unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
     }
   }
   LLVM_DEBUG(dbgs() << "Checking for nested loops...\n");
-  return LocalTrip * computeFullTripCount(tuner, loop->getParentLoop());
+  return LocalTrip * computeFullTripCount(FAM, loop->getParentLoop());
 }

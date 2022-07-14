@@ -24,14 +24,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-dta"
 
-char TaffoTuner::ID = 0;
-
-static RegisterPass<TaffoTuner> X(
-    "taffodta",
-    "TAFFO Framework Data Type Allocation",
-    false /* does not affect the CFG */,
-    true /* Optimization Pass */);
-
+/*
 void TaffoTuner::getAnalysisUsage(AnalysisUsage &AU) const
 {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
@@ -40,10 +33,12 @@ void TaffoTuner::getAnalysisUsage(AnalysisUsage &AU) const
   AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.setPreservesAll();
 }
+*/
 
-
-bool TaffoTuner::runOnModule(Module &m)
+PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
 {
+  MAM = &AM;
+
   std::vector<llvm::Value *> vals;
   llvm::SmallPtrSet<llvm::Value *, 8U> valset;
   retrieveAllMetadata(m, vals, valset);
@@ -69,7 +64,7 @@ bool TaffoTuner::runOnModule(Module &m)
   for (Function *f : toDel)
     f->eraseFromParent();
 
-  return true;
+  return PreservedAnalyses::all();
 }
 
 

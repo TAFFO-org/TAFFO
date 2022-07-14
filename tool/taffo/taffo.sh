@@ -399,7 +399,7 @@ ${OPT} \
   --passes='no-op-module,taffoinit' \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
-  
+
 ###
 ###  TAFFO Value Range Analysis
 ###
@@ -424,8 +424,8 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###  TAFFO Data Type Allocation
   ###
   ${OPT} \
-    -load "$TAFFOLIB" ${pmflag} \
-    -taffodta -globaldce \
+    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+    --passes="no-op-module,taffodta,globaldce" \
     ${dta_flags} ${dta_inst_set} \
     -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
     

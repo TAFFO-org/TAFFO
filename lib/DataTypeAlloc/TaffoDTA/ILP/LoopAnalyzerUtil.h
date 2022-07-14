@@ -7,18 +7,18 @@
 
 #include "llvm/IR/Instruction.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 #define DEBUG_TYPE "taffo-dta"
 
-using namespace llvm;
-class LoopAnalyzerUtil
+namespace tuner
 {
-public:
-  static unsigned computeFullTripCount(ModulePass *tuner, Instruction *instruction);
-  static unsigned computeFullTripCount(ModulePass *tuner, Loop *bb);
-};
 
-#undef DEBUG_TYPE
+unsigned computeFullTripCount(llvm::FunctionAnalysisManager& FAM, llvm::Instruction *instruction);
+unsigned computeFullTripCount(llvm::FunctionAnalysisManager& FAM, llvm::Loop *bb);
+
+} // namespace tuner
+
+#undef DEBUG_TYPE // "taffo-dta"
 
 #endif // TAFFO_LOOPANALYZERUTIL_H
