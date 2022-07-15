@@ -443,8 +443,8 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   if [[ ( $enable_errorprop -eq 1 ) || ( $feedback -ne 0 ) ]]; then
     ${OPT} \
-      -load "$TAFFOLIB" ${pmflag} \
-      -errorprop \
+      -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+      --passes='no-op-module,taffoerr' \
       ${errorprop_flags} \
       -S -o "${temporary_dir}/${output_basename}.6.taffotmp.ll" "${temporary_dir}/${output_basename}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
     if [[ ! ( -z "$errorprop_out" ) ]]; then

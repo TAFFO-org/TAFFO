@@ -26,15 +26,51 @@
 #include "FunctionErrorPropagator.h"
 #include "Metadata.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
 using namespace llvm;
 using namespace mdutils;
 
-#define DEBUG_TYPE "errorprop"
+cl::opt<unsigned> DefaultUnrollCount("dunroll",
+                                     cl::desc("Default loop unroll count"),
+                                     cl::value_desc("count"),
+                                     cl::init(1U));
+cl::opt<unsigned> MaxUnroll("maxunroll",
+                            cl::desc("Max loop unroll count. "
+                                     "Setting this to 0 disables loop unrolling. "
+                                     "(Default: 256)"),
+                            cl::value_desc("count"),
+                            cl::init(256U));
+cl::opt<bool> NoLoopUnroll("nounroll",
+                           cl::desc("Never unroll loops (legacy, use -max-unroll=0)"),
+                           cl::init(false));
+cl::opt<unsigned> CmpErrorThreshold("cmpthresh",
+                                    cl::desc("CMP errors are signaled"
+                                             "only if error is above perc %"),
+                                    cl::value_desc("perc"),
+                                    cl::init(0U));
+cl::opt<unsigned> MaxRecursionCount("recur",
+                                    cl::desc("Default number of recursive calls"
+                                             "to the same function."),
+                                    cl::value_desc("count"),
+                                    cl::init(1U));
+cl::opt<bool> StartOnly("startonly",
+                        cl::desc("Propagate only functions with start metadata."),
+                        cl::init(false));
+cl::opt<bool> Relative("relerror",
+                       cl::desc("Output relative errors instead of absolute errors (experimental)."),
+                       cl::init(false));
+cl::opt<bool> ExactConst("exactconst",
+                         cl::desc("Treat all constants as exact."),
+                         cl::init(false));
+cl::opt<bool> SloppyAA("sloppyaa",
+                       cl::desc("Enable sloppy Alias Analysis, for when LLVM AA fails."),
+                       cl::init(false));
 
-bool ErrorPropagator::runOnModule(Module &M)
+PreservedAnalyses ErrorPropagator::run(Module &M, ModuleAnalysisManager &AM)
 {
   checkCommandLine();
 
@@ -52,9 +88,10 @@ bool ErrorPropagator::runOnModule(Module &M)
     Functions.push_back(&F);
   }
 
-  FunctionCopyManager FCMap(*this, MaxRecursionCount, DefaultUnrollCount,
+  FunctionCopyManager FCMap(AM, MaxRecursionCount, DefaultUnrollCount,
                             MaxUnroll);
 
+  FunctionAnalysisManager &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   bool NoFunctions = true;
   // Iterate over all functions in this Module,
   // and propagate errors for pending input intervals for all of them.
@@ -63,7 +100,7 @@ bool ErrorPropagator::runOnModule(Module &M)
       continue;
 
     NoFunctions = false;
-    FunctionErrorPropagator FEP(*this, *F, FCMap, MDManager, SloppyAA);
+    FunctionErrorPropagator FEP(FAM, *F, FCMap, MDManager, SloppyAA);
     FEP.computeErrorsWithCopy(GlobalRMap, nullptr, true);
   }
 
@@ -73,7 +110,7 @@ bool ErrorPropagator::runOnModule(Module &M)
   dbgs() << "\n*** Target Errors: ***\n";
   GlobalRMap.printTargetErrors(dbgs());
 
-  return false;
+  return PreservedAnalyses::none();
 }
 
 void ErrorPropagator::retrieveGlobalVariablesRangeError(Module &M,
@@ -82,18 +119,6 @@ void ErrorPropagator::retrieveGlobalVariablesRangeError(Module &M,
   for (GlobalVariable &GV : M.globals()) {
     RMap.retrieveRangeError(GV);
   }
-}
-
-void ErrorPropagator::getAnalysisUsage(AnalysisUsage &AU) const
-{
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<AssumptionCacheTracker>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<OptimizationRemarkEmitterWrapperPass>();
-  AU.addRequiredTransitive<MemorySSAWrapperPass>();
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.setPreservesAll();
 }
 
 void ErrorPropagator::checkCommandLine()
@@ -106,10 +131,3 @@ void ErrorPropagator::checkCommandLine()
 }
 
 } // end of namespace ErrorProp
-
-char ErrorProp::ErrorPropagator::ID = 0;
-
-static llvm::RegisterPass<ErrorProp::ErrorPropagator>
-    X("errorprop", "Fixed-Point Arithmetic Error Propagator",
-      false /* Only looks at CFG */,
-      false /* Analysis Pass */);

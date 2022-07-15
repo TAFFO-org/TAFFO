@@ -36,12 +36,12 @@ namespace ErrorProp
 class FunctionErrorPropagator
 {
 public:
-  FunctionErrorPropagator(llvm::Pass &EPPass,
+  FunctionErrorPropagator(llvm::FunctionAnalysisManager &FAM,
                           llvm::Function &F,
                           FunctionCopyManager &FCMap,
                           mdutils::MetadataManager &MDManager,
                           bool SloppyAA)
-      : EPPass(EPPass), F(F), FCMap(FCMap),
+      : FAM(FAM), F(F), FCMap(FCMap),
         FCopy(FCMap.getFunctionCopy(&F)), RMap(MDManager),
         CmpMap(CMPERRORMAP_NUMINITBUCKETS), MemSSA(nullptr),
         Cloned(true), SloppyAA(SloppyAA)
@@ -89,7 +89,7 @@ protected:
   /// Returns true if I may overflow, according to range data.
   bool checkOverflow(llvm::Instruction &I);
 
-  llvm::Pass &EPPass;
+  llvm::FunctionAnalysisManager &FAM;
   llvm::Function &F;
   FunctionCopyManager &FCMap;
 

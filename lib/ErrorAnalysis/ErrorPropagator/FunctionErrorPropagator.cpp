@@ -62,7 +62,7 @@ void FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
   // if (CFLSAA != nullptr)
   //   CFLSAA->getResult().scan(FCopy);
 
-  MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(CF).getMSSA());
+  MemSSA = &(FAM.getResult<MemorySSAAnalysis>(CF).getMSSA());
 
   computeFunctionErrors(Args);
 
@@ -105,15 +105,14 @@ void FunctionErrorPropagator::computeFunctionErrors(SmallVectorImpl<Value *> *Ar
   RMap.retrieveRangeErrors(*FCopy);
   RMap.applyArgumentErrors(*FCopy, ArgErrs);
 
-  LoopInfo &LInfo =
-      EPPass.getAnalysis<LoopInfoWrapperPass>(*FCopy).getLoopInfo();
+  LoopInfo &LInfo = FAM.getResult<LoopAnalysis>(*FCopy);
 
   // Compute errors for all instructions in the function
   BBScheduler BBSched(*FCopy, LInfo);
 
   // Restore MemSSA
   assert(FCopy != nullptr);
-  MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(*FCopy).getMSSA());
+  MemSSA = &(FAM.getResult<MemorySSAAnalysis>(*FCopy).getMSSA());
 
   for (BasicBlock *BB : BBSched)
     for (Instruction &I : *BB)
@@ -250,13 +249,13 @@ void FunctionErrorPropagator::prepareErrorsForCall(Instruction &I)
     return;
 
   // Now propagate the errors for this call.
-  FunctionErrorPropagator CFEP(EPPass, *CalledF,
+  FunctionErrorPropagator CFEP(FAM, *CalledF,
                                FCMap, RMap.getMetadataManager(), SloppyAA);
   CFEP.computeErrorsWithCopy(RMap, &Args, false);
 
   // Restore MemorySSA
   assert(FCopy != nullptr);
-  MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(*FCopy).getMSSA());
+  MemSSA = &(FAM.getResult<MemorySSAAnalysis>(*FCopy).getMSSA());
 }
 
 void FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMap,
