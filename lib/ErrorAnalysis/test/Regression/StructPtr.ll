@@ -1,4 +1,4 @@
-; RUN:  opt -load %errorproplib -errorprop -S %s | FileCheck %s
+; RUN: opt -load %errorproplib --load-pass-plugin=%errorproplib --passes="taffoerr" -S %s | FileCheck %s
 
 %struct.bar = type { i32, i64 }
 %struct.foo = type { %struct.bar, %struct.bar*, i64, [5 x [4 x i32]] }
