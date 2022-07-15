@@ -1,6 +1,4 @@
 #include "CPUCosts.h"
-#include "LLVMVersions.h"
-#include "algorithm"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -8,6 +6,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -15,7 +14,9 @@
 #include <vector>
 
 #define MODEL_HUGE 10110
+
 #define DEBUG_TYPE "taffo-dta"
+
 using namespace tuner;
 using namespace std;
 
@@ -43,8 +44,9 @@ const std::vector<std::string> CPUCosts::CostsIdValues = {"ADD_FIX", "ADD_FLOAT"
                                                           "CAST_BF16_FIX", "CAST_BF16_FLOAT", "CAST_BF16_DOUBLE", "CAST_BF16_HALF", "CAST_BF16_QUAD", "CAST_BF16_FP80", "CAST_BF16_PPC128",
                                                           "CAST_FIX_FIX"};
 
-
 constexpr int N = 4;
+
+const int DefaultInstrCost = 1;
 
 
 std::string &trim(std::string &tmp)
@@ -245,7 +247,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
         else
           inst = llvm::cast<llvm::Instruction>(builder.CreateFRem(first_load, second_load));
       }
-      cost_inst = taffo::getInstructionCost(TTI, inst, costKind);
+      cost_inst = TTI.getInstructionCost(inst, costKind).getValue().getValueOr(DefaultInstrCost);
       LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
       inst->eraseFromParent();
       second_load->eraseFromParent();
@@ -268,7 +270,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       } else if (!first_type->isIntegerTy() && !second_type->isIntegerTy()) {
         inst = llvm::cast<llvm::Instruction>(builder.CreateFPCast(first_load, second_type));
       }
-      cost_inst = taffo::getInstructionCost(TTI, inst, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput);
+      cost_inst = TTI.getInstructionCost(inst, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput).getValue().getValueOr(DefaultInstrCost);
       LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
       if (inst != first_load)
         inst->eraseFromParent();

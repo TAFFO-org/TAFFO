@@ -2,7 +2,6 @@
 #include "Metadata.h"
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
-#include "LLVMVersions.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -97,7 +96,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   copy_n(params.begin(), 2, back_inserter(paramsFunc));
   // Skip the third argument (outlined function) and copy the dynamic arguments'
   // types from the call
-  for (unsigned i = 3; i < numFuncArgs(curCall); i++)
+  for (unsigned i = 3; i < curCall->arg_size(); i++)
     paramsFunc.push_back(curCall->getArgOperand(i)->getType());
 
   // Create the new function with the parsed types and signature
@@ -109,7 +108,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                        trampolineFunctionName, indirectFunction->getParent());
 
   // Shift back the argument name since the third argument is skipped
-  for (unsigned i = 3; i < numFuncArgs(curCall); i++) {
+  for (unsigned i = 3; i < curCall->arg_size(); i++) {
     trampolineFunction->getArg(i - 1)->setName(
         curCall->getArgOperand(i)->getName());
   }

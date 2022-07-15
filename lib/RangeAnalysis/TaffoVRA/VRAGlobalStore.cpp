@@ -1,8 +1,8 @@
 #include "VRAGlobalStore.hpp"
 #include "RangeOperations.hpp"
 #include "VRAnalyzer.hpp"
-#include "LLVMVersions.h"
-#include <TypeUtils.h>
+#include "TypeUtils.h"
+#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -465,7 +465,7 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     llvm::Type *zero_type = agg_zero_i->getType();
     if (llvm::dyn_cast<llvm::StructType>(zero_type)) {
       llvm::SmallVector<NodePtrT, 1U> Fields;
-      const unsigned num_elements = getStaticElementCount(agg_zero_i);
+      const unsigned num_elements = agg_zero_i->getElementCount().getFixedValue();
       Fields.reserve(num_elements);
       for (unsigned i = 0; i < num_elements; i++) {
         Fields.push_back(fetchConstant(agg_zero_i->getElementValue(i)));

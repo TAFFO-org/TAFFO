@@ -8,8 +8,6 @@ add_library(${SELF} STATIC
   TypeUtils.h
   TypeUtils.cpp
   MultiValueMap.h
-  LLVMVersions.cpp
-  LLVMVersions.h
   DebugUtils.h
   MemSSAUtils.cpp
   MemSSAUtils.hpp

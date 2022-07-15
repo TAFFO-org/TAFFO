@@ -69,11 +69,6 @@ llvm_debug=$(($("$OPT" --version | grep DEBUG | wc -l)))
 llvm_ver=$(${llvmbin}/llvm-config --version)
 llvm_ver_maj=${llvm_ver%%.*}
 
-llvm_has_new_pm=0
-if [[ $llvm_ver_maj -ge 13 ]]; then
-  llvm_has_new_pm=1
-fi
-
 parse_state=0
 raw_opts="$@"
 input_files=()
@@ -379,12 +374,6 @@ fi
 
 # precompute clang invocation for compiling float version
 build_float="${iscpp} $opts ${optimization} ${float_opts} ${temporary_dir}/${output_basename}.1.taffotmp.ll"
-
-# check if we need to disable the new pass manager
-pmflag=
-if [[ $llvm_has_new_pm -ne 0 ]]; then
-  pmflag='--enable-new-pm=0'
-fi
 
 # Note: in the following we load the plugin both with -load and --load-pass-plugin
 # because the latter does not load the .so until later in the game after command

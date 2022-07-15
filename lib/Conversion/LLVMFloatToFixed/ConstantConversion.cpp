@@ -1,6 +1,5 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
-#include "LLVMVersions.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
