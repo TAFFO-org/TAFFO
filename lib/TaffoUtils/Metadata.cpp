@@ -586,7 +586,7 @@ std::unique_ptr<InputInfo> MetadataManager::
     createInputInfoFromMetadata(MDNode *MDN)
 {
   assert(MDN != nullptr);
-  assert(MDN->getNumOperands() == 4U && "Must have Type, Range, Initial Error, Flags");
+  assert(MDN->getNumOperands() >= 3U && "Must have Type, Range, Initial Error, [Flags]");
 
   Metadata *ITypeMDN = MDN->getOperand(0U).get();
   std::shared_ptr<TType> IType = (IsNullInputInfoField(ITypeMDN))
@@ -603,14 +603,16 @@ std::unique_ptr<InputInfo> MetadataManager::
                                        ? nullptr
                                        : retrieveError(cast<MDNode>(IErrorMDN));
 
-  Metadata *IFlagsMDN = MDN->getOperand(3U).get();
   bool IEnabled = true;
   bool IFinal = false;
-  if (IFlagsMDN) {
-    ConstantAsMetadata *tmpmd = cast<ConstantAsMetadata>(IFlagsMDN);
-    uint64_t tmpint = cast<ConstantInt>(tmpmd->getValue())->getZExtValue();
-    IEnabled = tmpint & 1U;
-    IFinal = tmpint & 2U;
+  if (MDN->getNumOperands() >= 4U) {
+    Metadata *IFlagsMDN = MDN->getOperand(3U).get();
+    if (IFlagsMDN) {
+      ConstantAsMetadata *tmpmd = cast<ConstantAsMetadata>(IFlagsMDN);
+      uint64_t tmpint = cast<ConstantInt>(tmpmd->getValue())->getZExtValue();
+      IEnabled = tmpint & 1U;
+      IFinal = tmpint & 2U;
+    }
   }
 
   return std::unique_ptr<InputInfo>(new InputInfo(IType, IRange, IError, IEnabled, IFinal));
