@@ -518,7 +518,7 @@ Type *FloatToFixed::getLLVMFixedPointTypeForFloatType(Type *srct, const FixedPoi
   } else if (srct->isStructTy()) {
     SmallVector<Type *, 2> elems;
     bool allinvalid = true;
-    for (int i = 0; i < srct->getStructNumElements(); i++) {
+    for (unsigned i = 0; i < srct->getStructNumElements(); i++) {
       const FixedPointType &fpelemt = baset.structItem(i);
       Type *baseelemt = srct->getStructElementType(i);
       Type *newelemt;

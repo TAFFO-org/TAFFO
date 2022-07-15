@@ -14,7 +14,7 @@
 #include <sstream>
 #include <vector>
 
-#define HUGE 10110
+#define MODEL_HUGE 10110
 #define DEBUG_TYPE "taffo-dta"
 using namespace tuner;
 using namespace std;
@@ -293,7 +293,7 @@ void CPUCosts::ApplyAttribute(string &attr)
     attr.erase(0, 1);
     auto dec = decodeId(attr);
     disableMap[dec] = true;
-    costsMap.at(dec) = HUGE;
+    costsMap.at(dec) = MODEL_HUGE;
     if (attr.find("CAST") != 0) {
       disableNum.at(attr.substr(N, string::npos))++;
     } else {
@@ -309,7 +309,7 @@ void CPUCosts::ApplyAttribute(string &attr)
           disableNum.at(attr)++;
           auto dec = decodeId(tmp);
           disableMap[dec] = true;
-          costsMap.at(dec) = HUGE;
+          costsMap.at(dec) = MODEL_HUGE;
           LLVM_DEBUG(llvm::dbgs() << attr << ": " << disableNum.at(attr)
                                   << " cost " << costsMap.at(dec) << "\n");
         }

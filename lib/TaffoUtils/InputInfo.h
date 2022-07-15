@@ -293,6 +293,8 @@ struct InputInfo : public MDInfo {
             bool IsFinal = false)
       : MDInfo(K_Field), IType(T), IRange(R), IError(Error), IEnableConversion(EnC), IFinal(IsFinal) {}
 
+  InputInfo(InputInfo& II) = default;
+
   virtual MDInfo *clone() const override
   {
     std::shared_ptr<TType> NewIType(IType.get() ? IType->clone() : nullptr);

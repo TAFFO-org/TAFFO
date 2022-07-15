@@ -105,7 +105,7 @@ public:
         std::shared_ptr<VRAStructNode> StructNode =
             std::static_ptr_cast<VRAStructNode>(Range);
         std::string Result("{ ");
-        for (const NodePtrT Field : StructNode->fields()) {
+        for (const NodePtrT& Field : StructNode->fields()) {
           Result.append(toString(Field));
           Result.append(", ");
         }

@@ -289,7 +289,7 @@ VRAGlobalStore::toMDInfo(const RangeNodePtrT r)
                  std::dynamic_ptr_cast<VRAStructNode>(r)) {
     SmallVector<std::shared_ptr<mdutils::MDInfo>, 4U> fields;
     fields.reserve(structr->fields().size());
-    for (const NodePtrT f : structr->fields()) {
+    for (const NodePtrT& f : structr->fields()) {
       fields.push_back(toMDInfo(fetchRange(f)));
     }
     return std::make_shared<StructInfo>(fields);
@@ -503,7 +503,7 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     if (isa<GEPOperator>(cexp_i)) {
       llvm::Value *pointer_op = cexp_i->getOperand(0U);
       llvm::Type *source_element_type =
-          llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getElementType();
+          llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getPointerElementType();
       llvm::SmallVector<unsigned, 1U> offset;
       if (extractGEPOffset(source_element_type,
                            llvm::iterator_range<llvm::User::const_op_iterator>(cexp_i->op_begin() + 1,

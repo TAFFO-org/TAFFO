@@ -154,7 +154,7 @@ public:
   void handleFPPrecisionShift(llvm::Instruction *instruction,
                               shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handlePhi(llvm::Instruction *instruction,
-                 shared_ptr<tuner::ValueInfo> valueInfo);
+                 shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handleCastInstruction(llvm::Instruction *instruction,
                              shared_ptr<tuner::ValueInfo> valueInfo) override;
   int getMaxIntBitOfValue(llvm::Value *pValue) override;

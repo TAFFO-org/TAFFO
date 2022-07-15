@@ -19,7 +19,7 @@ namespace taffo
 class VRAStore
 {
 public:
-  virtual void convexMerge(const VRAStore &Other);
+  void convexMerge(const VRAStore &Other);
 
   virtual const range_ptr_t fetchRange(const llvm::Value *V);
   virtual RangeNodePtrT fetchRange(const NodePtrT Node) const;
