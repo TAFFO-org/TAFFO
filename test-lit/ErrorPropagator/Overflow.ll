@@ -3,10 +3,10 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: Possible overflow detected for instruction mul.
-; CHECK: Possible overflow detected for instruction mul1.
-; CHECK: Possible overflow detected for instruction add.
-; CHECK: Possible overflow detected for instruction .
+; CHECK: Possible overflow detected for instruction ( %mul = mul nsw i32 %a, %b, !taffo.info !7).
+; CHECK: Possible overflow detected for instruction ( %mul1 = mul nsw i32 %a, %b, !taffo.info !7).
+; CHECK: Possible overflow detected for instruction ( %add = add nsw i32 %mul, %mul1, !taffo.info !9).
+; CHECK: Possible overflow detected for instruction ( ret i32 %add, !taffo.info !9).
 
 ; CHECK: %mul = mul nsw i32 %a, %b, !taffo.info !7, !taffo.abserror !9
 ; CHECK: %mul1 = mul nsw i32 %a, %b, !taffo.info !7, !taffo.abserror !9
