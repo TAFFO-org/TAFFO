@@ -42,5 +42,6 @@ include_directories(lib)
 add_subdirectory(lib)
 add_subdirectory(utils)
 add_subdirectory(unittests)
+add_subdirectory(test-lit)
 add_subdirectory(tool)
 
