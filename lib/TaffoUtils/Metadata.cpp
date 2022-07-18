@@ -228,7 +228,7 @@ void MetadataManager::setStructInfoMetadata(GlobalObject &V, const StructInfo &S
 
 void MetadataManager::setInputInfoInitWeightMetadata(Value *v, int weight)
 {
-  assert(isa<Instruction>(v) || isa<GlobalObject>(v) && "v not an instruction or a global object");
+  assert((isa<Instruction>(v) || isa<GlobalObject>(v)) && "v not an instruction or a global object");
   ConstantInt *cweight = ConstantInt::get(IntegerType::getInt32Ty(v->getContext()), weight);
   ConstantAsMetadata *mdweight = ConstantAsMetadata::get(cweight);
   if (Instruction *i = dyn_cast<Instruction>(v)) {

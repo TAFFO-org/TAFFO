@@ -124,14 +124,14 @@ FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, FixedPointType &f
     consts.push_back(newconst);
   }
 
-  if (ConstantArray *array = dyn_cast<ConstantArray>(cag)) {
+  if (isa<ConstantArray>(cag)) {
     ArrayType *aty = ArrayType::get(consts[0]->getType(), consts.size());
     return ConstantArray::get(aty, consts);
 
-  } else if (ConstantVector *vector = dyn_cast<ConstantVector>(cag)) {
+  } else if (isa<ConstantVector>(cag)) {
     return ConstantVector::get(consts);
 
-  } else if (ConstantStruct *strt = dyn_cast<ConstantStruct>(cag)) {
+  } else if (isa<ConstantStruct>(cag)) {
     std::vector<Type *> types;
     types.reserve(consts.size());
     for (Constant *c : consts) {

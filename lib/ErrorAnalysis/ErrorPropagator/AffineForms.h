@@ -43,7 +43,7 @@ struct Interval {
   Interval(const T MinValue, const T MaxValue)
       : Min(MinValue), Max(MaxValue)
   {
-    assert((std::isnan(Min) && std::isnan(Max)) || Min <= Max && "Interval bounds inconsistent.");
+    assert(((std::isnan(Min) && std::isnan(Max)) || Min <= Max) && "Interval bounds inconsistent.");
   }
 
   bool operator==(const Interval<T> &O) const
