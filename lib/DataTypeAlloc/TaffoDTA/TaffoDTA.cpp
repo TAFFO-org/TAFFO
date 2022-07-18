@@ -48,6 +48,7 @@ PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
   std::vector<Function *> toDel;
   toDel = collapseFunction(m);
 
+  LLVM_DEBUG(dbgs() << "attaching metadata\n");
   attachFPMetaData(vals);
   attachFunctionMetaData(m);
 

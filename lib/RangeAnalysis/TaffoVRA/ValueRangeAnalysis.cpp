@@ -37,6 +37,7 @@ PreservedAnalyses ValueRangeAnalysis::run(Module &M, ModuleAnalysisManager &AM)
   CodeInterpreter CodeInt(AM, GlobalStore, Unroll, MaxUnroll);
   processModule(CodeInt, M);
 
+  LLVM_DEBUG(dbgs() << "saving results...\n");
   GlobalStore->saveResults(M);
 
   return PreservedAnalyses::all();
