@@ -271,6 +271,20 @@ void FloatToFixed::closePhiLoops()
 }
 
 
+bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
+{
+  if (Instruction *I = dyn_cast<Instruction>(V)) {
+    CallBase *Call = dyn_cast<CallBase>(I);
+    if (!Call)
+      return false;
+    Function *F = Call->getCalledFunction();
+    if (F->getName() == "clCreateBuffer")
+      return true;
+  }
+  return false;
+}
+
+
 void FloatToFixed::sortQueue(std::vector<Value *> &vals)
 {
   size_t next = 0;
@@ -328,7 +342,7 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals)
 
   for (Value *v : vals) {
     assert(hasInfo(v) && "all values in the queue should have a valueInfo by now");
-    if (fixPType(v).isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v))) {
+    if (fixPType(v).isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v)) && !isKnownConvertibleWithIncompleteMetadata(v)) {
       LLVM_DEBUG(dbgs() << "[WARNING] Value " << *v
                         << " will not be converted because its metadata is incomplete\n");
       dbgs() << fixPType(v).toString();

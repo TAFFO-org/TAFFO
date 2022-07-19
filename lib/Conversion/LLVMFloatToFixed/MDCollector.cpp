@@ -109,9 +109,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
     }
   }
 
-  LLVM_DEBUG(dbgs() << "Collecting metadata for:";);
-  LLVM_DEBUG(instr->print(dbgs()););
-  LLVM_DEBUG(dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "Collecting metadata for: " << *instr << "\n");
 
   ValueInfo vi;
 
@@ -125,12 +123,19 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
     if (!instr->getType()->isVoidTy()) {
       TType *fpt = dyn_cast_or_null<TType>(fpInfo->IType.get());
       if (!fpt) {
-        LLVM_DEBUG(dbgs() << "Failed to get Metadata.\n");
-        return false;
-      }
-      assert(!(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
+        LLVM_DEBUG(dbgs() << "Type in metadata is null! ");
+        if (isKnownConvertibleWithIncompleteMetadata(instr)) {
+          LLVM_DEBUG(dbgs() << "Since I like this instruction I'm going to give it the benefit of the doubt.\n");
+          vi.fixpType = FixedPointType();
+        } else {
+          LLVM_DEBUG(dbgs() << "Ignoring metadata for this instruction.\n");
+          return false;
+        }
+      } else {
+        assert(!(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
           "input info / actual type mismatch");
-      vi.fixpType = FixedPointType(fpt);
+        vi.fixpType = FixedPointType(fpt);
+      }
     } else {
       vi.fixpType = FixedPointType();
     }

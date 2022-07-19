@@ -108,6 +108,7 @@ struct FloatToFixed {
   void printAnnotatedObj(llvm::Module &m);
   void openPhiLoop(llvm::PHINode *phi);
   void closePhiLoops();
+  bool isKnownConvertibleWithIncompleteMetadata(llvm::Value *V);
   void sortQueue(std::vector<llvm::Value *> &vals);
   void cleanup(const std::vector<llvm::Value *> &queue);
   void insertOpenMPIndirection(llvm::Module &m);
