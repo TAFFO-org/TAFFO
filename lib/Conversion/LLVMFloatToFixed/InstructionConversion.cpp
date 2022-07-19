@@ -22,6 +22,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
+
 /* also inserts the new value in the basic blocks, alongside the old one */
 Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
                                         FixedPointType &fixpt)
@@ -87,6 +88,8 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
   }
   return res ? res : ConversionError;
 }
+
+
 Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
                                    const FixedPointType &fixpt)
 {
@@ -105,6 +108,8 @@ Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
   newinst->insertAfter(alloca);
   return newinst;
 }
+
+
 Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
 {
   Value *ptr = load->getPointerOperand();
@@ -129,6 +134,8 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
   }
   return Unsupported;
 }
+
+
 Value *FloatToFixed::convertStore(StoreInst *store)
 {
   Value *ptr = store->getPointerOperand();
@@ -200,6 +207,8 @@ Value *FloatToFixed::convertStore(StoreInst *store)
   newinst->insertAfter(store);
   return newinst;
 }
+
+
 Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
 {
   LLVM_DEBUG(llvm::dbgs() << "### Convert GEP ###\n");
@@ -225,6 +234,8 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
   std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
   return builder.CreateInBoundsGEP(newval->getType()->getPointerElementType(), newval, idxlist);
 }
+
+
 Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
                                          FixedPointType &fixpt)
 {
@@ -244,6 +255,8 @@ Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
   fixpt = baset;
   return newi;
 }
+
+
 Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
                                         FixedPointType &fixpt)
 {
@@ -268,6 +281,8 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
   std::vector<unsigned> idxlist(inv->indices().begin(), inv->indices().end());
   return builder.CreateInsertValue(newAggVal, newInsertVal, idxlist);
 }
+
+
 Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
 {
   if (!phi->getType()->isFloatingPointTy() ||
@@ -312,6 +327,8 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
   newphi->insertAfter(phi);
   return newphi;
 }
+
+
 Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
 {
   if (!isFloatingPointToConvert(sel))
@@ -329,6 +346,8 @@ Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
   newsel->insertAfter(sel);
   return newsel;
 }
+
+
 Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
 {
   /* If the function return a float the new return type will be a fix point of
@@ -423,6 +442,8 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   assert(false && "Unknown CallBase type");
   return Unsupported;
 }
+
+
 Value *FloatToFixed::convertRet(ReturnInst *ret, FixedPointType &fixpt)
 {
   Value *oldv = ret->getReturnValue();
@@ -641,6 +662,8 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
   }
   return Unsupported;
 }
+
+
 Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
 {
   Value *op1 = fcmp->getOperand(0);
@@ -797,6 +820,8 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
   }
   return Unsupported;
 }
+
+
 Value *FloatToFixed::fallback(Instruction *unsupp, FixedPointType &fixpt)
 {
   Value *fallval;
