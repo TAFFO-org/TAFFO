@@ -9,6 +9,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   IndirectCallConversion.cpp
   InstructionConversion.cpp
   MathIntrinsicConversion.cpp
+  IntrinsicMul.cpp
 
   ADDITIONAL_HEADERS
   FixedPointType.h

@@ -20,10 +20,8 @@
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
-
+#define defaultFixpType @SYNTAX_ERROR @
 #define DEBUG_TYPE "taffo-conversion"
-
-
 /* also inserts the new value in the basic blocks, alongside the old one */
 Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
                                         FixedPointType &fixpt)
@@ -369,7 +367,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   /* Special case function prototypes and all other intrinsics */
   if (isSpecialFunction(oldF))
     return Unsupported;
-  
+
   Function *newF = functionPool[oldF];
   if (!newF) {
     LLVM_DEBUG(dbgs() << "[Info] no function clone for instruction"
@@ -513,7 +511,7 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
     updateConstTypeMetadata(fixop, 0U, fixpt);
     return fixop;
   }
-  
+
   return Unsupported;
 }
 
@@ -595,26 +593,67 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
                                   TypeMatchPolicy::RangeOverHintMaxInt);
       if (!val1 || !val2)
         return nullptr;
-      FixedPointType intermtype(
-          fixpt.scalarIsSigned(),
-          intype1.scalarFracBitsAmt() + intype2.scalarFracBitsAmt(),
-          intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
-      Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
+
       IRBuilder<NoFolder> builder(instr);
-      Value *ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
-                                             : builder.CreateZExt(val1, dbfxt);
-      Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
-                                             : builder.CreateZExt(val2, dbfxt);
-      Value *fixop = builder.CreateMul(ext1, ext2);
-      cpMetaData(ext1, val1);
-      cpMetaData(ext2, val2);
-      cpMetaData(fixop, instr);
-      updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
-                           intermtype.scalarFracBitsAmt(),
-                           intermtype.scalarBitsAmt());
-      updateConstTypeMetadata(fixop, 0U, intype1);
-      updateConstTypeMetadata(fixop, 1U, intype2);
-      return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+      Value *ext1;
+      Value *ext2;
+      Value *fixop;
+      errs() << "---FMul---" << "\n";
+      errs() << intype1.toString() << "\n";
+      errs() << intype2.toString() << "\n";
+      errs() << "--------" << "\n";
+//      if (intype1.scalarBitsAmt() == 32 &&
+//          (intype1.scalarBitsAmt() == intype2.scalarBitsAmt())) {
+      return TransformToIntrinsic(val1, val2, intype1, intype2, instr);
+//        FixedPointType common_type(
+//            fixpt.scalarIsSigned(),
+//            std::min(intype1.scalarFracBitsAmt(), intype2.scalarFracBitsAmt()),
+//            intype1.scalarBitsAmt());
+//        ext1 = genConvertFixedToFixed(val1, intype1, common_type, instr);
+//        ext2 = genConvertFixedToFixed(val2, intype2, common_type, instr);
+//        // create list of formal argument types
+//        Type *Tys[] ={builder.getInt32Ty()/*return. first and second args are LLVMMatchtype*/};
+//        // create the funcCall as intrinsic
+//        Function *IntrFunc = Intrinsic::getDeclaration(
+//            instr->getParent()->getParent()->getParent(), //IInsertBefore->getParent() returns the BasicBlock
+//            fixpt.scalarIsSigned()? Intrinsic::smul_fix : Intrinsic::umul_fix,
+//            Tys	);
+//        errs() << IntrFunc << "\n";
+//        // insert the intrinsic: no need to truncate nor shift the result!
+//        fixop = builder.CreateCall(IntrFunc/*function*/,
+//                                   {val1, val2, builder.getInt32(intype1.scalarFracBitsAmt())}/*actualArgs*/);
+//        errs() << *IntrFunc << "\n";
+//        errs() << *fixop << "\n";
+//        cpMetaData(ext1, val1);
+//        cpMetaData(ext2, val2);
+//        cpMetaData(fixop, instr);
+//        updateFPTypeMetadata(fixop, common_type.scalarIsSigned(),
+//                             common_type.scalarFracBitsAmt(),
+//                             common_type.scalarBitsAmt());
+//        updateConstTypeMetadata(fixop, 0U, common_type);
+//        updateConstTypeMetadata(fixop, 1U, common_type);
+//        return fixop;
+//      } else {
+//        FixedPointType intermtype(
+//            fixpt.scalarIsSigned(),
+//            intype1.scalarFracBitsAmt() + intype2.scalarFracBitsAmt(),
+//            intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
+//        Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
+//        ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
+//                                               : builder.CreateZExt(val1, dbfxt);
+//        ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
+//                                               : builder.CreateZExt(val2, dbfxt);
+//        fixop = builder.CreateMul(ext1, ext2);
+//        cpMetaData(ext1, val1);
+//        cpMetaData(ext2, val2);
+//        cpMetaData(fixop, instr);
+//        updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
+//                             intermtype.scalarFracBitsAmt(),
+//                             intermtype.scalarBitsAmt());
+//        updateConstTypeMetadata(fixop, 0U, intype1);
+//        updateConstTypeMetadata(fixop, 1U, intype2);
+//        return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+//      }
     } else if (fixpt.isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
                                             instr, TypeMatchPolicy::ForceHint);
