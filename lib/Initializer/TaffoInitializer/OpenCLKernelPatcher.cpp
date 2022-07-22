@@ -124,6 +124,7 @@ void createOpenCLKernelTrampoline(Module &M, Function& KernF)
     Loads.append({Load});
   }
   Builder.CreateCall(KernF.getFunctionType(), &KernF, Loads);
+  Builder.CreateRetVoid();
 
   /* Add metadata for identification */
   mdutils::MetadataManager::setOpenCLCloneTrampolineMetadata(NewF, &KernF);
