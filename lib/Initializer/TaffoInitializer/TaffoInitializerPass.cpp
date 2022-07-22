@@ -582,8 +582,11 @@ void TaffoInitializer::printConversionQueue(ConvQueueT &vals)
     for (auto val : vals) {
       dbgs() << "bt=" << val.second.backtrackingDepthLeft << " ";
       dbgs() << "md=" << val.second.metadata->toString() << " ";
+      if (Instruction *I = dyn_cast<Instruction>(val.first))
+        dbgs() << "fun=" << I->getFunction()->getName() << " ";
+      dbgs() << *(val.first) << "\n";
     }
-    dbgs() << "\n\n";
+    dbgs() << "\n";
   } else {
     dbgs() << "not printing the conversion queue because it exceeds 1000 items";
   }
