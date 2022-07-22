@@ -469,7 +469,10 @@ struct FloatToFixed {
   std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val)
   {
     auto vi = info.find(val);
-    assert((vi != info.end()) && "value with no info");
+    if (vi == info.end()) {
+      LLVM_DEBUG(llvm::dbgs() << "Requested info for " << *val <<" which doesn't have it!!! ABORT\n");
+      llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
+    }
     return vi->getSecond();
   };
 
