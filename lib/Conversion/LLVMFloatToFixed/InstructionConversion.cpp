@@ -363,28 +363,9 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
    * type fixpt, otherwise the return type is left unchanged.*/
   Function *oldF = call->getCalledFunction();
 
-  if (oldF->getName() == "clCreateBuffer") {
-    /* hack! */
-    LLVM_DEBUG(dbgs() << "clCreateBuffer detected, attempting to convert\n");
-    Value *TheBuffer = call->getArgOperand(3);
-    if (auto *BC = dyn_cast<BitCastOperator>(TheBuffer)) {
-      TheBuffer = BC->getOperand(0);
-    }
-    Value *NewBuffer = matchOp(TheBuffer);
-    if (!NewBuffer) {
-      LLVM_DEBUG(dbgs() << "Arg to clCreateBuffer not converted; trying fallback.");
-      return Unsupported;
-    }
-    LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-    LLVM_DEBUG(dbgs() << "clCreateBuffer buffer fixp type is: " << valueInfo(NewBuffer)->fixpType.toString() << "\n");
-    Type *VoidPtrTy = Type::getInt8Ty(call->getContext())->getPointerTo();
-    if (NewBuffer->getType() != VoidPtrTy) {
-      NewBuffer = new BitCastInst(NewBuffer, VoidPtrTy, "", call);
-    } 
-    call->setArgOperand(3, NewBuffer);
-    return call;
-  }
-
+  /* Special-case known OpenCL API calls */
+  if (isSupportedOpenCLFunction(oldF))
+    return convertOpenCLCall(call);
   /* Special-case known math intrinsics */
   if (isSupportedMathIntrinsicFunction(oldF))
     return convertMathIntrinsicFunction(call, fixpt);

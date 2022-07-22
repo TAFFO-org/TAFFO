@@ -192,6 +192,10 @@ struct FloatToFixed {
   llvm::Value *convertCast(llvm::CastInst *cast, const FixedPointType &fixpt);
   llvm::Value *fallback(llvm::Instruction *unsupp, FixedPointType &fixpt);
 
+  /* OpenCL support */
+  bool isSupportedOpenCLFunction(llvm::Function *F);
+  llvm::Value *convertOpenCLCall(llvm::CallBase *C);
+
   /* Math intrinsic support */
   bool isSupportedMathIntrinsicFunction(llvm::Function *F);
   llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);
