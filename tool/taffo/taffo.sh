@@ -127,6 +127,9 @@ for opt in $raw_opts; do
         -Xfloat)
           parse_state=12;
           ;;
+        -oclkern)
+          init_flags="$init_flags -oclkern"
+          ;;
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
             parse_state=1;
