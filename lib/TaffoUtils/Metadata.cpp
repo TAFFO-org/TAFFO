@@ -257,6 +257,23 @@ int MetadataManager::retrieveInputInfoInitWeightMetadata(const Value *v)
   return cweight->getZExtValue();
 }
 
+void MetadataManager::setOpenCLCloneTrampolineMetadata(Function *F, Function *KernF)
+{
+  F->setMetadata(INIT_OCL_TRAMPOLINE_METADATA, MDNode::get(F->getContext(), {ValueAsMetadata::get(KernF)}));
+}
+
+bool MetadataManager::retrieveOpenCLCloneTrampolineMetadata(Function *F, Function **KernF)
+{
+  MDNode *MDN = F->getMetadata(INIT_OCL_TRAMPOLINE_METADATA);
+  if (!MDN)
+    return false;
+  ValueAsMetadata *VAM = cast<ValueAsMetadata>(MDN->getOperand(0U));
+  Function *OutF = cast<Function>(VAM->getValue());
+  if (KernF)
+    *KernF = OutF;
+  return true;
+}
+
 void MetadataManager::setInputInfoInitWeightMetadata(llvm::Function *f,
                                                      const llvm::ArrayRef<int> weights)
 {
