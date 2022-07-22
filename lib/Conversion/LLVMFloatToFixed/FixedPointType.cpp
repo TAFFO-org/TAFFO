@@ -243,6 +243,54 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned>
 }
 
 
+Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const
+{
+  // this == baset
+  if (srct->isPointerTy()) {
+    Type *enc = toLLVMType(srct->getPointerElementType(), hasfloats);
+    if (enc)
+      return enc->getPointerTo(srct->getPointerAddressSpace());
+    return nullptr;
+
+  } else if (srct->isArrayTy()) {
+    int nel = srct->getArrayNumElements();
+    Type *enc = toLLVMType(srct->getArrayElementType(), hasfloats);
+    if (enc)
+      return ArrayType::get(enc, nel);
+    return nullptr;
+
+  } else if (srct->isStructTy()) {
+    SmallVector<Type *, 2> elems;
+    bool allinvalid = true;
+    for (unsigned i = 0; i < srct->getStructNumElements(); i++) {
+      const FixedPointType &fpelemt = structItem(i);
+      Type *baseelemt = srct->getStructElementType(i);
+      Type *newelemt;
+      if (!fpelemt.isInvalid()) {
+        allinvalid = false;
+        newelemt = fpelemt.toLLVMType(baseelemt, hasfloats);
+      } else {
+        newelemt = baseelemt;
+      }
+      elems.push_back(newelemt);
+    }
+    if (!allinvalid)
+      return StructType::get(srct->getContext(), elems, dyn_cast<StructType>(srct)->isPacked());
+    return srct;
+
+  } else if (srct->isFloatingPointTy()) {
+    if (hasfloats)
+      *hasfloats = true;
+    return scalarToLLVMType(srct->getContext());
+  }
+  
+  LLVM_DEBUG(dbgs() << "FixedPointType::toLLVMType given unexpected non-float type " << *srct << "\n");
+  if (hasfloats)
+    *hasfloats = false;
+  return srct;
+}
+
+
 raw_ostream &operator<<(raw_ostream &stm, const FixedPointType &f)
 {
   stm << f.toString();
