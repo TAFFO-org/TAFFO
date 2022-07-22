@@ -2,6 +2,7 @@
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "OpenCLKernelPatcher.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -32,9 +33,18 @@ cl::opt<bool> ManualFunctionCloning("manualclone",
     cl::desc("Enables function cloning only for annotated functions"),
     cl::init(false));
 
+cl::opt<bool> OpenCLKernelMode("oclkern",
+    cl::desc("Allows cloning of OpenCL kernel functions"),
+    cl::init(false));
+
 
 PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
 {
+  if (OpenCLKernelMode) {
+    LLVM_DEBUG(dbgs() << "OpenCLKernelMode == true!\n");
+    createOpenCLKernelTrampolines(m);
+  }
+
   LLVM_DEBUG(printAnnotatedObj(m));
 
   manageIndirectCalls(m);

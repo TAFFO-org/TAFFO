@@ -45,11 +45,12 @@
 #define INDIRECT_METADATA "taffo.indirectFunction"
 #define OMP_DISABLED_METADATA "taffo.ompDisabled"
 
+#define INIT_OCL_TRAMPOLINE_METADATA "taffo.ocl.trampoline"
+
 /* Integer which specifies the distance of the metadata from the
  * original annotation as data flow node counts.
  * Used by VRA to determine the metadata to use as a starting point. */
 #define INIT_WEIGHT_METADATA "taffo.initweight"
-
 
 #define PRA_ERROR_METADATA "taffo.praerr"
 #define PRA_STRUCT_METADATA "taffo.prastruct"
@@ -126,6 +127,9 @@ public:
   static void setInputInfoInitWeightMetadata(llvm::Function *f, const llvm::ArrayRef<int> weights);
   static void retrieveInputInfoInitWeightMetadata(llvm::Function *f,
                                                   llvm::SmallVectorImpl<int> &ResWs);
+
+  static void setOpenCLCloneTrampolineMetadata(llvm::Function *F, llvm::Function *KernF);
+  static bool retrieveOpenCLCloneTrampolineMetadata(llvm::Function *f, llvm::Function **KernF);
 
   ///\section Error Propagation Metadata
 
