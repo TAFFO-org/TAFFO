@@ -10,7 +10,18 @@
 namespace taffo
 {
 
+/** Same as llvm::Type::isFloatingPointTy() but considers the pointer
+ *  element type in case of pointers/arrays/pointers to pointers/arrays of
+ *  arrays.
+ *  @param scrt Source type
+ *  @returns True if the pointer element type is one of the possible
+ *           floating point types. */
 bool isFloatType(llvm::Type *srct);
+
+/** Finds the pointer element type of pointers to pointers and 
+ *  of arrays of arrays.
+ *  @param scrt Source type
+ *  @returns The pointer element type. */
 llvm::Type *fullyUnwrapPointerOrArrayType(llvm::Type *srct);
 
 enum class FixedPointTypeGenError {
