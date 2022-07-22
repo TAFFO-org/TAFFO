@@ -246,7 +246,7 @@ bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
     if (!Call)
       return false;
     Function *F = Call->getCalledFunction();
-    if (F->getName() == "clCreateBuffer")
+    if (isSupportedOpenCLFunction(F))
       return true;
   }
   return false;

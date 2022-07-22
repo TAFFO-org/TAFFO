@@ -192,6 +192,10 @@ struct FloatToFixed {
   llvm::Value *convertCast(llvm::CastInst *cast, const FixedPointType &fixpt);
   llvm::Value *fallback(llvm::Instruction *unsupp, FixedPointType &fixpt);
 
+  /* OpenCL support */
+  bool isSupportedOpenCLFunction(llvm::Function *F);
+  llvm::Value *convertOpenCLCall(llvm::CallBase *C);
+
   /** Returns if a function is a library function which shall not
    *  be cloned.
    *  @param f The function to check */
