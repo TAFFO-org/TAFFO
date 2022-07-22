@@ -505,7 +505,8 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
   }
   SmallVector<ReturnInst *, 100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+  if (!OpenCLKernelMode)
+    newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 
   ConvQueueT roots;
