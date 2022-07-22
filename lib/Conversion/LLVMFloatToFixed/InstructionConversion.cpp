@@ -407,8 +407,13 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
                         << ") converted but not actual argument\n");
       LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
                            "because mem2reg can interfere\n");
-      thisArgument = translateOrMatchAnyOperandAndType(*call_arg, funfpt,
-                                                       call);
+      if (call_arg->get()->getType()->isPointerTy()) {
+        LLVM_DEBUG(dbgs() << "DANGER!! To make things worse, the problematic argument is a POINTER. Introducing a bitcast to try to salvage the mess.\n");
+        Type *BCType = funfpt.toLLVMType(call_arg->get()->getType(), nullptr);
+        thisArgument = new BitCastInst(call_arg->get(), BCType, call_arg->get()->getName() + ".salvaged", call);
+      } else {
+        thisArgument = translateOrMatchAnyOperandAndType(*call_arg, funfpt, call);
+      }
     }
     if (!thisArgument) {
       LLVM_DEBUG(dbgs() << "CALL: match of argument " << i << " (" << *f_arg

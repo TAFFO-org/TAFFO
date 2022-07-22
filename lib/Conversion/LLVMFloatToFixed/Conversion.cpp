@@ -502,50 +502,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
 Type *FloatToFixed::getLLVMFixedPointTypeForFloatType(Type *srct, const FixedPointType &baset, bool *hasfloats)
 {
-  if (srct->isPointerTy()) {
-    Type *enc = getLLVMFixedPointTypeForFloatType(srct->getPointerElementType(), baset, hasfloats);
-    if (enc)
-      return enc->getPointerTo();
-    return nullptr;
-
-  } else if (srct->isArrayTy()) {
-    int nel = srct->getArrayNumElements();
-    Type *enc = getLLVMFixedPointTypeForFloatType(srct->getArrayElementType(), baset, hasfloats);
-    if (enc)
-      return ArrayType::get(enc, nel);
-    return nullptr;
-
-  } else if (srct->isStructTy()) {
-    SmallVector<Type *, 2> elems;
-    bool allinvalid = true;
-    for (unsigned i = 0; i < srct->getStructNumElements(); i++) {
-      const FixedPointType &fpelemt = baset.structItem(i);
-      Type *baseelemt = srct->getStructElementType(i);
-      Type *newelemt;
-      if (!fpelemt.isInvalid()) {
-        allinvalid = false;
-        newelemt = getLLVMFixedPointTypeForFloatType(baseelemt, fpelemt, hasfloats);
-      } else {
-        newelemt = baseelemt;
-      }
-      elems.push_back(newelemt);
-    }
-    if (!allinvalid)
-      return StructType::get(srct->getContext(), elems, dyn_cast<StructType>(srct)->isPacked());
-    return srct;
-
-  } else if (srct->isFloatingPointTy()) {
-    if (hasfloats)
-      *hasfloats = true;
-    return baset.scalarToLLVMType(srct->getContext());
-  }
-  LLVM_DEBUG(
-      dbgs() << "getLLVMFixedPointTypeForFloatType given unexpected non-float type ";
-      srct->print(dbgs());
-      dbgs() << "\n";);
-  if (hasfloats)
-    *hasfloats = false;
-  return srct;
+  return baset.toLLVMType(srct, hasfloats);
 }
 
 

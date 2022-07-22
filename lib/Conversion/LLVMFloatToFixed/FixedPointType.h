@@ -86,6 +86,7 @@ public:
   std::string toString() const;
 
   llvm::Type *scalarToLLVMType(llvm::LLVMContext &ctxt) const;
+  llvm::Type *toLLVMType(llvm::Type *srct, bool *hasfloats) const;
 
   inline bool &scalarIsSigned(void)
   {
