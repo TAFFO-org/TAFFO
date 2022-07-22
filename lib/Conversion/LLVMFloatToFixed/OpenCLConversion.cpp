@@ -84,6 +84,17 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module *M)
     std::string KernFunName = std::string(KernF->getName());
     KernF->setName("");
     NewFixpKernF->setName(KernFunName);
+
+    NamedMDNode *NVVMM = M->getNamedMetadata("nvvm.annotations");
+    if (NVVMM) {
+      MDNode *NVVMNode = NVVMM->getOperand(0U);
+      MDNode *NewNVVMNode = MDNode::get(M->getContext(), {
+        ValueAsMetadata::get(NewFixpKernF),
+        NVVMNode->getOperand(1U),
+        NVVMNode->getOperand(2U)
+      });
+      NVVMM->setOperand(0U, NewNVVMNode);
+    }
   }
 
   for (Function *F: FuncsToDelete) {
