@@ -195,6 +195,7 @@ struct FloatToFixed {
   /* OpenCL support */
   bool isSupportedOpenCLFunction(llvm::Function *F);
   llvm::Value *convertOpenCLCall(llvm::CallBase *C);
+  void cleanUpOpenCLKernelTrampolines(llvm::Module *M);
 
   /** Returns if a function is a library function which shall not
    *  be cloned.

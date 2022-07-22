@@ -1,5 +1,7 @@
 #include "LLVMFloatToFixedPass.h"
+#include "Metadata.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/Metadata.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -53,5 +55,40 @@ Value *FloatToFixed::convertOpenCLCall(CallBase *C)
 
   llvm_unreachable("Wait why are we handling an OpenCL call that we don't know about?");
   return Unsupported;
+}
+
+
+void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module *M)
+{
+  LLVM_DEBUG(dbgs() << "Cleaning up OpenCL trampolines inserted by Initializer...\n");
+  SmallVector<Function *, 4> FuncsToDelete;
+
+  for (Function& F: M->functions()) {
+    Function *KernF = nullptr;
+    mdutils::MetadataManager::retrieveOpenCLCloneTrampolineMetadata(&F, &KernF);
+    if (!KernF)
+      continue;
+    
+    MDNode *MDN = KernF->getMetadata(CLONED_FUN_METADATA);
+    assert(MDN && "OpenCL kernel function with trampoline but no cloned function??");
+    ValueAsMetadata *MDNewKernF = cast<ValueAsMetadata>(MDN->getOperand(0U));
+    Function *NewKernF = cast<Function>(MDNewKernF->getValue());
+    Function *NewFixpKernF = functionPool[NewKernF];
+    assert(NewFixpKernF && "OpenCL kernel function cloned but not converted????");
+
+    LLVM_DEBUG(dbgs() << "Processing trampoline " << F.getName() 
+        << ", KernF=" << KernF->getName() << ", NewKernF=" << NewKernF->getName() 
+        << ", NewFixpKernF=" << NewFixpKernF->getName() << "\n");
+
+    FuncsToDelete.append({&F, KernF, NewKernF});
+    std::string KernFunName = std::string(KernF->getName());
+    KernF->setName("");
+    NewFixpKernF->setName(KernFunName);
+  }
+
+  for (Function *F: FuncsToDelete) {
+    F->eraseFromParent();
+  }
+  LLVM_DEBUG(dbgs() << "Finished!\n");
 }
 

@@ -164,6 +164,8 @@ PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM)
 
   convertIndirectCalls(m);
 
+  cleanUpOpenCLKernelTrampolines(&m);
+
   return PreservedAnalyses::none();
 }
 
