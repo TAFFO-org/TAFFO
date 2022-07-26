@@ -128,6 +128,11 @@ public:
     return scalarData.bitsAmt;
   };
 
+  inline int scalarIntegerBitsAmt(void) const
+  {
+    return scalarBitsAmt() - scalarFracBitsAmt();
+  }
+
   inline int structSize(void) const
   {
     assert(structData && "fixed point type not a struct");
