@@ -84,11 +84,17 @@ void createOpenCLKernelTrampoline(Module &M, Function& KernF)
   /* Collect the annotations */
   SmallVector<Optional<ConstantExpr *>, 8> Annotations;
   SmallVector<Type *, 8> ArgTypes;
+  unsigned NumAnnos = 0;
   for (unsigned ArgId = 0; ArgId < KernF.arg_size(); ArgId++) {
     Optional<ConstantExpr *> OptAnn;
     getAndDeleteAnnotationsOfArgument(KernF, ArgId, OptAnn);
+    NumAnnos += !!OptAnn.hasValue();
     Annotations.append({OptAnn});
     ArgTypes.append({KernF.getArg(ArgId)->getType()});
+  }
+  if (NumAnnos == 0) {
+    LLVM_DEBUG(dbgs() << "No annotations, no trampoline. Skipping.\n");
+    return;
   }
 
   /* Create the trampoline function */
