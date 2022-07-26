@@ -59,14 +59,26 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
 
   int maxFracBitsAmt;
   if (rng.Min == rng.Max && fracThreshold < 0) {
+    /* The range has size of zero, value is a constant.
+     * Keep the value shifted as far right as possible without losing digits.
+     *   TODO: This makes precision worse in the specific case where
+     * the constant is at the left hand side of a division. This ideally needs
+     * to be compensated by keeping track of how many significant digits we have
+     * in constants.
+     *   Extract exponent/mantissa from the floating point representation.
+     * The exponent is effectively equal to the minimum possible size of the
+     * integer part */ 
     int exp;
     double mant = std::frexp(max, &exp);
-    // rng.Min == rng.Max == mant * (2 ** exp)
+    /* Compute the number of non-zero bits in the mantissa */
     int nonzerobits = 0;
     while (mant != 0) {
       nonzerobits += 1;
       mant = mant * 2 - trunc(mant * 2);
     }
+    /* Bound the max. number of fractional bits to the number of digits that
+     * we have after the fractional dot in the original representation
+     * (assumed to be the float rng.Min and rng.Max) */
     maxFracBitsAmt = std::max(0, -exp + nonzerobits);
   } else {
     maxFracBitsAmt = INT_MAX;
