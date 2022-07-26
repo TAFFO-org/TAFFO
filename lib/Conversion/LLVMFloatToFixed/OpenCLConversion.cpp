@@ -86,14 +86,19 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module *M)
     NewFixpKernF->setName(KernFunName);
 
     NamedMDNode *NVVMM = M->getNamedMetadata("nvvm.annotations");
-    if (NVVMM) {
-      MDNode *NVVMNode = NVVMM->getOperand(0U);
-      MDNode *NewNVVMNode = MDNode::get(M->getContext(), {
-        ValueAsMetadata::get(NewFixpKernF),
-        NVVMNode->getOperand(1U),
-        NVVMNode->getOperand(2U)
-      });
-      NVVMM->setOperand(0U, NewNVVMNode);
+    unsigned I = 0U;
+    for (MDNode *NVVMNode: NVVMM->operands()) {
+      ValueAsMetadata *MDKF = dyn_cast<ValueAsMetadata>(NVVMNode->getOperand(0U));
+      if (MDKF->getValue() == KernF) {
+        LLVM_DEBUG(dbgs() << "Found NVVM annotation " << *NVVMNode << "\n");
+        MDNode *NewNVVMNode = MDNode::get(M->getContext(), {
+          ValueAsMetadata::get(NewFixpKernF),
+          NVVMNode->getOperand(1U),
+          NVVMNode->getOperand(2U)
+        });
+        NVVMM->setOperand(I, NewNVVMNode);
+      }
+      I++;
     }
   }
 
