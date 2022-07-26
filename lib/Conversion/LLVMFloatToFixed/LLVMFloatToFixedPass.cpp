@@ -93,6 +93,7 @@ MLHVec collectMallocLikeHandler(Module &m)
           }
         }
       }
+      LLVM_DEBUG(dbgs() << "added user " << *UF << "type ptr " << type << "\n");
       tmp.push_back({UF, type});
     }
   }
@@ -108,7 +109,10 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
 
   for (auto &V : vec) {
     for (auto &T : tmp) {
-
+      if (V.second == T.second && V.second == nullptr) {
+        LLVM_DEBUG(llvm::dbgs() << "value " << *(V.first) << " Both types are null? ok...\n");
+        continue;
+      }
       if (V.first == T.first && V.second->getScalarSizeInBits() < T.second->getScalarSizeInBits()) {
         LLVM_DEBUG(llvm::dbgs() << "Old Type "
                                 << "\n");
