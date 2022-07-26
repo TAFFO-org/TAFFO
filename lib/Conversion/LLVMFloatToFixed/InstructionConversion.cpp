@@ -627,13 +627,15 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
                                   TypeMatchPolicy::RangeOverHintMaxInt);
       if (!val1 || !val2)
         return nullptr;
+      /* Type of the first operand to integer division */
       FixedPointType intermtype(
           fixpt.scalarIsSigned(),
-          intype1.scalarFracBitsAmt() + intype2.scalarFracBitsAmt(),
+          intype1.scalarBitsAmt() + intype2.scalarBitsAmt() - intype1.scalarIntegerBitsAmt(),
           intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
       Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
+      /* Type of the result of integer division */
       FixedPointType fixoptype(
-          fixpt.scalarIsSigned(), intype1.scalarFracBitsAmt(),
+          fixpt.scalarIsSigned(), intermtype.scalarFracBitsAmt() - intype2.scalarFracBitsAmt(),
           intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
       Value *ext1 = genConvertFixedToFixed(val1, intype1, intermtype, instr);
       IRBuilder<> builder(instr);
