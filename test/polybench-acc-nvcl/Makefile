@@ -1,5 +1,6 @@
 BENCHS := \
-	datamining_correlation
+	datamining_correlation \
+	datamining_covariance
 
 .PHONY: all
 all:
