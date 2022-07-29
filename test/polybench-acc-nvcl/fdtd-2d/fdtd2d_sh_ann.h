@@ -1,5 +1,5 @@
-#ifndef COVARIANCE_SH_ANN_H
-#define COVARIANCE_SH_ANN_H
+#ifndef FDTD2D_SH_ANN_H
+#define FDTD2D_SH_ANN_H
 
 #define ANN_EX __attribute__((annotate("target('ex') scalar(range(-32768, 32767) final)")))
 #define ANN_EY __attribute__((annotate("target('ey') scalar(range(-32768, 32767) final)")))
