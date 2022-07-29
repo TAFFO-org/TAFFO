@@ -396,8 +396,8 @@ int main(int argc, char *argv[])
 		polybench_prevent_dce(print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu)));
 
 	#endif //RUN_ON_CPU
-	print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu));
-	print_array(nx, ny, POLYBENCH_ARRAY(hz));
+	//print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu));
+	//print_array(nx, ny, POLYBENCH_ARRAY(hz));
 
 	POLYBENCH_FREE_ARRAY(_fict_);
 	POLYBENCH_FREE_ARRAY(ex);

@@ -83,7 +83,9 @@ void compareResults(int m, int n, DATA_TYPE POLYBENCH_2D(symmat, M, N, m, n), DA
 		for (j=0; j < n; j++)
 		{
 			//fprintf(stderr, "%d, %d, %lf, %lf\n", i, j, symmat[i][j], symmat_outputFromGpu[i][j]);
-			if (percentDiff(symmat[i][j], symmat_outputFromGpu[i][j]) > PERCENT_DIFF_ERROR_THRESHOLD)
+			DATA_TYPE a = symmat[i][j];
+			DATA_TYPE b = symmat_outputFromGpu[i][j];
+			if (percentDiff(a, b) > PERCENT_DIFF_ERROR_THRESHOLD)
 			{
 				fail++;		
 			}
