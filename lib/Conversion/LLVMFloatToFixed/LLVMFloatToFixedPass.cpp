@@ -39,7 +39,7 @@ using MLHVec = std::vector<std::pair<llvm::User *, llvm::Type *>>;
 
 MLHVec collectMallocLikeHandler(Module &m)
 {
-  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " ####\n");
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " BEGIN ####\n");
   std::vector<std::string> names{"malloc"};
   MLHVec tmp;
 
@@ -97,6 +97,7 @@ MLHVec collectMallocLikeHandler(Module &m)
       tmp.push_back({UF, type});
     }
   }
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " END ####\n");
   return tmp;
 }
 
@@ -109,36 +110,40 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
 
   for (auto &V : vec) {
     for (auto &T : tmp) {
-      if (V.second == T.second && V.second == nullptr) {
-        LLVM_DEBUG(llvm::dbgs() << "value " << *(V.first) << " Both types are null? ok...\n");
-        continue;
-      }
-      if (V.first == T.first && V.second->getScalarSizeInBits() < T.second->getScalarSizeInBits()) {
-        LLVM_DEBUG(llvm::dbgs() << "Old Type "
-                                << "\n");
-        LLVM_DEBUG(V.second->dump());
-        LLVM_DEBUG(llvm::dbgs() << "New Type "
-                                << "\n");
-        LLVM_DEBUG(T.second->dump());
-
-        unsigned int Q = T.second->getScalarSizeInBits() / V.second->getScalarSizeInBits();
-        Q = T.second->getScalarSizeInBits() % V.second->getScalarSizeInBits() == 0 ? Q : Q + 1;
-        LLVM_DEBUG(llvm::dbgs() << "Quotient " << std::to_string(Q) << "\n");
-        auto int_const = dyn_cast<ConstantInt>(V.first->getOperand(0));
-        if (int_const == nullptr) {
-          builder.SetInsertPoint(dyn_cast<llvm::Instruction>(V.first));
-          V.first->setOperand(0, builder.CreateMul(V.first->getOperand(0), ConstantInt::get(V.first->getOperand(0)->getType(), Q)));
-          LLVM_DEBUG(llvm::dbgs() << "Finish conversion type ");
-          LLVM_DEBUG(V.first->getOperand(0)->dump());
-          LLVM_DEBUG(V.first->dump());
+      if (V.first == T.first) {
+        LLVM_DEBUG(dbgs() << "Processing malloc " << *(V.first) << "...\n");
+        if (V.second == T.second && V.second == nullptr) {
+          LLVM_DEBUG(llvm::dbgs() << " Both types are null? ok...\n");
           continue;
-        };
-        V.first->getOperand(0)->replaceAllUsesWith(ConstantInt::get(V.first->getOperand(0)->getType(), int_const->getUniqueInteger() * Q));
-        LLVM_DEBUG(llvm::dbgs() << "Finish conversion type ");
-        LLVM_DEBUG(V.first->dump());
+        }
+        LLVM_DEBUG(llvm::dbgs() << "Old Type: " << *V.second << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "New Type " << *T.second << "\n");
+        if (V.second->getScalarSizeInBits() < T.second->getScalarSizeInBits()) {
+          LLVM_DEBUG(dbgs() << "Old type is smaller than new type, adjusting arguments\n");
+
+          unsigned int Q = T.second->getScalarSizeInBits() / V.second->getScalarSizeInBits();
+          Q = T.second->getScalarSizeInBits() % V.second->getScalarSizeInBits() == 0 ? Q : Q + 1;
+          LLVM_DEBUG(llvm::dbgs() << "Quotient " << std::to_string(Q) << "\n");
+          auto int_const = dyn_cast<ConstantInt>(V.first->getOperand(0));
+          if (int_const == nullptr) {
+            builder.SetInsertPoint(dyn_cast<llvm::Instruction>(V.first));
+            V.first->setOperand(0, builder.CreateMul(V.first->getOperand(0), ConstantInt::get(V.first->getOperand(0)->getType(), Q)));
+            LLVM_DEBUG(llvm::dbgs() << "Finish conversion type ");
+            LLVM_DEBUG(V.first->getOperand(0)->dump());
+            LLVM_DEBUG(V.first->dump());
+            continue;
+          }
+          V.first->getOperand(0)->replaceAllUsesWith(ConstantInt::get(V.first->getOperand(0)->getType(), int_const->getUniqueInteger() * Q));
+          LLVM_DEBUG(llvm::dbgs() << "Finish conversion type ");
+          LLVM_DEBUG(V.first->dump());
+        } else {
+          LLVM_DEBUG(dbgs() << "Old type is larger or same size than new type, doing nothing\n");
+        }
       }
     }
   }
+
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " END ####\n");
 }
 
 
