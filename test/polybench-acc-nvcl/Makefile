@@ -1,7 +1,8 @@
 BENCHS := \
 	correlation \
 	covariance \
-	lu
+	lu \
+	fdtd-2d
 
 .PHONY: all
 all:
