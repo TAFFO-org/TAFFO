@@ -1,6 +1,7 @@
 BENCHS := \
 	datamining_correlation \
-	datamining_covariance
+	datamining_covariance \
+	linear-algebra_solvers_lu
 
 .PHONY: all
 all:
