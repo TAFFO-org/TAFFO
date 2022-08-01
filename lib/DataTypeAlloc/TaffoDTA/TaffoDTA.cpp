@@ -24,6 +24,8 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-dta"
 
+STATISTIC(FixCast, "Number of fixed point format cast");
+
 
 PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
 {
@@ -197,34 +199,41 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
     return false;
   }
 
+  if (UseFloat != "") {
+    mdutils::FloatType::FloatStandard standard;
+    if (UseFloat == "f16")
+      standard = mdutils::FloatType::Float_half;
+    else if (UseFloat == "f32")
+      standard = mdutils::FloatType::Float_float;
+    else if (UseFloat == "f64")
+      standard = mdutils::FloatType::Float_double;
+    else if (UseFloat == "bf16")
+      standard = mdutils::FloatType::Float_bfloat;
+    else {
+      errs() << "[DTA] Specified invalid format " << UseFloat << " to the -usefloat argument.\n";
+      abort();
+    }
+    //auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
 
-  // New super performing algorithm to compute a lot of things
-  // Preserving this code just in case, shold be not necessary
-  /*if (ForceFloat >= 0) {
-      auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
+    double greatest = abs(II.IRange->Min);
+    double max = abs(II.IRange->Max);
+    if (max > greatest) greatest = max;
 
-      double greatest = abs(II.IRange->Min);
-      double max = abs(II.IRange->Max);
-      if (max > greatest) greatest = max;
+    FloatType res = FloatType(standard, greatest);
 
-      FloatType res = FloatType(standard, greatest);
+    LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
 
-      LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
-
-      II.IType.reset(res.clone());
-      return true;
-
-
-  } else {*/
-  FixedPointTypeGenError fpgerr;
-  FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
-  if (fpgerr == FixedPointTypeGenError::InvalidRange) {
-    LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
-    return false;
+    II.IType.reset(res.clone());
+  } else {
+    FixedPointTypeGenError fpgerr;
+    FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
+    if (fpgerr == FixedPointTypeGenError::InvalidRange) {
+      LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
+      return false;
+    }
+    II.IType.reset(res.clone());
   }
-  II.IType.reset(res.clone());
   return true;
-  //}
 }
 
 
@@ -394,8 +403,12 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
     LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because at least one is a pointer\n");
     return false;
   }
-  FPType *fpv = cast<FPType>(iiv->IType.get());
-  FPType *fpu = cast<FPType>(iiu->IType.get());
+  FPType *fpv = dyn_cast<FPType>(iiv->IType.get());
+  FPType *fpu = dyn_cast<FPType>(iiu->IType.get());
+  if (!fpv || !fpu) {
+    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because one is not a FPType\n");
+    return false;
+  }
   if (!(*fpv == *fpu)) {
     if (isMergeable(fpv, fpu)) {
       std::shared_ptr<mdutils::FPType> fp = merge(fpv, fpu);
