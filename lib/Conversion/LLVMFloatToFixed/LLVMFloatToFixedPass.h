@@ -653,6 +653,7 @@ struct FloatToFixed {
 
 private:
   llvm::ModuleAnalysisManager *MAM;
+  const llvm::DataLayout *ModuleDL;
 };
 
 } // namespace flttofix

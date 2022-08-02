@@ -2,6 +2,7 @@
 #include "Optimizer.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
 
 extern llvm::cl::opt<int> TotalBits;

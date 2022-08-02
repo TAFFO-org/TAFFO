@@ -1,4 +1,5 @@
 ///TAFFO_TEST_ARGS -Xvra -propagate-all
+#include <stdio.h>
 
 int main(int argc, char *argv[])
 {

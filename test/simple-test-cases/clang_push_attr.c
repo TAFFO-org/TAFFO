@@ -1,4 +1,7 @@
 ///TAFFO_TEST_ARGS -Xvra -propagate-all
+#include <stdio.h>
+#include <stdlib.h>
+
 int main()
 {
     float out;

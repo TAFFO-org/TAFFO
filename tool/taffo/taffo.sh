@@ -69,6 +69,13 @@ llvm_debug=$(($("$OPT" --version | grep DEBUG | wc -l)))
 llvm_ver=$(${llvmbin}/llvm-config --version)
 llvm_ver_maj=${llvm_ver%%.*}
 
+compat_flags_clang=
+compat_flags_opt=
+if [[ $llvm_ver_maj -ge 15 ]]; then
+  compat_flags_clang='-Xclang -no-opaque-pointers'
+  compat_flags_opt='-opaque-pointers=0'
+fi
+
 parse_state=0
 raw_opts="$@"
 input_files=()
@@ -89,7 +96,7 @@ errorprop_flags=
 errorprop_out=
 mem2reg='function(mem2reg),'
 dontlink=
-iscpp=$CLANG
+AUTO_CLANGXX=$CLANG
 feedback=0
 pe_model_file=
 temporary_dir=$(mktemp -d)
@@ -216,7 +223,7 @@ for opt in $raw_opts; do
           ;;
         *.cpp | *.cc)
           input_files+=( "$opt" );
-          iscpp=$CLANGXX
+          AUTO_CLANGXX=$CLANGXX
           ;;
         *)
           opts="$opts $opt";
@@ -349,7 +356,7 @@ fi
 if [[ ${#input_files[@]} -eq 1 ]]; then
   # one input file
   ${CLANG} \
-    $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone \
+    $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
     -c -emit-llvm \
     ${input_files} \
     -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
@@ -362,7 +369,7 @@ else
     thisfn="${temporary_dir}/${output_basename}.${thisfn}.0.taffotmp.ll"
     tmp+=( $thisfn )
     ${CLANG} \
-      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone \
+      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
       -c -emit-llvm \
       ${input_file} \
       -S -o "${thisfn}" || exit $?
@@ -373,7 +380,7 @@ else
 fi
 
 # precompute clang invocation for compiling float version
-build_float="${iscpp} $opts ${optimization} ${float_opts} ${temporary_dir}/${output_basename}.1.taffotmp.ll"
+build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}.1.taffotmp.ll"
 
 # Note: in the following we load the plugin both with -load and --load-pass-plugin
 # because the latter does not load the .so until later in the game after command
@@ -396,7 +403,7 @@ if [[ $disable_vra -eq 0 ]]; then
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,${mem2reg}taffovra" \
-    ${vra_flags} \
+    $compat_flags_opt ${vra_flags} \
     -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
 else
   cp "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll";
@@ -415,7 +422,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,taffodta,globaldce" \
-    ${dta_flags} ${dta_inst_set} \
+    $compat_flags_opt ${dta_flags} ${dta_inst_set} \
     -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
     
   ###
@@ -424,7 +431,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoconv,globaldce,dce' \
-    ${conversion_flags} \
+    $compat_flags_opt ${conversion_flags} \
     -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" "${temporary_dir}/${output_basename}.4.taffotmp.ll" || exit $?
     
   ###
@@ -434,7 +441,7 @@ while [[ $feedback_stop -eq 0 ]]; do
     ${OPT} \
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
       --passes='no-op-module,taffoerr' \
-      ${errorprop_flags} \
+      $compat_flags_opt ${errorprop_flags} \
       -S -o "${temporary_dir}/${output_basename}.6.taffotmp.ll" "${temporary_dir}/${output_basename}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
     if [[ ! ( -z "$errorprop_out" ) ]]; then
       cp "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" "$errorprop_out"
@@ -467,7 +474,7 @@ done
 # Produce the requested output file
 if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
   ${CLANG} \
-    $opts ${optimization} \
+    $opts ${optimization} $compat_flags_clang \
     -c \
     "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
     -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
@@ -477,8 +484,8 @@ if [[ $emit_source == "s" ]]; then
 elif [[ $emit_source == "ll" ]]; then
   cp "${temporary_dir}/${output_basename}.5.taffotmp.ll" "$output_file"
 else
-  ${iscpp} \
-    $opts ${optimization} \
+  ${AUTO_CLANGXX} \
+    $opts ${optimization} $compat_flags_clang \
     ${dontlink} \
     "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
     -o "$output_file" || exit $?

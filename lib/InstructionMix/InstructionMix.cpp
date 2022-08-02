@@ -1,6 +1,7 @@
 #include "InstructionMix.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Constants.h"
 #include <sstream>
 
 using namespace llvm;

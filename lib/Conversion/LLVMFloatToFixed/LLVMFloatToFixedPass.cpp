@@ -150,6 +150,7 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
 PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM)
 {
   MAM = &AM;
+  ModuleDL = &(m.getDataLayout());
 
   SmallPtrSet<Value *, 32> local;
   SmallPtrSet<Value *, 32> global;

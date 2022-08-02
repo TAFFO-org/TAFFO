@@ -12,6 +12,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include <cassert>
 #include <cmath>
 
@@ -452,7 +453,10 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
       Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, destt) : ConstantExpr::getUIToFP(cst, destt);
       double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
-      return ConstantExpr::getFDiv(floattmp, ConstantFP::get(destt, twoebits));
+      Constant *res = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(destt, twoebits), *ModuleDL);
+      assert(res && "ConstantFoldBinaryOpOperands failed...");
+      LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *res << "\n");
+      return res;
     }
   }
 
@@ -493,7 +497,10 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
   } else if (Constant *cst = dyn_cast<Constant>(fix)) {
     Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, destt) : ConstantExpr::getUIToFP(cst, destt);
     double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
-    return ConstantExpr::getFDiv(floattmp, ConstantFP::get(destt, twoebits));
+    Constant *res = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(destt, twoebits), *ModuleDL);
+    assert(res && "ConstantFoldBinaryOpOperands failed...");
+    LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *res << "\n");
+    return res;
   }
 
   llvm_unreachable("unrecognized value type passed to genConvertFixToFloat");
