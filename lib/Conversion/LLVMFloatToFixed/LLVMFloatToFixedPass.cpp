@@ -510,6 +510,31 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     CloneFunctionInto(newF, oldF, origValToCloned, CloneFunctionChangeType::GlobalChanges, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
 
+    /* CloneFunctionInto also fixes the attributes of the arguments.
+     * This is not exactly what we want for OpenCL kernels because the alignment
+     * after the conversion is not defined by us but by the OpenCL runtime.
+     * So we need to compensate for this. */
+
+    if (newF->getCallingConv() == CallingConv::SPIR_KERNEL) {
+      /* OpenCL spec says the alignment is equal to the size of the type */
+      SmallVector<AttributeSet, 4> NewAttrs(newF->arg_size());
+      AttributeList OldAttrs = newF->getAttributes();
+      for (unsigned ArgId = 0; ArgId < newF->arg_size(); ArgId++) {
+        Argument *Arg = newF->getArg(ArgId);
+        if (!Arg->getType()->isPointerTy())
+          continue;
+        Type *ArgTy = fullyUnwrapPointerOrArrayType(Arg->getType());
+        Align align(ArgTy->getScalarSizeInBits() / 8);
+        AttributeSet OldArgAttrs = OldAttrs.getParamAttrs(ArgId);
+        AttributeSet NewArgAttrs = OldArgAttrs.addAttributes(newF->getContext(), AttributeSet::get(newF->getContext(), {Attribute::getWithAlignment(newF->getContext(), align)}));
+        NewAttrs[ArgId] = NewArgAttrs;
+        LLVM_DEBUG(dbgs() << "Fixed align of arg " << ArgId << " (" << *Arg << ") to " << align.value() << "\n");
+      }
+      newF->setAttributes(AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
+      LLVM_DEBUG(dbgs() << "Set new attributes, hopefully without breaking anything\n");
+    }
+    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF << "\n");
+
     SmallVector<mdutils::MDInfo *, 4> ArgsII;
     MM.retrieveArgumentInputInfo(*oldF, ArgsII);
 
@@ -621,6 +646,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
 
 Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
 {
+  LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
   Function *oldF = call->getCalledFunction();
   assert(oldF && "bitcasted function pointers and such not handled atm");
   if (isSpecialFunction(oldF))
@@ -685,6 +711,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
   });
 
   newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
+  LLVM_DEBUG(dbgs() << "created function\n" << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;
   return newF;

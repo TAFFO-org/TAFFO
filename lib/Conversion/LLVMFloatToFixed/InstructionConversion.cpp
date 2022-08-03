@@ -129,9 +129,15 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
     return Unsupported;
   if (isConvertedFixedPoint(newptr)) {
     fixpt = fixPType(newptr);
-    Align align = load->getAlign();
+    Type *PELType = newptr->getType()->getPointerElementType();
+    Align align;
+    if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL) {
+      align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8);
+    } else {
+      align = load->getAlign();
+    }
     LoadInst *newinst =
-        new LoadInst(newptr->getType()->getPointerElementType(), newptr, Twine(), load->isVolatile(), align,
+        new LoadInst(PELType, newptr, Twine(), load->isVolatile(), align,
                      load->getOrdering(), load->getSyncScopeID());
     newinst->insertAfter(load);
     if (valueInfo(load)->noTypeConversion) {
