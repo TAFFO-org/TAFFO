@@ -212,6 +212,10 @@ for opt in $raw_opts; do
           printf '%s\n' "$CLANG"
           exit 0
           ;;
+        -print-llvm-bin-dir)
+          printf '%s\n' ${llvmbin}
+          exit 0
+          ;;
         -help | -h | -version | -v | --help | --version)
           help=1
           ;;
