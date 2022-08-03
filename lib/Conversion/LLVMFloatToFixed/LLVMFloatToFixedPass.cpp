@@ -102,9 +102,46 @@ MLHVec collectMallocLikeHandler(Module &m)
 }
 
 
+Value *flttofix::adjustBufferSize(Value *OrigSize, Type *OldTy, Type *NewTy, Instruction *IP, bool Tight)
+{
+  assert(IP && "adjustBufferSize requires a valid insertion pointer. Somebody must use this buffer size after all, right?");
+
+  llvm::Type *RootOldTy = fullyUnwrapPointerOrArrayType(OldTy);
+  llvm::Type *RootNewTy = fullyUnwrapPointerOrArrayType(NewTy);
+  LLVM_DEBUG(dbgs() << "Adjusting buffer size " << OrigSize->getNameOrAsOperand() << ", type change from " << *OldTy << " to " << *NewTy << "\n");
+
+  if (!Tight && RootOldTy->getScalarSizeInBits() >= RootNewTy->getScalarSizeInBits()) {
+    LLVM_DEBUG(dbgs() << "Old type is larger or same size than new type, doing nothing\n");
+    return OrigSize;
+  }
+  if (Tight)
+    LLVM_DEBUG(dbgs() << "Tight flag is set, adjusting size even if it gets reduced\n");
+  else
+    LLVM_DEBUG(dbgs() << "Old type is smaller than new type, adjusting arguments\n");
+
+  unsigned Num = RootNewTy->getScalarSizeInBits();
+  unsigned Den = RootOldTy->getScalarSizeInBits();
+  LLVM_DEBUG(dbgs() << "Ratio: " << Num << " / " << Den << "\n");
+
+  ConstantInt *int_const = dyn_cast<ConstantInt>(OrigSize);
+  Value *Res;
+  if (int_const == nullptr) {
+    IRBuilder<> builder(IP);
+    Res = builder.CreateMul(OrigSize, ConstantInt::get(OrigSize->getType(), Num));
+    Res = builder.CreateAdd(OrigSize, ConstantInt::get(OrigSize->getType(), Num-1));
+    Res = builder.CreateUDiv(Res, ConstantInt::get(OrigSize->getType(), Den));
+  } else {
+    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Num-1)).udiv(Den));
+  }
+
+  LLVM_DEBUG(dbgs() << "Buffer size adjusted to " << *Res << "\n");
+  return Res;
+}
+
+
 void closeMallocLikeHandler(Module &m, const MLHVec &vec)
 {
-  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " ####\n");
+  LLVM_DEBUG(llvm::dbgs() << "#### " << __func__ << " BEGIN ####\n");
   auto tmp = collectMallocLikeHandler(m);
   llvm::IRBuilder<> builder(m.getContext());
 
@@ -116,28 +153,13 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
           LLVM_DEBUG(llvm::dbgs() << " Both types are null? ok...\n");
           continue;
         }
-        LLVM_DEBUG(llvm::dbgs() << "Old Type: " << *V.second << "\n");
-        LLVM_DEBUG(llvm::dbgs() << "New Type " << *T.second << "\n");
-        if (V.second->getScalarSizeInBits() < T.second->getScalarSizeInBits()) {
-          LLVM_DEBUG(dbgs() << "Old type is smaller than new type, adjusting arguments\n");
-
-          unsigned int Q = T.second->getScalarSizeInBits() / V.second->getScalarSizeInBits();
-          Q = T.second->getScalarSizeInBits() % V.second->getScalarSizeInBits() == 0 ? Q : Q + 1;
-          LLVM_DEBUG(llvm::dbgs() << "Quotient " << std::to_string(Q) << "\n");
-          auto int_const = dyn_cast<ConstantInt>(V.first->getOperand(0));
-          if (int_const == nullptr) {
-            builder.SetInsertPoint(dyn_cast<llvm::Instruction>(V.first));
-            V.first->setOperand(0, builder.CreateMul(V.first->getOperand(0), ConstantInt::get(V.first->getOperand(0)->getType(), Q)));
-            LLVM_DEBUG(llvm::dbgs() << "Finish conversion type ");
-            LLVM_DEBUG(V.first->getOperand(0)->dump());
-            LLVM_DEBUG(V.first->dump());
-            continue;
-          }
-          V.first->getOperand(0)->replaceAllUsesWith(ConstantInt::get(V.first->getOperand(0)->getType(), int_const->getUniqueInteger() * Q));
-          LLVM_DEBUG(llvm::dbgs() << "Finish conversion type ");
-          LLVM_DEBUG(V.first->dump());
+        Value *OldBufSize = V.first->getOperand(0);
+        Value *NewBufSize = adjustBufferSize(OldBufSize, V.second, T.second, dyn_cast<llvm::Instruction>(V.first));
+        if (NewBufSize != OldBufSize) {
+          V.first->setOperand(0, NewBufSize);
+          LLVM_DEBUG(dbgs() << "Converted malloc transformed to " << *(V.first) << "\n");
         } else {
-          LLVM_DEBUG(dbgs() << "Old type is larger or same size than new type, doing nothing\n");
+          LLVM_DEBUG(dbgs() << "Buffer size did not change; the malloc stays as it is\n");
         }
       }
     }

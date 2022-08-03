@@ -322,7 +322,6 @@ struct FloatToFixed {
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
                                   llvm::Instruction *ip = nullptr)
   {
-
     LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
     llvm::Value *cvtfallval = operandPool[fallval];
 
@@ -659,6 +658,8 @@ private:
   llvm::ModuleAnalysisManager *MAM;
   const llvm::DataLayout *ModuleDL;
 };
+
+llvm::Value *adjustBufferSize(llvm::Value *OrigSize, llvm::Type *OldTy, llvm::Type *NewTy, llvm::Instruction *IP, bool Tight = false);
 
 } // namespace flttofix
 
