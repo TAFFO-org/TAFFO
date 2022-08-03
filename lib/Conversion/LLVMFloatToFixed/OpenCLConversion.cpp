@@ -16,6 +16,10 @@ bool FloatToFixed::isSupportedOpenCLFunction(Function *F)
     return true;
   if (F->getName() == "clEnqueueReadBuffer")
     return true;
+  if (F->getName() == "clEnqueueWriteBuffer")
+    return true;
+  if (F->getName() == "clSetKernelArg")
+    return true;
   return false;
 }
 
@@ -24,37 +28,56 @@ Value *FloatToFixed::convertOpenCLCall(CallBase *C)
 {
   Function *F = C->getCalledFunction();
 
-  if (F->getName() == "clCreateBuffer" || F->getName() == "clEnqueueReadBuffer") {
-    unsigned BufferArgId;
-    if (F->getName() == "clCreateBuffer") {
-      LLVM_DEBUG(dbgs() << "clCreateBuffer detected, attempting to convert\n");
-      BufferArgId = 3;
-    } else {
-      LLVM_DEBUG(dbgs() << "clEnqueueReadBuffer detected, attempting to convert\n");
-      BufferArgId = 5;
-    }
-    
-    Value *TheBuffer = C->getArgOperand(BufferArgId);
-    if (auto *BC = dyn_cast<BitCastOperator>(TheBuffer)) {
-      TheBuffer = BC->getOperand(0);
-    }
-    Value *NewBuffer = matchOp(TheBuffer);
-    if (!NewBuffer || !hasInfo(NewBuffer)) {
-      LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
-      return Unsupported;
-    }
-    LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-    LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << valueInfo(NewBuffer)->fixpType.toString() << "\n");
-    Type *VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
-    if (NewBuffer->getType() != VoidPtrTy) {
-      NewBuffer = new BitCastInst(NewBuffer, VoidPtrTy, "", C);
-    } 
-    C->setArgOperand(BufferArgId, NewBuffer);
-    return C;
+  unsigned BufferArgId;
+  unsigned BufferSizeArgId;
+  LLVM_DEBUG(dbgs() << F->getName() << " detected, attempting to convert\n");
+  if (F->getName() == "clCreateBuffer") {
+    BufferArgId = 3;
+    BufferSizeArgId = 2;
+  } else if (F->getName() == "clEnqueueReadBuffer" || F->getName() == "clEnqueueWriteBuffer") {
+    BufferArgId = 5;
+    BufferSizeArgId = 4;
+  } else if (F->getName() == "clSetKernelArg") {
+    BufferArgId = 3;
+    BufferSizeArgId = 2;
+  } else {
+    llvm_unreachable("Wait why are we handling an OpenCL call that we don't know about?");
+    return Unsupported;
+  }
+  
+  Value *TheBuffer = C->getArgOperand(BufferArgId);
+  if (auto *BC = dyn_cast<BitCastOperator>(TheBuffer)) {
+    TheBuffer = BC->getOperand(0);
+  }
+  Value *NewBuffer = matchOp(TheBuffer);
+  if (!NewBuffer || !hasInfo(NewBuffer)) {
+    LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
+    return Unsupported;
+  }
+  LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
+  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << valueInfo(NewBuffer)->fixpType.toString() << "\n");
+  Type *VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
+  Value *NewBufferArg;
+  if (NewBuffer->getType() != VoidPtrTy) {
+    NewBufferArg = new BitCastInst(NewBuffer, VoidPtrTy, "", C);
+  } else {
+    NewBufferArg = NewBuffer;
+  }
+  C->setArgOperand(BufferArgId, NewBufferArg);
+
+  LLVM_DEBUG(dbgs() << "Attempting to adjust buffer size\n");
+  Type *OldTy = TheBuffer->getType();
+  Type *NewTy = NewBuffer->getType();
+  Value *OldBufSz = C->getArgOperand(BufferSizeArgId);
+  Value *NewBufSz = adjustBufferSize(OldBufSz, OldTy, NewTy, C, true);
+  if (OldBufSz != NewBufSz) {
+    C->setArgOperand(BufferSizeArgId, NewBufSz);
+    LLVM_DEBUG(dbgs() << "Buffer size was adjusted\n");
+  } else {
+    LLVM_DEBUG(dbgs() << "Buffer size did not need any adjustment\n");
   }
 
-  llvm_unreachable("Wait why are we handling an OpenCL call that we don't know about?");
-  return Unsupported;
+  return C;
 }
 
 
