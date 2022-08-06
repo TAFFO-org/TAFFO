@@ -1,5 +1,6 @@
 build*
 .idea
+cmake-build-debug-coverage/
 build.log
 *.zip
 dist*
