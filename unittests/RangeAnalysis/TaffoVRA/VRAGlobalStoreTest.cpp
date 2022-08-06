@@ -224,5 +224,52 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_MixedStruct) {
   EXPECT_FALSE(scalarNode->isFinal());
 }
 
+TEST_F(VRAGlobalStoreTest, toMDInfo_Scalar) {
+  range_t range = {0, 1, true};
+  auto *scalarNode = new VRAScalarNode(std::make_shared<range_t>(range));
+  auto retval = VRAgs.toMDInfo(std::shared_ptr<VRAScalarNode>(scalarNode));
+
+  mdutils::InputInfo *II;
+  ASSERT_NE(II = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(retval).get(), nullptr);
+  EXPECT_EQ(II->IRange->Min, 0);
+  EXPECT_EQ(II->IRange->Max, 1);
+  // EXPECT_TRUE(II->IFinal); //TODO: check what the expected behavior should be
+}
+
+TEST_F(VRAGlobalStoreTest, toMDInfo_ScalarNoRange) {
+  auto *scalarNode = new VRAScalarNode(nullptr);
+  auto retval = VRAgs.toMDInfo(std::shared_ptr<VRAScalarNode>(scalarNode));
+  ASSERT_EQ(retval, nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, toMDInfo_Struct) {
+  auto *structInner = new VRAStructNode();
+  range_t r_inner = {0, 1, true};
+  auto *scalarInner = new VRAScalarNode(std::make_shared<range_t>(r_inner));
+  structInner->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarInner));
+  auto *structOuter = new VRAStructNode();
+  range_t r_outer = {0, 2, false};
+  auto *scalarOuter = new VRAScalarNode(std::make_shared<range_t>(r_outer));
+  structOuter->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter));
+  structOuter->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner));
+  auto retval = VRAgs.toMDInfo(std::shared_ptr<VRAStructNode>(structOuter));
+
+  mdutils::StructInfo *SI_OUTER;
+  ASSERT_NE(SI_OUTER = std::dynamic_ptr_cast_or_null<mdutils::StructInfo>(retval).get(), nullptr);
+  EXPECT_EQ(SI_OUTER->size(), 2);
+  mdutils::InputInfo *II_OUTER;
+  EXPECT_NE(II_OUTER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(SI_OUTER->getField(0)).get(), nullptr);
+  EXPECT_EQ(II_OUTER->IRange->Min, 0);
+  EXPECT_EQ(II_OUTER->IRange->Max, 2);
+  //EXPECT_FALSE(II_OUTER->IFinal);
+  mdutils::StructInfo *SI_INNER;
+  EXPECT_NE(SI_INNER = std::dynamic_ptr_cast_or_null<mdutils::StructInfo>(SI_OUTER->getField(1)).get(), nullptr);
+  EXPECT_EQ(SI_INNER->size(), 1);
+  mdutils::InputInfo *II_INNER;
+  EXPECT_NE(II_INNER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(SI_INNER->getField(0)).get(), nullptr);
+  EXPECT_EQ(II_INNER->IRange->Min, 0);
+  EXPECT_EQ(II_INNER->IRange->Max, 1);
+  //EXPECT_TRUE(II_INNER->IFinal);
+}
 
 }
