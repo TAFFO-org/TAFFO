@@ -353,8 +353,14 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   /* If the function return a float the new return type will be a fix point of
    * type fixpt, otherwise the return type is left unchanged.*/
   Function *oldF = call->getCalledFunction();
+
+  /* Special-case known math intrinsics */
+  if (isSupportedMathIntrinsicFunction(oldF))
+    return convertMathIntrinsicFunction(call, fixpt);
+  /* Special case function prototypes and all other intrinsics */
   if (isSpecialFunction(oldF))
     return Unsupported;
+  
   Function *newF = functionPool[oldF];
   if (!newF) {
     LLVM_DEBUG(dbgs() << "[Info] no function clone for instruction"
@@ -366,8 +372,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
                     << *newF->getType() << "\n";);
   std::vector<Value *> convArgs;
   std::vector<Type *> typeArgs;
-  std::vector<std::pair<int, FixedPointType>>
-      fixArgs; // for match right function
+  std::vector<std::pair<int, FixedPointType>> fixArgs; // for match right function
   if (isFloatType(oldF->getReturnType())) {
     fixArgs.push_back(
         std::pair<int, FixedPointType>(-1, fixpt)); // ret value in signature

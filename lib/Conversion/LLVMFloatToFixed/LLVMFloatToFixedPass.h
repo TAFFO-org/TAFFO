@@ -191,6 +191,10 @@ struct FloatToFixed {
   llvm::Value *convertCast(llvm::CastInst *cast, const FixedPointType &fixpt);
   llvm::Value *fallback(llvm::Instruction *unsupp, FixedPointType &fixpt);
 
+  /* Math intrinsic support */
+  bool isSupportedMathIntrinsicFunction(llvm::Function *F);
+  llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);
+
   /** Returns if a function is a library function which shall not
    *  be cloned.
    *  @param f The function to check */
