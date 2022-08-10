@@ -223,6 +223,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           if (isa<BitCastInst>(valOp) && valueType->isPointerTy() && valueType->getPointerElementType()->isFloatingPointTy()) {
             LLVM_DEBUG(dbgs() << "MALLOC'D POINTER HACK\n");
             vdepth = 2;
+          } else if (valueType->isFloatingPointTy()) {
+            LLVM_DEBUG(dbgs() << "Backtracking to stored value def instr\n");
+            vdepth = 1;
           }
         }
         if (vdepth > 0) {
@@ -244,37 +247,21 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       if (!inst)
         continue;
 
-#ifdef LOG_BACKTRACK
-      dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
-#endif
+      LLVM_DEBUG(dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n");
 
       for (Value *u : inst->operands()) {
         if (!isa<User>(u) && !isa<Argument>(u)) {
-#ifdef LOG_BACKTRACK
-          dbgs() << " - ";
-          u->printAsOperand(dbgs());
-          dbgs() << " not a User or an Argument\n";
-#endif
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " not a User or an Argument\n");
           continue;
         }
-
         if (isa<Function>(u) || isa<BlockAddress>(u)) {
-#ifdef LOG_BACKTRACK
-          dbgs() << " - ";
-          u->printAsOperand(dbgs());
-          dbgs() << " is a function/block address\n";
-#endif
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is a function/block address\n");
           continue;
         }
-
-#ifdef LOG_BACKTRACK
-        dbgs() << " - " << *u;
-#endif
+        LLVM_DEBUG(dbgs() << " - " << *u);
 
         if (!isFloatType(u->getType())) {
-#ifdef LOG_BACKTRACK
-          dbgs() << " not a float\n";
-#endif
+          LLVM_DEBUG(dbgs() << " not a float\n");
           continue;
         }
 
@@ -289,15 +276,11 @@ void TaffoInitializer::buildConversionQueueForRootValues(
             UI = queue.erase(UI);
         }
         if (!alreadyIn) {
-#ifdef LOG_BACKTRACK
-          dbgs() << "  enqueued\n";
-#endif
+          LLVM_DEBUG(dbgs() << "  enqueued\n");
           next = UI = queue.insert(next, u, std::move(VIU)).first;
           ++next;
         } else {
-#ifdef LOG_BACKTRACK
-          dbgs() << " already in\n";
-#endif
+          LLVM_DEBUG(dbgs() << " already in\n");
         }
 
         createInfoOfUser(v, next->second, u, UI->second);
