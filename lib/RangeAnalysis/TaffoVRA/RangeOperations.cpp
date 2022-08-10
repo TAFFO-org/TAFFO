@@ -1,8 +1,8 @@
 #include "RangeOperations.hpp"
 #include "RangeOperationsCallWhitelist.hpp"
-
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
+#include "llvm/Support/Debug.h"
 #include <assert.h>
 #include <limits>
 #include <map>

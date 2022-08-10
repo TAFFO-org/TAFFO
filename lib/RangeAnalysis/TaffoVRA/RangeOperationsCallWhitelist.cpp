@@ -1,4 +1,5 @@
 #include "RangeOperationsCallWhitelist.hpp"
+#include "RangeOperations.hpp"
 #include "Range.hpp"
 #include <cassert>
 #include <cmath>
@@ -208,8 +209,19 @@ handleCallToRand(const std::list<range_ptr_t> &operands)
   return make_range(0, RAND_MAX);
 }
 
-const std::map<const std::string, map_value_t> taffo::functionWhiteList =
+static range_ptr_t
+handleCallToFMA(const std::list<range_ptr_t> &operands)
     {
+  assert(operands.size() == 3 && "Wrong number of operands in FMA");
+  range_ptr_t op1 = operands.front();
+  range_ptr_t op2 = *(++operands.begin());
+  range_ptr_t op3 = operands.back();
+  if (!op1 || !op2 || !op3)
+    return nullptr;
+  return handleAdd(handleMul(op1, op2), op3);
+}
+
+const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
         CMATH_WHITELIST_FUN("ceil", &handleCallToCeil),
         CMATH_WHITELIST_FUN("floor", &handleCallToFloor),
         CMATH_WHITELIST_FUN("fabs", &handleCallToFabs),
@@ -223,4 +235,5 @@ const std::map<const std::string, map_value_t> taffo::functionWhiteList =
         CMATH_WHITELIST_FUN("acos", &handleCallToAcos),
         CMATH_WHITELIST_FUN("asin", &handleCallToAsin),
         CMATH_WHITELIST_FUN("tanh", &handleCallToTanh),
-        CMATH_WHITELIST_FUN("rand", &handleCallToRand)};
+    CMATH_WHITELIST_FUN("rand", &handleCallToRand),
+    CMATH_WHITELIST_FUN("fma", &handleCallToFMA)};
