@@ -235,16 +235,16 @@ void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
   const CallBase *CB = llvm::cast<CallBase>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
 
-  // check if it's an OMP library function and handle it if so
-  if (detectAndHandleLibOMPCall(CB)) 
-    return;
-
   // fetch function name
   llvm::Function *Callee = CB->getCalledFunction();
   if (Callee == nullptr) {
     LLVM_DEBUG(Logger->logInfo("indirect calls not supported"));
     return;
   }
+
+  // check if it's an OMP library function and handle it if so
+  if (detectAndHandleLibOMPCall(CB)) 
+    return;
 
   const llvm::StringRef FunctionName = Callee->getName();
   if (isMathCallInstruction(FunctionName.str())) {
