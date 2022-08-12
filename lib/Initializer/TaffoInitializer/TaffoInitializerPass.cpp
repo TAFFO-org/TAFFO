@@ -279,11 +279,10 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           LLVM_DEBUG(dbgs() << "  enqueued\n");
           next = UI = queue.insert(next, u, std::move(VIU)).first;
           ++next;
+          createInfoOfUser(v, next->second, u, UI->second);
         } else {
-          LLVM_DEBUG(dbgs() << " already in\n");
+          LLVM_DEBUG(dbgs() << " already in, not updating info\n");
         }
-
-        createInfoOfUser(v, next->second, u, UI->second);
       }
     }
   }
