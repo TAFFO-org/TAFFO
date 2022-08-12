@@ -45,10 +45,11 @@ void CodeInterpreter::interpretFunction(llvm::Function *F,
     DEBUG_WITH_TYPE(GlobalStore->getLogger()->getDebugType(),
                     GlobalStore->getLogger()->logBasicBlock(BB));
     for (llvm::Instruction &I : *BB) {
-      if (CurAnalyzer->requiresInterpretation(&I))
+      if (CurAnalyzer->requiresInterpretation(&I)) {
         interpretCall(CurAnalyzer, &I);
-      else
+      } else {
         CurAnalyzer->analyzeInstruction(&I);
+      }
     }
 
     assert(Scopes.back().EvalCount[BB] > 0 && "Trying to evaluate block with 0 EvalCount.");
