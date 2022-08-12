@@ -241,4 +241,5 @@ const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
     CMATH_WHITELIST_FUN("asin", &handleCallToAsin),
     CMATH_WHITELIST_FUN("tanh", &handleCallToTanh),
     CMATH_WHITELIST_FUN("rand", &handleCallToRand),
-    CMATH_WHITELIST_FUN("fma", &handleCallToFMA)};
+    CMATH_WHITELIST_FUN("fma", &handleCallToFMA),
+    INTRINSIC_WHITELIST_FUN("fmuladd", &handleCallToFMA)};

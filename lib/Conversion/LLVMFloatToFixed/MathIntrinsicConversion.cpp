@@ -11,7 +11,8 @@ using namespace taffo;
 
 enum MathIntrinsicFamily: unsigned {
   Unrecognized = 0,
-  FMA
+  FMA,
+  FMulAdd
 };
 
 static MathIntrinsicFamily getMathIntrinsicFamily(Function *F)
@@ -24,6 +25,8 @@ static MathIntrinsicFamily getMathIntrinsicFamily(Function *F)
     return MathIntrinsicFamily::FMA;
   if (F->getName() == "fmaf")
     return MathIntrinsicFamily::FMA;
+  if (F->getIntrinsicID() == Intrinsic::fmuladd)
+    return MathIntrinsicFamily::FMulAdd;
   return MathIntrinsicFamily::Unrecognized;
 }
 
@@ -37,7 +40,7 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &f
   Function *F = C->getCalledFunction();
   MathIntrinsicFamily Fam = getMathIntrinsicFamily(F);
 
-  if (Fam == MathIntrinsicFamily::FMA) {
+  if (Fam == MathIntrinsicFamily::FMA || Fam == MathIntrinsicFamily::FMulAdd) {
     Value *Op1 = C->getArgOperand(0);
     Value *Op2 = C->getArgOperand(1);
     Value *Op3 = C->getArgOperand(2);
@@ -89,7 +92,12 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &f
       if (!val1 || !val2 || !val3)
         return nullptr;
       Type *Ty = fixpt.scalarToLLVMType(C->getContext());
-      Function *NewIntrins = Intrinsic::getDeclaration(C->getModule(), Intrinsic::fma, {Ty});
+      Function *NewIntrins;
+      if (Fam == MathIntrinsicFamily::FMA) {
+        NewIntrins = Intrinsic::getDeclaration(C->getModule(), Intrinsic::fma, {Ty});
+      } else {
+        NewIntrins = Intrinsic::getDeclaration(C->getModule(), Intrinsic::fmuladd, {Ty});
+      }
       IRBuilder<NoFolder> Builder(C);
       Value *Res = Builder.CreateCall(NewIntrins->getFunctionType(), NewIntrins, {val1, val2, val3});
       return Res;
