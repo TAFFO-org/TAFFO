@@ -53,13 +53,18 @@ void FloatToFixed::performConversion(
     if (Instruction *i = dyn_cast<Instruction>(v))
       LLVM_DEBUG(dbgs() << "  [function] " << i->getFunction()->getName() << "\n");
 
-    Value *newv = convertSingleValue(m, v, valueInfo(v)->fixpType);
+    FixedPointType NewType = valueInfo(v)->fixpType;
+    LLVM_DEBUG(dbgs() << "  [req. ty.] " << NewType.toString() << "\n");
+    Value *newv = convertSingleValue(m, v, NewType);
+    valueInfo(v)->fixpType = NewType;
     if (newv) {
       operandPool[v] = newv;
+      LLVM_DEBUG(dbgs() << "  [out  ty.] " << NewType.toString() << "\n");
     }
 
     if (newv && newv != ConversionError) {
       LLVM_DEBUG(dbgs() << "  [output  ] " << *newv << "\n");
+
       if (newv != v && isa<Instruction>(newv) && isa<Instruction>(v)) {
         Instruction *newinst = dyn_cast<Instruction>(newv);
         Instruction *oldinst = dyn_cast<Instruction>(v);
@@ -68,7 +73,7 @@ void FloatToFixed::performConversion(
       cpMetaData(newv, v);
       if (newv != v) {
         if (hasInfo(newv)) {
-          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion\n");
+          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << valueInfo(v)->fixpType.toString() << ")\n");
         } else {
           *newValueInfo(newv) = *valueInfo(v);
         }

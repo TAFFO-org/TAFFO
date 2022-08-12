@@ -624,38 +624,48 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
     // TODO: fix by using HintOverRange when it is actually implemented
     FixedPointType intype1 = fixpt, intype2 = fixpt;
     if (fixpt.isFixedPoint()) {
-      Value *val1 =
-          translateOrMatchOperand(instr->getOperand(0), intype1, instr,
-                                  TypeMatchPolicy::RangeOverHintMaxFrac);
-      Value *val2 =
-          translateOrMatchOperand(instr->getOperand(1), intype2, instr,
-                                  TypeMatchPolicy::RangeOverHintMaxInt);
+      Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1, instr, TypeMatchPolicy::RangeOverHintMaxFrac);
+      Value *val2 = translateOrMatchOperand(instr->getOperand(1), intype2, instr, TypeMatchPolicy::RangeOverHintMaxInt);
       if (!val1 || !val2)
         return nullptr;
-      /* Type of the first operand to integer division */
-      FixedPointType intermtype(
-          fixpt.scalarIsSigned(),
-          intype1.scalarBitsAmt() + intype2.scalarBitsAmt() - intype1.scalarIntegerBitsAmt(),
-          intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
-      Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
-      /* Type of the result of integer division */
-      FixedPointType fixoptype(
-          fixpt.scalarIsSigned(), intermtype.scalarFracBitsAmt() - intype2.scalarFracBitsAmt(),
-          intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
-      Value *ext1 = genConvertFixedToFixed(val1, intype1, intermtype, instr);
+      LLVM_DEBUG(dbgs() << "fdiv val1 = " << *val1 << " type = " << intype1 << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv val1 = " << *val2 << " type = " << intype2 << "\n");
+
+      /* Compute types of the intermediates */
+      bool SignedRes = fixpt.scalarIsSigned();
+      unsigned Ext2Exp = std::max(0, intype2.scalarFracBitsAmt() - (SignedRes && !intype2.scalarIsSigned() ? 1 : 0));
+      unsigned Ext1Exp = fixpt.scalarFracBitsAmt() + Ext2Exp;
+      unsigned Size = std::max(intype1.scalarBitsAmt(), intype2.scalarBitsAmt());
+      if (Ext1Exp + intype1.scalarIntegerBitsAmt() > Size)
+        Size = intype1.scalarBitsAmt() + intype2.scalarBitsAmt();
+
+      /* Extend first operand */
+      FixedPointType ext1type(SignedRes, Ext1Exp, Size);
+      Type *dbfxt = ext1type.scalarToLLVMType(instr->getContext());
+      Value *ext1 = genConvertFixedToFixed(val1, intype1, ext1type, instr);
+
+      /* Extend second operand */
+      FixedPointType ext2type(SignedRes, Ext2Exp, Size);
+      Value *ext2 = genConvertFixedToFixed(val2, intype2, ext2type, instr);
+
+      /* Generate division */
+      FixedPointType fixoptype(SignedRes, Ext1Exp - Ext2Exp, Size);
       IRBuilder<> builder(instr);
-      Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
-                                             : builder.CreateZExt(val2, dbfxt);
       Value *fixop = fixpt.scalarIsSigned() ? builder.CreateSDiv(ext1, ext2)
                                             : builder.CreateUDiv(ext1, ext2);
+
+      LLVM_DEBUG(dbgs() << "fdiv ext1 = " << *ext1 << " type = " << ext1type << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv ext2 = " << *ext2 << " type = " << ext2type << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv fixop = " << *fixop << "type = " << fixoptype << "\n");
+
       cpMetaData(ext1, val1);
       cpMetaData(ext2, val2);
       cpMetaData(fixop, instr);
       updateFPTypeMetadata(fixop, fixoptype.scalarIsSigned(),
                            fixoptype.scalarFracBitsAmt(),
                            fixoptype.scalarBitsAmt());
-      updateConstTypeMetadata(fixop, 0U, intermtype);
-      updateConstTypeMetadata(fixop, 1U, intype2);
+      updateConstTypeMetadata(fixop, 0U, ext1type);
+      updateConstTypeMetadata(fixop, 1U, ext2type);
       return genConvertFixedToFixed(fixop, fixoptype, fixpt, instr);
     } else if (fixpt.isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
