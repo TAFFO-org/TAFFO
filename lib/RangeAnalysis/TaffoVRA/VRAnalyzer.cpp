@@ -235,6 +235,10 @@ void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
   const CallBase *CB = llvm::cast<CallBase>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
 
+  // check if it's an OMP library function and handle it if so
+  if (detectAndHandleLibOMPCall(CB)) 
+    return;
+
   // fetch function name
   llvm::Function *Callee = CB->getCalledFunction();
   if (Callee == nullptr) {
@@ -337,6 +341,28 @@ void VRAnalyzer::handleMallocCall(const llvm::CallBase *CB)
     }
     LLVM_DEBUG(Logger->logInfoln("pointer"));
   }
+}
+
+bool VRAnalyzer::detectAndHandleLibOMPCall(const llvm::CallBase *CB)
+{
+  llvm::Function *F = CB->getCalledFunction();
+  if (F->getName() == "__kmpc_for_static_init_4") {
+    Value *VPLower = CB->getArgOperand(4U);
+    Value *VPUpper = CB->getArgOperand(5U);
+    range_ptr_t PLowerRange = fetchRange(VPLower);
+    range_ptr_t PUpperRange = fetchRange(VPUpper);
+    if (!PLowerRange || !PUpperRange) {
+      LLVM_DEBUG(Logger->logInfoln("ranges of plower/pupper unknown, doing nothing"));
+      return true;
+    }
+    range_ptr_t Merge = getUnionRange(PLowerRange, PUpperRange);
+    saveValueRange(VPLower, Merge);
+    saveValueRange(VPUpper, Merge);
+    LLVM_DEBUG(Logger->logRange(Merge));
+    LLVM_DEBUG(Logger->logInfoln(" set to plower, pupper nodes"));
+    return true;
+  }
+  return false;
 }
 
 void VRAnalyzer::handleReturn(const llvm::Instruction *ret)

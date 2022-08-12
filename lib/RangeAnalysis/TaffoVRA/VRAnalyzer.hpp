@@ -59,6 +59,8 @@ private:
   bool isMallocLike(const llvm::Function *F) const;
   bool isCallocLike(const llvm::Function *F) const;
   void handleMallocCall(const llvm::CallBase *CB);
+  bool detectAndHandleLibOMPCall(const llvm::CallBase *CB);
+
   void handleReturn(const llvm::Instruction *ret);
 
   void handleAllocaInstr(const llvm::Instruction *I);
