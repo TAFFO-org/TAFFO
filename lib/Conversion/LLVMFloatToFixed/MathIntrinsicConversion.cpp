@@ -1,6 +1,7 @@
 #include "LLVMFloatToFixedPass.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/NoFolder.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -56,7 +57,7 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &f
           intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
       Type *dbfxt = intermtype.scalarToLLVMType(C->getContext());
 
-      IRBuilder<> builder(C);
+      IRBuilder<NoFolder> builder(C);
       Value *ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
                                              : builder.CreateZExt(val1, dbfxt);
       Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
@@ -89,7 +90,7 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &f
         return nullptr;
       Type *Ty = fixpt.scalarToLLVMType(C->getContext());
       Function *NewIntrins = Intrinsic::getDeclaration(C->getModule(), Intrinsic::fma, {Ty});
-      IRBuilder<> Builder(C);
+      IRBuilder<NoFolder> Builder(C);
       Value *Res = Builder.CreateCall(NewIntrins->getFunctionType(), NewIntrins, {val1, val2, val3});
       return Res;
     } else {

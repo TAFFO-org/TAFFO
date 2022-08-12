@@ -10,6 +10,7 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/NoFolder.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -73,7 +74,11 @@ void FloatToFixed::performConversion(
       cpMetaData(newv, v);
       if (newv != v) {
         if (hasInfo(newv)) {
-          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << valueInfo(v)->fixpType.toString() << ")\n");
+          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << valueInfo(newv)->fixpType << ")\n");
+          if (!(valueInfo(newv)->fixpType == valueInfo(v)->fixpType)) {
+            LLVM_DEBUG(dbgs() << "FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!\n");
+            abort();
+          }
         } else {
           *newValueInfo(newv) = *valueInfo(v);
         }
@@ -88,7 +93,7 @@ void FloatToFixed::performConversion(
 
 Value *FloatToFixed::createPlaceholder(Type *type, BasicBlock *where, StringRef name)
 {
-  IRBuilder<> builder(where, where->getFirstInsertionPt());
+  IRBuilder<NoFolder> builder(where, where->getFirstInsertionPt());
   AllocaInst *alloca = builder.CreateAlloca(type);
   return builder.CreateLoad(type, alloca, name);
 }
@@ -270,7 +275,7 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
   FloatToFixCount++;
   FloatToFixWeight += std::pow(2, std::min((int)(sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(flt)));
 
-  IRBuilder<> builder(ip);
+  IRBuilder<NoFolder> builder(ip);
   Type *destt = getLLVMFixedPointTypeForFloatType(flt->getType(), fixpt);
 
   /* insert new instructions before ip */
@@ -338,7 +343,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
   // Source and destination are both float
   if (llvmsrct->isFloatingPointTy() &&
       llvmdestt->isFloatingPointTy()) {
-    IRBuilder<> builder(ip);
+    IRBuilder<NoFolder> builder(ip);
 
     LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
     int startingBit = llvmsrct->getPrimitiveSizeInBits();
@@ -372,7 +377,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
   assert(llvmsrct->isSingleValueType() && "cannot change type of a pointer");
   assert(llvmsrct->isIntegerTy() && "cannot change type of a float");
 
-  IRBuilder<> builder(ip);
+  IRBuilder<NoFolder> builder(ip);
 
   auto genSizeChange = [&](Value *fix) -> Value * {
     if (srct.scalarIsSigned()) {
@@ -419,7 +424,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
       } else if (Argument *arg = dyn_cast<Argument>(fix)) {
         ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
       }
-      IRBuilder<> builder(ip);
+      IRBuilder<NoFolder> builder(ip);
 
       LLVM_DEBUG(dbgs() << "[genConvertFixToFloat] converting a floating point to a floating point\n");
       int startingBit = fix->getType()->getPrimitiveSizeInBits();
@@ -483,7 +488,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
     } else if (Argument *arg = dyn_cast<Argument>(fix)) {
       ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
     }
-    IRBuilder<> builder(ip);
+    IRBuilder<NoFolder> builder(ip);
 
     Value *floattmp = fixpt.scalarIsSigned() ? builder.CreateSIToFP(fix, destt) : builder.CreateUIToFP(fix, destt);
     cpMetaData(floattmp, fix);
