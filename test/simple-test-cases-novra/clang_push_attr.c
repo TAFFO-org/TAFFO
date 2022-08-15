@@ -1,4 +1,6 @@
 ///TAFFO_TEST_ARGS -disable-vra
+#include <stdio.h>
+
 int main()
 {
     float out;

@@ -1,5 +1,5 @@
 ///TAFFO_TEST_ARGS -disable-vra
-
+#include <stdio.h>
 
 
 float example(float a, float b, float c, float d)
