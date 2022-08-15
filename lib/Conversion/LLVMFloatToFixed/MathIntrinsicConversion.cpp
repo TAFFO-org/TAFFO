@@ -37,6 +37,10 @@ bool FloatToFixed::isSupportedMathIntrinsicFunction(Function *F)
 
 Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &fixpt)
 {
+  /* Use the normal fallback path to handle non-converted values */
+  if (valueInfo(C)->noTypeConversion)
+    return Unsupported;
+
   Function *F = C->getCalledFunction();
   MathIntrinsicFamily Fam = getMathIntrinsicFamily(F);
 
