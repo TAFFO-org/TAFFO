@@ -1,4 +1,4 @@
-///TAFFO_TEST_ARGS -disable-vra -Xinit -mem2reg
+///TAFFO_TEST_ARGS -disable-vra -Xinit
 #include <stdio.h>
 
 float test(float a)
@@ -14,9 +14,9 @@ float test(float a)
 
 int main(int argc, char *argv[])
 {
-  float a __attribute((annotate("target('a') scalar(range(-128, 128) disabled)")));
+  float a __attribute((annotate("target('a') scalar(range(-128, 127) disabled)")));
   scanf("%f", &a);
-  float b __attribute((annotate("target('a') scalar(range(-256, 256))"))) = a*2;
+  float b __attribute((annotate("target('a') scalar(range(-256, 255))"))) = a*2;
   printf("%f\n", test(b));
   return 0;
 }
