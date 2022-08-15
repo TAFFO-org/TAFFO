@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 
 	#endif //RUN_ON_CPU
 	//print_array(n, POLYBENCH_ARRAY(a));
-	//print_array(n, POLYBENCH_ARRAY(a_outputFromGpu));
+	print_array(n, POLYBENCH_ARRAY(a_outputFromGpu));
 
 	cl_clean_up();
 	POLYBENCH_FREE_ARRAY(a);

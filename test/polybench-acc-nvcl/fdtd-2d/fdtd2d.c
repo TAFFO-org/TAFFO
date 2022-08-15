@@ -130,9 +130,9 @@ void init_arrays(int tmax, int nx, int ny, DATA_TYPE POLYBENCH_1D(_fict_, TMAX, 
 			__attribute__((annotate("scalar(range(0, 4194304) final)"))) DATA_TYPE d = a;
 			__attribute__((annotate("scalar(range(0, 4194304) final)"))) DATA_TYPE e = b;
 			__attribute__((annotate("scalar(range(0, 4194304) final)"))) DATA_TYPE f = c;
-			ex[i][j] = d / NX;
-			ey[i][j] = e / NX;
-			hz[i][j] = f / NX;
+			ex[i][j] = d / (NX * NY);
+			ey[i][j] = e / (NX * NY);
+			hz[i][j] = f / (NX * NY);
 		}
 	}
 }
@@ -210,7 +210,9 @@ void cl_load_prog()
 	// Create the OpenCL kernel
 	clKernel3 = clCreateKernel(clProgram, "fdtd_kernel3", &errcode);
 	if(errcode != CL_SUCCESS) printf("Error in creating kernel1\n");
-	clFinish(clCommandQue);
+
+	errcode = clFinish(clCommandQue);
+	if (errcode != CL_SUCCESS) printf("Error in flushing command queue after kernel creation (%d)\n", errcode);
 }
 
 
@@ -230,14 +232,14 @@ void cl_launch_kernel(int tmax, int nx, int ny)
 	{
 		// Set the arguments of the kernel
 		errcode =  clSetKernelArg(clKernel1, 0, sizeof(cl_mem), (void *)&fict_mem_obj);
-		errcode =  clSetKernelArg(clKernel1, 1, sizeof(cl_mem), (void *)&ex_mem_obj);
+		errcode |= clSetKernelArg(clKernel1, 1, sizeof(cl_mem), (void *)&ex_mem_obj);
 		errcode |= clSetKernelArg(clKernel1, 2, sizeof(cl_mem), (void *)&ey_mem_obj);
 		errcode |= clSetKernelArg(clKernel1, 3, sizeof(cl_mem), (void *)&hz_mem_obj);
 		errcode |= clSetKernelArg(clKernel1, 4, sizeof(int), (void *)&t);
 		errcode |= clSetKernelArg(clKernel1, 5, sizeof(int), (void *)&nx);
 		errcode |= clSetKernelArg(clKernel1, 6, sizeof(int), (void *)&ny);
-		
-		if(errcode != CL_SUCCESS) printf("Error in seting arguments1\n");
+		if(errcode != CL_SUCCESS) printf("Error in setting arguments1\n");
+
 		// Execute the OpenCL kernel
 		errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 		if(errcode != CL_SUCCESS) printf("Error in launching kernel1\n");
@@ -249,8 +251,8 @@ void cl_launch_kernel(int tmax, int nx, int ny)
 		errcode |= clSetKernelArg(clKernel2, 2, sizeof(cl_mem), (void *)&hz_mem_obj);
 		errcode |= clSetKernelArg(clKernel2, 3, sizeof(int), (void *)&nx);
 		errcode |= clSetKernelArg(clKernel2, 4, sizeof(int), (void *)&ny);
-		
-		if(errcode != CL_SUCCESS) printf("Error in seting arguments1\n");
+		if(errcode != CL_SUCCESS) printf("Error in setting arguments1\n");
+
 		// Execute the OpenCL kernel
 		errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 		if(errcode != CL_SUCCESS) printf("Error in launching kernel1\n");
@@ -262,12 +264,14 @@ void cl_launch_kernel(int tmax, int nx, int ny)
 		errcode |= clSetKernelArg(clKernel3, 2, sizeof(cl_mem), (void *)&hz_mem_obj);
 		errcode |= clSetKernelArg(clKernel3, 3, sizeof(int), (void *)&nx);
 		errcode |= clSetKernelArg(clKernel3, 4, sizeof(int), (void *)&ny);
-		
-		if(errcode != CL_SUCCESS) printf("Error in seting arguments1\n");
+		if(errcode != CL_SUCCESS) printf("Error in setting arguments1\n");
+
 		// Execute the OpenCL kernel
 		errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel3, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 		if(errcode != CL_SUCCESS) printf("Error in launching kernel1\n");
-		clFinish(clCommandQue);
+
+		errcode = clFinish(clCommandQue);
+		if (errcode != CL_SUCCESS) printf("Error in flushing command queue after launching kernels (%d)\n", errcode);
 	}
 
 	/* Stop and print timer. */
@@ -396,7 +400,7 @@ int main(int argc, char *argv[])
 		polybench_prevent_dce(print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu)));
 
 	#endif //RUN_ON_CPU
-	//print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu));
+	print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu));
 	//print_array(nx, ny, POLYBENCH_ARRAY(hz));
 
 	POLYBENCH_FREE_ARRAY(_fict_);

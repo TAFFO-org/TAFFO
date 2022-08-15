@@ -51,8 +51,12 @@ ${PTXFILE_TAFFO}: ${PTXFILE}
 
 .PHONY: run
 run: ${EXECUTABLE} ${EXECUTABLE_TAFFO}
-	./${EXECUTABLE}
-	./${EXECUTABLE_TAFFO}
+	./${EXECUTABLE} 2> ${EXECUTABLE}.txt
+	./${EXECUTABLE_TAFFO} 2> ${EXECUTABLE_TAFFO}.txt
+
+.PHONY: validate
+validate:
+	@../utilities/validate.py --ref=${EXECUTABLE}.txt --check=${EXECUTABLE_TAFFO}.txt
 
 .PHONY: clean
 clean:

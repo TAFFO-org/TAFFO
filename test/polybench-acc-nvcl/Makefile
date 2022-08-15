@@ -17,3 +17,6 @@ clean:
 run:
 	for b in $(BENCHS); do $(MAKE) -C $$b run; done
 
+.PHONY: validate
+validate:
+	for b in $(BENCHS); do echo "$$b"; $(MAKE) -s -C $$b validate; done

@@ -466,6 +466,8 @@ int main(int argc, char *argv[])
 
 	#endif //RUN_ON_CPU
 
+  print_array(m, POLYBENCH_ARRAY(symmat_outputFromGpu));
+
 	POLYBENCH_FREE_ARRAY(data);
 	POLYBENCH_FREE_ARRAY(mean);
 	POLYBENCH_FREE_ARRAY(stddev);

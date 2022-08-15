@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -357,7 +358,7 @@ int main(int argc, char *argv[])
 		polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_outputFromGpu)));
 
 	#endif //RUN_ON_CPU
-	//print_array(n, POLYBENCH_ARRAY(A_outputFromGpu));
+	print_array(n, POLYBENCH_ARRAY(A_outputFromGpu));
 
 	cl_clean_up();
 
