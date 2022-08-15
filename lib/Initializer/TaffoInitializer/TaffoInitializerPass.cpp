@@ -249,9 +249,15 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 
       LLVM_DEBUG(dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n");
 
+      int OpIdx = -1;
       for (Value *u : inst->operands()) {
+        OpIdx++;
         if (!isa<User>(u) && !isa<Argument>(u)) {
           LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " not a User or an Argument\n");
+          continue;
+        }
+        if (isa<StoreInst>(inst) && OpIdx == 1 && mydepth == 1) {
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is the pointer argument of a store and backtracking depth left is 1, ignoring\n");
           continue;
         }
         if (isa<Function>(u) || isa<BlockAddress>(u)) {
