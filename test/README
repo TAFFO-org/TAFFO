@@ -1,0 +1,23 @@
+cd /home/taffo/taffo_toolchain/2021_taffo/
+source ./test/setenv.sh ./dist/usr/local/
+cd /home/taffo/applications/sources
+taffo -O3 -m32 -o 2mm 2mm.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o 3mm 3mm.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o atax atax.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o bicg bicg.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o cholesky cholesky.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o doitgen doitgen.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o durbin durbin.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o gemm gemm.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o gemver gemver.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o gesummv gesummv.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o gramschmidt gramschmidt.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o lu lu.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o ludcmp ludcmp.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o mvt mvt.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o symm symm.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o syr2k syr2k.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o syrk syrk.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o trisolv trisolv.c -I.
+/home/denisovlev/Projects/TAFFO/test/magiclang2_riscv32_llvm13_AG.sh -O3 -m32 -o trmm trmm.c -I.
+
