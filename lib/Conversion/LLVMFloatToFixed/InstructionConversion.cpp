@@ -650,7 +650,6 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
 
       /* Extend first operand */
       FixedPointType ext1type(SignedRes, Ext1Exp, Size);
-      Type *dbfxt = ext1type.scalarToLLVMType(instr->getContext());
       Value *ext1 = genConvertFixedToFixed(val1, intype1, ext1type, instr);
 
       /* Extend second operand */
