@@ -658,6 +658,9 @@ struct FloatToFixed {
   llvm::Value *ToMulIntrinsic(llvm::Value *val1, llvm::Value *val2, llvm::Instruction *instr, const FixedPointType &result_type);
   FixedPointType ToSigned(const FixedPointType &type);
   llvm::Value *TransformToMulIntrinsicOpSigned(llvm::Value *val1, llvm::Value *val2, const FixedPointType &type1, const FixedPointType &type2, llvm::Instruction *instr, const FixedPointType &result_type);
+  llvm::Value *TransformToDivIntrinsic(llvm::Value *val1, llvm::Value *val2, const FixedPointType &type1, const FixedPointType &type2, llvm::Instruction *instr, const FixedPointType &result_type);
+  llvm::Value *TransformToDivIntrinsicOpSigned(llvm::Value *val1, llvm::Value *val2, const FixedPointType &type1, const FixedPointType &type2, llvm::Instruction *instr, const FixedPointType &result_type);
+  llvm::Value *ToDivIntrinsic(llvm::Value *val1, llvm::Value *val2, llvm::Instruction *instr, const FixedPointType &result_type);
 
 private:
   llvm::ModuleAnalysisManager *MAM;
