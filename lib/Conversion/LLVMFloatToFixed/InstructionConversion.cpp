@@ -593,7 +593,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
                                   TypeMatchPolicy::RangeOverHintMaxInt);
       if (!val1 || !val2)
         return nullptr;
-      return TransformToIntrinsic(val1, val2, intype1, intype2, instr, fixpt);
+      return TransformToMulIntrinsic(val1, val2, intype1, intype2, instr, fixpt);
     } else if (fixpt.isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
                                             instr, TypeMatchPolicy::ForceHint);

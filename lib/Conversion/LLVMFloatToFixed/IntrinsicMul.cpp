@@ -12,13 +12,41 @@ using namespace llvm;
 using namespace taffo;
 using namespace flttofix;
 
+// todo: leave only signed mul intrinsic
+// for that I need to convert the result type to signed and then back to unsigned
+// that will affect the number of fractional bits
+// then I need to support sdiv intrinsic
+// then compile polybench provided by Galimberti with their magiclang script
+
 // this function converts fixed-point arguments to the same format to be used in the intrinsic call
-Value* FloatToFixed::TransformToIntrinsic(Value* val1,
-                        Value* val2,
+Value* FloatToFixed::TransformToMulIntrinsic(Value *val1,
+                                             Value *val2,
                         const FixedPointType& type1,
                         const FixedPointType& type2,
-                        Instruction* instr,
+                                             Instruction *instr,
                         const FixedPointType &result_type) {
+  FixedPointType signedType1 = ToSigned(type1);
+  FixedPointType signedType2 = ToSigned(type2);
+  FixedPointType signedResultType = ToSigned(result_type);
+  Value* signedVal1 = genConvertFixedToFixed(val1, type1, signedType1, instr);
+  Value* signedVal2 = genConvertFixedToFixed(val2, type2, signedType2, instr);
+  return TransformToMulIntrinsicOpSigned(signedVal1, signedVal2, signedType1, signedType2, instr, signedResultType);
+}
+
+FixedPointType FloatToFixed::ToSigned(const FixedPointType& type) {
+  if (type.scalarIsSigned()) return type;
+  int fracBits = type.scalarFracBitsAmt() - 1;
+  fracBits = fracBits < 0 ? 0 : fracBits;
+  FixedPointType signedType(true, fracBits, type.scalarBitsAmt());
+  return signedType;
+}
+
+Value* FloatToFixed::TransformToMulIntrinsicOpSigned(Value *val1,
+                                                     Value *val2,
+                                          const FixedPointType& type1,
+                                          const FixedPointType& type2,
+                                                     Instruction *instr,
+                                          const FixedPointType &result_type) {
   assert(type1.isFixedPoint() && type2.isFixedPoint() && result_type.isFixedPoint() &&
          "can only replace with intrinsic when arguments are fixed-point");
   // ensure that both arguments have the same bit width
@@ -27,9 +55,9 @@ Value* FloatToFixed::TransformToIntrinsic(Value* val1,
   // we need to ensure that both arguments are signed or unsigned
   // in case we have to convert from unsigned into signed we reduce the number of fractional bits by 1
   int new_type1_frac_bits = type1.scalarIsSigned()?
-      type1.scalarFracBitsAmt() : type1.scalarFracBitsAmt() - result_sign_bits;
+                                                   type1.scalarFracBitsAmt() : type1.scalarFracBitsAmt() - result_sign_bits;
   int new_type2_frac_bits = type2.scalarIsSigned()?
-      type2.scalarFracBitsAmt() : type2.scalarFracBitsAmt() - result_sign_bits;
+                                                   type2.scalarFracBitsAmt() : type2.scalarFracBitsAmt() - result_sign_bits;
   // we have to preserve the integer part as best as possible,
   // so result will have the least of its parameters fractional bits count
   int result_frac_bits = std::min(
@@ -41,14 +69,14 @@ Value* FloatToFixed::TransformToIntrinsic(Value* val1,
   Value* ext2 = genConvertFixedToFixed(val2, type2, output_type, instr);
   cpMetaData(ext1, val1);
   cpMetaData(ext2, val2);
-  return ToIntrinsic(ext1, ext2, instr, output_type);
+  return ToMulIntrinsic(ext1, ext2, instr, output_type);
 }
 
 // this function converts the instruction into an intrinsic implementation
 // it expects parameters of the instruction and the result to be of the same fixed-point type
-Value* FloatToFixed::ToIntrinsic(Value* val1,
-                        Value* val2,
-                        Instruction* instr,
+Value* FloatToFixed::ToMulIntrinsic(Value *val1,
+                                    Value *val2,
+                                    Instruction *instr,
                         const FixedPointType &result_type) {
   IRBuilder<> builder(instr);
   // create list of formal argument types

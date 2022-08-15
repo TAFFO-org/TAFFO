@@ -654,8 +654,10 @@ struct FloatToFixed {
 
   void handleKmpcFork(llvm::CallInst *patchedDirectCall, llvm::Function *indirectFunction);
 
-  llvm::Value *TransformToIntrinsic(llvm::Value *val1, llvm::Value *val2, const FixedPointType &type1, const FixedPointType &type2, llvm::Instruction *instr, const FixedPointType &result_type);
-  llvm::Value *ToIntrinsic(llvm::Value *val1, llvm::Value *val2, llvm::Instruction *instr, const FixedPointType &result_type);
+  llvm::Value *TransformToMulIntrinsic(llvm::Value *val1, llvm::Value *val2, const FixedPointType &type1, const FixedPointType &type2, llvm::Instruction *instr, const FixedPointType &result_type);
+  llvm::Value *ToMulIntrinsic(llvm::Value *val1, llvm::Value *val2, llvm::Instruction *instr, const FixedPointType &result_type);
+  FixedPointType ToSigned(const FixedPointType &type);
+  llvm::Value *TransformToMulIntrinsicOpSigned(llvm::Value *val1, llvm::Value *val2, const FixedPointType &type1, const FixedPointType &type2, llvm::Instruction *instr, const FixedPointType &result_type);
 
 private:
   llvm::ModuleAnalysisManager *MAM;
