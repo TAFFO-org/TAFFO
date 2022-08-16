@@ -11,14 +11,11 @@ using namespace llvm;
 using namespace taffo;
 
 
-
 class VRAGlobalStoreTest : public testing::Test
 {
 protected:
   VRAGlobalStore VRAgs;
   llvm::LLVMContext Context;
-
-
 };
 
 TEST_F(VRAGlobalStoreTest, InvalidRange) {
@@ -28,13 +25,13 @@ TEST_F(VRAGlobalStoreTest, InvalidRange) {
   range = nullptr;
   EXPECT_FALSE(VRAgs.isValidRange(range));
 
-  range = new mdutils::Range(NaN,5);
+  range = new mdutils::Range(NaN, 5);
   EXPECT_FALSE(VRAgs.isValidRange(range));
 
-  range = new mdutils::Range(5,NaN);
+  range = new mdutils::Range(5, NaN);
   EXPECT_FALSE(VRAgs.isValidRange(range));
 
-  range = new mdutils::Range(NaN,NaN);
+  range = new mdutils::Range(NaN, NaN);
   EXPECT_FALSE(VRAgs.isValidRange(range));
 }
 
@@ -42,13 +39,13 @@ TEST_F(VRAGlobalStoreTest, ValidRange) {
   mdutils::Range *range;
   double inf = std::numeric_limits<double>::infinity();
 
-  range = new mdutils::Range(5,5);
+  range = new mdutils::Range(5, 5);
   EXPECT_TRUE(VRAgs.isValidRange(range));
 
-  range = new mdutils::Range(-5,5);
+  range = new mdutils::Range(-5, 5);
   EXPECT_TRUE(VRAgs.isValidRange(range));
 
-  range = new mdutils::Range(5,-5);
+  range = new mdutils::Range(5, -5);
   EXPECT_TRUE(VRAgs.isValidRange(range));
 
   range = new mdutils::Range(-inf, inf);
@@ -112,7 +109,7 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_StructPointer) {
   auto *T = llvm::PointerType::get(S, 0);
 
   auto *SI = new mdutils::StructInfo(2);
-  for(int i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     auto IRange = std::make_shared<mdutils::Range>(0, i);
     auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
     SI->setField(i, std::make_shared<mdutils::InputInfo>(*II));
@@ -124,7 +121,7 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_StructPointer) {
   EXPECT_EQ(structNode->getKind(), VRANode::VRAStructNodeK);
 
   int pos = 0;
-  for(auto & f : structNode->fields()) {
+  for (auto &f : structNode->fields()) {
     VRAScalarNode *scalarNode;
     EXPECT_NE(scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(f).get(), nullptr);
     EXPECT_EQ(scalarNode->getRange()->min(), 0);
@@ -142,7 +139,7 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_SimpleStruct) {
   T->setBody({F1, F2});
 
   auto *SI = new mdutils::StructInfo(2);
-  for(int i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     auto IRange = std::make_shared<mdutils::Range>(0, i);
     auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
     SI->setField(i, std::make_shared<mdutils::InputInfo>(*II));
@@ -154,7 +151,7 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_SimpleStruct) {
   EXPECT_EQ(structNode->getKind(), VRANode::VRAStructNodeK);
 
   int pos = 0;
-  for(auto & f : structNode->fields()) {
+  for (auto &f : structNode->fields()) {
     VRAScalarNode *scalarNode;
     EXPECT_NE(scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(f).get(), nullptr);
     EXPECT_EQ(scalarNode->getRange()->min(), 0);
@@ -173,7 +170,7 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_MixedStruct) {
   S_INNER->setBody({F1, F2, F3});
 
   auto *SI_INNER = new mdutils::StructInfo(3);
-  for(int i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; i++) {
     auto IRange = std::make_shared<mdutils::Range>(0, i);
     auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
     SI_INNER->setField(i, std::make_shared<mdutils::InputInfo>(*II));
@@ -201,7 +198,7 @@ TEST_F(VRAGlobalStoreTest, HarvestStructMD_MixedStruct) {
   ASSERT_NE(innerStructNode = std::dynamic_ptr_cast_or_null<VRAStructNode>(innerStruct).get(), nullptr);
   EXPECT_EQ(innerStructNode->getKind(), VRANode::VRAStructNodeK);
   int pos = 0;
-  for(auto & f : innerStructNode->fields()) {
+  for (auto &f : innerStructNode->fields()) {
     VRAScalarNode *scalarNode;
     EXPECT_NE(scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(f).get(), nullptr);
     EXPECT_EQ(scalarNode->getRange()->min(), 0);
@@ -261,7 +258,7 @@ TEST_F(VRAGlobalStoreTest, toMDInfo_Struct) {
   EXPECT_NE(II_OUTER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(SI_OUTER->getField(0)).get(), nullptr);
   EXPECT_EQ(II_OUTER->IRange->Min, 0);
   EXPECT_EQ(II_OUTER->IRange->Max, 2);
-  //EXPECT_FALSE(II_OUTER->IFinal);
+  // EXPECT_FALSE(II_OUTER->IFinal);
   mdutils::StructInfo *SI_INNER;
   EXPECT_NE(SI_INNER = std::dynamic_ptr_cast_or_null<mdutils::StructInfo>(SI_OUTER->getField(1)).get(), nullptr);
   EXPECT_EQ(SI_INNER->size(), 1);
@@ -269,7 +266,236 @@ TEST_F(VRAGlobalStoreTest, toMDInfo_Struct) {
   EXPECT_NE(II_INNER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(SI_INNER->getField(0)).get(), nullptr);
   EXPECT_EQ(II_INNER->IRange->Min, 0);
   EXPECT_EQ(II_INNER->IRange->Max, 1);
-  //EXPECT_TRUE(II_INNER->IFinal);
+  // EXPECT_TRUE(II_INNER->IFinal);
+}
+
+TEST_F(VRAGlobalStoreTest, updateMDInfo_Scalar)
+{
+  range_t range = {0, 1, true};
+  auto *scalarNode = new VRAScalarNode(std::make_shared<range_t>(range));
+  auto IRange = std::make_shared<mdutils::Range>(3, 5);
+  auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
+  auto MDtoUpdate = std::shared_ptr<mdutils::InputInfo>(II);
+  VRAgs.updateMDInfo(MDtoUpdate, std::shared_ptr<VRAScalarNode>(scalarNode));
+
+  EXPECT_EQ(II->IRange->Min, 0);
+  EXPECT_EQ(II->IRange->Max, 1);
+  // EXPECT_TRUE(II->IFinal);
+}
+
+TEST_F(VRAGlobalStoreTest, updateMDInfo_Struct)
+{
+  auto *structInner = new VRAStructNode();
+  range_t r_inner = {0, 1, true};
+  auto *scalarInner = new VRAScalarNode(std::make_shared<range_t>(r_inner));
+  structInner->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarInner));
+  auto *structOuter = new VRAStructNode();
+  range_t r_outer = {2, 3, false};
+  auto *scalarOuter = new VRAScalarNode(std::make_shared<range_t>(r_outer));
+  structOuter->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter));
+  structOuter->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner));
+
+  auto *SI = new mdutils::StructInfo(2);
+  SI->setField(0, std::make_shared<mdutils::InputInfo>(nullptr, std::make_shared<mdutils::Range>(4, 5), nullptr, false, true));
+  auto *SI_INNER = new mdutils::StructInfo(1);
+  SI_INNER->setField(0, std::make_shared<mdutils::InputInfo>(nullptr, std::make_shared<mdutils::Range>(6, 7), nullptr, false, true));
+  SI->setField(1, std::make_shared<mdutils::StructInfo>(*SI_INNER));
+  auto MDtoUpdate = std::shared_ptr<mdutils::StructInfo>(SI);
+
+  VRAgs.updateMDInfo(MDtoUpdate, std::shared_ptr<VRAStructNode>(structOuter));
+
+  EXPECT_EQ(MDtoUpdate->size(), 2);
+  mdutils::InputInfo *II_OUTER;
+  EXPECT_NE(II_OUTER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(MDtoUpdate->getField(0)).get(), nullptr);
+  EXPECT_EQ(II_OUTER->IRange->Min, 2);
+  EXPECT_EQ(II_OUTER->IRange->Max, 3);
+  // EXPECT_FALSE(II_OUTER->IFinal);
+  mdutils::StructInfo *SI_INNER_NEW;
+  EXPECT_NE(SI_INNER_NEW = std::dynamic_ptr_cast_or_null<mdutils::StructInfo>(MDtoUpdate->getField(1)).get(), nullptr);
+  EXPECT_EQ(SI_INNER_NEW->size(), 1);
+  mdutils::InputInfo *II_INNER;
+  EXPECT_NE(II_INNER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(SI_INNER_NEW->getField(0)).get(), nullptr);
+  EXPECT_EQ(II_INNER->IRange->Min, 0);
+  EXPECT_EQ(II_INNER->IRange->Max, 1);
+  // EXPECT_TRUE(II_INNER->IFinal);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_Integer) {
+  auto *k = llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 42);
+  auto retval = VRAgs.fetchConstant(k);
+
+  VRAScalarNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+  EXPECT_EQ(kval->getRange()->min(), 42);
+  EXPECT_EQ(kval->getRange()->max(), 42);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_FP) {
+  // FIXME: apparently 3.1415 != 3.1415, GTest wtf
+  num_t PI = 3.1415e+00;
+  auto *k = llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), PI);
+  auto retval = VRAgs.fetchConstant(k);
+
+  VRAScalarNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+  EXPECT_EQ(kval->getRange()->min(), PI);
+  EXPECT_EQ(kval->getRange()->max(), PI);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_TokenNone) {
+    auto *k = llvm::ConstantTokenNone::get(Context);
+    auto retval = VRAgs.fetchConstant(k);
+
+    VRAScalarNode *kval;
+    ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+    EXPECT_EQ(kval->getRange()->min(), 0);
+    EXPECT_EQ(kval->getRange()->max(), 0);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_PointerNull) {
+    auto *k = llvm::ConstantPointerNull::get(llvm::Type::getInt32Ty(Context)->getPointerTo());
+    auto retval = VRAgs.fetchConstant(k);
+
+    VRAPtrNode *kval;
+    ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAPtrNode>(retval).get(), nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_UndefValue) {
+  auto *k = llvm::UndefValue::get(llvm::Type::getInt32Ty(Context));
+  auto retval = VRAgs.fetchConstant(k);
+  ASSERT_EQ(retval, nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateZeroStruct) {
+  auto *s_inner = llvm::StructType::create(Context, {llvm::Type::getInt32Ty(Context)});
+  auto *s = llvm::StructType::create(Context, {llvm::Type::getInt32Ty(Context), s_inner});
+  auto *k = llvm::ConstantAggregateZero::get(s);
+  auto retval = VRAgs.fetchConstant(k);
+
+  VRAStructNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAStructNode>(retval).get(), nullptr);
+  VRAScalarNode *outerScalar;
+  EXPECT_NE(outerScalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(kval->fields()[0]).get(), nullptr);
+  EXPECT_EQ(outerScalar->getRange()->min(), 0);
+  EXPECT_EQ(outerScalar->getRange()->max(), 0);
+  VRAStructNode *structInner;
+  EXPECT_NE(structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(kval->fields()[1]).get(), nullptr);
+  EXPECT_EQ(structInner->fields().size(), 1);
+  VRAScalarNode *scalarInner;
+  EXPECT_NE(scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structInner->fields()[0]).get(), nullptr);
+  EXPECT_EQ(scalarInner->getRange()->min(), 0);
+  EXPECT_EQ(scalarInner->getRange()->max(), 0);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateZeroArray) {
+  auto *v = llvm::ArrayType::get(llvm::Type::getInt32Ty(Context), 2);
+  auto *k = llvm::ConstantAggregateZero::get(v);
+  auto retval = VRAgs.fetchConstant(k);
+
+  VRAScalarNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+  EXPECT_EQ(kval->getRange()->min(), 0);
+  EXPECT_EQ(kval->getRange()->max(), 0);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateZeroVector) {
+  auto *v = llvm::VectorType::get(llvm::Type::getInt32Ty(Context), 2, false);
+  auto *k = llvm::ConstantAggregateZero::get(v);
+  auto retval = VRAgs.fetchConstant(k);
+
+  VRAScalarNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+  EXPECT_EQ(kval->getRange()->min(), 0);
+  EXPECT_EQ(kval->getRange()->max(), 0);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_DataSequential) {
+  /*
+  auto *v = llvm::ArrayType::get(llvm::Type::getInt32Ty(Context), 2);
+  //auto *v_init = llvm::ConstantArray::get(v, {llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), 3.1415), llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), 2.718)});
+  float init[2] = {3.1415, 2.718};
+  auto arrayRef = new llvm::ArrayRef<float>(init, 2);
+  auto *k = llvm::ConstantDataArray::get(Context, arrayRef);
+  auto retval = VRAgs.fetchConstant(k);
+
+
+  VRAScalarNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+  EXPECT_EQ(kval->getRange()->min(), 2.718);
+  EXPECT_EQ(kval->getRange()->max(), 3.1415);
+   */
+  //FIXME understand how to create a ConstantDataArray object without crying
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_GEPExpr) {
+  // TODO: write test
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateStruct) {
+  //FIXME: write once implemented
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateArray) {
+  auto *v = llvm::ArrayType::get(llvm::Type::getInt32Ty(Context), 2);
+  auto *k = llvm::ConstantArray::get(v, {llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1), llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 2)});
+  auto retval = VRAgs.fetchConstant(k);
+
+  VRAScalarNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
+  EXPECT_EQ(kval->getRange()->min(), 1);
+  EXPECT_EQ(kval->getRange()->max(), 2);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_GlobalVariable) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto globalVar = new llvm::GlobalVariable(*M, llvm::Type::getInt32Ty(Context), false, llvm::GlobalValue::ExternalLinkage, llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 42), "globalVar");
+  auto retval = VRAgs.fetchConstant(globalVar);
+
+  VRAPtrNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAPtrNode>(retval).get(), nullptr);
+  VRAScalarNode *scalar;
+  EXPECT_NE(scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(kval->getParent()).get(), nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 42);
+  EXPECT_EQ(scalar->getRange()->max(), 42);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_GlobalVariableNotInit) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto globalVar = new llvm::GlobalVariable(*M, llvm::Type::getInt32Ty(Context), false, llvm::GlobalValue::ExternalLinkage, nullptr, "globalVar");
+  auto retval = VRAgs.fetchConstant(globalVar);
+
+  ASSERT_EQ(retval, nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_GlobalAlias) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto k = new llvm::GlobalVariable(*M, llvm::Type::getInt32Ty(Context), false, llvm::GlobalValue::ExternalLinkage, llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 42), "globalVar");
+  auto alias = llvm::GlobalAlias::create(llvm::Type::getInt32Ty(Context), 0U, llvm::GlobalValue::ExternalLinkage, "alias", k);
+  auto retval = VRAgs.fetchConstant(alias);
+
+  VRAPtrNode *kval;
+  ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAPtrNode>(retval).get(), nullptr);
+  VRAScalarNode *scalar;
+  EXPECT_NE(scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(kval->getParent()).get(), nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 42);
+  EXPECT_EQ(scalar->getRange()->max(), 42);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_Function) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto func = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(Context), false), llvm::GlobalValue::ExternalLinkage, "func", M.get());
+  auto retval = VRAgs.fetchConstant(func);
+
+  ASSERT_EQ(retval, nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchConstant_GlobalIFunc) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto func = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt32Ty(Context), false), llvm::GlobalValue::ExternalLinkage, "func", M.get());
+  auto ifunc = llvm::GlobalIFunc::create(llvm::Type::getInt32Ty(Context), 0U, llvm::GlobalValue::ExternalLinkage, "ifunc", func, M.get());
+  auto retval = VRAgs.fetchConstant(ifunc);
+
+  ASSERT_EQ(retval, nullptr);
 }
 
 }
