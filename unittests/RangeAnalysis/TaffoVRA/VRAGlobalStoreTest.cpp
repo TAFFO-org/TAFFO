@@ -496,4 +496,41 @@ TEST_F(VRAGlobalStoreTest, fetchConstant_GlobalIFunc) {
   ASSERT_EQ(retval, nullptr);
 }
 
+
+TEST_F(VRAGlobalStoreTest, setConstRangeMD_noFP) {
+  auto &MDM = mdutils::MetadataManager::getMetadataManager();
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto F = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(Context), false), llvm::GlobalValue::ExternalLinkage, "func", M.get());
+  auto BB = llvm::BasicBlock::Create(Context, "", F);
+  auto op1 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1);
+  auto op2 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 2);
+  auto i = llvm::BinaryOperator::Create(llvm::Instruction::Add, op1, op2, "sum", BB);
+  VRAGlobalStore::setConstRangeMetadata(MDM, *i);
+
+  SmallVector<mdutils::InputInfo*, 2U> II;
+  MDM.retrieveConstInfo(*i, II);
+  ASSERT_EQ(II.size(), 2);
+  EXPECT_EQ(II[0], nullptr);
+  EXPECT_EQ(II[1], nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, setConstRangeMD_FP) {
+  auto &MDM = mdutils::MetadataManager::getMetadataManager();
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto F = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(Context), false), llvm::GlobalValue::ExternalLinkage, "func", M.get());
+  auto BB = llvm::BasicBlock::Create(Context, "", F);
+  auto op1 = llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), 3.1415);
+  auto op2 = llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), 2.7182);
+  auto i = llvm::BinaryOperator::Create(llvm::Instruction::FAdd, op1, op2, "fsum", BB);
+  VRAGlobalStore::setConstRangeMetadata(MDM, *i);
+
+  SmallVector<mdutils::InputInfo*, 2U> II;
+  MDM.retrieveConstInfo(*i, II);
+  ASSERT_EQ(II.size(), 2);
+  EXPECT_FLOAT_EQ(II[0]->IRange->Min, 3.1415);
+  EXPECT_FLOAT_EQ(II[0]->IRange->Max, 3.1415);
+  EXPECT_FLOAT_EQ(II[1]->IRange->Min, 2.7182);
+  EXPECT_FLOAT_EQ(II[1]->IRange->Max, 2.7182);
+}
+
 }
