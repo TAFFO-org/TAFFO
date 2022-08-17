@@ -52,6 +52,9 @@
  * Used by VRA to determine the metadata to use as a starting point. */
 #define INIT_WEIGHT_METADATA "taffo.initweight"
 
+#define INIT_BUFFER_ID_METADATA "taffo.bufferid"
+#define INIT_FUN_ARGS_BUFFER_ID_METADATA "taffo.args.bufferid"
+
 #define PRA_ERROR_METADATA "taffo.praerr"
 #define PRA_STRUCT_METADATA "taffo.prastruct"
 
@@ -130,6 +133,9 @@ public:
 
   static void setOpenCLCloneTrampolineMetadata(llvm::Function *F, llvm::Function *KernF);
   static bool retrieveOpenCLCloneTrampolineMetadata(llvm::Function *f, llvm::Function **KernF);
+
+  static void setBufferIDMetadata(llvm::Value *V, std::string BufID);
+  static llvm::Optional<std::string> retrieveBufferIDMetadata(llvm::Value *V);
 
   ///\section Error Propagation Metadata
 

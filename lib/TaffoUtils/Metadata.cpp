@@ -13,8 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Metadata.h"
-//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
-
 #include <sstream>
 
 namespace mdutils
@@ -272,6 +270,61 @@ bool MetadataManager::retrieveOpenCLCloneTrampolineMetadata(Function *F, Functio
   if (KernF)
     *KernF = OutF;
   return true;
+}
+
+void MetadataManager::setBufferIDMetadata(Value *V, std::string BufID)
+{
+  Metadata *TheString = MDString::get(V->getContext(), BufID);
+
+  if (Argument *Arg = dyn_cast<Argument>(V)) {
+    Function *F = Arg->getParent();
+    MDNode *Node = F->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    SmallVector<Metadata *> MDs;
+    if (!Node) {
+      MDs = SmallVector<Metadata *>(F->arg_size(), nullptr);
+    } else {
+      MDs = SmallVector<Metadata *>(Node->op_begin(), Node->op_end());
+    }
+    MDs[Arg->getArgNo()] = TheString;
+    MDNode *NewNode = MDTuple::get(V->getContext(), MDs);
+    F->setMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA, NewNode);
+  } else {
+    MDNode *NewNode = MDNode::get(V->getContext(), {TheString});
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      I->setMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA, NewNode);
+    } else if (GlobalObject *GO = dyn_cast<GlobalObject>(V)) {
+      GO->setMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA, NewNode);
+    } else {
+      llvm_unreachable("attempted to attach metadata to unsupported value type");
+    }
+  }
+}
+
+Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
+{
+  MDString *String;
+
+  if (Argument *Arg = dyn_cast<Argument>(V)) {
+    Function *F = Arg->getParent();
+    MDNode *Node = F->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    if (!Node || Node->getNumOperands() != F->arg_size())
+      return Optional<std::string>();
+    String = dyn_cast_or_null<MDString>(Node->getOperand(Arg->getArgNo()));
+  } else {
+    MDNode *Node;
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      Node = I->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    } else if (GlobalObject *GO = dyn_cast<GlobalObject>(V)) {
+      Node = GO->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    } else {
+      llvm_unreachable("attempted to attach metadata to unsupported value type");
+    }
+    String = dyn_cast_or_null<MDString>(Node->getOperand(0U));
+  }
+
+  if (String)
+    return Optional<std::string>(std::string(String->getString()));
+  return Optional<std::string>();
 }
 
 void MetadataManager::setInputInfoInitWeightMetadata(llvm::Function *f,
