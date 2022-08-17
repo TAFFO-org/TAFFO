@@ -75,7 +75,6 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, Optional
     return;
   }
   
-  
   CallI->eraseFromParent();
 }
 

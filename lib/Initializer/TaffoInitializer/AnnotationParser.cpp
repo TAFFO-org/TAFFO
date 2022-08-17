@@ -157,6 +157,16 @@ bool AnnotationParser::parseNewSyntax()
       if (!parseScalar(metadata))
         return false;
 
+    } else if (peek("bufferid")) {
+      std::string bid;
+      if (!expect("("))
+        return false;
+      if (!expectString(bid))
+        return false;
+      if (!expect(")"))
+        return false;
+      bufferID = bid;
+
     } else {
       error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
       return false;

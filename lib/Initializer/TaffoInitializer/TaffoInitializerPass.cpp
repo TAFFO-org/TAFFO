@@ -109,6 +109,9 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo &vi)
 {
   std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
 
+  if (vi.bufferID) {
+    mdutils::MetadataManager::setBufferIDMetadata(v, *(vi.bufferID));
+  }
   if (isa<Instruction>(v) || isa<GlobalObject>(v)) {
     mdutils::MetadataManager::setInputInfoInitWeightMetadata(v, vi.fixpTypeRootDistance);
   }
@@ -155,6 +158,9 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT &Q)
       if (Q.count(&a)) {
         LLVM_DEBUG(dbgs() << "Info found.\n");
         ValueInfo &vi = Q[&a];
+        if (vi.bufferID) {
+          mdutils::MetadataManager::setBufferIDMetadata(&a, *(vi.bufferID));
+        }
         ii = vi.metadata.get();
         weight = vi.fixpTypeRootDistance;
       }
@@ -355,6 +361,7 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
   if (std::shared_ptr<mdutils::MDInfo> gepi_mdi =
           extractGEPIMetadata(user, used, uinfo.metadata, vinfo.metadata)) {
     uinfo.metadata = gepi_mdi;
+    uinfo.bufferID = vinfo.bufferID;
   }
 }
 

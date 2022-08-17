@@ -50,6 +50,7 @@ public:
   bool backtracking;
   unsigned int backtrackingDepth;
   std::shared_ptr<mdutils::MDInfo> metadata;
+  llvm::Optional<std::string> bufferID;
 
   bool parseAnnotationString(llvm::StringRef annString);
   llvm::StringRef lastError();

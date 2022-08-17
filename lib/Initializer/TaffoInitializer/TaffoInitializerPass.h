@@ -32,6 +32,7 @@ struct ValueInfo {
 
   std::shared_ptr<mdutils::MDInfo> metadata;
   llvm::Optional<std::string> target;
+  llvm::Optional<std::string> bufferID;
 };
 
 
