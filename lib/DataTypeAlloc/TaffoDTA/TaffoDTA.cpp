@@ -210,7 +210,7 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
     else if (UseFloat == "bf16")
       standard = mdutils::FloatType::Float_bfloat;
     else {
-      errs() << "[DTA] Specified invalid format " << UseFloat << " to the -usefloat argument.\n";
+      errs() << "[DTA] Invalid format " << UseFloat << " specified to the -usefloat argument.\n";
       abort();
     }
     //auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
