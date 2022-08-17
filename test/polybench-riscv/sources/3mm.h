@@ -88,7 +88,7 @@
 #endif
 
 #ifdef DATA_TYPE_IS_FLOAT
-#  define DATA_TYPE __attribute((annotate("scalar(range(-128, 128))"))) float
+#  define DATA_TYPE __attribute((annotate("scalar(range(-8388608, 8388607))"))) float
 #  define DATA_PRINTF_MODIFIER "%0.2f "
 #  define SCALAR_VAL(x) x##f
 #  define SQRT_FUN(x) sqrtf_PB(x)

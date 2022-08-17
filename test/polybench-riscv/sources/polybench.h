@@ -38,19 +38,19 @@
 
 // Floating-point square root computation function
 // Taken by VGM-Bench, seems to be better than old one
-__attribute((annotate("scalar(range(-128, 128))"))) float sqrtf_PB(__attribute((annotate("scalar(range(-128, 128))"))) float val)
+__attribute((annotate("scalar(range(-8388608, 8388607))"))) float sqrtf_PB(__attribute((annotate("scalar(range(-8388608, 8388607))"))) float val)
 {
-  __attribute((annotate("scalar(range(-128, 128))"))) float x = val/10.0f;
+  __attribute((annotate("scalar(range(-8388608, 8388607))"))) float x = val/10.0f;
 
-  __attribute((annotate("scalar(range(-128, 128))"))) float dx;
+  __attribute((annotate("scalar(range(-8388608, 8388607))"))) float dx;
 
-  __attribute((annotate("scalar(range(-128, 128))"))) float diff;
-  __attribute((annotate("scalar(range(-128, 128))"))) float min_tol = 0.001f;
+  __attribute((annotate("scalar(range(-8388608, 8388607))"))) float diff;
+  __attribute((annotate("scalar(range(-8388608, 8388607))"))) float min_tol = 0.001f;
 
   int i, flag;
 
-  __attribute((annotate("scalar(range(-128, 128))"))) float constZeroVal = 0.0f;
-  __attribute((annotate("scalar(range(-128, 128))"))) float constTwoVal = 2.0f;
+  __attribute((annotate("scalar(range(-8388608, 8388607))"))) float constZeroVal = 0.0f;
+  __attribute((annotate("scalar(range(-8388608, 8388607))"))) float constTwoVal = 2.0f;
 
   flag = 0;
   if (val == constZeroVal)
