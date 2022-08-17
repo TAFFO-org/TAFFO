@@ -331,15 +331,13 @@ TEST_F(VRAGlobalStoreTest, fetchConstant_Integer) {
 }
 
 TEST_F(VRAGlobalStoreTest, fetchConstant_FP) {
-  // FIXME: apparently 3.1415 != 3.1415, GTest wtf
-  num_t PI = 3.1415e+00;
-  auto *k = llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), PI);
+  auto *k = llvm::ConstantFP::get(llvm::Type::getFloatTy(Context), 3.1415);
   auto retval = VRAgs.fetchConstant(k);
 
   VRAScalarNode *kval;
   ASSERT_NE(kval = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval).get(), nullptr);
-  EXPECT_EQ(kval->getRange()->min(), PI);
-  EXPECT_EQ(kval->getRange()->max(), PI);
+  EXPECT_FLOAT_EQ(kval->getRange()->min(), 3.1415);
+  EXPECT_FLOAT_EQ(kval->getRange()->max(), 3.1415);
 }
 
 TEST_F(VRAGlobalStoreTest, fetchConstant_TokenNone) {
