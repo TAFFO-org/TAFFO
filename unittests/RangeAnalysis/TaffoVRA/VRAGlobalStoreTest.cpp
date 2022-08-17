@@ -533,4 +533,139 @@ TEST_F(VRAGlobalStoreTest, setConstRangeMD_FP) {
   EXPECT_FLOAT_EQ(II[1]->IRange->Max, 2.7182);
 }
 
+
+TEST_F(VRAGlobalStoreTest, harvestMD_globalScalar) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto globalVar = new llvm::GlobalVariable(*M, llvm::Type::getInt32Ty(Context), false, llvm::GlobalValue::ExternalLinkage, nullptr, "globalVar");
+  auto IRange = std::make_shared<mdutils::Range>(0, 1);
+  auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
+  mdutils::MetadataManager::setInputInfoMetadata(*globalVar, *II);
+  VRAgs.harvestMetadata(*M);
+
+  auto retUI = VRAgs.getUserInput(globalVar);
+  auto UI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retUI);
+  ASSERT_NE(UI, nullptr);
+  EXPECT_EQ(UI->getRange()->min(), 0);
+  EXPECT_EQ(UI->getRange()->max(), 1);
+  EXPECT_TRUE(UI->isFinal());
+
+  auto retDR = VRAgs.getNode(globalVar);
+  ASSERT_NE(retDR, nullptr);
+  auto DR = std::dynamic_ptr_cast_or_null<VRAPtrNode>(retDR);
+  ASSERT_NE(DR, nullptr);
+  auto range = std::dynamic_ptr_cast_or_null<VRAScalarNode>(DR->getParent());
+  ASSERT_NE(range, nullptr);
+  EXPECT_EQ(range->getRange()->min(), 0);
+  EXPECT_EQ(range->getRange()->max(), 1);
+  EXPECT_TRUE(range->isFinal());
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_globalStruct) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto *T = llvm::StructType::create(Context, "struct");
+  auto *F1 = llvm::Type::getFloatTy(Context);
+  auto *F2 = llvm::Type::getFloatTy(Context);
+  T->setBody({F1, F2});
+
+  auto *SI = new mdutils::StructInfo(2);
+  for (int i = 0; i < 2; i++) {
+    auto IRange = std::make_shared<mdutils::Range>(0, i);
+    auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
+    SI->setField(i, std::make_shared<mdutils::InputInfo>(*II));
+  }
+  auto globalVar = new llvm::GlobalVariable(*M, T, false, llvm::GlobalValue::ExternalLinkage, nullptr, "globalVar");
+  mdutils::MetadataManager::setStructInfoMetadata(*globalVar, *SI);
+  VRAgs.harvestMetadata(*M);
+
+  auto retUI = VRAgs.getUserInput(globalVar);
+  auto UI = std::dynamic_ptr_cast_or_null<VRAStructNode>(retUI);
+  ASSERT_NE(UI, nullptr);
+  ASSERT_EQ(UI->fields().size(), 2);
+  auto field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(UI->fields()[0]);
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 0);
+  EXPECT_TRUE(field->isFinal());
+  field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(UI->fields()[1]);
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 1);
+  EXPECT_TRUE(field->isFinal());
+
+  auto retDR = VRAgs.getNode(globalVar);
+  auto DR = std::dynamic_ptr_cast_or_null<VRAStructNode>(retDR);
+  ASSERT_NE(DR, nullptr);
+  ASSERT_EQ(DR->fields().size(), 2);
+  field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(DR->fields()[0]);
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 0);
+  EXPECT_TRUE(field->isFinal());
+  field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(DR->fields()[1]);
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 1);
+  EXPECT_TRUE(field->isFinal());
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_globalStructDerived) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+    auto *T = llvm::StructType::create(Context, "struct");
+    auto *F1 = llvm::Type::getFloatTy(Context);
+    auto *F2 = llvm::Type::getFloatTy(Context);
+    T->setBody({F1, F2});
+    auto *SI = new mdutils::StructInfo(2);
+    for (int i = 0; i < 2; i++) {
+      auto IRange = std::make_shared<mdutils::Range>(0, i);
+      auto *II = new mdutils::InputInfo(nullptr, IRange, nullptr, false, true);
+      SI->setField(i, std::make_shared<mdutils::InputInfo>(*II));
+    }
+    auto globalVar = new llvm::GlobalVariable(*M, T, false, llvm::GlobalValue::ExternalLinkage, nullptr, "globalVar");
+    VRAgs.harvestMetadata(*M);
+
+    auto retUI = VRAgs.getUserInput(globalVar);
+    auto UI = std::dynamic_ptr_cast_or_null<VRAStructNode>(retUI);
+    ASSERT_EQ(UI, nullptr);
+
+    auto retDR = VRAgs.getNode(globalVar);
+    auto DR = std::dynamic_ptr_cast_or_null<VRAStructNode>(retDR);
+    ASSERT_NE(DR, nullptr);
+    ASSERT_EQ(DR->fields().size(), 0);
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_globalScalarDerived) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto globalVar = new llvm::GlobalVariable(*M, llvm::Type::getInt32Ty(Context), false, llvm::GlobalValue::ExternalLinkage, nullptr, "globalVar");
+  VRAgs.harvestMetadata(*M);
+
+  auto retUI = VRAgs.getUserInput(globalVar);
+  ASSERT_EQ(retUI, nullptr);
+
+  auto retDR = VRAgs.getNode(globalVar);
+  ASSERT_NE(retDR, nullptr);
+  auto DR = std::dynamic_ptr_cast_or_null<VRAPtrNode>(retDR);
+  EXPECT_NE(DR, nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_globalScalarConstant) {
+    auto M = std::make_unique<llvm::Module>("test", Context);
+    auto value = llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 42);
+    auto globalVar = new llvm::GlobalVariable(*M, llvm::Type::getInt32Ty(Context), false, llvm::GlobalValue::ExternalLinkage, value, "globalVar");
+    VRAgs.harvestMetadata(*M);
+
+    auto retUI = VRAgs.getUserInput(globalVar);
+    ASSERT_EQ(retUI, nullptr);
+    auto retDR = VRAgs.getNode(globalVar);
+    ASSERT_NE(retDR, nullptr);
+    auto DRptr = std::dynamic_ptr_cast_or_null<VRAPtrNode>(retDR);
+    ASSERT_NE(DRptr, nullptr);
+    auto DR = std::dynamic_ptr_cast_or_null<VRAScalarNode>(DRptr->getParent());
+    EXPECT_EQ(DR->getRange()->min(), 42);
+    EXPECT_EQ(DR->getRange()->max(), 42);
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_globalScalarConstant2) {
+  //TODO: check if it is actually possible to have a GlobalValue of kind VRAScalarNodeK
+}
+
 }
