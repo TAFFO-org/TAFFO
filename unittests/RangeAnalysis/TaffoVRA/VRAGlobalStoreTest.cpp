@@ -668,4 +668,47 @@ TEST_F(VRAGlobalStoreTest, harvestMD_globalScalarConstant2) {
   //TODO: check if it is actually possible to have a GlobalValue of kind VRAScalarNodeK
 }
 
+TEST_F(VRAGlobalStoreTest, harvestMD_functionParametersNoWeight) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto args = std::vector<llvm::Type*>{llvm::Type::getInt32Ty(Context), llvm::Type::getInt32Ty(Context)};
+  auto *F = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(Context), args, false), llvm::Function::ExternalLinkage, "func", M.get());
+  auto BB = llvm::BasicBlock::Create(Context, "", F);
+  auto argsMD = std::vector<mdutils::MDInfo*>{new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(0, 1), nullptr, false, true), new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(0, 2), nullptr, false, true)};
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, argsMD);
+  VRAgs.harvestMetadata(*M);
+
+  int ctr = 1;
+  for (auto &arg : F->args()) {
+    auto retUI = VRAgs.getUserInput(&arg);
+    ASSERT_NE(retUI, nullptr);
+    auto UI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retUI);
+    ASSERT_NE(UI, nullptr);
+    EXPECT_EQ(UI->getRange()->min(), 0);
+    EXPECT_EQ(UI->getRange()->max(), ctr);
+    ctr++;
+  }
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_functionParametersInitWeight) {
+  auto M = std::make_unique<llvm::Module>("test", Context);
+  auto args = std::vector<llvm::Type*>{llvm::Type::getInt32Ty(Context), llvm::Type::getInt32Ty(Context)};
+  auto *F = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(Context), args, false), llvm::Function::ExternalLinkage, "func", M.get());
+  auto BB = llvm::BasicBlock::Create(Context, "", F);
+  auto argsMD = std::vector<mdutils::MDInfo*>{new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(0, 1), nullptr, false, true), new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(0, 2), nullptr, false, true)};
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, argsMD);
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(F, std::vector<int>{1, 2});
+  VRAgs.harvestMetadata(*M);
+
+  auto arg = F->args().begin();
+  auto retUI = VRAgs.getUserInput(arg);
+  ASSERT_NE(retUI, nullptr);
+  auto UI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retUI);
+  ASSERT_NE(UI, nullptr);
+  EXPECT_EQ(UI->getRange()->min(), 0);
+  EXPECT_EQ(UI->getRange()->max(), 1);
+  arg++;
+  retUI = VRAgs.getUserInput(arg);
+  EXPECT_EQ(retUI, nullptr);
+}
+
 }
