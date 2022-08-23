@@ -10,8 +10,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-#include "TaffoInitializer/AnnotationParser.h"
-
 /// Creates a llvm::Module object starting from a LLVM-IR string.
 static std::unique_ptr<llvm::Module> makeLLVMModule(llvm::LLVMContext &Context, const std::string &code)
 {
@@ -29,46 +27,43 @@ static void FatalErrorHandler(void *user_data, const std::string &reason, bool g
 }
 
 /**
- * Creates and returns a global variable with the required annotations
- *
- * @param[out] ret
- * @param[in] type the type of the variable (only float for now)
- * @param[in] name the variable name
- * @param[in] anno the annotation string
+ * Generates a InputInfo object
+ * @param[in] min the Min value of the IRange
+ * @param[in] max the Max value of the IRange
+ * @param[in] isFinal
+ * @return
  */
-static void generateGlobalVariable(taffo::MultiValueMap<llvm::Value*, taffo::ValueInfo> ret, const std::string& type, const std::string& name, const std::string& anno) {
-  std::string code;
-  std::string filename = "filename.c";
-  std::string annoLen = std::to_string(anno.length()+1);
-  std::string nameLen = std::to_string(name.length()+1);
-  std::string fileLen = std::to_string(filename.length()+1);
+static mdutils::InputInfo*genII(double min, double max, bool isFinal=false) {
+  return new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(min, max), nullptr, false, isFinal);
+}
 
-  //TODO: generalize? if needed
-  std::string initVal = "0.000000e+00";
-  std::string align = "4";
+/**
+ * Generates a Function
+ * @param[in] M the Module to add the Function to
+ * @param[in] retType
+ * @param[in] params
+ * @return
+ */
+static llvm::Function* genFunction(llvm::Module &M, llvm::Type* retType, llvm::ArrayRef<llvm::Type*> params={}) {
+  llvm::FunctionType* FT = llvm::FunctionType::get(retType, params, false);
+  llvm::Function* F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "fun", &M);
+  return F;
+}
 
-  code += "@" + name + " = dso_local global " + type + " " + initVal + ", align " + align + "\n";
-  code += "@.str = private unnamed_addr constant [" + annoLen + R"( x i8] c")" + anno + R"(\00", section "llvm.metadata")" + "\n";
-  code += "@.str.1 = private unnamed_addr constant [" + fileLen + R"( x i8] c")" + filename + R"(\00", section "llvm.metadata")" + "\n";
-  code += "@llvm.global.annotations = appending global\n  [1 x { i8*, i8*, i8*, i32, i8* }]\n [{ i8*, i8*, i8*, i32, i8* } {\n";
-  code += "i8* bitcast (" + type +"* @" + name + " to i8*), \n";
-  code += "i8* getelemptr inbounds ([" + annoLen + " x 18], [" + annoLen + " x i8]* @.str, i32 0, i32 0),\n";
-  code += "i8* getelemptr inbounds ([" + fileLen + " x 18], [" + fileLen + " x i8]* @.str1, i32 0, i32 0),\n";
-  code += R"(i32 1, i8* null}], section "llvm.metadata")";
-  code += "define dso_local i32 @main() #0 {ret i32 0}";
+static llvm::GlobalVariable* genGlobalVariable(llvm::Module &M, llvm::Type *T, llvm::Constant *init =nullptr, bool isConstant=false) {
+  return new llvm::GlobalVariable(M, T, isConstant, llvm::GlobalValue::ExternalLinkage, init, "var");
+}
 
-  llvm::LLVMContext C;
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(C, code);
+static llvm::GlobalVariable* genGlobalVariable(llvm::Module &M, llvm::Type *T, int init, bool isConstant=false) {
+  if (T->isIntegerTy())
+    return genGlobalVariable(M, T, llvm::ConstantInt::get(T, init), isConstant);
+  llvm::dbgs() << "Type and initial value not compatible\n";
+  return nullptr;
+}
 
-  llvm::Value* v;
-  taffo::ValueInfo vi;
-  v = M->getGlobalVariable(name);
-
-  taffo::AnnotationParser parser;
-  parser.parseAnnotationString(code);
-  vi.backtrackingDepthLeft = parser.backtracking ? parser.backtrackingDepth : 0;
-  vi.target = parser.target;
-  vi.metadata = parser.metadata;
-
-  ret.insert(ret.begin(), v, vi);
+static llvm::GlobalVariable* genGlobalVariable(llvm::Module &M, llvm::Type *T, double init, bool isConstant=false) {
+  if (T->isFloatTy() || T->isDoubleTy())
+    return genGlobalVariable(M, T, llvm::ConstantFP::get(T, init), isConstant);
+  llvm::dbgs() << "Type and initial value not compatible\n";
+  return nullptr;
 }
