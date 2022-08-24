@@ -435,4 +435,72 @@ TEST_F(RangeOperationsTest, unionRange_struct) {
     EXPECT_EQ(scalarInnerP->getRange()->min(), 0.0);
     EXPECT_EQ(scalarInnerP->getRange()->max(), 1.0);
 }
+
+TEST_F(RangeOperationsTest, fillRangeHoles_struct) {
+  // TODO: ask questions on how this is supposed to work, just to be sure
+  auto *structInner1 = new VRAStructNode();
+  auto *scalarInner1 = new VRAScalarNode(make_range(0, 1));
+  auto *ptrInner1 = new VRAPtrNode(std::shared_ptr<VRAScalarNode>(scalarInner1));
+  structInner1->setNodeAt(0, std::shared_ptr<VRAPtrNode>(ptrInner1));
+  structInner1->setNodeAt(1, std::shared_ptr<VRAScalarNode>(scalarInner1));
+  auto *structOuter1 = new VRAStructNode();
+  auto *scalarOuter1 = new VRAScalarNode(make_range(0, 2));
+  structOuter1->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter1));
+  structOuter1->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner1));
+
+  auto *structInner2 = new VRAStructNode();
+  //auto *scalarInner2 = new VRAScalarNode(make_range(2, 3));
+  auto ptr = new VRAPtrNode(nullptr);
+  structInner2->setNodeAt(0, std::make_shared<VRAPtrNode>(*ptr));
+  structInner2->setNodeAt(1, nullptr);
+  auto *structOuter2 = new VRAStructNode();
+  auto *scalarOuter2 = new VRAScalarNode(make_range(3, 4));
+  structOuter2->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter2));
+  structOuter2->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner2));
+
+  auto filled = std::dynamic_ptr_cast_or_null<VRAStructNode>(fillRangeHoles(std::make_shared<VRAStructNode>(*structOuter2), std::make_shared<VRAStructNode>(*structOuter1)));
+  ASSERT_NE(filled, nullptr);
+  EXPECT_EQ(filled->fields().size(), 2);
+  auto scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(filled->fields()[0]);
+  // from the destination struct
+  ASSERT_NE(scalarOuter, nullptr);
+  EXPECT_EQ(scalarOuter->getRange()->min(), 3);
+  EXPECT_EQ(scalarOuter->getRange()->max(), 4);
+  auto structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(filled->fields()[1]);
+  ASSERT_NE(structInner, nullptr);
+  EXPECT_EQ(structInner->fields().size(), 2);
+  // absent in the destination struct, so it takes values from the source one
+  auto scalarInnerPtr = std::dynamic_ptr_cast_or_null<VRAPtrNode>(structInner->fields()[0]);
+  ASSERT_NE(scalarInnerPtr, nullptr);
+  EXPECT_EQ(scalarInnerPtr->getParent(), nullptr);
+  auto scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structInner->fields()[1]);
+  EXPECT_EQ(scalarInner->getRange()->min(), 0.0);
+  EXPECT_EQ(scalarInner->getRange()->max(), 1.0);
+}
+
+TEST_F(RangeOperationsTest, copyRange_raw) {
+  op1 = make_range(0.0, 1.0);
+  result = copyRange(op1);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 1.0);
+}
+
+TEST_F(RangeOperationsTest, getGenericBooleanRange) {
+  result = getGenericBoolRange();
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 1.0);
+}
+
+TEST_F(RangeOperationsTest, getTrueBooleanRange) {
+  result = getAlwaysTrue();
+  EXPECT_EQ(result->min(), 1.0);
+  EXPECT_EQ(result->max(), 1.0);
+}
+
+TEST_F(RangeOperationsTest, getFalseBooleanRange) {
+  result = getAlwaysFalse();
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 0.0);
+}
+
 }; // namespace
