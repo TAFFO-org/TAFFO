@@ -315,4 +315,45 @@ TEST_F(RangeOperationsTest, BooleanOr) {
   EXPECT_EQ(result->min(), 1.0);
   EXPECT_EQ(result->max(), 1.0);
 }
+
+TEST_F(RangeOperationsTest, copyRange_scalar) {
+  op1 = make_range(0.0, 1.0);
+  auto orig = std::make_shared<RangeNodePtrT>(new VRAScalarNode(op1));
+  auto copy = copyRange(*orig);
+
+  auto orig_cast = std::dynamic_ptr_cast_or_null<VRAScalarNode>(*orig);
+  auto copy_cast = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy);
+
+  ASSERT_NE(orig_cast, nullptr);
+    ASSERT_NE(copy_cast, nullptr);
+    EXPECT_EQ(orig_cast->getRange()->min(), copy_cast->getRange()->min());
+    EXPECT_EQ(orig_cast->getRange()->max(), copy_cast->getRange()->max());
+}
+
+TEST_F(RangeOperationsTest, copyRange_struct) {
+  auto *orig_structInner = new VRAStructNode();
+  auto *orig_scalarInner = new VRAScalarNode(make_range(0, 1));
+  orig_structInner->setNodeAt(0, std::shared_ptr<VRAScalarNode>(orig_scalarInner));
+  auto *orig_structOuter = new VRAStructNode();
+  auto *orig_scalarOuter = new VRAScalarNode(make_range(0, 2));
+  orig_structOuter->setNodeAt(0, std::shared_ptr<VRAScalarNode>(orig_scalarOuter));
+  orig_structOuter->setNodeAt(1, std::shared_ptr<VRAStructNode>(orig_structInner));
+  auto orig = std::make_shared<VRAStructNode>(*orig_structOuter);
+
+  auto copy_structOuter = std::dynamic_ptr_cast_or_null<VRAStructNode>(copyRange(orig));
+
+    ASSERT_NE(copy_structOuter, nullptr);
+    EXPECT_EQ(copy_structOuter->fields().size(), 2);
+    auto copy_scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy_structOuter->fields()[0]);
+    ASSERT_NE(copy_scalarOuter, nullptr);
+    EXPECT_EQ(copy_scalarOuter->getRange()->min(), orig_scalarOuter->getRange()->min());
+    EXPECT_EQ(copy_scalarOuter->getRange()->max(), orig_scalarOuter->getRange()->max());
+    auto copy_structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(copy_structOuter->fields()[1]);
+    ASSERT_NE(copy_structInner, nullptr);
+    EXPECT_EQ(copy_structInner->fields().size(), 1);
+    auto copy_scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy_structInner->fields()[0]);
+    ASSERT_NE(copy_scalarInner, nullptr);
+    EXPECT_EQ(copy_scalarInner->getRange()->min(), orig_scalarInner->getRange()->min());
+    EXPECT_EQ(copy_scalarInner->getRange()->max(), orig_scalarInner->getRange()->max());
+}
 }; // namespace
