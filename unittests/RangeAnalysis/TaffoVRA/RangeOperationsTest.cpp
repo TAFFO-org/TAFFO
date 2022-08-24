@@ -145,6 +145,15 @@ TEST_F(RangeOperationsTest, DivMixed)
   EXPECT_EQ(result->max(), -10.0 / 110.0);
 }
 
+TEST_F(RangeOperationsTest, DivMaxPosMinNeg)
+{
+  op1 = make_range(10.0, 20.0);
+  op2 = make_range(-1.0, 100.0);
+  result = handleDiv(op1, op2);
+  EXPECT_EQ(result->min(), -20); // TODO: fix implementation
+  EXPECT_EQ(result->max(), 0.2); // TODO: fix implementation
+}
+
 // REM
 TEST_F(RangeOperationsTest, RemPositive)
 {
