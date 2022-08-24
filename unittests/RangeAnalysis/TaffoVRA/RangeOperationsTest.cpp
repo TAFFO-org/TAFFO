@@ -100,6 +100,23 @@ TEST_F(RangeOperationsTest, MulMixed)
   EXPECT_EQ(result->max(), -1000.0);
 }
 
+// MUL square
+TEST_F(RangeOperationsTest, MulSameOpPositive)
+{
+  op1 = make_range(2.0, 11.0);
+  result = handleMul(op1, op1);
+  EXPECT_EQ(result->min(), 4.0);
+  EXPECT_EQ(result->max(), 121.0);
+}
+
+TEST_F(RangeOperationsTest, MulSameOpNegative)
+{
+  op1 = make_range(-20.0, -10.0);
+  result = handleMul(op1, op1);
+  EXPECT_EQ(result->min(), 100.0);
+  EXPECT_EQ(result->max(), 400.0);
+}
+
 // DIV
 TEST_F(RangeOperationsTest, DivPositive)
 {
