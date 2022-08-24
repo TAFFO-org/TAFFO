@@ -14,6 +14,8 @@ protected:
   range_ptr_t op1;
   range_ptr_t op2;
   range_ptr_t result;
+  llvm::LLVMContext Context;
+
 };
 
 // ADD
@@ -355,5 +357,82 @@ TEST_F(RangeOperationsTest, copyRange_struct) {
     ASSERT_NE(copy_scalarInner, nullptr);
     EXPECT_EQ(copy_scalarInner->getRange()->min(), orig_scalarInner->getRange()->min());
     EXPECT_EQ(copy_scalarInner->getRange()->max(), orig_scalarInner->getRange()->max());
+}
+
+TEST_F(RangeOperationsTest, unionRange_overlap) {
+    op1 = make_range(0.0, 1.0);
+    op2 = make_range(0.5, 1.5);
+    result = getUnionRange(op1, op2);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 1.5);
+}
+
+TEST_F(RangeOperationsTest, unionRange_disjoint) {
+    op1 = make_range(0.0, 1.0);
+    op2 = make_range(2.0, 3.0);
+    result = getUnionRange(op1, op2);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 3.0);
+}
+
+TEST_F(RangeOperationsTest, unionRange_contained) {
+    op1 = make_range(0.0, 1.0);
+    op2 = make_range(0.5, 0.8);
+    result = getUnionRange(op1, op2);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 1.0);
+}
+
+TEST_F(RangeOperationsTest, unionRange_scalar) {
+  auto scalar1 = std::make_shared<VRAScalarNode>(make_range(0.0, 1.0));
+    auto scalar2 = std::make_shared<VRAScalarNode>(make_range(2.0, 3.0));
+
+    auto unionRange = std::dynamic_ptr_cast_or_null<VRAScalarNode>(getUnionRange(scalar1, scalar2));
+    ASSERT_NE(unionRange, nullptr);
+    EXPECT_EQ(unionRange->getRange()->min(), 0.0);
+    EXPECT_EQ(unionRange->getRange()->max(), 3.0);
+}
+
+TEST_F(RangeOperationsTest, unionRange_struct) {
+  auto *structInner1 = new VRAStructNode();
+  auto *scalarInner1 = new VRAScalarNode(make_range(0, 1));
+  auto *scalarPtrInner1 = new VRAPtrNode(std::make_shared<VRAScalarNode>(*scalarInner1));
+  structInner1->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarInner1));
+  structInner1->setNodeAt(1, std::shared_ptr<VRAPtrNode>(scalarPtrInner1));
+  auto *structOuter1 = new VRAStructNode();
+  auto *scalarOuter1 = new VRAScalarNode(make_range(0, 2));
+  structOuter1->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter1));
+  structOuter1->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner1));
+
+  auto *structInner2 = new VRAStructNode();
+  auto *scalarInner2 = new VRAScalarNode(make_range(2, 3));
+  auto *scalarPtrInner2 = new VRAPtrNode(std::make_shared<VRAScalarNode>(*scalarInner2));
+  structInner2->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarInner2));
+  structInner2->setNodeAt(1, std::shared_ptr<VRAPtrNode>(scalarPtrInner2));
+  auto *structOuter2 = new VRAStructNode();
+  auto *scalarOuter2 = new VRAScalarNode(make_range(3, 4));
+  structOuter2->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter2));
+  structOuter2->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner2));
+
+  auto unionRange = std::dynamic_ptr_cast_or_null<VRAStructNode>(getUnionRange(std::make_shared<VRAStructNode>(*structOuter1), std::make_shared<VRAStructNode>(*structOuter2)));
+    ASSERT_NE(unionRange, nullptr);
+    EXPECT_EQ(unionRange->fields().size(), 2);
+    auto scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(unionRange->fields()[0]);
+    ASSERT_NE(scalarOuter, nullptr);
+    EXPECT_EQ(scalarOuter->getRange()->min(), 0.0);
+    EXPECT_EQ(scalarOuter->getRange()->max(), 4.0);
+    auto structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(unionRange->fields()[1]);
+    ASSERT_NE(structInner, nullptr);
+    EXPECT_EQ(structInner->fields().size(), 2);
+    auto scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structInner->fields()[0]);
+    ASSERT_NE(scalarInner, nullptr);
+    EXPECT_EQ(scalarInner->getRange()->min(), 0.0);
+    EXPECT_EQ(scalarInner->getRange()->max(), 3.0);
+    auto scalarPtrInner = std::dynamic_ptr_cast_or_null<VRAPtrNode>(structInner->fields()[1]);
+    ASSERT_NE(scalarPtrInner, nullptr);
+    auto scalarInnerP= std::dynamic_ptr_cast_or_null<VRAScalarNode>(scalarPtrInner->getParent());
+    ASSERT_NE(scalarPtrInner, nullptr);
+    EXPECT_EQ(scalarInnerP->getRange()->min(), 0.0);
+    EXPECT_EQ(scalarInnerP->getRange()->max(), 1.0);
 }
 }; // namespace
