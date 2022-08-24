@@ -220,4 +220,37 @@ TEST_F(RangeOperationsTest, AShrMixed)
   EXPECT_EQ(result->max(), 2L << 19);
 }
 
+// Truncate - lose info about decimal digits
+TEST_F(RangeOperationsTest, Trunc) // TODO: check if truncation should apply also to signed values
+{
+  op1 = make_range(2.718, 10.3256);
+  result = handleTrunc(op1, llvm::Type::getInt32Ty(Context));
+    EXPECT_EQ(result->min(), 2);
+    EXPECT_EQ(result->max(), 10); // FIXME: this should be correct but the test fails,  check implementation
+}
+
+TEST_F(RangeOperationsTest, FPTrunc) {
+  double Dbound = 1.0000000000000002; // smallest double < 1
+  float Fbound = 1.0000001192092896; // smallest float < 1
+    op1 = make_range(Dbound, Dbound);
+    result = handleFPTrunc(op1, llvm::Type::getFloatTy(Context));
+    EXPECT_DOUBLE_EQ(result->min(), 1); // conservative bound
+    EXPECT_DOUBLE_EQ(result->max(), Fbound);
+}
+
+// Cast - lose info about decimal digits
+TEST_F(RangeOperationsTest, CastToUI) {
+  op1 = make_range(2.4345, 10.56);
+  result = handleCastToUI(op1);
+  EXPECT_EQ(result->min(), 2);
+    EXPECT_EQ(result->max(), 10);
+}
+
+TEST_F(RangeOperationsTest, CastToSI)
+{
+  op1 = make_range(-2.4345, 10.56);
+  result = handleCastToSI(op1);
+  EXPECT_EQ(result->min(), -2);
+  EXPECT_EQ(result->max(), 10);
+}
 }; // namespace
