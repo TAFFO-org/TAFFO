@@ -253,4 +253,66 @@ TEST_F(RangeOperationsTest, CastToSI)
   EXPECT_EQ(result->min(), -2);
   EXPECT_EQ(result->max(), 10);
 }
+
+
+// boolean
+TEST_F(RangeOperationsTest, BooleanXor) {
+    op1 = make_range(0.0, 1.0);
+    op2 = make_range(0.0, 1.0);
+    result = handleBooleanXor(op1, op2);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 1.0);
+
+    op1 = make_range(0.0, 0.0);
+    op2 = make_range(0.0, 0.0);
+    result = handleBooleanXor(op1, op2);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 0.0);
+
+    op1 = make_range(1.0, 1.0);
+    op2 = make_range(1.0, 1.0);
+    result = handleBooleanXor(op1, op2);
+    EXPECT_EQ(result->min(), 0.0);
+    EXPECT_EQ(result->max(), 0.0);
+}
+
+TEST_F(RangeOperationsTest, BooleanAnd) {
+  op1 = make_range(0.0, 1.0);
+  op2 = make_range(0.0, 1.0);
+  result = handleBooleanAnd(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.0);
+
+  op1 = make_range(0.0, 0.0);
+  op2 = make_range(0.0, 0.0);
+  result = handleBooleanAnd(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 0.0);
+
+  op1 = make_range(1.0, 1.0);
+  op2 = make_range(1.0, 1.0);
+  result = handleBooleanAnd(op1, op2);
+  EXPECT_EQ(result->min(), 1.0);
+  EXPECT_EQ(result->max(), 1.0);
+}
+
+TEST_F(RangeOperationsTest, BooleanOr) {
+  op1 = make_range(0.0, 1.0);
+  op2 = make_range(0.0, 1.0);
+  result = handleBooleanOr(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.0);
+
+  op1 = make_range(0.0, 0.0);
+  op2 = make_range(0.0, 0.0);
+  result = handleBooleanOr(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 0.0);
+
+  op1 = make_range(1.0, 1.0);
+  op2 = make_range(1.0, 1.0);
+  result = handleBooleanOr(op1, op2);
+  EXPECT_EQ(result->min(), 1.0);
+  EXPECT_EQ(result->max(), 1.0);
+}
 }; // namespace
