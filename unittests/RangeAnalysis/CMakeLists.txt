@@ -1,6 +1,7 @@
 set(SELF RangeAnalysisTests)
 
 taffo_add_unittest(${SELF} ${SELF}
+        TaffoVRA/RangeOperationsCallWhitelistTest.cpp
         TaffoVRA/RangeOperationsTest.cpp
         TaffoVRA/VRAGlobalStoreTest.cpp
         )
