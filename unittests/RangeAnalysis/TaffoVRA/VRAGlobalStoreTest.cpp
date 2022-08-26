@@ -708,4 +708,105 @@ TEST_F(VRAGlobalStoreTest, harvestMD_functionParametersInitWeight)
   EXPECT_EQ(retUI, nullptr);
 }
 
+TEST_F(VRAGlobalStoreTest, harvestMD_instructionNoWeightScalar)
+{
+  M = std::make_unique<Module>("test", Context);
+  auto args = std::vector<Type *>{Type::getInt32Ty(Context), Type::getInt32Ty(Context)};
+  F = Function::Create(FunctionType::get(Type::getVoidTy(Context), args, false), Function::ExternalLinkage, "func", M.get());
+  BB = BasicBlock::Create(Context, "", F);
+  auto argsMD = std::vector<mdutils::MDInfo *>{new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(0, 1), nullptr, false, true), new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(0, 2), nullptr, false, true)};
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, argsMD);
+  VRAgs.harvestMetadata(*M);
+
+  int ctr = 1;
+  for (auto &arg : F->args()) {
+    auto retUI = VRAgs.getUserInput(&arg);
+    ASSERT_NE(retUI, nullptr);
+    auto UI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retUI);
+    ASSERT_NE(UI, nullptr);
+    EXPECT_EQ(UI->getRange()->min(), 0);
+    EXPECT_EQ(UI->getRange()->max(), ctr);
+    ctr++;
+  }
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_instructionNoWeightStruct)
+{
+  // TODO: find an instruction which has a struct as operand type
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_instructionWithWeight)
+{
+  auto args = std::vector<Type *>{Type::getInt32Ty(Context)};
+  F = genFunction(*M, Type::getVoidTy(Context), args);
+  BB = BasicBlock::Create(Context, "", F);
+  auto *I = BinaryOperator::Create(Instruction::Add, F->args().begin(), ConstantInt::get(Type::getInt32Ty(Context), 42), "", BB);
+  mdutils::MetadataManager::setMDInfoMetadata(I, genII(0, 1, true));
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(I, 2);
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, std::vector<mdutils::MDInfo *>{genII(2, 3, true)});
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(F, std::vector<int>{3});
+
+  VRAgs.harvestMetadata(*M);
+  auto retUI = VRAgs.getUserInput(I);
+  ASSERT_NE(retUI, nullptr);
+  auto UI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retUI);
+  ASSERT_NE(UI, nullptr);
+  EXPECT_EQ(UI->getRange()->min(), 0);
+  EXPECT_EQ(UI->getRange()->max(), 1);
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_instructionWithLargerWeightThanParent)
+{
+  auto args = std::vector<Type *>{Type::getInt32Ty(Context)};
+  F = genFunction(*M, Type::getVoidTy(Context), args);
+  BB = BasicBlock::Create(Context, "", F);
+  auto *I = BinaryOperator::Create(Instruction::Add, F->args().begin(), F->args().begin(), "", BB);
+  auto MD = genII(0, 1);
+  mdutils::MetadataManager::setMDInfoMetadata(I, MD);
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, {MD});
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(I, 4);
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(F, std::vector<int>{3});
+
+  VRAgs.harvestMetadata(*M);
+  auto retUI = VRAgs.getUserInput(I);
+  ASSERT_EQ(retUI, nullptr);
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_instructionWithInstrOp)
+{
+  auto args = std::vector<Type *>{Type::getInt32Ty(Context)};
+  F = genFunction(*M, Type::getVoidTy(Context), args);
+  BB = BasicBlock::Create(Context, "", F);
+  auto MD = genII(0, 1);
+  auto *I0 = BinaryOperator::Create(Instruction::Add, ConstantInt::get(Type::getInt32Ty(Context), 42), ConstantInt::get(Type::getInt32Ty(Context), 42), "", BB);
+  auto *I = BinaryOperator::Create(Instruction::Add, I0, I0, "", BB);
+  mdutils::MetadataManager::setMDInfoMetadata(I0, MD);
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(I0, 3);
+  mdutils::MetadataManager::setMDInfoMetadata(I, MD);
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(I, 2);
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, std::vector<mdutils::MDInfo *>{genII(4, 5, true)});
+
+  VRAgs.harvestMetadata(*M);
+  auto retUI = VRAgs.getUserInput(I);
+  ASSERT_NE(retUI, nullptr);
+  auto UI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retUI);
+  ASSERT_NE(UI, nullptr);
+  EXPECT_EQ(UI->getRange()->min(), 0);
+  EXPECT_EQ(UI->getRange()->max(), 1);
+}
+
+TEST_F(VRAGlobalStoreTest, harvestMD_instructionAlloca)
+{
+  F = genFunction(*M, Type::getVoidTy(Context), {});
+  BB = BasicBlock::Create(Context, "", F);
+  auto *I = new AllocaInst(Type::getInt32Ty(Context), 0, "", BB);
+  mdutils::MetadataManager::setMDInfoMetadata(I, genII(0, 1));
+  mdutils::MetadataManager::setInputInfoInitWeightMetadata(I, 2);
+
+  VRAgs.harvestMetadata(*M);
+  auto retUI = VRAgs.getUserInput(I);
+  ASSERT_EQ(retUI, nullptr);
+}
+
+
 } // namespace
