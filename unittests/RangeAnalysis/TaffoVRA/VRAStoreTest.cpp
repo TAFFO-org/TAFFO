@@ -205,6 +205,59 @@ TEST_F(VRAStoreTest, fetchRangeNode_struct)
   ASSERT_EQ(node, nullptr);
 }
 
+TEST_F(VRAStoreTest, saveValueRange_new) {
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto range = std::make_shared<range_t>(range_t{1, 2, false});
+  VRAs.saveValueRange(V, range);
+
+  auto node = VRAs.fetchRangeNode(V);
+  ASSERT_NE(node, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->max(), 2);
+  EXPECT_FALSE(scalar->isFinal());
+}
+
+TEST_F(VRAStoreTest, saveValueRange_union) {
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto range = std::make_shared<range_t>(range_t{1, 2, false});
+  VRAs.saveValueRange(V, range);
+  range = std::make_shared<range_t>(range_t{3, 4, false});
+  VRAs.saveValueRange(V, range);
+
+  auto node = VRAs.fetchRangeNode(V);
+  ASSERT_NE(node, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->max(), 4);
+  EXPECT_FALSE(scalar->isFinal());
+}
+
+TEST_F(VRAStoreTest, saveValueRange_struct) {
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto range = new VRAStructNode();
+  range->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  VRAs.saveValueRange(V, std::make_shared<VRAStructNode>(*range));
+
+  auto node = VRAs.fetchRangeNode(V);
+  ASSERT_EQ(node, nullptr);
+}
+
+TEST_F(VRAStoreTest, setNode)
+{
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 0);
+  auto N = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+  VRAs.setNode(V, std::make_shared<VRAScalarNode>(*N));
+
+  auto retval = VRAs.getNode(V);
+  ASSERT_NE(retval, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retval);
+  ASSERT_NE(retnode, nullptr);
+  EXPECT_EQ(retnode->getRange(), N->getRange());
+}
+
 TEST_F(VRAStoreTest, loadNode_scalar)
 {
   auto node = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
