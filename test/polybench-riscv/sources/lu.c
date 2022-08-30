@@ -35,7 +35,8 @@ float POLYBENCH_2D(A_float, N, N, n, n);
 static
 void init_array ()
 {
-  int i, j;
+  int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) "))")));
+  int j __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) "))")));
 
   for (i = 0; i < n; i++)
     {
@@ -50,7 +51,7 @@ void init_array ()
   /* Make the matrix positive semi-definite. */
   /* not necessary for LU, but using same code as cholesky */
   int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
@@ -99,13 +100,15 @@ void kernel_lu()
   for (i = 0; i < _PB_N; i++) {
     for (j = 0; j <i; j++) {
        for (k = 0; k < j; k++) {
-          A[i][j] -= A[i][k] * A[k][j];
+          DATA_TYPE __attribute__((annotate("scalar()"))) tmp = A[i][k] * A[k][j];
+          A[i][j] -= tmp;
        }
         A[i][j] /= A[j][j];
     }
    for (j = i; j < _PB_N; j++) {
        for (k = 0; k < i; k++) {
-          A[i][j] -= A[i][k] * A[k][j];
+          DATA_TYPE __attribute__((annotate("scalar()"))) tmp = A[i][k] * A[k][j];
+          A[i][j] -= tmp;
        }
     }
   }
@@ -120,7 +123,7 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(-2, 1) final)"))), N, N, n, n);
 #endif
 
   /* Initialize array(s). */

@@ -39,7 +39,9 @@ float POLYBENCH_3D(A_float,NR,NQ,NP,nr,nq,np);
 static
 void init_array()
 {
-  int i, j, k;
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
+  int k __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
 
   for (i = 0; i < nr; i++)
     for (j = 0; j < nq; j++)
@@ -105,9 +107,9 @@ int main(int argc, char** argv)
   int np = NP;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE,NR,NQ,NP,nr,nq,np);
-  POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE,NP,np);
-  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE,NP,NP,np,np);
+  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(-32, 31) final)"))),NR,NQ,NP,nr,nq,np);
+  POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))),NP,np);
+  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar()"))),NP,NP,np,np);
 #endif
 
 

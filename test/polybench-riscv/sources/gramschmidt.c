@@ -38,14 +38,12 @@ float POLYBENCH_2D(Q_float,M,N,m,n);
 static
 void init_array()
 {
-  int i, j;
-
-  DATA_TYPE constTenVal = 10;
-  DATA_TYPE constHundredVal = 100;
+  int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) " final))")));
+  int j __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) " final))")));
 
   for (i = 0; i < m; i++)
     for (j = 0; j < n; j++) {
-      A[i][j] = (((DATA_TYPE) ((i*j) % m) / m )*constHundredVal) + constTenVal;
+      A[i][j] = (((DATA_TYPE) ((i*j) % m) / m )*100) + 10;
       Q[i][j] = 0.0;
     }
   for (i = 0; i < n; i++)
@@ -95,7 +93,7 @@ void kernel_gramschmidt()
 {
   int i, j, k;
 
-  DATA_TYPE nrm;
+  DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final)"))) nrm;
 
 #pragma scop
   for (k = 0; k < _PB_N; k++)
@@ -105,7 +103,10 @@ void kernel_gramschmidt()
         nrm += A[i][k] * A[i][k];
       R[k][k] = SQRT_FUN(nrm);
       for (i = 0; i < _PB_M; i++)
-        Q[i][k] = A[i][k] / R[k][k];
+        if (R[k][k] != 0.0)
+          Q[i][k] = A[i][k] / R[k][k];
+        else
+          Q[i][k] = 0.0;
       for (j = k + 1; j < _PB_N; j++)
 	{
 	  R[k][j] = SCALAR_VAL(0.0);
@@ -128,9 +129,9 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,M,N,m,n);
-  POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE,N,N,n,n);
-  POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE,M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final)"))),M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) final)"))),N,N,n,n);
+  POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) final)"))),M,N,m,n);
 #endif
 
   /* Initialize array(s). */

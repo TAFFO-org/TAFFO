@@ -41,7 +41,8 @@ float POLYBENCH_1D(q_float, N, n);
 static
 void init_array ()
 {
-  int i, j;
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
 
   for (i = 0; i < m; i++)
     p[i] = (DATA_TYPE)(i % m) / m;
@@ -114,11 +115,11 @@ int main(int argc, char** argv)
   int m = M;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, M, n, m);
-  POLYBENCH_1D_ARRAY_DECL(s, DATA_TYPE, M, m);
-  POLYBENCH_1D_ARRAY_DECL(q, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(p, DATA_TYPE, M, m);
-  POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar()"))), N, M, n, m);
+  POLYBENCH_1D_ARRAY_DECL(s, DATA_TYPE __attribute__((annotate("target('s') scalar(range(-256, 255) final)"))), M, m);
+  POLYBENCH_1D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("target('q') scalar(range(-256, 255) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar()"))), M, m);
+  POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
 #endif
 
 

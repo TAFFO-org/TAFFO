@@ -36,11 +36,12 @@ float POLYBENCH_1D(x_float, N, n);
 static
 void init_array()
 {
-  int i, j;
+  int i __attribute__((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
+  int j __attribute__((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
 
   for (i = 0; i < n; i++)
     {
-      x[i] = - 999;
+      x[i] = 0; //- 999;
       b[i] =  i ;
       for (j = 0; j <= i; j++)
 	L[i][j] = (DATA_TYPE) (i+n-j+1)*2/n;
@@ -97,9 +98,9 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE __attribute__((annotate("scalar(range(-1,3) final)"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(-1, 400) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
 #endif
 
 

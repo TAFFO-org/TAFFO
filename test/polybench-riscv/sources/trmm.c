@@ -38,7 +38,8 @@ float POLYBENCH_2D(B_float,M,N,m,n);
 static
 void init_array()
 {
-  int i, j;
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
 
   alpha = 1.5;
   for (i = 0; i < m; i++) {
@@ -111,9 +112,9 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE alpha;
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,M,M,m,m);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,M,N,m,n);
+  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),M,M,m,m);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar(range(-256, 255) final)"))),M,N,m,n);
 #endif
 
   /* Initialize array(s). */

@@ -39,17 +39,15 @@ float POLYBENCH_1D(x_float, N, n);
 static
 void init_array ()
 {
-  int i, j;
-  DATA_TYPE fn = (DATA_TYPE)n;
-
-  DATA_TYPE constTwoVal = 2.0f;
-  DATA_TYPE constFourVal = 4;
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
+  DATA_TYPE __attribute__((annotate("scalar()"))) fn = (DATA_TYPE)n;
 
   for (i = 0; i < n; i++)
     {
       x[i] = 0;
       y[i] = 0;
-      b[i] = (i+1)/fn/constTwoVal + constFourVal;
+      b[i] = (i+1)/fn/2.0 + 4;
     }
 
   for (i = 0; i < n; i++)
@@ -66,7 +64,7 @@ void init_array ()
   /* not necessary for LU, but using same code as cholesky */
   int r,s,t;
 #ifndef _LAMP
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
@@ -122,7 +120,7 @@ void kernel_ludcmp()
 {
   int i, j, k;
 
-  DATA_TYPE w;
+  DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))) w;
 
 #pragma scop
   for (i = 0; i < _PB_N; i++) {
@@ -167,10 +165,10 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
 #endif
 
 

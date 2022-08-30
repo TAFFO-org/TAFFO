@@ -47,27 +47,22 @@ float POLYBENCH_1D(x_float, N, n);
 static
 void init_array ()
 {
-  int i, j;
+  int i __attribute((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
+  int j __attribute((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
 
   alpha = 1.5;
   beta = 1.2;
 
-  DATA_TYPE fn = (DATA_TYPE)n;
-
-  DATA_TYPE constTwoVal = 2.0f;
-  DATA_TYPE constFourVal = 4.0f;
-  DATA_TYPE constSixVal = 6.0f;
-  DATA_TYPE constEightVal = 8.0f;
-  DATA_TYPE constNineVal = 9.0f;
+  DATA_TYPE __attribute((annotate("scalar()"))) fn = (DATA_TYPE)n;
 
   for (i = 0; i < n; i++)
     {
-      u1[i] = i;
-      u2[i] = ((i+1)/fn)/constTwoVal;
-      v1[i] = ((i+1)/fn)/constFourVal;
-      v2[i] = ((i+1)/fn)/constSixVal;
-      y[i] = ((i+1)/fn)/constEightVal;
-      z[i] = ((i+1)/fn)/constNineVal;
+      u1[i] = i / fn;
+      u2[i] = ((i+1)/fn)/2.0;
+      v1[i] = ((i+1)/fn)/4.0;
+      v2[i] = ((i+1)/fn)/6.0;
+      y[i] = ((i+1)/fn)/8.0;
+      z[i] = ((i+1)/fn)/9.0;
       x[i] = 0.0;
       w[i] = 0.0;
       for (j = 0; j < n; j++)
@@ -132,17 +127,17 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE alpha;
-  DATA_TYPE beta;
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(u1, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(v1, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(u2, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(v2, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(w, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(z, DATA_TYPE, N, n);
+  DATA_TYPE __attribute((annotate("scalar()"))) alpha;
+  DATA_TYPE __attribute((annotate("scalar()"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute((annotate("scalar(range(-2, 2) final)"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(u1, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(v1, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(u2, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(v2, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(w, DATA_TYPE __attribute((annotate("target('w') scalar(range(-8000, 8000) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute((annotate("scalar(range(-30, 30) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(z, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
 #endif
 
   /* Initialize array(s). */
