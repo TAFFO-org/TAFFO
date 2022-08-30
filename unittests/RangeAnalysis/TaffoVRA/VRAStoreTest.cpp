@@ -205,6 +205,221 @@ TEST_F(VRAStoreTest, fetchRangeNode_struct)
   ASSERT_EQ(node, nullptr);
 }
 
+TEST_F(VRAStoreTest, loadNode_scalar)
+{
+  auto node = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+
+  auto ret = VRAs.loadNode(std::make_shared<VRAScalarNode>(*node));
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  EXPECT_EQ(retnode->getRange()->min(), 1);
+  EXPECT_EQ(retnode->getRange()->max(), 2);
+  EXPECT_TRUE(retnode->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, loadNode_struct)
+{
+  auto node = new VRAStructNode();
+  node->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, true})));
+
+  auto ret = VRAs.loadNode(std::make_shared<VRAStructNode>(*node));
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAStructNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retnode->getNodeAt(0));
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->max(), 2);
+  EXPECT_TRUE(scalar->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, loadNode_GEP)
+{
+  auto parent = new VRAStructNode();
+  parent->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, true})));
+  parent->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, true})));
+  parent->setNodeAt(2, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{5, 6, true})));
+  unsigned int offset[2] = {1, 2};
+  auto node = new VRAGEPNode(std::make_shared<VRAStructNode>(*parent), offset);
+
+  auto ret = VRAs.loadNode(std::make_shared<VRAGEPNode>(*node));
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  // struct element in position 2 (last index of the offset array)
+  EXPECT_EQ(retnode->getRange()->min(), 5);
+  EXPECT_EQ(retnode->getRange()->max(), 6);
+  EXPECT_TRUE(retnode->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, loadNode_ptr)
+{
+  auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+  auto node = new VRAPtrNode(std::make_shared<VRAScalarNode>(*parent));
+
+  auto ret = VRAs.loadNode(std::make_shared<VRAPtrNode>(*node));
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  EXPECT_EQ(retnode->getRange()->min(), 1);
+  EXPECT_EQ(retnode->getRange()->max(), 2);
+  EXPECT_TRUE(retnode->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_GEP)
+{
+  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+  auto dst = std::make_shared<VRAGEPNode>(*new VRAGEPNode(std::make_shared<VRAStructNode>(), {0}));
+
+  VRAs.storeNode(dst, std::make_shared<VRAScalarNode>(*src));
+  auto ret = dst->getParent();
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAStructNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(retnode->getNodeAt(0));
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->max(), 2);
+  EXPECT_TRUE(scalar->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_simpleStruct)
+{
+  auto src = std::make_shared<VRAStructNode>();
+  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+
+  auto dst = std::make_shared<VRAStructNode>();
+  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+
+  VRAs.storeNode(dst, src);
+
+  ASSERT_EQ(dst->fields().size(), 1);
+  auto field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(dst->getNodeAt(0));
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 2);
+  EXPECT_FALSE(field->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_nestedStruct)
+{
+  auto src_inner = std::make_shared<VRAStructNode>();
+  src_inner->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  auto src = std::make_shared<VRAStructNode>();
+  src->setNodeAt(0, src_inner);
+  auto dst_inner = std::make_shared<VRAStructNode>();
+  dst_inner->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+  auto dst = std::make_shared<VRAStructNode>();
+  dst->setNodeAt(0, dst_inner);
+
+  VRAs.storeNode(dst, src);
+
+  ASSERT_EQ(dst->fields().size(), 1);
+  auto field = std::dynamic_ptr_cast_or_null<VRAStructNode>(dst->getNodeAt(0));
+  ASSERT_NE(field, nullptr);
+  ASSERT_EQ(field->fields().size(), 1);
+  auto field_inner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(field->getNodeAt(0));
+  ASSERT_NE(field_inner, nullptr);
+  EXPECT_EQ(field_inner->getRange()->min(), 0);
+  EXPECT_EQ(field_inner->getRange()->max(), 2);
+  EXPECT_FALSE(field_inner->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_structLargerSrc)
+{
+  auto src = std::make_shared<VRAStructNode>();
+  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  src->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, false})));
+  auto dst = std::make_shared<VRAStructNode>();
+  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+
+  VRAs.storeNode(dst, src);
+
+  ASSERT_EQ(dst->fields().size(), 2);
+  auto field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(dst->getNodeAt(0));
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 2);
+  EXPECT_FALSE(field->getRange()->isFinal());
+  field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(dst->getNodeAt(1));
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 3);
+  EXPECT_EQ(field->getRange()->max(), 4);
+  EXPECT_FALSE(field->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_structLargerDst)
+{
+  auto src = std::make_shared<VRAStructNode>();
+  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+  auto dst = std::make_shared<VRAStructNode>();
+  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  src->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, false})));
+
+  VRAs.storeNode(dst, src);
+
+  ASSERT_EQ(dst->fields().size(), 2);
+  auto field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(dst->getNodeAt(0));
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 0);
+  EXPECT_EQ(field->getRange()->max(), 2);
+  EXPECT_FALSE(field->getRange()->isFinal());
+  field = std::dynamic_ptr_cast_or_null<VRAScalarNode>(dst->getNodeAt(1));
+  ASSERT_NE(field, nullptr);
+  EXPECT_EQ(field->getRange()->min(), 3);
+  EXPECT_EQ(field->getRange()->max(), 4);
+  EXPECT_FALSE(field->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_scalarPtr)
+{
+  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+  auto dst = new VRAScalarNode(std::make_shared<range_t>(range_t{0, 0, false}));
+  auto dst_ptr = std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(*dst));
+
+  VRAs.storeNode(dst_ptr, std::make_shared<VRAScalarNode>(*src));
+  auto ret = dst_ptr->getParent();
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  EXPECT_EQ(retnode->getRange()->min(), 0);
+  EXPECT_EQ(retnode->getRange()->max(), 2);
+  EXPECT_FALSE(retnode->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_scalarPtrFinalDst)
+{
+  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+  auto dst = new VRAScalarNode(std::make_shared<range_t>(range_t{0, 0, true}));
+  auto dst_ptr = std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(*dst));
+
+  VRAs.storeNode(dst_ptr, std::make_shared<VRAScalarNode>(*src));
+  auto ret = dst_ptr->getParent();
+  ASSERT_NE(ret, nullptr);
+  auto retnode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ret);
+  ASSERT_NE(retnode, nullptr);
+  EXPECT_EQ(retnode->getRange()->min(), 0);
+  EXPECT_EQ(retnode->getRange()->max(), 0);
+  EXPECT_TRUE(retnode->getRange()->isFinal());
+}
+
+TEST_F(VRAStoreTest, storeNode_genericPtr)
+{
+  auto src = std::make_shared<VRAStructNode>(*new VRAStructNode());
+  auto dst = new VRAStructNode();
+  auto dst_ptr = std::make_shared<VRAPtrNode>(std::make_shared<VRAStructNode>(*dst));
+
+  VRAs.storeNode(dst_ptr, src);
+  auto ret = dst_ptr->getParent();
+  ASSERT_NE(ret, nullptr);
+  EXPECT_EQ(ret, src);
+}
+
+TEST_F(VRAStoreTest, storeNode_structOffset) {
+  // TODO: implement
+}
+
 TEST_F(VRAStoreTest, fetchRange_NodePtr_scalar)
 {
   auto node = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
