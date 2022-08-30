@@ -4,6 +4,7 @@ taffo_add_unittest(${SELF} ${SELF}
         TaffoVRA/RangeOperationsCallWhitelistTest.cpp
         TaffoVRA/RangeOperationsTest.cpp
         TaffoVRA/VRAGlobalStoreTest.cpp
+        TaffoVRA/VRAStoreTest.cpp
         )
 
 include_directories(${CMAKE_SOURCE_DIR}/lib/RangeAnalysis)
