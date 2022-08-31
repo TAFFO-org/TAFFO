@@ -25,8 +25,8 @@
 int n = N;
 
 /* Variable declaration/allocation. */
-DATA_TYPE POLYBENCH_1D(r, N, n);
-DATA_TYPE POLYBENCH_1D(y, N, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(r, N, n);
+DATA_TYPE __attribute__((annotate("target('y') scalar(range(-2, 2) final)"))) POLYBENCH_1D(y, N, n);
 
 float POLYBENCH_1D(y_float, N, n);
 #endif

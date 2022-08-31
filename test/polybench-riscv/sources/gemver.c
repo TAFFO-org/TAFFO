@@ -25,17 +25,17 @@
 int n = N;
 
 /* Variable declaration/allocation. */
-DATA_TYPE alpha;
-DATA_TYPE beta;
-DATA_TYPE POLYBENCH_2D(A, N, N, n, n);
-DATA_TYPE POLYBENCH_1D(u1, N, n);
-DATA_TYPE POLYBENCH_1D(v1, N, n);
-DATA_TYPE POLYBENCH_1D(u2, N, n);
-DATA_TYPE POLYBENCH_1D(v2, N, n);
-DATA_TYPE POLYBENCH_1D(w, N, n);
-DATA_TYPE POLYBENCH_1D(x, N, n);
-DATA_TYPE POLYBENCH_1D(y, N, n);
-DATA_TYPE POLYBENCH_1D(z, N, n);
+DATA_TYPE __attribute((annotate("scalar()"))) alpha;
+DATA_TYPE __attribute((annotate("scalar()"))) beta;
+DATA_TYPE __attribute((annotate("scalar(range(-2, 2) final)"))) POLYBENCH_2D(A, N, N, n, n);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_1D(u1, N, n);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_1D(v1, N, n);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_1D(u2, N, n);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_1D(v2, N, n);
+DATA_TYPE __attribute((annotate("target('w') scalar(range(-8000, 8000) final)"))) POLYBENCH_1D(w, N, n);
+DATA_TYPE __attribute((annotate("scalar(range(-30, 30) final)"))) POLYBENCH_1D(x, N, n);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_1D(y, N, n);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_1D(z, N, n);
 
 float POLYBENCH_2D(A_float, N, N, n, n);
 float POLYBENCH_1D(w_float, N, n);

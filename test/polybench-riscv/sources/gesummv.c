@@ -25,13 +25,13 @@
 int n = N;
 
 /* Variable declaration/allocation. */
-DATA_TYPE alpha;
-DATA_TYPE beta;
-DATA_TYPE POLYBENCH_2D(A, N, N, n, n);
-DATA_TYPE POLYBENCH_2D(B, N, N, n, n);
-DATA_TYPE POLYBENCH_1D(tmp, N, n);
-DATA_TYPE POLYBENCH_1D(x, N, n);
-DATA_TYPE POLYBENCH_1D(y, N, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
+DATA_TYPE __attribute__((annotate("scalar()"))) beta;
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, N, N, n, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(B, N, N, n, n);
+DATA_TYPE __attribute__((annotate("scalar(range(-256, 255) final)"))) POLYBENCH_1D(tmp, N, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(x, N, n);
+DATA_TYPE __attribute__((annotate("target('y') scalar(range(-256, 255) final)"))) POLYBENCH_1D(y, N, n);
 
 float POLYBENCH_1D(y_float, N, n);
 #endif

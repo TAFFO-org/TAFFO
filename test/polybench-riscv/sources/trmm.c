@@ -26,9 +26,9 @@ int m = M;
 int n = N;
 
 /* Variable declaration/allocation. */
-DATA_TYPE alpha;
-DATA_TYPE POLYBENCH_2D(A,M,M,m,m);
-DATA_TYPE POLYBENCH_2D(B,M,N,m,n);
+DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A,M,M,m,m);
+DATA_TYPE __attribute__((annotate("target('B') scalar(range(-256, 255) final)"))) POLYBENCH_2D(B,M,N,m,n);
 
 float POLYBENCH_2D(B_float,M,N,m,n);
 #endif

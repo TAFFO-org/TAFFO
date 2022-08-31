@@ -29,13 +29,13 @@ int nl = NL;
 int nm = NM;
 
 /* Variable declaration/allocation. */
-DATA_TYPE POLYBENCH_2D (E, NI, NJ, ni, nj);
-DATA_TYPE POLYBENCH_2D (A, NI, NK, ni, nk);
-DATA_TYPE POLYBENCH_2D (B, NK, NJ, nk, nj);
-DATA_TYPE POLYBENCH_2D (F, NJ, NL, nj, nl);
-DATA_TYPE POLYBENCH_2D (C, NJ, NM, nj, nm);
-DATA_TYPE POLYBENCH_2D (D, NM, NL, nm, nl);
-DATA_TYPE POLYBENCH_2D (G, NI, NL, ni, nl);
+DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))) POLYBENCH_2D (E, NI, NJ, ni, nj);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (A, NI, NK, ni, nk);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (B, NK, NJ, nk, nj);
+DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))) POLYBENCH_2D (F, NJ, NL, nj, nl);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (C, NJ, NM, nj, nm);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (D, NM, NL, nm, nl);
+DATA_TYPE __attribute__((annotate("target('G') scalar(range(-16384, 16384) final)"))) POLYBENCH_2D (G, NI, NL, ni, nl);
 
 float POLYBENCH_2D (G_float, NI, NL, ni, nl);
 #endif

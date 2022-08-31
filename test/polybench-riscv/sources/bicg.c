@@ -26,11 +26,11 @@ int n = N;
 int m = M;
 
 /* Variable declaration/allocation. */
-DATA_TYPE POLYBENCH_2D(A, N, M, n, m);
-DATA_TYPE POLYBENCH_1D(s, M, m);
-DATA_TYPE POLYBENCH_1D(q, N, n);
-DATA_TYPE POLYBENCH_1D(p, M, m);
-DATA_TYPE POLYBENCH_1D(r, N, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, N, M, n, m);
+DATA_TYPE __attribute__((annotate("target('s') scalar(range(-256, 255) final)"))) POLYBENCH_1D(s, M, m);
+DATA_TYPE __attribute__((annotate("target('q') scalar(range(-256, 255) final)"))) POLYBENCH_1D(q, N, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(p, M, m);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(r, N, n);
 
 float POLYBENCH_1D(s_float, M, m);
 float POLYBENCH_1D(q_float, N, n);

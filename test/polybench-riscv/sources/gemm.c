@@ -27,11 +27,11 @@ int nj = NJ;
 int nk = NK;
 
 /* Variable declaration/allocation. */
-DATA_TYPE alpha;
-DATA_TYPE beta;
-DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj);
-DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk);
-DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj);
+DATA_TYPE __attribute((annotate("scalar()"))) alpha;
+DATA_TYPE __attribute((annotate("scalar()"))) beta;
+DATA_TYPE __attribute((annotate("target('C') scalar()"))) POLYBENCH_2D(C,NI,NJ,ni,nj);
+DATA_TYPE __attribute((annotate("scalar(range(-64, 64))"))) POLYBENCH_2D(A,NI,NK,ni,nk);
+DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_2D(B,NK,NJ,nk,nj);
 
 float POLYBENCH_2D(C_float,NI,NJ,ni,nj);
 #endif

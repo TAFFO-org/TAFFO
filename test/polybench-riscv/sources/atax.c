@@ -26,10 +26,10 @@ int m = M;
 int n = N;
 
 /* Variable declaration/allocation. */
-DATA_TYPE POLYBENCH_2D(A, M, N, m, n);
-DATA_TYPE POLYBENCH_1D(x, N, n);
-DATA_TYPE POLYBENCH_1D(y, N, n);
-DATA_TYPE POLYBENCH_1D(tmp, M, m);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, M, N, m, n);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(x, N, n);
+DATA_TYPE __attribute__((annotate("target('y') scalar(range(-4096, 4096) final)"))) POLYBENCH_1D(y, N, n);
+DATA_TYPE __attribute__((annotate("scalar(range(-4096, 4096) final)"))) POLYBENCH_1D(tmp, M, m);
 
 float POLYBENCH_1D(y_float, N, n);
 #endif

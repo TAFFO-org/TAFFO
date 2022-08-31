@@ -27,9 +27,9 @@ int nq = NQ;
 int np = NP;
 
 /* Variable declaration/allocation. */
-DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np);
-DATA_TYPE POLYBENCH_1D(sum,NP,np);
-DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np);
+DATA_TYPE __attribute__((annotate("target('A') scalar(range(-32, 31) final)"))) POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np);
+DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))) POLYBENCH_1D(sum,NP,np);
+DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(C4,NP,NP,np,np);
 
 float POLYBENCH_3D(A_float,NR,NQ,NP,nr,nq,np);
 #endif
