@@ -43,7 +43,7 @@ llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
                                           llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
 
 llvm::cl::opt<bool> Hero("hero",
-                                llvm::cl::desc("Enables TAFFO to work with hero"), llvm::cl::init(false));
+                         llvm::cl::desc("Enables TAFFO to work with hero"), llvm::cl::init(false));
 
 
 bool TaffoInitializer::runOnModule(Module &m)
@@ -250,7 +250,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           if (llvm::StoreInst *store = llvm::dyn_cast<llvm::StoreInst>(u)) {
             for (const auto user_of_alloca : store->getPointerOperand()->users()) {
               if (auto call_inst = dyn_cast<llvm::CallInst>(user_of_alloca)) {
-                if (call_inst->getCalledFunction()->getName().startswith("hero-")) {
+                if (call_inst->getCalledFunction()->getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) {
                   vdepth = 2;
                 }
               }

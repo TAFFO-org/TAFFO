@@ -438,7 +438,7 @@ struct FloatToFixed : public llvm::ModulePass {
 
   /** find all target mapped region and fix the call to the new function created by TAFFO
   */
-  void handleHero(llvm::Module &m);
+  void handleHero(llvm::Module &m, bool Hero);
 
   llvm::Instruction *getFirstInsertionPointAfter(llvm::Instruction *i)
   {

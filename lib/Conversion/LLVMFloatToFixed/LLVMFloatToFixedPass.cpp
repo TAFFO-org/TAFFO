@@ -28,7 +28,7 @@ using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
 
-
+extern bool Hero;
 char FloatToFixed::ID = 0;
 
 static RegisterPass<FloatToFixed> X(
@@ -177,7 +177,7 @@ bool FloatToFixed::runOnModule(Module &m)
 
 
   addDebugBBPrint(m);
-  handleHero(m);
+  handleHero(m, Hero);
 
 
   return true;

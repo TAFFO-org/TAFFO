@@ -50,7 +50,7 @@ llvm::Function *create_function_less_cast(llvm::Function *function_to_clone)
 
 
   auto function_cloned = llvm::Function::Create(llvm::FunctionType::get(function_to_clone->getReturnType(), new_types, false),
-                                                function_to_clone->getLinkage(), "hero-openmp-target-region", function_to_clone->getParent());
+                                                function_to_clone->getLinkage(), "__omp_offloading_10303_4dc05d6_func_l99", function_to_clone->getParent());
   llvm::ValueToValueMapTy VMap;
   for (size_t i = 0; i < function_to_clone->arg_size(); ++i) {
     VMap[function_to_clone->getArg(i)] = function_cloned->getArg(i);

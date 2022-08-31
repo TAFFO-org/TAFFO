@@ -1,3 +1,4 @@
+#include "llvm/IR/Argument.h"
 #include "llvm/Support/Debug.h"
 
 #ifndef TAFFOUTILS_DEBUGUTILS_H
@@ -8,17 +9,25 @@
 #define IF_TAFFO_DEBUG \
   if (::llvm::DebugFlag && ::llvm::isCurrentDebugType(DEBUG_TYPE))
 
-#define VALUE_DUMP(val)                                                             \
-  LLVM_DEBUG(                                                                       \
-      llvm::dbgs() << "isa<Argument> " << isa<Argument>(val) << "\n";               \
-      llvm::dbgs() << "isa<BasicBlock> " << isa<BasicBlock>(val) << "\n";           \
-      llvm::dbgs() << "isa<InlineAsm> " << isa<InlineAsm>(val) << "\n";             \
-      llvm::dbgs() << "isa<MetadataAsValue> " << isa<MetadataAsValue>(val) << "\n"; \
-      llvm::dbgs() << "isa<User> " << isa<User>(val) << "\n";                       \
-      llvm::dbgs() << "\tisa<Constant> " << isa<Constant>(val) << "\n";             \
-      llvm::dbgs() << "\tisa<DerivedUser> " << isa<DerivedUser>(val) << "\n";       \
-      llvm::dbgs() << "\tisa<Instruction> " << isa<Instruction>(val) << "\n";       \
-      llvm::dbgs() << "\tisa<Operator> " << isa<llvm::Operator>(val) << "\n";);
+#define VALUE_ISA_WRITER(type, val) llvm::dbgs() << "isa<" #type "> " << isa<type>(val) << "\n";
+
+#define VALUE_DUMP(val)                                                                             \
+  LLVM_DEBUG(                                                                                       \
+      VALUE_ISA_WRITER(Argument, val)                                                               \
+          VALUE_ISA_WRITER(BasicBlock, val)                                                         \
+              VALUE_ISA_WRITER(InlineAsm, val)                                                      \
+                  VALUE_ISA_WRITER(MetadataAsValue, val)                                            \
+                      VALUE_ISA_WRITER(User, val)                                                   \
+                          VALUE_ISA_WRITER(Operator, val)                                           \
+                              VALUE_ISA_WRITER(Instruction, val)                                    \
+                                  VALUE_ISA_WRITER(DerivedUser, val)                                \
+                                      VALUE_ISA_WRITER(Constant, val)                               \
+                                          VALUE_ISA_WRITER(BlockAddress, val)                       \
+                                              VALUE_ISA_WRITER(ConstantAggregate, val)              \
+                                                  VALUE_ISA_WRITER(ConstantData, val)               \
+                                                      VALUE_ISA_WRITER(ConstantExpr, val)           \
+                                                          VALUE_ISA_WRITER(DSOLocalEquivalent, val) \
+                                                              VALUE_ISA_WRITER(GlobalValue, val));
 
 
 #define DUMP_STACK(val, str)            \
