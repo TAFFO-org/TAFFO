@@ -30,8 +30,8 @@ fi
 
 compile_one()
 {
-  benchpath=$1
-  xparams=$2
+  benchpath="$1"
+  xparams="$2"
   benchname=$(basename $benchpath .c)
   $TIMEOUT taffo \
     -o build/"$benchname".out \
@@ -39,7 +39,6 @@ compile_one()
     "$benchpath" \
     -Isources/. \
     $xparams \
-    $MIXIMI  \
     -debug-taffo \
     -lm \
     2> build/${benchname}.log || return $?
@@ -62,7 +61,7 @@ read_opts()
   fi
   
   # filter opts if errorprop is disabled
-  if [[ -z $ERRORPROP ]]; then
+  if [[ -z $errorprop ]]; then
     skip=0
     for opt in $opts; do
       if [[ ( $opt == '-Xerr' ) && ( $skip -eq 0 ) ]]; then
@@ -80,79 +79,55 @@ read_opts()
 }
 
 
-D_MINI_DATASET="MINI_DATASET"
-D_SMALL_DATASET="SMALL_DATASET"
-D_STANDARD_DATASET="MEDIUM_DATASET"
-D_LARGE_DATASET="LARGE_DATASET"
-D_EXTRALARGE_DATASET="EXTRALARGE_DATASET"
-D_DATA_TYPE='DATA_TYPE_IS_FLOAT'
-ONLY='.*'
-TOT='32'
-D_CONF="CONF_GOOD"
-RUN_METRICS=0
-ERRORPROP='-enable-err'
-MIXIMODE=""
+if [[ -z $(which taffo) ]]; then
+  printf 'error: no taffo in the path\n' > /dev/stderr
+  exit 1
+fi
 
+TAFFO_PREFIX=$(dirname $(which taffo))/..
 
+if [[ -z $mixedmode ]];  then export mixedmode=0; fi
+if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3'; fi
+if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
+if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
+if [[ -z $instrset ]];   then export instrset=embedded; fi
+if [[ -z $enobweight ]]; then export enobweight=1; fi
+if [[ -z $timeweight ]]; then export timeweight=100; fi
+if [[ -z $castweight ]]; then export castweight=100; fi
+export mixedmodeopts=""
 
-for arg; do
-  case $arg in
-    64bit)
-      TOT='64'
-      D_DATA_TYPE='DATA_TYPE_IS_DOUBLE'
-      ;;
-    [A-Z]*_DATASET)
-      D_MINI_DATASET=$arg
-      D_SMALL_DATASET=$arg
-      D_STANDARD_DATASET=$arg
-      D_LARGE_DATASET=$arg
-      D_EXTRALARGE_DATASET=$arg
-      ;;
-    CONF_[A-Z]*)
-      D_CONF=$arg
-      ;;
-    --only=*)
-      ONLY="${arg#*=}"
-      ;;
-    --tot=*)
-      TOT="${arg#*=}"
-      ;;
-    --no-err)
-      ERRORPROP=''
-      ;;
-    -costmodelfilename=*)
-    MIXIMODE="${MIXIMODE} -mixedmode ${arg}"  
-    ;;
+printf 'Configuration:\n'
+printf '  CFLAGS           = %s\n' "$CFLAGS"
+printf '  errorprop        = %s\n' "$errorprop"
 
-    -instructionsetfile=*)
-    MIXIMODE="${MIXIMODE} ${arg}" 
-    ;;
-    metrics)
-      RUN_METRICS=1
-      ;;
-    *)
-      echo Unrecognized option $arg
-      exit 1
-  esac
-done
+if [ "$mixedmode" -ne "0" ]; then
+  printf '  costmodel        = %s\n' "$costmodel"
+  printf '  instrset         = %s\n' "$instrset"
+  printf '  enobweight       = %s\n' "$enobweight"
+  printf '  timeweight       = %s\n' "$timeweight"
+  printf '  castweight       = %s\n' "$castweight"
+
+  mixedmodeopts=" -mixedmode \
+  -costmodel "$costmodel" \
+  -instructionsetfile="$TAFFO_PREFIX/share/ILP/constrain/$instrset" \
+  -Xdta -mixedtuningenob -Xdta "$enobweight" \
+  -Xdta -mixedtuningtime -Xdta "$timeweight" \
+  -Xdta -mixedtuningcastingtime -Xdta "$castweight" "
+fi
 
 mkdir -p build
 rm -f build.log
 
 all_benchs=$(cat ./benchmark_list)
-skipped_all=1
 for bench in $all_benchs; do
   if [[ "$bench" =~ $ONLY ]]; then
-    skipped_all=0
     printf '[....] %s' "$bench"
     opts=$(read_opts ${bench})
     compile_one "$bench" \
-      "-O3 \
-      -m32 \
-      -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
-      -D$D_CONF -D$D_STANDARD_DATASET $MIXIMODE \
-      -Xdta -totalbits -Xdta $TOT \
-      $ERRORPROP $opts"
+      "-m32 \
+      ${CFLAGS} \
+      ${errorprop} \
+      ${mixedmodeopts} "
     bpid_fc=$?
     if [[ $bpid_fc == 0 ]]; then
       bpid_fc=' ok '
@@ -161,7 +136,4 @@ for bench in $all_benchs; do
   fi
 done
 
-if [[ $skipped_all -eq 1 ]]; then
-  echo 'warning: you specified to skip all tests'
-fi
 

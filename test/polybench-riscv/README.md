@@ -19,3 +19,15 @@ Benchmark applications:
     * funzione sqrtf rinominata in sqrtf_PB, in modo che il compilatore non inferisca
       l'istruzione fsqrt.s dell'estensione F dell'ISA RISC-V
 
+## How to compile 
+
+In mixed mode:
+```shell
+mixedmode=1 ./compile.sh
+```
+
+In fixed mode:
+```shell
+./compile.sh
+```
+

@@ -28,13 +28,13 @@ int nk = NK;
 int nl = NL;
 
 /* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))) POLYBENCH_2D(tmp,NI,NJ,ni,nj);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A,NI,NK,ni,nk);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(B,NK,NJ,nk,nj);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(C,NJ,NL,nj,nl);
-DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final)"))) POLYBENCH_2D(D,NI,NL,ni,nl);
+DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) alpha;
+DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) beta;
+DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))) POLYBENCH_2D(tmp,NI,NJ,ni,nj);
+DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) POLYBENCH_2D(A,NI,NK,ni,nk);
+DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) POLYBENCH_2D(B,NK,NJ,nk,nj);
+DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) POLYBENCH_2D(C,NJ,NL,nj,nl);
+DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final error(1e-100))"))) POLYBENCH_2D(D,NI,NL,ni,nl);
 
 float POLYBENCH_2D(D_float,NI,NL,ni,nl);
 #endif
@@ -44,8 +44,8 @@ float POLYBENCH_2D(D_float,NI,NL,ni,nl);
 static
 void init_array()
 {
-  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) "))")));
-  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) "))")));
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
 
   alpha = 1.5;
   beta = 1.2;
@@ -124,13 +124,13 @@ int main(int argc, char** argv)
   int nl = NL;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))),NI,NJ,ni,nj);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),NI,NK,ni,nk);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),NK,NJ,nk,nj);
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar()"))),NJ,NL,nj,nl);
-  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final)"))),NI,NL,ni,nl);
+  DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))),NI,NJ,ni,nj);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))),NI,NK,ni,nk);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))),NK,NJ,nk,nj);
+  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))),NJ,NL,nj,nl);
+  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final error(1e-100))"))),NI,NL,ni,nl);
 #endif
 
   /* Initialize array(s). */
