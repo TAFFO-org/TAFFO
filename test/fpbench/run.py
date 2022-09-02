@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 from pathlib import *
 import subprocess
@@ -15,9 +15,11 @@ def bold( s : str):
 
 def print_okk():
     sys.stdout.buffer.write(b"\x1B\x5B32mOKK!\x1B\x5Bm\n")
+    flush()
 
 def print_err():
     sys.stdout.buffer.write(b"\x1B\x5B31mERR!\x1B\x5Bm\n")
+    flush()
 
 def flush():
     sys.stdout.flush()
@@ -116,15 +118,51 @@ def getData(file: str):
     for float_value,taffo_value in zip(float_values.split("\n"),taffo_values.split("\n")):
         float_value = float(float_value)
         taffo_value = float(taffo_value)
+        if (float_value == 0 or taffo_value == 0):
+            continue
         tmp = abs(taffo_value-float_value)
         abs_err.append(tmp)
         rel_err.append(tmp/abs(float_value))
         max_abs = max(max_abs, tmp)
-        max_rel = max(max_rel, tmp/abs(float_value))
+        max_rel = max(max_rel, tmp/abs(float_value)*100)
     abs_err = np.mean(abs_err)
-    rel_err = np.mean(rel_err)
+    rel_err = np.mean(rel_err)*100
     return {"rel_err" : rel_err,  "max_rel" : max_rel, "abs_err": abs_err, "max_abs" : max_abs }
 
+
+def ordereddiff(path :Path):
+    files= retriveFiles(path)
+    float_values = re.search(r"Values Begin\n([\s\S]*)\nValues End",files[0])
+    taffo_values = re.search(r"Values Begin\n([\s\S]*)\nValues End",files[1])
+    print(path)
+    f = files[0][0 : float_values.start()].count("\n") +2
+    s = files[1][0 : taffo_values.start()].count("\n") +2
+    if f != s:
+        print_err()
+        return
+    rel_err = []
+    i = 0
+    for float_value,taffo_value in zip(float_values.group(1).split("\n"),taffo_values.group(1).split("\n")):
+        float_value = float(float_value)
+        taffo_value = float(taffo_value)
+        if (float_value == 0 or taffo_value == 0):
+            i+=1
+            continue
+
+        tmp = abs(taffo_value-float_value)
+        rel_err.append((f+i, tmp/abs(float_value)*100))
+        i = i +1
+
+    rel_err.sort(reverse=True, key= lambda x : x[1])
+    
+    
+    for x,y in rel_err:
+        print("{}, {}".format(x,y))
+
+
+    
+
+    
     
 
 def validate(path :Path):
@@ -163,6 +201,8 @@ if __name__ == '__main__':
     parser.add_argument('-compile', metavar='bool', type=bool, default=False, nargs='?', help='Compile Benchmarks' , const=True)
     parser.add_argument('-run', metavar='bool', type=bool, default=False, nargs='?', help='Run Benchmarks',   const=True)
     parser.add_argument('-validate', metavar='bool', type=bool, default=False, nargs='?', help='Validate Benchmarks', const=True)
+    parser.add_argument('-ordereddiff', metavar='bool', type=bool, default=False, nargs='?', help='Print out an ordered list of line, error sorted by max error', const=True)
+    
     args = parser.parse_args()
     M = args.M
     if args.only is None:
@@ -188,10 +228,15 @@ if __name__ == '__main__':
             clean(path, (".c", ".py", ".h"))
         exit(0)
 
+    if args.ordereddiff:        
+        for path in only:
+            ordereddiff(path)
+        exit(0)
+
     if args.init:
         for path in only:
             init(path)
-        
+    
 
     if bcompile:
         bold("COMPILATION")  
@@ -209,7 +254,8 @@ if __name__ == '__main__':
         for path in only:
             datas.append(validate(path))
         print_tables(datas)
-    exit(0)
+
+
     
 
 
