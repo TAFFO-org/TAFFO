@@ -30,6 +30,11 @@ public:
     VRAStore::setNode(V, Node);
   }
 
+  NodePtrT getNode(const llvm::Value *V) override
+  {
+    return VRAStore::getNode(V);
+  }
+
   // Function handling stuff
   NodePtrT getRetVal() const { return ReturnValue; }
   void setRetVal(NodePtrT RetVal);
