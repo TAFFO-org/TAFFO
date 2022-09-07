@@ -19,6 +19,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedUser.h"
 #include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
@@ -373,7 +375,7 @@ struct FloatToFixed : public llvm::ModulePass {
       value associato così com'è.*/
     if (cvtfallval->getType()->isPointerTy() &&
         cvtfallval->getType() != origType) {
-      llvm::BitCastInst *bc = new llvm::BitCastInst(cvtfallval, origType);
+      llvm::CastInst *bc = llvm::CastInst::CreatePointerBitCastOrAddrSpaceCast(cvtfallval, origType);
       cpMetaData(bc, cvtfallval);
       bc->insertBefore(ip);
       return bc;
