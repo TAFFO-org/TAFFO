@@ -21,16 +21,6 @@
 #include "mvt.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, N, N, n, n);
-DATA_TYPE __attribute__((annotate("target('x1') scalar(range(-256, 255) final)"))) POLYBENCH_1D(x1, N, n);
-DATA_TYPE __attribute__((annotate("target('x2') scalar(range(-256, 255) final)"))) POLYBENCH_1D(x2, N, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(y_1, N, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(y_2, N, n);
-
 float POLYBENCH_1D(x1_float, N, n);
 float POLYBENCH_1D(x2_float, N, n);
 #endif
@@ -38,7 +28,12 @@ float POLYBENCH_1D(x2_float, N, n);
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int n,
+		DATA_TYPE POLYBENCH_1D(x1,N,n),
+		DATA_TYPE POLYBENCH_1D(x2,N,n),
+		DATA_TYPE POLYBENCH_1D(y_1,N,n),
+		DATA_TYPE POLYBENCH_1D(y_2,N,n),
+		DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
@@ -88,7 +83,12 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_mvt()
+void kernel_mvt(int n,
+		DATA_TYPE POLYBENCH_1D(x1,N,n),
+		DATA_TYPE POLYBENCH_1D(x2,N,n),
+		DATA_TYPE POLYBENCH_1D(y_1,N,n),
+		DATA_TYPE POLYBENCH_1D(y_2,N,n),
+		DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
   int i, j;
 
@@ -106,7 +106,6 @@ void kernel_mvt()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
 
@@ -116,11 +115,15 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(x2, DATA_TYPE __attribute__((annotate("target('x2') scalar(range(-256, 255) final)"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y_1, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y_2, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-#endif
 
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n,
+	      POLYBENCH_ARRAY(x1),
+	      POLYBENCH_ARRAY(x2),
+	      POLYBENCH_ARRAY(y_1),
+	      POLYBENCH_ARRAY(y_2),
+	      POLYBENCH_ARRAY(A));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -128,7 +131,12 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_mvt ();
+  kernel_mvt (n,
+	      POLYBENCH_ARRAY(x1),
+	      POLYBENCH_ARRAY(x2),
+	      POLYBENCH_ARRAY(y_1),
+	      POLYBENCH_ARRAY(y_2),
+	      POLYBENCH_ARRAY(A));
 
 #ifndef _LAMP
   /* Stop and print timer. */

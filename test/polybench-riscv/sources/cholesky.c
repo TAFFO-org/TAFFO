@@ -21,19 +21,14 @@
 #include "cholesky.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("target('A') scalar(range(-140, 140) final)"))) POLYBENCH_2D(A, N, N, n, n);
-
 float POLYBENCH_2D(A_float, N, N, n, n);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int n,
+		DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
   int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) "))")));
@@ -41,26 +36,26 @@ void init_array()
   for (i = 0; i < n; i++)
     {
       for (j = 0; j <= i; j++)
-	A[i][j] = (DATA_TYPE)(-j % n) / n + 1;
+        A[i][j] = (DATA_TYPE)(-j % n) / n + 1;
       for (j = i+1; j < n; j++) {
-	A[i][j] = 0;
+        A[i][j] = 0;
       }
       A[i][i] = 1;
     }
 
   /* Make the matrix positive semi-definite. */
   int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
   for (t = 0; t < n; ++t)
     for (r = 0; r < n; ++r)
       for (s = 0; s < n; ++s)
-	(POLYBENCH_ARRAY(B))[r][s] += A[r][t] * A[s][t];
+        (POLYBENCH_ARRAY(B))[r][s] += A[r][t] * A[s][t];
     for (r = 0; r < n; ++r)
       for (s = 0; s < n; ++s)
-	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
+        A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
   POLYBENCH_FREE_ARRAY(B);
 
 }
@@ -92,7 +87,8 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_cholesky()
+void kernel_cholesky(int n,
+		     DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
   int i, j, k;
 
@@ -102,13 +98,15 @@ void kernel_cholesky()
      //j<i
      for (j = 0; j < i; j++) {
         for (k = 0; k < j; k++) {
-           A[i][j] -= A[i][k] * A[j][k];
+           DATA_TYPE __attribute__((annotate("scalar()"))) tmp = A[i][k] * A[j][k];
+           A[i][j] -= tmp;
         }
         A[i][j] /= A[j][j];
      }
      // i==j case
      for (k = 0; k < i; k++) {
-        A[i][i] -= A[i][k] * A[i][k];
+        DATA_TYPE __attribute__((annotate("scalar()"))) tmp = A[i][k] * A[i][k];
+        A[i][i] -= tmp;
      }
      A[i][i] = SQRT_FUN(A[i][i]);
   }
@@ -119,16 +117,14 @@ void kernel_cholesky()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(-140, 140) final)"))), N, N, n, n);
-#endif
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n, POLYBENCH_ARRAY(A));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -136,7 +132,7 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_cholesky ();
+  kernel_cholesky (n, POLYBENCH_ARRAY(A));
 
 #ifndef _LAMP
   /* Stop and print timer. */

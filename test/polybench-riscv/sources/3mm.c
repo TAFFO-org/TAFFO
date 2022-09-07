@@ -21,29 +21,17 @@
 #include "3mm.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int ni = NI;
-int nj = NJ;
-int nk = NK;
-int nl = NL;
-int nm = NM;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))) POLYBENCH_2D (E, NI, NJ, ni, nj);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (A, NI, NK, ni, nk);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (B, NK, NJ, nk, nj);
-DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))) POLYBENCH_2D (F, NJ, NL, nj, nl);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (C, NJ, NM, nj, nm);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D (D, NM, NL, nm, nl);
-DATA_TYPE __attribute__((annotate("target('G') scalar(range(-16384, 16384) final)"))) POLYBENCH_2D (G, NI, NL, ni, nl);
-
 float POLYBENCH_2D (G_float, NI, NL, ni, nl);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int ni, int nj, int nk, int nl, int nm,
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
+		DATA_TYPE POLYBENCH_2D(C,NJ,NM,nj,nm),
+		DATA_TYPE POLYBENCH_2D(D,NM,NL,nm,nl))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NM) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NM) "))")));
@@ -88,7 +76,14 @@ void print_array(int ni, int nl,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_3mm()
+void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
+		DATA_TYPE POLYBENCH_2D(E,NI,NJ,ni,nj),
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
+		DATA_TYPE POLYBENCH_2D(F,NJ,NL,nj,nl),
+		DATA_TYPE POLYBENCH_2D(C,NJ,NM,nj,nm),
+		DATA_TYPE POLYBENCH_2D(D,NM,NL,nm,nl),
+		DATA_TYPE POLYBENCH_2D(G,NI,NL,ni,nl))
 {
   int i, j, k;
 
@@ -124,7 +119,6 @@ void kernel_3mm()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int ni = NI;
   int nj = NJ;
@@ -140,11 +134,14 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE __attribute__((annotate("scalar()"))), NJ, NM, nj, nm);
   POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE __attribute__((annotate("scalar()"))), NM, NL, nm, nl);
   POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE __attribute__((annotate("target('G') scalar(range(-16384, 16384) final)"))), NI, NL, ni, nl);
-#endif
 
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (ni, nj, nk, nl, nm,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(D));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -152,7 +149,14 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_3mm ();
+  kernel_3mm (ni, nj, nk, nl, nm,
+	      POLYBENCH_ARRAY(E),
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(F),
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(D),
+	      POLYBENCH_ARRAY(G));
 
 #ifndef _LAMP
   /* Stop and print timer. */

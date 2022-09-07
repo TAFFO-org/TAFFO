@@ -21,17 +21,6 @@
 #include "bicg.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-int m = M;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, N, M, n, m);
-DATA_TYPE __attribute__((annotate("target('s') scalar(range(-256, 255) final)"))) POLYBENCH_1D(s, M, m);
-DATA_TYPE __attribute__((annotate("target('q') scalar(range(-256, 255) final)"))) POLYBENCH_1D(q, N, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(p, M, m);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(r, N, n);
-
 float POLYBENCH_1D(s_float, M, m);
 float POLYBENCH_1D(q_float, N, n);
 #endif
@@ -39,7 +28,10 @@ float POLYBENCH_1D(q_float, N, n);
 
 /* Array initialization. */
 static
-void init_array ()
+void init_array (int m, int n,
+		 DATA_TYPE POLYBENCH_2D(A,N,M,n,m),
+		 DATA_TYPE POLYBENCH_1D(r,N,n),
+		 DATA_TYPE POLYBENCH_1D(p,M,m))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
@@ -86,7 +78,12 @@ void print_array(int m, int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_bicg()
+void kernel_bicg(int m, int n,
+		 DATA_TYPE POLYBENCH_2D(A,N,M,n,m),
+		 DATA_TYPE POLYBENCH_1D(s,M,m),
+		 DATA_TYPE POLYBENCH_1D(q,N,n),
+		 DATA_TYPE POLYBENCH_1D(p,M,m),
+		 DATA_TYPE POLYBENCH_1D(r,N,n))
 {
   int i, j;
 
@@ -109,7 +106,6 @@ void kernel_bicg()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
   int m = M;
@@ -120,11 +116,12 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("target('q') scalar(range(-256, 255) final)"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar()"))), M, m);
   POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-#endif
-
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (m, n,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(r),
+	      POLYBENCH_ARRAY(p));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -132,7 +129,12 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_bicg ();
+  kernel_bicg (m, n,
+	       POLYBENCH_ARRAY(A),
+	       POLYBENCH_ARRAY(s),
+	       POLYBENCH_ARRAY(q),
+	       POLYBENCH_ARRAY(p),
+	       POLYBENCH_ARRAY(r));
 
 #ifndef _LAMP
   /* Stop and print timer. */

@@ -21,30 +21,23 @@
 #include "gemm.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int ni = NI;
-int nj = NJ;
-int nk = NK;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute((annotate("scalar()"))) alpha;
-DATA_TYPE __attribute((annotate("scalar()"))) beta;
-DATA_TYPE __attribute((annotate("target('C') scalar()"))) POLYBENCH_2D(C,NI,NJ,ni,nj);
-DATA_TYPE __attribute((annotate("scalar(range(-64, 64))"))) POLYBENCH_2D(A,NI,NK,ni,nk);
-DATA_TYPE __attribute((annotate("scalar()"))) POLYBENCH_2D(B,NK,NJ,nk,nj);
-
 float POLYBENCH_2D(C_float,NI,NJ,ni,nj);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int ni, int nj, int nk,
+		DATA_TYPE *alpha,
+		DATA_TYPE *beta,
+		DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
 {
   int i, j;
 
-  alpha = 1.5;
-  beta = 1.2;
+  *alpha = 1.5;
+  *beta = 1.2;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++)
       C[i][j] = (DATA_TYPE) ((i*j+1) % ni) / ni;
@@ -82,7 +75,12 @@ void print_array(int ni, int nj,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_gemm()
+void kernel_gemm(int ni, int nj, int nk,
+		 DATA_TYPE alpha,
+		 DATA_TYPE beta,
+		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
+		 DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
 {
   int i, j, k;
 
@@ -109,7 +107,6 @@ void kernel_gemm()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int ni = NI;
   int nj = NJ;
@@ -121,11 +118,12 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute((annotate("target('C') scalar()"))),NI,NJ,ni,nj);
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute((annotate("scalar(range(-64, 64))"))),NI,NK,ni,nk);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute((annotate("scalar()"))),NK,NJ,nk,nj);
-#endif
-
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (ni, nj, nk, &alpha, &beta,
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -133,7 +131,11 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_gemm ();
+  kernel_gemm (ni, nj, nk,
+	       alpha, beta,
+	       POLYBENCH_ARRAY(C),
+	       POLYBENCH_ARRAY(A),
+	       POLYBENCH_ARRAY(B));
 
 #ifndef _LAMP
   /* Stop and print timer. */

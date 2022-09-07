@@ -21,31 +21,24 @@
 #include "gesummv.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, N, N, n, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(B, N, N, n, n);
-DATA_TYPE __attribute__((annotate("scalar(range(-256, 255) final)"))) POLYBENCH_1D(tmp, N, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(x, N, n);
-DATA_TYPE __attribute__((annotate("target('y') scalar(range(-256, 255) final)"))) POLYBENCH_1D(y, N, n);
-
 float POLYBENCH_1D(y_float, N, n);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int n,
+		DATA_TYPE *alpha,
+		DATA_TYPE *beta,
+		DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
+		DATA_TYPE POLYBENCH_2D(B,N,N,n,n),
+		DATA_TYPE POLYBENCH_1D(x,N,n))
 {
   int i __attribute__((annotate("scalar(range(0," PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0," PB_XSTR(N) "))")));
 
-  alpha = 1.5;
-  beta = 1.2;
+  *alpha = 1.5;
+  *beta = 1.2;
   for (i = 0; i < n; i++)
     {
       x[i] = (DATA_TYPE)( i % n) / n;
@@ -81,7 +74,14 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_gesummv()
+void kernel_gesummv(int n,
+		    DATA_TYPE alpha,
+		    DATA_TYPE beta,
+		    DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
+		    DATA_TYPE POLYBENCH_2D(B,N,N,n,n),
+		    DATA_TYPE POLYBENCH_1D(tmp,N,n),
+		    DATA_TYPE POLYBENCH_1D(x,N,n),
+		    DATA_TYPE POLYBENCH_1D(y,N,n))
 {
   int i, j;
 
@@ -104,7 +104,6 @@ void kernel_gesummv()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
 
@@ -116,11 +115,13 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("scalar(range(-256, 255) final)"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-256, 255) final)"))), N, n);
-#endif
 
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n, &alpha, &beta,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(x));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -128,7 +129,12 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_gesummv ();
+  kernel_gesummv (n, alpha, beta,
+		  POLYBENCH_ARRAY(A),
+		  POLYBENCH_ARRAY(B),
+		  POLYBENCH_ARRAY(tmp),
+		  POLYBENCH_ARRAY(x),
+		  POLYBENCH_ARRAY(y));
 
 #ifndef _LAMP
   /* Stop and print timer. */

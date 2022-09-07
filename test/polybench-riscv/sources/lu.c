@@ -21,19 +21,14 @@
 #include "lu.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("target('A') scalar(range(-2, 1) final)"))) POLYBENCH_2D(A, N, N, n, n);
-
 float POLYBENCH_2D(A_float, N, N, n, n);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array ()
+void init_array (int n,
+		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
   int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) "))")));
@@ -92,7 +87,8 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_lu()
+void kernel_lu(int n,
+	       DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
   int i, j, k;
 
@@ -118,16 +114,14 @@ void kernel_lu()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(-2, 1) final)"))), N, N, n, n);
-#endif
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n, POLYBENCH_ARRAY(A));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -135,7 +129,7 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_lu ();
+  kernel_lu (n, POLYBENCH_ARRAY(A));
 
 #ifndef _LAMP
   /* Stop and print timer. */

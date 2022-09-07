@@ -21,30 +21,24 @@
 #include "syr2k.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-int m = M;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-DATA_TYPE __attribute__((annotate("target('C') scalar(range(-256, 255) final)"))) POLYBENCH_2D(C,N,N,n,n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A,N,M,n,m);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(B,N,M,n,m);
-
 float POLYBENCH_2D(C_float,N,N,n,n);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int n, int m,
+		DATA_TYPE *alpha,
+		DATA_TYPE *beta,
+		DATA_TYPE POLYBENCH_2D(C,N,N,n,n),
+		DATA_TYPE POLYBENCH_2D(A,N,M,n,m),
+		DATA_TYPE POLYBENCH_2D(B,N,M,n,m))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
 
-  alpha = 1.5;
-  beta = 1.2;
+  *alpha = 1.5;
+  *beta = 1.2;
   for (i = 0; i < n; i++)
     for (j = 0; j < m; j++) {
       A[i][j] = (DATA_TYPE) ((i*j+1)%n) / n;
@@ -82,7 +76,12 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_syr2k()
+void kernel_syr2k(int n, int m,
+		  DATA_TYPE alpha,
+		  DATA_TYPE beta,
+		  DATA_TYPE POLYBENCH_2D(C,N,N,n,n),
+		  DATA_TYPE POLYBENCH_2D(A,N,M,n,m),
+		  DATA_TYPE POLYBENCH_2D(B,N,M,n,m))
 {
   int i, j, k;
 
@@ -109,7 +108,6 @@ void kernel_syr2k()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
   int m = M;
@@ -120,10 +118,12 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(-256, 255) final)"))),N,N,n,n);
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),N,M,n,m);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),N,M,n,m);
-#endif
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n, m, &alpha, &beta,
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -131,7 +131,11 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_syr2k ();
+  kernel_syr2k (n, m,
+		alpha, beta,
+		POLYBENCH_ARRAY(C),
+		POLYBENCH_ARRAY(A),
+		POLYBENCH_ARRAY(B));
 
 #ifndef _LAMP
   /* Stop and print timer. */

@@ -21,19 +21,13 @@
 #include "durbin.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(r, N, n);
-DATA_TYPE __attribute__((annotate("target('y') scalar(range(-2, 2) final)"))) POLYBENCH_1D(y, N, n);
-
 float POLYBENCH_1D(y_float, N, n);
 #endif
 
 /* Array initialization. */
 static
-void init_array ()
+void init_array (int n,
+		 DATA_TYPE POLYBENCH_1D(r,N,n))
 {
   int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) ") final)")));
 
@@ -69,7 +63,9 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_durbin()
+void kernel_durbin(int n,
+		   DATA_TYPE POLYBENCH_1D(r,N,n),
+		   DATA_TYPE POLYBENCH_1D(y,N,n))
 {
  DATA_TYPE __attribute__((annotate("scalar()"))) z[N];
  DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))) alpha;
@@ -108,18 +104,16 @@ void kernel_durbin()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
   POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-2, 2) final)"))), N, n);
-#endif
 
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n, POLYBENCH_ARRAY(r));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -127,7 +121,9 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_durbin ();
+  kernel_durbin (n,
+		 POLYBENCH_ARRAY(r),
+		 POLYBENCH_ARRAY(y));
 
 #ifndef _LAMP
   /* Stop and print timer. */

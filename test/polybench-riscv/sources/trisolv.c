@@ -21,20 +21,15 @@
 #include "trisolv.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar(range(-1,3) final)"))) POLYBENCH_2D(L, N, N, n, n);
-DATA_TYPE __attribute__((annotate("target('x') scalar(range(-1, 400) final)"))) POLYBENCH_1D(x, N, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(b, N, n);
-
 float POLYBENCH_1D(x_float, N, n);
 #endif
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int n,
+		DATA_TYPE POLYBENCH_2D(L,N,N,n,n),
+		DATA_TYPE POLYBENCH_1D(x,N,n),
+		DATA_TYPE POLYBENCH_1D(b,N,n))
 {
   int i __attribute__((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
   int j __attribute__((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
@@ -44,7 +39,7 @@ void init_array()
       x[i] = 0; //- 999;
       b[i] =  i ;
       for (j = 0; j <= i; j++)
-	L[i][j] = (DATA_TYPE) (i+n-j+1)*2/n;
+        L[i][j] = (DATA_TYPE) (i+n-j+1)*2/n;
     }
 }
 
@@ -74,7 +69,10 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_trisolv()
+void kernel_trisolv(int n,
+		    DATA_TYPE POLYBENCH_2D(L,N,N,n,n),
+		    DATA_TYPE POLYBENCH_1D(x,N,n),
+		    DATA_TYPE POLYBENCH_1D(b,N,n))
 {
   int i, j;
 
@@ -93,7 +91,6 @@ void kernel_trisolv()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int n = N;
 
@@ -101,11 +98,10 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE __attribute__((annotate("scalar(range(-1,3) final)"))), N, N, n, n);
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(-1, 400) final)"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-#endif
 
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (n, POLYBENCH_ARRAY(L), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(b));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -113,7 +109,7 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_trisolv ();
+  kernel_trisolv (n, POLYBENCH_ARRAY(L), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(b));
 
 #ifndef _LAMP
   /* Stop and print timer. */

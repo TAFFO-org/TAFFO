@@ -21,23 +21,15 @@
 #include "atax.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int m = M;
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(A, M, N, m, n);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_1D(x, N, n);
-DATA_TYPE __attribute__((annotate("target('y') scalar(range(-4096, 4096) final)"))) POLYBENCH_1D(y, N, n);
-DATA_TYPE __attribute__((annotate("scalar(range(-4096, 4096) final)"))) POLYBENCH_1D(tmp, M, m);
-
 float POLYBENCH_1D(y_float, N, n);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array ()
+void init_array (int m, int n,
+		 DATA_TYPE POLYBENCH_2D(A,M,N,m,n),
+		 DATA_TYPE POLYBENCH_1D(x,N,n))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
@@ -77,7 +69,11 @@ void print_array(int n,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_atax()
+void kernel_atax(int m, int n,
+		 DATA_TYPE POLYBENCH_2D(A,M,N,m,n),
+		 DATA_TYPE POLYBENCH_1D(x,N,n),
+		 DATA_TYPE POLYBENCH_1D(y,N,n),
+		 DATA_TYPE POLYBENCH_1D(tmp,M,m))
 {
   int i, j;
 
@@ -99,7 +95,6 @@ void kernel_atax()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int m = M;
   int n = N;
@@ -109,11 +104,9 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-4096, 4096) final)"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("scalar(range(-4096, 4096) final)"))), M, m);
-#endif
-
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (m, n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(x));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -121,7 +114,11 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_atax ();
+  kernel_atax (m, n,
+	       POLYBENCH_ARRAY(A),
+	       POLYBENCH_ARRAY(x),
+	       POLYBENCH_ARRAY(y),
+	       POLYBENCH_ARRAY(tmp));
 
 #ifndef _LAMP
   /* Stop and print timer. */

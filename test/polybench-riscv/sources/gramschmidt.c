@@ -21,22 +21,16 @@
 #include "gramschmidt.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int m = M;
-int n = N;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final)"))) POLYBENCH_2D(A,M,N,m,n);
-DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) final)"))) POLYBENCH_2D(R,N,N,n,n);
-DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) final)"))) POLYBENCH_2D(Q,M,N,m,n);
-
 float POLYBENCH_2D(R_float,N,N,m,n);
 float POLYBENCH_2D(Q_float,M,N,m,n);
 #endif
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int m, int n,
+		DATA_TYPE POLYBENCH_2D(A,M,N,m,n),
+		DATA_TYPE POLYBENCH_2D(R,N,N,n,n),
+		DATA_TYPE POLYBENCH_2D(Q,M,N,m,n))
 {
   int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) " final))")));
   int j __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) " final))")));
@@ -89,7 +83,10 @@ void print_array(int m, int n,
 /* QR Decomposition with Modified Gram Schmidt:
  http://www.inf.ethz.ch/personal/gander/ */
 static
-void kernel_gramschmidt()
+void kernel_gramschmidt(int m, int n,
+			DATA_TYPE POLYBENCH_2D(A,M,N,m,n),
+			DATA_TYPE POLYBENCH_2D(R,N,N,n,n),
+			DATA_TYPE POLYBENCH_2D(Q,M,N,m,n))
 {
   int i, j, k;
 
@@ -123,7 +120,6 @@ void kernel_gramschmidt()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int m = M;
   int n = N;
@@ -132,10 +128,12 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final)"))),M,N,m,n);
   POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) final)"))),N,N,n,n);
   POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) final)"))),M,N,m,n);
-#endif
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (m, n,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(R),
+	      POLYBENCH_ARRAY(Q));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -143,7 +141,10 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_gramschmidt ();
+  kernel_gramschmidt (m, n,
+		      POLYBENCH_ARRAY(A),
+		      POLYBENCH_ARRAY(R),
+		      POLYBENCH_ARRAY(Q));
 
 #ifndef _LAMP
   /* Stop and print timer. */

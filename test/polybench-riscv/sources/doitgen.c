@@ -21,23 +21,15 @@
 #include "doitgen.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int nr = NR;
-int nq = NQ;
-int np = NP;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("target('A') scalar(range(-32, 31) final)"))) POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np);
-DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))) POLYBENCH_1D(sum,NP,np);
-DATA_TYPE __attribute__((annotate("scalar()"))) POLYBENCH_2D(C4,NP,NP,np,np);
-
 float POLYBENCH_3D(A_float,NR,NQ,NP,nr,nq,np);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int nr, int nq, int np,
+		DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np),
+		DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
@@ -78,7 +70,10 @@ void print_array(int nr, int nq, int np,
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-void kernel_doitgen()
+void kernel_doitgen(int nr, int nq, int np,
+		    DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np),
+		    DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np),
+		    DATA_TYPE POLYBENCH_1D(sum,NP,np))
 {
   int r, q, p, s;
 
@@ -100,7 +95,6 @@ void kernel_doitgen()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int nr = NR;
   int nq = NQ;
@@ -110,11 +104,11 @@ int main(int argc, char** argv)
   POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(-32, 31) final)"))),NR,NQ,NP,nr,nq,np);
   POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))),NP,np);
   POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar()"))),NP,NP,np,np);
-#endif
-
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (nr, nq, np,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(C4));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -122,7 +116,10 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_doitgen ();
+  kernel_doitgen (nr, nq, np,
+		  POLYBENCH_ARRAY(A),
+		  POLYBENCH_ARRAY(C4),
+		  POLYBENCH_ARRAY(sum));
 
 #ifndef _LAMP
   /* Stop and print timer. */

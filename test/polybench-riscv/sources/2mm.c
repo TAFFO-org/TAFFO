@@ -21,34 +21,25 @@
 #include "2mm.h"
 
 #ifdef _LAMP
-/* Retrieve problem size. */
-int ni = NI;
-int nj = NJ;
-int nk = NK;
-int nl = NL;
-
-/* Variable declaration/allocation. */
-DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) alpha;
-DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) beta;
-DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))) POLYBENCH_2D(tmp,NI,NJ,ni,nj);
-DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) POLYBENCH_2D(A,NI,NK,ni,nk);
-DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) POLYBENCH_2D(B,NK,NJ,nk,nj);
-DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) POLYBENCH_2D(C,NJ,NL,nj,nl);
-DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final error(1e-100))"))) POLYBENCH_2D(D,NI,NL,ni,nl);
-
 float POLYBENCH_2D(D_float,NI,NL,ni,nl);
 #endif
 
 
 /* Array initialization. */
 static
-void init_array()
+void init_array(int ni, int nj, int nk, int nl,
+		DATA_TYPE *alpha,
+		DATA_TYPE *beta,
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
+		DATA_TYPE POLYBENCH_2D(C,NJ,NL,nj,nl),
+		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
 
-  alpha = 1.5;
-  beta = 1.2;
+  *alpha = 1.5;
+  *beta = 1.2;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nk; j++)
       A[i][j] = (DATA_TYPE) ((i*j+1) % ni) / ni;
@@ -89,7 +80,14 @@ void print_array(int ni, int nl,
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
-void kernel_2mm()
+void kernel_2mm(int ni, int nj, int nk, int nl,
+		DATA_TYPE alpha,
+		DATA_TYPE beta,
+		DATA_TYPE POLYBENCH_2D(tmp,NI,NJ,ni,nj),
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
+		DATA_TYPE POLYBENCH_2D(C,NJ,NL,nj,nl),
+		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
 {
   int i, j, k;
 
@@ -116,7 +114,6 @@ void kernel_2mm()
 
 int main(int argc, char** argv)
 {
-#ifndef _LAMP
   /* Retrieve problem size. */
   int ni = NI;
   int nj = NJ;
@@ -124,17 +121,20 @@ int main(int argc, char** argv)
   int nl = NL;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final error(1e-100))"))),NI,NJ,ni,nj);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))),NI,NK,ni,nk);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))),NK,NJ,nk,nj);
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar(error(1e-100))"))),NJ,NL,nj,nl);
-  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final error(1e-100))"))),NI,NL,ni,nl);
-#endif
+  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final )"))),NI,NJ,ni,nj);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),NI,NK,ni,nk);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),NK,NJ,nk,nj);
+  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar()"))),NJ,NL,nj,nl);
+  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final )"))),NI,NL,ni,nl);
 
   /* Initialize array(s). */
-  init_array ();
+  init_array (ni, nj, nk, nl, &alpha, &beta,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(D));
 
 #ifndef _LAMP
   /* Start timer. */
@@ -142,7 +142,13 @@ int main(int argc, char** argv)
 #endif
 
   /* Run kernel. */
-  kernel_2mm ();
+  kernel_2mm (ni, nj, nk, nl,
+	      alpha, beta,
+	      POLYBENCH_ARRAY(tmp),
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(D));
 
 #ifndef _LAMP
   /* Stop and print timer. */
