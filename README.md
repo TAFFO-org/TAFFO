@@ -66,7 +66,7 @@ Unit tests are located in `unittests` directory.
 ```shell
 mkdir build
 cd build
-cmake .. -DTAFFO_BUILD_ORTOOLS=ON
+cmake .. -DTAFFO_BUILD_ORTOOLS=ON -DTAFFO_UNITTESTS=ON
 cmake --build .
 ctest -VV
 ```
