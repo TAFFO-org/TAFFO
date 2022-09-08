@@ -30,3 +30,7 @@ add_llvm_library(Taffo MODULE
 if (TAFFO_BUILD_ILP_DTA)
   target_link_libraries(Taffo PRIVATE ortools::ortools)
 endif ()
+
+if (TAFFO_UNITTESTS)
+  target_compile_definitions(obj.TaffoVRA PUBLIC UNITTESTS)
+endif()

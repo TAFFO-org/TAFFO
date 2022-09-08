@@ -52,6 +52,16 @@ public:
     return VS->getKind() == VRASK_VRAnalyzer;
   }
 
+#ifdef UNITTESTS
+public:
+  NodePtrT getNode(const llvm::Value *v) override;
+  void setNode(const llvm::Value *V, NodePtrT Node) override;
+#else
+private:
+  NodePtrT getNode(const llvm::Value *v) override;
+  void setNode(const llvm::Value *V, NodePtrT Node) override;
+#endif
+
 private:
   // Instruction Handlers
   void handleSpecialCall(const llvm::Instruction *I);
@@ -77,8 +87,7 @@ private:
   using VRAStore::fetchRange;
   const range_ptr_t fetchRange(const llvm::Value *V) override;
   const RangeNodePtrT fetchRangeNode(const llvm::Value *V) override;
-  NodePtrT getNode(const llvm::Value *v) override;
-  void setNode(const llvm::Value *V, NodePtrT Node) override;
+
 
   // Interface with CodeInterpreter
   std::shared_ptr<VRAGlobalStore> getGlobalStore() const

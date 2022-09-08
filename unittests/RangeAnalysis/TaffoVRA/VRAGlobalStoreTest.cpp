@@ -42,8 +42,7 @@ TEST_F(VRAGlobalStoreTest, convexMerge_VRAnalyzer) {
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
   auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
   VRAgs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
-  //Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
-  // TODO: determine how to run setNode on VRAnalyzer
+  Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
   VRAgs.convexMerge(Other);
 
@@ -51,11 +50,9 @@ TEST_F(VRAGlobalStoreTest, convexMerge_VRAnalyzer) {
   ASSERT_NE(node, nullptr);
   auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
   ASSERT_NE(scalar, nullptr);
-  /*EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
   EXPECT_EQ(scalar->getRange()->max(), 4);
   EXPECT_FALSE(scalar->isFinal());
-  */
-
 }
 
 TEST_F(VRAGlobalStoreTest, convexMerge_VRAGlobalStore) {
