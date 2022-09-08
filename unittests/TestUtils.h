@@ -50,6 +50,21 @@ static llvm::Function* genFunction(llvm::Module &M, llvm::Type* retType, llvm::A
   return F;
 }
 
+/**
+ * Generates a Function
+ * @param[in] M the Module to add the Function to
+ * @param[in] name
+ * @param[in] retType
+ * @param[in] params
+ * @return
+ */
+static llvm::Function* genFunction(llvm::Module &M, const std::string& name, llvm::Type* retType, llvm::ArrayRef<llvm::Type*> params={}) {
+  llvm::FunctionType* FT = llvm::FunctionType::get(retType, params, false);
+  llvm::Function* F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, name, &M);
+  return F;
+}
+
+
 static llvm::GlobalVariable* genGlobalVariable(llvm::Module &M, llvm::Type *T, llvm::Constant *init =nullptr, bool isConstant=false) {
   return new llvm::GlobalVariable(M, T, isConstant, llvm::GlobalValue::ExternalLinkage, init, "var");
 }
