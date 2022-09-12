@@ -33,7 +33,9 @@ void init_array(int ni, int nj, int nk, int nl,
 		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
 		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
 		DATA_TYPE POLYBENCH_2D(C,NJ,NL,nj,nl),
-		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
+		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl),
+                DATA_TYPE POLYBENCH_2D(tmp,NI,NJ,ni,nj)
+               )
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
@@ -52,6 +54,9 @@ void init_array(int ni, int nj, int nk, int nl,
   for (i = 0; i < ni; i++)
     for (j = 0; j < nl; j++)
       D[i][j] = (DATA_TYPE) (i*(j+2) % nk) / nk;
+  for (i = 0; i < ni; i++)
+    for (j = 0; j < nj; j++)
+      tmp[i][j] = 0;
 }
 
 
@@ -121,26 +126,47 @@ int main(int argc, char** argv)
   int nl = NL;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final )"))),NI,NJ,ni,nj);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),NI,NK,ni,nk);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),NK,NJ,nk,nj);
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar()"))),NJ,NL,nj,nl);
-  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final )"))),NI,NL,ni,nl);
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_alpha_MIN) "," PB_XSTR(VAR_alpha_MAX) ") final)"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_beta_MIN) "," PB_XSTR(VAR_beta_MAX) ") final)"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_tmp_MIN) "," PB_XSTR(VAR_tmp_MAX) ") final)"))),NI,NJ,ni,nj);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))),NI,NK,ni,nk);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) ") final)"))),NK,NJ,nk,nj);
+  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_C_MIN) "," PB_XSTR(VAR_C_MAX) ") final)"))),NJ,NL,nj,nl);
+  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(" PB_XSTR(VAR_D_MIN) "," PB_XSTR(VAR_D_MAX) ") final)"))),NI,NL,ni,nl);
 
   /* Initialize array(s). */
   init_array (ni, nj, nk, nl, &alpha, &beta,
 	      POLYBENCH_ARRAY(A),
 	      POLYBENCH_ARRAY(B),
 	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(D));
+	      POLYBENCH_ARRAY(D),
+              POLYBENCH_ARRAY(tmp));
+
+  scale_scalar(&alpha, SCALING_FACTOR);
+  scale_scalar(&beta, SCALING_FACTOR);
+  scale_2d(NI, NK, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(NK, NJ, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+  scale_2d(NJ, NL, POLYBENCH_ARRAY(C), SCALING_FACTOR);
+  scale_2d(NI, NL, POLYBENCH_ARRAY(D), SCALING_FACTOR);
+  scale_2d(NI, NJ, POLYBENCH_ARRAY(tmp), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("alpha", alpha);
+  stats_scalar("beta", beta);
+  stats_2d("A", NI, NK, POLYBENCH_ARRAY(A));
+  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(B));
+  stats_2d("C", NJ, NL, POLYBENCH_ARRAY(C));
+  stats_2d("D", NI, NL, POLYBENCH_ARRAY(D));
+  stats_2d("tmp", NI, NJ, POLYBENCH_ARRAY(tmp));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_2mm (ni, nj, nk, nl,
 	      alpha, beta,
@@ -149,6 +175,17 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(B),
 	      POLYBENCH_ARRAY(C),
 	      POLYBENCH_ARRAY(D));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_scalar("alpha", alpha);
+  stats_scalar("beta", beta);
+  stats_2d("A", NI, NK, POLYBENCH_ARRAY(A));
+  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(B));
+  stats_2d("C", NJ, NL, POLYBENCH_ARRAY(C));
+  stats_2d("D", NI, NL, POLYBENCH_ARRAY(D));
+  stats_2d("tmp", NI, NJ, POLYBENCH_ARRAY(tmp));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */

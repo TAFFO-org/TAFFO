@@ -31,17 +31,20 @@ fi
 compile_one()
 {
   benchpath="$1"
-  xparams="$2"
+  scaling="$2"
+  xparams="$3"
   benchname=$(basename $benchpath .c)
+  mkdir -p build/"$scaling"/"$benchname"
   $TIMEOUT taffo \
-    -o build/"$benchname".out \
-    -temp-dir build \
+    -o build/"$scaling"/"$benchname"/"$benchname".out \
+    -temp-dir build/"$scaling"/"$benchname" \
     "$benchpath" \
     -Isources/. \
     $xparams \
     -debug-taffo \
     -lm \
-    2> build/${benchname}.log || return $?
+    -DSCALING_FACTOR=$scaling \
+    2> build/"$scaling"/"$benchname"/${benchname}.log || return $?
 }
 
 read_opts()
@@ -78,6 +81,14 @@ read_opts()
   fi
 }
 
+read_stats()
+{
+  benchname=$1
+  scaling=$2
+  stats=$(python3 ./stats_to_opts.py ./build_stats/"$scaling"/"$benchname"/"$benchname".csv)
+  echo "$stats"
+}
+
 
 if [[ -z $(which taffo) ]]; then
   printf 'error: no taffo in the path\n' > /dev/stderr
@@ -85,6 +96,8 @@ if [[ -z $(which taffo) ]]; then
 fi
 
 TAFFO_PREFIX=$(dirname $(which taffo))/..
+
+SCALING_MAX=65
 
 if [[ -z $mixedmode ]];  then export mixedmode=0; fi
 if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3'; fi
@@ -120,20 +133,29 @@ rm -f build.log
 
 all_benchs=$(cat ./benchmark_list)
 for bench in $all_benchs; do
-  if [[ "$bench" =~ $ONLY ]]; then
-    printf '[....] %s' "$bench"
-    opts=$(read_opts ${bench})
+  benchname=$(basename $bench .c)
+  opts=$(read_opts ${bench})
+  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*2 ))
+  do
+    printf '[....] %s' "$benchname"_"$scaling"
+    stats=$(read_stats ${benchname} ${scaling})
     compile_one "$bench" \
+      "$scaling" \
       "-m32 \
       ${CFLAGS} \
       ${errorprop} \
-      ${mixedmodeopts} "
+      ${mixedmodeopts} \
+      ${stats}"
     bpid_fc=$?
     if [[ $bpid_fc == 0 ]]; then
       bpid_fc=' ok '
     fi
-    printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"
-  fi
+    printf '\033[1G[%4s] %s\n' "$bpid_fc" "$benchname"_"$scaling"
+    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.5.taffotmp.ll \
+     1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
+     2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
+  done
+  break
 done
 
 

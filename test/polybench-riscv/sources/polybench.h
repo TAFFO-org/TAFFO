@@ -1,3 +1,9 @@
+
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <math.h>
+#include <stdbool.h>
 /**
  * This version is stamped on May 10, 2016
  *
@@ -218,6 +224,81 @@ float sqrtf_PB(float val)
 # define polybench_stop_instruments
 # define polybench_print_instruments
 
+#ifndef SCALING_FACTOR
+#define SCALING_FACTOR 1
+#endif
+
+void scale_scalar(float* val, int factor) {
+  *val = *val * factor;
+}
+
+void scale_1d(int n, float val[n], int factor) {
+  for (int i = 0; i < n; i++) {
+    val[i] = val[i] * factor;
+  }
+}
+
+void scale_2d(int n, int m, float val[n][m], int factor) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      val[i][j] = val[i][j] * factor;
+    }
+  }
+}
+
+#ifdef COLLECT_STATS
+
+void stats_header() {
+  fprintf (POLYBENCH_DUMP_TARGET, "var_scaling_factor,var_name,var_min,var_max,var_isnan,var_isinf\n");
+}
+
+void stats_scalar(char* name, float val) {
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, val, val, isnan(val), isinf(val));
+}
+
+void stats_1d(char* name, int n, float val[n]) {
+  float min = val[0];
+  float max = val[0];
+  bool is_nan = false;
+  bool is_inf = false;
+  for (int i = 0; i < n; i++) {
+    float elem = val[i];
+    if (!isfinite(elem)) {
+      is_nan |= isnan(elem);
+      is_inf |= isinf(elem);
+      continue;
+    }
+    if (min > elem) min = elem;
+    if (max < elem) max = elem;
+  }
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, min, max, is_nan, is_inf);
+}
+
+void stats_2d(char* name, int n, int m, float val[n][m]) {
+  float min = val[0][0];
+  float max = val[0][0];
+  bool is_nan = false;
+  bool is_inf = false;
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      float elem = val[i][j];
+      if (!isfinite(elem)) {
+        is_nan |= isnan(elem);
+        is_inf |= isinf(elem);
+        continue;
+      }
+      if (min > elem) min = elem;
+      if (max < elem) max = elem;
+    }
+  }
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, min, max, is_nan, is_inf);
+}
+
+#endif
+
 
 /* PAPI support. */
 # ifdef POLYBENCH_PAPI
@@ -258,6 +339,10 @@ extern void polybench_timer_start();
 extern void polybench_timer_stop();
 extern void polybench_timer_print();
 # endif
+
+// these functions are there to demarcate the region of interest, they do not do anything
+void timer_start() {}
+void timer_stop() {}
 
 /* PAPI support. */
 # ifdef POLYBENCH_PAPI
