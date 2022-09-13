@@ -29,18 +29,26 @@ float POLYBENCH_1D(y_float, N, n);
 static
 void init_array (int m, int n,
 		 DATA_TYPE POLYBENCH_2D(A,M,N,m,n),
-		 DATA_TYPE POLYBENCH_1D(x,N,n))
+		 DATA_TYPE POLYBENCH_1D(x,N,n),
+		 DATA_TYPE POLYBENCH_1D(y,N,n),
+		 DATA_TYPE POLYBENCH_1D(tmp,M,m)
+               )
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
   DATA_TYPE __attribute__((annotate("scalar()"))) fn;
   fn = (DATA_TYPE)n;
 
-  for (i = 0; i < n; i++)
-      x[i] = 1 + (i / fn);
-  for (i = 0; i < m; i++)
-    for (j = 0; j < n; j++)
-      A[i][j] = (DATA_TYPE) ((i+j) % n) / (5*m);
+  for (i = 0; i < n; i++) {
+    x[i] = 1 + (i / fn);
+    y[i] = 0;
+  }
+  for (i = 0; i < m; i++) {
+    tmp[i] = 0;
+    for (j = 0; j < n; j++) {
+      A[i][j] = (DATA_TYPE)((i + j) % n) / (5 * m);
+    }
+  }
 }
 
 
@@ -100,25 +108,49 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar()"))), M, N, m, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-4096, 4096) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("scalar(range(-4096, 4096) final)"))), M, m);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))), M, N, m, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_x_MIN) "," PB_XSTR(VAR_x_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(" PB_XSTR(VAR_y_MIN) "," PB_XSTR(VAR_y_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_tmp_MIN) "," PB_XSTR(VAR_tmp_MAX) ") final)"))), M, m);
 
   /* Initialize array(s). */
-  init_array (m, n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(x));
+  init_array (m, n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(tmp));
+
+  scale_2d(M, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
+  scale_1d(M, POLYBENCH_ARRAY(tmp), SCALING_FACTOR);
+
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("A", M, N, POLYBENCH_ARRAY(A));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+  stats_1d("tmp", M, POLYBENCH_ARRAY(tmp));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_atax (m, n,
 	       POLYBENCH_ARRAY(A),
 	       POLYBENCH_ARRAY(x),
 	       POLYBENCH_ARRAY(y),
 	       POLYBENCH_ARRAY(tmp));
+
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_2d("A", M, N, POLYBENCH_ARRAY(A));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+  stats_1d("tmp", M, POLYBENCH_ARRAY(tmp));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */
