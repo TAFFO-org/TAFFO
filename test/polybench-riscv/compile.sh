@@ -97,7 +97,7 @@ fi
 
 TAFFO_PREFIX=$(dirname $(which taffo))/..
 
-SCALING_MAX=65
+SCALING_MAX=64
 
 if [[ -z $mixedmode ]];  then export mixedmode=0; fi
 if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3'; fi
@@ -155,7 +155,9 @@ for bench in $all_benchs; do
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
   done
-  break
+  if [ $benchname = "3mm" ]; then
+     break
+  fi
 done
 
 

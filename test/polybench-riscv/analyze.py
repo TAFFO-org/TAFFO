@@ -31,6 +31,8 @@ def main(argv):
                 'scale': int(scale),
                 'var_min': var_stats['var_min'].min(),
                 'var_max': var_stats['var_max'].max(),
+                'var_isnan': var_stats['var_isnan'].max(),
+                'var_isinf': var_stats['var_isinf'].max(),
                 'MathOp': ops_stats.iloc[0].get("MathOp", 0),
                 'IntegerOp': ops_stats.iloc[0].get("IntegerOp", 0),
                 'FloatingPointOp': ops_stats.iloc[0].get("FloatingPointOp", 0),

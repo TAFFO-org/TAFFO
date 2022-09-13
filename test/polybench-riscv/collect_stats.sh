@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCALING_MAX=65
+SCALING_MAX=64
 
 compile_stats()
 {
@@ -22,6 +22,7 @@ rm -f build_stats.log
 
 all_benchs=$(cat ./benchmark_list)
 for bench in $all_benchs; do
+  benchname=$(basename $bench .c)
   for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*2 ))
   do
      printf '[....] %s' "$bench"_"$scaling"
@@ -33,5 +34,7 @@ for bench in $all_benchs; do
      printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"_"$scaling"
      build_stats/"$scaling"/"$benchname"/"$benchname".out 2> build_stats/"$scaling"/"$benchname"/"$benchname".csv
   done
-  break
+  if [ $benchname = "3mm" ]; then
+     break
+  fi
 done

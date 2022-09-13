@@ -127,13 +127,13 @@ int main(int argc, char** argv)
   int nm = NM;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(E, DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))), NI, NJ, ni, nj);
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar()"))), NI, NK, ni, nk);
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), NK, NJ, nk, nj);
-  POLYBENCH_2D_ARRAY_DECL(F, DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))), NJ, NL, nj, nl);
-  POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE __attribute__((annotate("scalar()"))), NJ, NM, nj, nm);
-  POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE __attribute__((annotate("scalar()"))), NM, NL, nm, nl);
-  POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE __attribute__((annotate("target('G') scalar(range(-16384, 16384) final)"))), NI, NL, ni, nl);
+  POLYBENCH_2D_ARRAY_DECL(E, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_E_MIN) "," PB_XSTR(VAR_E_MAX) ") final)"))), NI, NJ, ni, nj);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))), NI, NK, ni, nk);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) ") final)"))), NK, NJ, nk, nj);
+  POLYBENCH_2D_ARRAY_DECL(F, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_F_MIN) "," PB_XSTR(VAR_F_MAX) ") final)"))), NJ, NL, nj, nl);
+  POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_C_MIN) "," PB_XSTR(VAR_C_MAX) ") final)"))), NJ, NM, nj, nm);
+  POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_D_MIN) "," PB_XSTR(VAR_D_MAX) ") final)"))), NM, NL, nm, nl);
+  POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE __attribute__((annotate("target('G') scalar(range(" PB_XSTR(VAR_G_MIN) "," PB_XSTR(VAR_G_MAX) ") final)"))), NI, NL, ni, nl);
 
 
   /* Initialize array(s). */
@@ -143,11 +143,31 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(C),
 	      POLYBENCH_ARRAY(D));
 
+  scale_2d(NI, NJ, POLYBENCH_ARRAY(E), SCALING_FACTOR);
+  scale_2d(NI, NK, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(NK, NJ, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+  scale_2d(NJ, NL, POLYBENCH_ARRAY(F), SCALING_FACTOR);
+  scale_2d(NJ, NM, POLYBENCH_ARRAY(C), SCALING_FACTOR);
+  scale_2d(NM, NL, POLYBENCH_ARRAY(D), SCALING_FACTOR);
+  scale_2d(NI, NL, POLYBENCH_ARRAY(G), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("E", NI, NJ, POLYBENCH_ARRAY(A));
+  stats_2d("A", NI, NK, POLYBENCH_ARRAY(B));
+  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(C));
+  stats_2d("F", NJ, NL, POLYBENCH_ARRAY(D));
+  stats_2d("C", NJ, NM, POLYBENCH_ARRAY(E));
+  stats_2d("D", NM, NL, POLYBENCH_ARRAY(F));
+  stats_2d("G", NI, NL, POLYBENCH_ARRAY(G));
+#endif
+
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_3mm (ni, nj, nk, nl, nm,
 	      POLYBENCH_ARRAY(E),
@@ -157,6 +177,17 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(C),
 	      POLYBENCH_ARRAY(D),
 	      POLYBENCH_ARRAY(G));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_2d("E", NI, NJ, POLYBENCH_ARRAY(A));
+  stats_2d("A", NI, NK, POLYBENCH_ARRAY(B));
+  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(C));
+  stats_2d("F", NJ, NL, POLYBENCH_ARRAY(D));
+  stats_2d("C", NJ, NM, POLYBENCH_ARRAY(E));
+  stats_2d("D", NM, NL, POLYBENCH_ARRAY(F));
+  stats_2d("G", NI, NL, POLYBENCH_ARRAY(G));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */
