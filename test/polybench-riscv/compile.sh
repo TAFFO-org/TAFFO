@@ -155,7 +155,7 @@ for bench in $all_benchs; do
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
   done
-  if [ $benchname = "syrk" ]; then
+  if [ $benchname = "trmm" ]; then
      break
   fi
 done
