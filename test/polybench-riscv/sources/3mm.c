@@ -31,7 +31,11 @@ void init_array(int ni, int nj, int nk, int nl, int nm,
 		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
 		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
 		DATA_TYPE POLYBENCH_2D(C,NJ,NM,nj,nm),
-		DATA_TYPE POLYBENCH_2D(D,NM,NL,nm,nl))
+		DATA_TYPE POLYBENCH_2D(D,NM,NL,nm,nl),
+		DATA_TYPE POLYBENCH_2D(E,NI,NJ,ni,nj),
+		DATA_TYPE POLYBENCH_2D(F,NJ,NL,nj,nl),
+		DATA_TYPE POLYBENCH_2D(G,NI,NL,ni,nl)
+               )
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NM) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NM) "))")));
@@ -48,6 +52,15 @@ void init_array(int ni, int nj, int nk, int nl, int nm,
   for (i = 0; i < nm; i++)
     for (j = 0; j < nl; j++)
       D[i][j] = (DATA_TYPE) ((i*(j+2)+2) % nk) / (5*nk);
+  for (i = 0; i < ni; i++)
+    for (j = 0; j < nj; j++)
+      E[i][j] = 0;
+  for (i = 0; i < nj; i++)
+    for (j = 0; j < nl; j++)
+      F[i][j] = 0;
+  for (i = 0; i < ni; i++)
+    for (j = 0; j < nl; j++)
+      G[i][j] = 0;
 }
 
 
@@ -141,7 +154,11 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(A),
 	      POLYBENCH_ARRAY(B),
 	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(D));
+	      POLYBENCH_ARRAY(D),
+	      POLYBENCH_ARRAY(E),
+	      POLYBENCH_ARRAY(F),
+	      POLYBENCH_ARRAY(G)
+             );
 
   scale_2d(NI, NJ, POLYBENCH_ARRAY(E), SCALING_FACTOR);
   scale_2d(NI, NK, POLYBENCH_ARRAY(A), SCALING_FACTOR);
@@ -153,12 +170,12 @@ int main(int argc, char** argv)
 
 #ifdef COLLECT_STATS
   stats_header();
-  stats_2d("E", NI, NJ, POLYBENCH_ARRAY(A));
-  stats_2d("A", NI, NK, POLYBENCH_ARRAY(B));
-  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(C));
-  stats_2d("F", NJ, NL, POLYBENCH_ARRAY(D));
-  stats_2d("C", NJ, NM, POLYBENCH_ARRAY(E));
-  stats_2d("D", NM, NL, POLYBENCH_ARRAY(F));
+  stats_2d("E", NI, NJ, POLYBENCH_ARRAY(E));
+  stats_2d("A", NI, NK, POLYBENCH_ARRAY(A));
+  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(B));
+  stats_2d("F", NJ, NL, POLYBENCH_ARRAY(F));
+  stats_2d("C", NJ, NM, POLYBENCH_ARRAY(C));
+  stats_2d("D", NM, NL, POLYBENCH_ARRAY(D));
   stats_2d("G", NI, NL, POLYBENCH_ARRAY(G));
 #endif
 
@@ -180,12 +197,12 @@ int main(int argc, char** argv)
   timer_stop();
 
 #ifdef COLLECT_STATS
-  stats_2d("E", NI, NJ, POLYBENCH_ARRAY(A));
-  stats_2d("A", NI, NK, POLYBENCH_ARRAY(B));
-  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(C));
-  stats_2d("F", NJ, NL, POLYBENCH_ARRAY(D));
-  stats_2d("C", NJ, NM, POLYBENCH_ARRAY(E));
-  stats_2d("D", NM, NL, POLYBENCH_ARRAY(F));
+  stats_2d("E", NI, NJ, POLYBENCH_ARRAY(E));
+  stats_2d("A", NI, NK, POLYBENCH_ARRAY(A));
+  stats_2d("B", NK, NJ, POLYBENCH_ARRAY(B));
+  stats_2d("F", NJ, NL, POLYBENCH_ARRAY(F));
+  stats_2d("C", NJ, NM, POLYBENCH_ARRAY(C));
+  stats_2d("D", NM, NL, POLYBENCH_ARRAY(D));
   stats_2d("G", NI, NL, POLYBENCH_ARRAY(G));
 #endif
 
