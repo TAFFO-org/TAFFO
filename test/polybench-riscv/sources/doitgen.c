@@ -29,7 +29,8 @@ float POLYBENCH_3D(A_float,NR,NQ,NP,nr,nq,np);
 static
 void init_array(int nr, int nq, int np,
 		DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np),
-		DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np))
+		DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np),
+                DATA_TYPE POLYBENCH_1D(sum,NP,np))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NP) "))")));
@@ -39,9 +40,12 @@ void init_array(int nr, int nq, int np,
     for (j = 0; j < nq; j++)
       for (k = 0; k < np; k++)
 	A[i][j][k] = (DATA_TYPE) ((i*j + k)%np) / np;
-  for (i = 0; i < np; i++)
-    for (j = 0; j < np; j++)
-      C4[i][j] = (DATA_TYPE) (i*j % np) / np;
+  for (i = 0; i < np; i++) {
+    sum[i] = 0;
+    for (j = 0; j < np; j++) {
+      C4[i][j] = (DATA_TYPE)(i * j % np) / np;
+    }
+  }
 }
 
 
@@ -101,25 +105,46 @@ int main(int argc, char** argv)
   int np = NP;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(-32, 31) final)"))),NR,NQ,NP,nr,nq,np);
-  POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))),NP,np);
-  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar()"))),NP,NP,np,np);
+  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))),NR,NQ,NP,nr,nq,np);
+  POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_sum_MIN) "," PB_XSTR(VAR_sum_MAX) ") final)"))),NP,np);
+  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_C4_MIN) "," PB_XSTR(VAR_C4_MAX) ") final)"))),NP,NP,np,np);
 
   /* Initialize array(s). */
   init_array (nr, nq, np,
 	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(C4));
+	      POLYBENCH_ARRAY(C4),
+	      POLYBENCH_ARRAY(sum)
+             );
+
+  scale_3d(NR,NQ,NP, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_1d(NP, POLYBENCH_ARRAY(sum), SCALING_FACTOR);
+  scale_2d(NP,NP, POLYBENCH_ARRAY(C4), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_3d("A", NR, NQ, NP, POLYBENCH_ARRAY(A));
+  stats_1d("sum", NP, POLYBENCH_ARRAY(sum));
+  stats_2d("C4", NP, NP, POLYBENCH_ARRAY(C4));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_doitgen (nr, nq, np,
 		  POLYBENCH_ARRAY(A),
 		  POLYBENCH_ARRAY(C4),
 		  POLYBENCH_ARRAY(sum));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_3d("A", NR, NQ, NP, POLYBENCH_ARRAY(A));
+  stats_1d("sum", NP, POLYBENCH_ARRAY(sum));
+  stats_2d("C4", NP, NP, POLYBENCH_ARRAY(C4));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */

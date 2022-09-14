@@ -246,6 +246,16 @@ void scale_2d(int n, int m, float val[n][m], int factor) {
   }
 }
 
+void scale_3d(int n, int m, int p, float val[n][m][p], int factor) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      for (int k = 0; k < p; k++) {
+        val[i][j][k] = val[i][j][k] * factor;
+      }
+    }
+  }
+}
+
 #ifdef COLLECT_STATS
 
 void stats_header() {
@@ -291,6 +301,29 @@ void stats_2d(char* name, int n, int m, float val[n][m]) {
       }
       if (min > elem) min = elem;
       if (max < elem) max = elem;
+    }
+  }
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, min, max, is_nan, is_inf);
+}
+
+void stats_3d(char* name, int n, int m, int p, float val[n][m][p]) {
+  float min = val[0][0][0];
+  float max = val[0][0][0];
+  bool is_nan = false;
+  bool is_inf = false;
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      for (int k = 0; k < p; k++) {
+        float elem = val[i][j][k];
+        if (!isfinite(elem)) {
+          is_nan |= isnan(elem);
+          is_inf |= isinf(elem);
+          continue;
+        }
+        if (min > elem) min = elem;
+        if (max < elem) max = elem;
+      }
     }
   }
   fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
