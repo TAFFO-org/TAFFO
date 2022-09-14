@@ -32,7 +32,9 @@ void init_array(int n,
 		DATA_TYPE *beta,
 		DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
 		DATA_TYPE POLYBENCH_2D(B,N,N,n,n),
-		DATA_TYPE POLYBENCH_1D(x,N,n))
+		DATA_TYPE POLYBENCH_1D(x,N,n),
+                 DATA_TYPE POLYBENCH_1D(tmp,N,n),
+                 DATA_TYPE POLYBENCH_1D(y,N,n))
 {
   int i __attribute__((annotate("scalar(range(0," PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0," PB_XSTR(N) "))")));
@@ -42,6 +44,8 @@ void init_array(int n,
   for (i = 0; i < n; i++)
     {
       x[i] = (DATA_TYPE)( i % n) / n;
+      y[i] = 0;
+      tmp[i] = 0;
       for (j = 0; j < n; j++) {
 	A[i][j] = (DATA_TYPE) ((i*j+1) % n) / n;
 	B[i][j] = (DATA_TYPE) ((i*j+2) % n) / n;
@@ -108,26 +112,47 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("scalar(range(-256, 255) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-256, 255) final)"))), N, n);
-
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_alpha_MIN) "," PB_XSTR(VAR_alpha_MAX) ") final)"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_beta_MIN) "," PB_XSTR(VAR_beta_MAX) ") final)"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_tmp_MIN) "," PB_XSTR(VAR_tmp_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_x_MIN) "," PB_XSTR(VAR_x_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(" PB_XSTR(VAR_y_MIN) "," PB_XSTR(VAR_y_MAX) ") final)"))), N, n);
 
   /* Initialize array(s). */
   init_array (n, &alpha, &beta,
 	      POLYBENCH_ARRAY(A),
 	      POLYBENCH_ARRAY(B),
-	      POLYBENCH_ARRAY(x));
+	      POLYBENCH_ARRAY(x),
+             POLYBENCH_ARRAY(tmp),
+             POLYBENCH_ARRAY(y));
+
+  scale_scalar(&alpha, SCALING_FACTOR);
+  scale_scalar(&beta, SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(tmp), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("alpha", alpha);
+  stats_scalar("beta", beta);
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_2d("B", N, N, POLYBENCH_ARRAY(B));
+  stats_1d("tmp", N, POLYBENCH_ARRAY(tmp));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_gesummv (n, alpha, beta,
 		  POLYBENCH_ARRAY(A),
@@ -135,6 +160,17 @@ int main(int argc, char** argv)
 		  POLYBENCH_ARRAY(tmp),
 		  POLYBENCH_ARRAY(x),
 		  POLYBENCH_ARRAY(y));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_scalar("alpha", alpha);
+  stats_scalar("beta", beta);
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_2d("B", N, N, POLYBENCH_ARRAY(B));
+  stats_1d("tmp", N, POLYBENCH_ARRAY(tmp));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */

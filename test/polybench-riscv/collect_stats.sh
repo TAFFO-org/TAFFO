@@ -34,7 +34,7 @@ for bench in $all_benchs; do
      printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"_"$scaling"
      build_stats/"$scaling"/"$benchname"/"$benchname".out 2> build_stats/"$scaling"/"$benchname"/"$benchname".csv
   done
-  if [ $benchname = "gemver" ]; then
+  if [ $benchname = "gesummv" ]; then
      break
   fi
 done
