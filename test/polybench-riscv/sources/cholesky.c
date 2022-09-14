@@ -121,18 +121,31 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(-140, 140) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))), N, N, n, n);
 
   /* Initialize array(s). */
   init_array (n, POLYBENCH_ARRAY(A));
+
+  scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_cholesky (n, POLYBENCH_ARRAY(A));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */
