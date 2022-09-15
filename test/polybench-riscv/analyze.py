@@ -64,6 +64,7 @@ def main(argv):
     # vmax = max(stats_summary['smul.fix.i32'].values.max(), stats_summary['fmul'].values.max())
 
     fig, ax = plt.subplots(2, 2, constrained_layout=True)
+    fig.set_size_inches(18, 12, forward=True)
 
     smul = stats_summary.pivot(index='bench', columns='scale', values='smul.fix.i32')
     sns.heatmap(smul, annot=True, linewidths=.5, ax=ax[0,0], cmap='Blues')
@@ -81,16 +82,29 @@ def main(argv):
     sns.heatmap(fdiv, annot=True, linewidths=.5, ax=ax[1,1], cmap='Blues')
     ax[1,1].title.set_text('fdiv')
 
+    fig.savefig(f'{stats_path}/mul_div.png', dpi=fig.dpi)
 
-    fig2, ax2 = plt.subplots(2, constrained_layout=True)
+
+    fig2, ax2 = plt.subplots(2, 2, constrained_layout=True)
+    fig2.set_size_inches(18, 12, forward=True)
 
     intop = stats_summary.pivot(index='bench', columns='scale', values='IntegerOp')
-    sns.heatmap(intop, annot=True, linewidths=.5, ax=ax2[0], cmap='Blues')
-    ax2[0].title.set_text('IntegerOp')
+    sns.heatmap(intop, annot=True, linewidths=.5, ax=ax2[0,0], cmap='Blues')
+    ax2[0,0].title.set_text('IntegerOp')
 
     floatop = stats_summary.pivot(index='bench', columns='scale', values='FloatingPointOp')
-    sns.heatmap(floatop, annot=True, linewidths=.5, ax=ax2[1], cmap='Blues')
-    ax2[1].title.set_text('FloatingPointOp')
+    sns.heatmap(floatop, annot=True, linewidths=.5, ax=ax2[1,0], cmap='Blues')
+    ax2[1,0].title.set_text('FloatingPointOp')
+
+    mathop = stats_summary.pivot(index='bench', columns='scale', values='MathOp')
+    sns.heatmap(mathop, annot=True, linewidths=.5, ax=ax2[0,1], cmap='Blues')
+    ax2[0,1].title.set_text('MathOp')
+
+    shiftop = stats_summary.pivot(index='bench', columns='scale', values='Shift')
+    sns.heatmap(shiftop, annot=True, linewidths=.5, ax=ax2[1,1], cmap='Blues')
+    ax2[1,1].title.set_text('Shift')
+
+    fig2.savefig(f'{stats_path}/int_float.png', dpi=fig2.dpi)
 
     plt.show()
 
