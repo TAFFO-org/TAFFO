@@ -38,8 +38,12 @@ void init_array(int n,
     {
       x[i] = 0; //- 999;
       b[i] =  i ;
-      for (j = 0; j <= i; j++)
-        L[i][j] = (DATA_TYPE) (i+n-j+1)*2/n;
+      for (j = 0; j < n; j++)
+        if (j <= i) {
+          L[i][j] = (DATA_TYPE) (i+n-j+1)*2/n;
+        } else {
+          L[i][j] = 0;
+        }
     }
 }
 
@@ -95,21 +99,40 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE __attribute__((annotate("scalar(range(-1,3) final)"))), N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(-1, 400) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_L_MIN) "," PB_XSTR(VAR_L_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(" PB_XSTR(VAR_x_MIN) "," PB_XSTR(VAR_x_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_b_MIN) "," PB_XSTR(VAR_b_MAX) ") final)"))), N, n);
 
 
   /* Initialize array(s). */
   init_array (n, POLYBENCH_ARRAY(L), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(b));
+
+  scale_2d(N, N, POLYBENCH_ARRAY(L), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(b), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("L", N, N, POLYBENCH_ARRAY(L));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("b", N, POLYBENCH_ARRAY(b));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_trisolv (n, POLYBENCH_ARRAY(L), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(b));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_2d("L", N, N, POLYBENCH_ARRAY(L));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("b", N, POLYBENCH_ARRAY(b));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */
