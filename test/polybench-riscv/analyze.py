@@ -5,8 +5,10 @@ import pandas as pd
 from os import listdir
 from os.path import isfile, join, isdir
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 pd.options.display.max_columns = None
+# plt.rcParams.update({'font.size': 8})
 
 def main(argv):
     stats_path = "./build_stats"
@@ -49,16 +51,48 @@ def main(argv):
     stats_summary = stats_summary.sort_values(['bench', 'scale'], ascending=False)
     stats_summary["bench_scale"] = stats_summary['bench'].astype(str) +"-"+ stats_summary["scale"].astype(str)
     print(stats_summary)
-    fig, ax = plt.subplots(constrained_layout=True)
-    stats_summary.plot(x='bench_scale',
-                        y=['smul.fix.i32', 'sdiv.fix.i32', 'fdiv', 'fmul'],
-                        kind='barh',
-                        stacked=True,
-                        ax=ax
-                       )
+    stats_summary.to_csv (f'{stats_path}/stats_summary.csv', index = None, header=True)
+
+    # stats_summary.plot(x='bench_scale',
+    #                     y=['smul.fix.i32', 'sdiv.fix.i32', 'fdiv', 'fmul'],
+    #                     kind='barh',
+    #                     stacked=True,
+    #                     ax=ax
+    #                    )
+
+    # vmin = min(stats_summary['smul.fix.i32'].values.min(), stats_summary['fmul'].values.min())
+    # vmax = max(stats_summary['smul.fix.i32'].values.max(), stats_summary['fmul'].values.max())
+
+    fig, ax = plt.subplots(2, 2, constrained_layout=True)
+
+    smul = stats_summary.pivot(index='bench', columns='scale', values='smul.fix.i32')
+    sns.heatmap(smul, annot=True, linewidths=.5, ax=ax[0,0], cmap='Blues')
+    ax[0,0].title.set_text('smul.fix.i32')
+
+    fmul = stats_summary.pivot(index='bench', columns='scale', values='fmul')
+    sns.heatmap(fmul, annot=True, linewidths=.5, ax=ax[1,0], cmap='Blues')
+    ax[1,0].title.set_text('fmul')
+
+    sdiv = stats_summary.pivot(index='bench', columns='scale', values='sdiv.fix.i32')
+    sns.heatmap(sdiv, annot=True, linewidths=.5, ax=ax[0,1], cmap='Blues')
+    ax[0,1].title.set_text('sdiv.fix.i32')
+
+    fdiv = stats_summary.pivot(index='bench', columns='scale', values='fdiv')
+    sns.heatmap(fdiv, annot=True, linewidths=.5, ax=ax[1,1], cmap='Blues')
+    ax[1,1].title.set_text('fdiv')
+
+
+    fig2, ax2 = plt.subplots(2, constrained_layout=True)
+
+    intop = stats_summary.pivot(index='bench', columns='scale', values='IntegerOp')
+    sns.heatmap(intop, annot=True, linewidths=.5, ax=ax2[0], cmap='Blues')
+    ax2[0].title.set_text('IntegerOp')
+
+    floatop = stats_summary.pivot(index='bench', columns='scale', values='FloatingPointOp')
+    sns.heatmap(floatop, annot=True, linewidths=.5, ax=ax2[1], cmap='Blues')
+    ax2[1].title.set_text('FloatingPointOp')
 
     plt.show()
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])

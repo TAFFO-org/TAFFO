@@ -139,7 +139,6 @@ int main(int argc, char** argv)
   timer_stop();
 
 #ifdef COLLECT_STATS
-  stats_header();
   stats_scalar("alpha", alpha);
   stats_scalar("beta", beta);
   stats_2d("C", N,N, POLYBENCH_ARRAY(C));

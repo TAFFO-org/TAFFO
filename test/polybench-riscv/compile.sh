@@ -105,8 +105,8 @@ if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
 if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
 if [[ -z $instrset ]];   then export instrset=embedded; fi
 if [[ -z $enobweight ]]; then export enobweight=1; fi
-if [[ -z $timeweight ]]; then export timeweight=500; fi
-if [[ -z $castweight ]]; then export castweight=200; fi
+if [[ -z $timeweight ]]; then export timeweight=100; fi
+if [[ -z $castweight ]]; then export castweight=100; fi
 export mixedmodeopts=""
 
 printf 'Configuration:\n'
@@ -155,9 +155,9 @@ for bench in $all_benchs; do
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
   done
-  if [ $benchname = "trisolv" ]; then
-     break
-  fi
+#  if [ $benchname = "trisolv" ]; then
+#     break
+#  fi
 done
 
 
