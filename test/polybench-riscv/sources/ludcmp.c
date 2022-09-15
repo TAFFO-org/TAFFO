@@ -29,6 +29,7 @@ float POLYBENCH_1D(x_float, N, n);
 static
 void init_array (int n,
 		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
+		 DATA_TYPE POLYBENCH_2D(B,N,N,n,n),
 		 DATA_TYPE POLYBENCH_1D(b,N,n),
 		 DATA_TYPE POLYBENCH_1D(x,N,n),
 		 DATA_TYPE POLYBENCH_1D(y,N,n))
@@ -162,30 +163,57 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))), N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_b_MIN) "," PB_XSTR(VAR_b_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(" PB_XSTR(VAR_x_MIN) "," PB_XSTR(VAR_x_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_y_MIN) "," PB_XSTR(VAR_y_MAX) ") final)"))), N, n);
 
 
   /* Initialize array(s). */
   init_array (n,
 	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
 	      POLYBENCH_ARRAY(b),
 	      POLYBENCH_ARRAY(x),
 	      POLYBENCH_ARRAY(y));
+
+  scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(b), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_2d("B", N, N, POLYBENCH_ARRAY(B));
+  stats_1d("b", N, POLYBENCH_ARRAY(b));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_ludcmp (n,
 		 POLYBENCH_ARRAY(A),
 		 POLYBENCH_ARRAY(b),
 		 POLYBENCH_ARRAY(x),
 		 POLYBENCH_ARRAY(y));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_2d("B", N, N, POLYBENCH_ARRAY(B));
+  stats_1d("b", N, POLYBENCH_ARRAY(b));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */

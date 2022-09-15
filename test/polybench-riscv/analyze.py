@@ -49,10 +49,12 @@ def main(argv):
     stats_summary = stats_summary.sort_values(['bench', 'scale'], ascending=False)
     stats_summary["bench_scale"] = stats_summary['bench'].astype(str) +"-"+ stats_summary["scale"].astype(str)
     print(stats_summary)
+    fig, ax = plt.subplots(constrained_layout=True)
     stats_summary.plot(x='bench_scale',
                         y=['smul.fix.i32', 'sdiv.fix.i32', 'fdiv', 'fmul'],
                         kind='barh',
-                        stacked=True
+                        stacked=True,
+                        ax=ax
                        )
 
     plt.show()
