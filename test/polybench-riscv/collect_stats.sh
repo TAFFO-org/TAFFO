@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCALING_MAX=64
+SCALING_MAX=1024
 
 compile_stats()
 {
@@ -23,7 +23,7 @@ rm -f build_stats.log
 all_benchs=$(cat ./benchmark_list)
 for bench in $all_benchs; do
   benchname=$(basename $bench .c)
-  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*2 ))
+  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*4 ))
   do
      printf '[....] %s' "$bench"_"$scaling"
      compile_stats "$bench" "$scaling"

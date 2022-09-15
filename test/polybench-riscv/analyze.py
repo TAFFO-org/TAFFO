@@ -6,6 +6,7 @@ from os import listdir
 from os.path import isfile, join, isdir
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 pd.options.display.max_columns = None
 # plt.rcParams.update({'font.size': 8})
@@ -21,12 +22,22 @@ def main(argv):
         for bench in bench_dirs:
             var_stats_path = join(stats_path, scale, bench, f"{bench}.csv")
             ops_stats_path = join(stats_path, scale, bench, f"{bench}.mix.txt")
+            print(var_stats_path)
+            print(ops_stats_path)
             var_stats = pd.read_csv(var_stats_path)
             # print(var_stats)
-            ops_stats = pd.read_csv(ops_stats_path, sep=" ", header=None).transpose()
-            header = ops_stats.iloc[0]
-            ops_stats = ops_stats[1:]
-            ops_stats.columns=header
+            ops_placeholder = 0
+            try:
+                ops_stats = pd.read_csv(ops_stats_path, sep=" ", header=None).transpose()
+                header = ops_stats.iloc[0]
+                ops_stats = ops_stats[1:]
+                ops_stats.columns=header
+            except:
+                print(f"{bench} compilation error")
+                ops_stats = pd.DataFrame()
+                ops_stats = ops_stats.append({}, ignore_index=True)
+                ops_placeholder = np.nan
+
             # print(ops_stats)
             stats_row = {
                 'bench': bench,
@@ -35,16 +46,16 @@ def main(argv):
                 'var_max': var_stats['var_max'].max(),
                 'var_isnan': var_stats['var_isnan'].max(),
                 'var_isinf': var_stats['var_isinf'].max(),
-                'MathOp': ops_stats.iloc[0].get("MathOp", 0),
-                'IntegerOp': ops_stats.iloc[0].get("IntegerOp", 0),
-                'FloatingPointOp': ops_stats.iloc[0].get("FloatingPointOp", 0),
-                'FloatMulDivOp': ops_stats.iloc[0].get("FloatMulDivOp", 0),
-                'smul.fix.i32': ops_stats.iloc[0].get("call(llvm.smul.fix.i32)", 0),
-                'sdiv.fix.i32': ops_stats.iloc[0].get("call(llvm.sdiv.fix.i32)", 0),
-                'CastOp': ops_stats.iloc[0].get("CastOp", 0),
-                'Shift': ops_stats.iloc[0].get("Shift", 0),
-                'fdiv': ops_stats.iloc[0].get("fdiv", 0),
-                'fmul': ops_stats.iloc[0].get("fmul", 0),
+                'MathOp': ops_stats.iloc[0].get("MathOp", ops_placeholder),
+                'IntegerOp': ops_stats.iloc[0].get("IntegerOp", ops_placeholder),
+                'FloatingPointOp': ops_stats.iloc[0].get("FloatingPointOp", ops_placeholder),
+                'FloatMulDivOp': ops_stats.iloc[0].get("FloatMulDivOp", ops_placeholder),
+                'smul.fix.i32': ops_stats.iloc[0].get("call(llvm.smul.fix.i32)", ops_placeholder),
+                'sdiv.fix.i32': ops_stats.iloc[0].get("call(llvm.sdiv.fix.i32)", ops_placeholder),
+                'CastOp': ops_stats.iloc[0].get("CastOp", ops_placeholder),
+                'Shift': ops_stats.iloc[0].get("Shift", ops_placeholder),
+                'fdiv': ops_stats.iloc[0].get("fdiv", ops_placeholder),
+                'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
             }
             stats_summary = stats_summary.append(stats_row, ignore_index=True)
 
