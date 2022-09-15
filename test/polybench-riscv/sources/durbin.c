@@ -27,13 +27,15 @@ float POLYBENCH_1D(y_float, N, n);
 /* Array initialization. */
 static
 void init_array (int n,
-		 DATA_TYPE POLYBENCH_1D(r,N,n))
+		 DATA_TYPE POLYBENCH_1D(r,N,n),
+                  DATA_TYPE POLYBENCH_1D(y,N,n))
 {
   int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) ") final)")));
 
   for (i = 0; i < n; i++)
     {
       r[i] = (n+1-i);
+      y[i] = 0;
     }
 }
 
@@ -108,22 +110,38 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-2, 2) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_r_MIN) "," PB_XSTR(VAR_r_MAX) ") final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(" PB_XSTR(VAR_y_MIN) "," PB_XSTR(VAR_y_MAX) ") final)"))), N, n);
 
 
   /* Initialize array(s). */
-  init_array (n, POLYBENCH_ARRAY(r));
+  init_array (n, POLYBENCH_ARRAY(r), POLYBENCH_ARRAY(y));
+
+  scale_1d(N, POLYBENCH_ARRAY(r), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_1d("r", N, POLYBENCH_ARRAY(r));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
 #ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
 #endif
 
+  timer_start();
   /* Run kernel. */
   kernel_durbin (n,
 		 POLYBENCH_ARRAY(r),
 		 POLYBENCH_ARRAY(y));
+  timer_stop();
+
+#ifdef COLLECT_STATS
+  stats_1d("r", N, POLYBENCH_ARRAY(r));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
 #ifndef _LAMP
   /* Stop and print timer. */
