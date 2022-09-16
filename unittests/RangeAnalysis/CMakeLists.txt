@@ -5,6 +5,7 @@ taffo_add_unittest(${SELF} ${SELF}
         TaffoVRA/RangeOperationsTest.cpp
         TaffoVRA/VRAFunctionStoreTest.cpp
         TaffoVRA/VRAGlobalStoreTest.cpp
+        TaffoVRA/VRAnalyzerTest.cpp
         TaffoVRA/VRAStoreTest.cpp
         )
 
