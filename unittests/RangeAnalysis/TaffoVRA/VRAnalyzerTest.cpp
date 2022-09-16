@@ -140,4 +140,75 @@ TEST_F(VRAnalyzerTest, handleUnaryInstr)
   EXPECT_FLOAT_EQ(scalar->getRange()->max(), -3.1415);
 }
 
+TEST_F(VRAnalyzerTest, handleAllocaInstr_scalarNoAnno)
+{
+  I = new AllocaInst(Type::getInt32Ty(Context), 0, "alloca", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  EXPECT_EQ(scalarNode, nullptr);
+}
+
+TEST_F(VRAnalyzerTest, handleAllocaInstr_structNoAnno)
+{
+  auto S = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
+  I = new AllocaInst(S, 0, "alloca", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto structNode = std::dynamic_ptr_cast_or_null<VRAStructNode>(node);
+  EXPECT_EQ(structNode->fields().size(), 0);
+}
+
+TEST_F(VRAnalyzerTest, handleAllocaInstr_struct)
+{
+  auto S = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
+  I = new AllocaInst(S, 0, "alloca", BB);
+  // populate UserInput
+  auto *SI = new mdutils::StructInfo(2);
+  SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
+  SI->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
+  mdutils::MetadataManager::setMDInfoMetadata(I, SI);
+  GlobalStore->harvestMetadata(*M);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto structNode = std::dynamic_ptr_cast_or_null<VRAStructNode>(node);
+  EXPECT_NE(structNode, nullptr);
+  ASSERT_EQ(structNode->fields().size(), 2);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structNode->getNodeAt(0));
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+  scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structNode->getNodeAt(1));
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+}
+
+TEST_F(VRAnalyzerTest, handleAllocaInstr_scalar)
+{
+  I = new AllocaInst(Type::getInt32Ty(Context), 0, "alloca", BB);
+  mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
+  GlobalStore->harvestMetadata(*M);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+  ASSERT_NE(ptrNode, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
 } // namespace
