@@ -211,4 +211,38 @@ TEST_F(VRAnalyzerTest, handleAllocaInstr_scalar)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
+TEST_F(VRAnalyzerTest, handleStoreInstr_value) {
+  auto val = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto ptr = ConstantPointerNull::get(Type::getInt32PtrTy(Context));
+  I = new StoreInst(val, ptr, BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(ptr);
+  ASSERT_NE(node, nullptr);
+  auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+  ASSERT_NE(ptrNode, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 1);
+}
+
+TEST_F(VRAnalyzerTest, handleStoreInstr_ptr) {
+  auto val = new PtrToIntInst(ConstantPointerNull::get(Type::getInt32PtrTy(Context)), Type::getInt32Ty(Context), "", BB);
+  auto ptr = ConstantPointerNull::get(Type::getInt32PtrTy(Context));
+  I = new StoreInst(val, ptr, BB);
+  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
+  VRA.setNode(I, std::make_shared<VRAScalarNode>(*scalar));
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(ptr);
+  ASSERT_NE(node, nullptr);
+    auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+    ASSERT_NE(ptrNode, nullptr);
+    auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
+    EXPECT_EQ(scalarNode->getRange()->min(), 1);
+    EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
 } // namespace
