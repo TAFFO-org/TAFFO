@@ -106,4 +106,38 @@ TEST_F(VRAnalyzerTest, convexMerge_VRAFunctionStore)
   EXPECT_FALSE(scalar->isFinal());
 }
 
+/*
+ * handling of instructions is tested by proxy via analyzeInstruction
+ */
+TEST_F(VRAnalyzerTest, handleBinaryInstr)
+{
+  auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto V2 = ConstantInt::get(Type::getInt32Ty(Context), 2);
+  I = BinaryOperator::Create(Instruction::Add, V1, V2, "add", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 3);
+  EXPECT_EQ(scalar->getRange()->max(), 3);
+}
+
+TEST_F(VRAnalyzerTest, handleUnaryInstr)
+{
+  auto V1 = ConstantFP::get(Type::getFloatTy(Context), 3.1415);
+  I = UnaryOperator::Create(Instruction::FNeg, V1, "neg", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_FLOAT_EQ(scalar->getRange()->min(), -3.1415);
+  EXPECT_FLOAT_EQ(scalar->getRange()->max(), -3.1415);
+}
+
 } // namespace
