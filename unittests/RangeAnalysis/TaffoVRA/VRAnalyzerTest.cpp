@@ -284,4 +284,20 @@ TEST_F(VRAnalyzerTest, handleBitCastInstr)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
+TEST_F(VRAnalyzerTest, handleCmpInstr)
+{
+  auto lhs = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto rhs = ConstantInt::get(Type::getInt32Ty(Context), 2);
+  I = new ICmpInst(*BB, CmpInst::ICMP_EQ, lhs, rhs);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 0);
+  EXPECT_EQ(scalarNode->getRange()->max(), 0);
+}
+
 } // namespace
