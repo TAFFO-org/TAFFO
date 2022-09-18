@@ -300,4 +300,48 @@ TEST_F(VRAnalyzerTest, handleCmpInstr)
   EXPECT_EQ(scalarNode->getRange()->max(), 0);
 }
 
+TEST_F(VRAnalyzerTest, handlePhiNode_scalar)
+{
+  auto lhs = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto rhs = ConstantInt::get(Type::getInt32Ty(Context), 2);
+  auto phi = PHINode::Create(Type::getInt32Ty(Context), 2, "", BB);
+  phi->addIncoming(lhs, BB);
+  phi->addIncoming(rhs, BB);
+  I = phi;
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
+TEST_F(VRAnalyzerTest, handlePhiNode_pointer)
+{
+  auto lhs_val = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto rhs_val = ConstantInt::get(Type::getInt32Ty(Context), 2);
+  auto lhs = ConstantExpr::getIntToPtr(lhs_val, Type::getInt32PtrTy(Context));
+  auto rhs = ConstantExpr::getIntToPtr(rhs_val, Type::getInt32PtrTy(Context));
+  auto s1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
+  auto s2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4}));
+  VRA.setNode(lhs, std::make_shared<VRAScalarNode>(*s1));
+  VRA.setNode(rhs, std::make_shared<VRAScalarNode>(*s2));
+  auto phi = PHINode::Create(Type::getInt32PtrTy(Context), 2, "", BB);
+  phi->addIncoming(lhs, BB);
+  phi->addIncoming(rhs, BB);
+  I = phi;
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+}
+
 } // namespace
