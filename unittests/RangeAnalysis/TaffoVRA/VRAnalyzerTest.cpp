@@ -344,4 +344,21 @@ TEST_F(VRAnalyzerTest, handlePhiNode_pointer)
   EXPECT_EQ(scalarNode->getRange()->max(), 4);
 }
 
+TEST_F(VRAnalyzerTest, handleSelect)
+{
+  auto cond = ConstantInt::get(Type::getInt1Ty(Context), 1);
+  auto lhs = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto rhs = ConstantInt::get(Type::getInt32Ty(Context), 2);
+  I = SelectInst::Create(cond, lhs, rhs, "", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
 } // namespace
