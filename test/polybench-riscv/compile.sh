@@ -103,10 +103,11 @@ if [[ -z $mixedmode ]];  then export mixedmode=0; fi
 if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3'; fi
 if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
 if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
-if [[ -z $instrset ]];   then export instrset=embedded; fi
+if [[ -z $instrset ]];   then export instrset=soc_zoni; fi
 if [[ -z $enobweight ]]; then export enobweight=1; fi
 if [[ -z $timeweight ]]; then export timeweight=100; fi
 if [[ -z $castweight ]]; then export castweight=100; fi
+if [[ -z $single_precision_frac_bits ]]; then export single_precision_frac_bits=10; fi
 export mixedmodeopts=""
 
 printf 'Configuration:\n'
@@ -119,13 +120,16 @@ if [ "$mixedmode" -ne "0" ]; then
   printf '  enobweight       = %s\n' "$enobweight"
   printf '  timeweight       = %s\n' "$timeweight"
   printf '  castweight       = %s\n' "$castweight"
+  printf '  single_precision_frac_bits       = %s\n' "$single_precision_frac_bits"
 
   mixedmodeopts=" -mixedmode \
   -costmodel "$costmodel" \
   -instructionsetfile="$TAFFO_PREFIX/share/ILP/constrain/$instrset" \
   -Xdta -mixedtuningenob -Xdta "$enobweight" \
   -Xdta -mixedtuningtime -Xdta "$timeweight" \
-  -Xdta -mixedtuningcastingtime -Xdta "$castweight" "
+  -Xdta -mixedtuningcastingtime -Xdta "$castweight" \
+  -Xdta -mixeddoubleenabled \
+  -Xdta -single_precision_frac_bits -Xdta "$single_precision_frac_bits" "
 fi
 
 mkdir -p build

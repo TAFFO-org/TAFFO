@@ -38,7 +38,7 @@ def main(argv):
                 ops_stats = ops_stats.append({}, ignore_index=True)
                 ops_placeholder = np.nan
 
-            # print(ops_stats)
+            print(ops_stats)
             stats_row = {
                 'bench': bench,
                 'scale': int(scale),
@@ -48,8 +48,14 @@ def main(argv):
                 'var_isinf': var_stats['var_isinf'].max(),
                 'MathOp': ops_stats.iloc[0].get("MathOp", ops_placeholder),
                 'IntegerOp': ops_stats.iloc[0].get("IntegerOp", ops_placeholder),
+                'Integer32Op': ops_stats.iloc[0].get("Integer32Op", ops_placeholder),
+                'Integer64Op': ops_stats.iloc[0].get("Integer64Op", ops_placeholder),
                 'FloatingPointOp': ops_stats.iloc[0].get("FloatingPointOp", ops_placeholder),
+                'FloatSingleOp': ops_stats.iloc[0].get("FloatSingleOp", ops_placeholder),
+                'FloatDoubleOp': ops_stats.iloc[0].get("FloatDoubleOp", ops_placeholder),
                 'FloatMulDivOp': ops_stats.iloc[0].get("FloatMulDivOp", ops_placeholder),
+                'FloatMulDivSingleOp': ops_stats.iloc[0].get("FloatMulDivSingleOp", ops_placeholder),
+                'FloatMulDivDoubleOp': ops_stats.iloc[0].get("FloatMulDivDoubleOp", ops_placeholder),
                 'smul.fix.i32': ops_stats.iloc[0].get("call(llvm.smul.fix.i32)", ops_placeholder),
                 'sdiv.fix.i32': ops_stats.iloc[0].get("call(llvm.sdiv.fix.i32)", ops_placeholder),
                 'CastOp': ops_stats.iloc[0].get("CastOp", ops_placeholder),

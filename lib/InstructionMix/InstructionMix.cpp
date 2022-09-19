@@ -22,10 +22,27 @@ void InstructionMix::updateWithInstruction(Instruction *inst)
     stat["MathOp"]++;
     if (inst->getType()->isFloatingPointTy()) {
       stat["FloatingPointOp"]++;
-      if (inst->getOpcode() == Instruction::FMul || inst->getOpcode() == Instruction::FDiv)
+      if (inst->getType()->isFloatTy()) {
+        stat["FloatSingleOp"]++;
+      } else if (inst->getType()->isDoubleTy()) {
+        stat["FloatDoubleOp"]++;
+      }
+      if (inst->getOpcode() == Instruction::FMul || inst->getOpcode() == Instruction::FDiv) {
         stat["FloatMulDivOp"]++;
-    } else
+        if (inst->getType()->isFloatTy()) {
+          stat["FloatMulDivSingleOp"]++;
+        } else if (inst->getType()->isDoubleTy()) {
+          stat["FloatMulDivDoubleOp"]++;
+        }
+      }
+    } else {
       stat["IntegerOp"]++;
+      if (inst->getType()->getIntegerBitWidth() == 32) {
+        stat["Integer32Op"]++;
+      } else if (inst->getType()->getIntegerBitWidth() == 64) {
+        stat["Integer64Op"]++;
+      }
+    }
   }
   if (inst->isShift()) {
     stat["Shift"]++;

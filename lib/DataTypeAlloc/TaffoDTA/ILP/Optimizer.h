@@ -39,6 +39,7 @@ extern llvm::cl::opt<double> MixedTuningENOB;
 extern llvm::cl::opt<double> MixedTuningCastingTime;
 extern llvm::cl::opt<bool> MixedDoubleEnabled;
 extern llvm::cl::opt<bool> MixedTripCount;
+extern llvm::cl::opt<int> SinglePrecisionBits;
 #define TUNING_CASTING (MixedTuningCastingTime)
 #define TUNING_MATH (MixedTuningTime)
 #define TUNING_ENOB (MixedTuningENOB)

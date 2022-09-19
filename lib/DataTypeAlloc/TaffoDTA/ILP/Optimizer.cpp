@@ -769,12 +769,12 @@ shared_ptr<mdutils::TType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalar
   assert(selectedDouble + selectedFixed + selectedFloat + selectedHalf + selectedFP80 + selectedPPC128 + selectedQuad + selectedBF16 == 1 &&
          "OMG! Catastrophic failure! Exactly one variable should be selected here!!!");
 
-  if (selectedFixed == 1 && scalarInfo->totalBits <= 32) {
+  if (selectedFixed == 1) {
     StatSelectedFixed++;
     return make_shared<mdutils::FPType>(scalarInfo->getTotalBits(), (int)fracbits, scalarInfo->isSigned);
   }
 
-  if (selectedFloat == 1 || (selectedFixed == 1 && scalarInfo->totalBits > 32)) {
+  if (selectedFloat == 1) {
     StatSelectedFloat++;
     return make_shared<mdutils::FloatType>(FloatType::Float_float, 0);
   }

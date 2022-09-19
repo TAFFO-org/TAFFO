@@ -223,16 +223,30 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
 
     LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
 
-    II.IType.reset(res.clone());
-  } else {
-    FixedPointTypeGenError fpgerr;
-    FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
-    if (fpgerr == FixedPointTypeGenError::InvalidRange) {
-      LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
-      return false;
-    }
-    II.IType.reset(res.clone());
+      II.IType.reset(res.clone());
+      return true;
+
+
+  } else {*/
+  FixedPointTypeGenError fpgerr;
+  FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 32, 0);
+
+  if (fpgerr == FixedPointTypeGenError::NotEnoughFracBits || fpgerr == FixedPointTypeGenError::NotEnoughIntAndFracBits) {
+    LLVM_DEBUG(dbgs() << "[Info] Cannot fit " << II.toString() << "into fixed point type, use float\n");
+    FloatType resFloat(FloatType(mdutils::FloatType::Float_float, std::max(std::abs(rng->Max), std::abs(rng->Min))));
+    II.IType.reset(resFloat.clone());
+    return true;
   }
+
+  if (fpgerr == FixedPointTypeGenError::InvalidRange) {
+    LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
+    return false;
+  }
+  if (fpgerr != FixedPointTypeGenError::NoError) {
+    LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", error generating fixed type\n");
+    return false;
+  }
+  II.IType.reset(res.clone());
   return true;
 }
 

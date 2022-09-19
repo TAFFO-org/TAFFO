@@ -89,7 +89,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
       Range rangeInfo(min, max);
 
       FixedPointTypeGenError fpgerr;
-      FPType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
+      FPType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 32, 0);
       if (fpgerr != FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(dbgs() << "Error generating infos for constant propagation!"
                           << "\n";);

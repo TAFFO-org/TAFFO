@@ -665,7 +665,12 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEhalf());
     break;
   case mdutils::FloatType::Float_float:
-    fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEsingle()) - 1;
+    if (SinglePrecisionBits == -1) {
+      fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEsingle()) - 1;
+    } else {
+      LLVM_DEBUG(dbgs() << "Number of fractional bits in single precision: " << SinglePrecisionBits << "!\n";);
+      fractionalDigits = SinglePrecisionBits;
+    }
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEsingle());
     break;
   case mdutils::FloatType::Float_double:
