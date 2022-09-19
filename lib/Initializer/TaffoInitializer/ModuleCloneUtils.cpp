@@ -1,7 +1,10 @@
 #include "ModuleCloneUtils.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+#include <unordered_map>
 
 std::unique_ptr<llvm::Module> getModule(llvm::StringRef Filename, llvm::LLVMContext &cntx)
 {

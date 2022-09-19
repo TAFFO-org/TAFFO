@@ -19,6 +19,8 @@ add_library(${SELF}
   PtrCasts.h
   OpenMPAnalyzer.cpp
   OpenMPAnalyzer.h
+  WriteModule.h
+  WriteModule.cpp
 
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

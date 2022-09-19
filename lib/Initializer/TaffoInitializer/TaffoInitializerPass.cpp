@@ -41,9 +41,9 @@ static RegisterPass<TaffoInitializer> X(
 
 llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
                                           llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
-
-llvm::cl::opt<bool> Hero("hero",
-                         llvm::cl::desc("Enables TAFFO to work with hero"), llvm::cl::init(false));
+bool Hero;
+static llvm::cl::opt<bool, true> Hero_opt("hero",
+                                          llvm::cl::desc("Enables TAFFO to work with hero"), cl::location(Hero), llvm::cl::init(true));
 
 
 bool TaffoInitializer::runOnModule(Module &m)

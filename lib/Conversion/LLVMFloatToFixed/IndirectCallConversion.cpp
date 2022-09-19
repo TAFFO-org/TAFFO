@@ -24,7 +24,7 @@ void FloatToFixed::convertIndirectCalls(llvm::Module &m)
       llvm::CallInst *, llvm::Function *);
 
   const std::map<const std::string, handler_function> indirectCallFunctions = {
-      {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}};
+      {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}, {"__dev__kmpc_fork_call", &FloatToFixed::handleKmpcFork}};
 
   std::vector<llvm::CallInst *> trampolineCalls;
 

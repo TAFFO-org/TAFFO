@@ -1,5 +1,6 @@
 #include "CallSiteVersions.h"
 #include "LLVMFloatToFixedPass.h"
+#include "WriteModule.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -48,7 +49,6 @@ public:
   {
     auto dev_struct = std::find_if(dev_struct_list.begin(), dev_struct_list.end(), [](StructType *lrs) { return lrs->getName().startswith("struct.ident_t"); });
     if (dev_struct == dev_struct_list.end()) {
-      llvm_unreachable("Non c'era :(");
       return;
     }
 
@@ -60,11 +60,25 @@ public:
       }
     }
   }
+
   Type *remapType(Type *SrcTy) override
   {
+    //handle struct morph from i32 to i64 from host to target
     auto find = structed_map.find(SrcTy);
     if (find != structed_map.end()) {
       return find->second;
+    }
+    //addresspace also for argment of functions
+    if (auto fnct = dyn_cast<FunctionType>(SrcTy)) {
+      llvm::SmallVector<Type *, 8> args_type;
+      for (const auto &param : fnct->params()) {
+        if (auto ptr = dyn_cast<PointerType>(param)) {
+          args_type.push_back(ptr->getElementType()->getPointerTo(1));
+        } else {
+          args_type.push_back(param);
+        }
+      }
+      return FunctionType::get(fnct->getReturnType(), args_type, false);
     }
     return SrcTy;
   }
@@ -103,7 +117,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
       llvm::GlobalVariable *NewGV = new GlobalVariable(
           dev, remapper->remapType(I.getValueType()), I.isConstant(), I.getLinkage(),
           (llvm::Constant *)nullptr, old_name, (llvm::GlobalVariable *)nullptr,
-          I.getThreadLocalMode(), I.getType()->getAddressSpace());
+          I.getThreadLocalMode(), remapper->remapType(I.getValueType())->getPointerAddressSpace());
       NewGV->copyAttributesFrom(&I);
       LLVM_DEBUG(llvm::dbgs() << "Created global: " << *NewGV << "\n");
 
@@ -126,7 +140,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
       GtoG[&I] = old;
       alredy_present_function.insert(old);
     } else {
-      Function *NF = Function::Create(cast<FunctionType>(I.getValueType()), I.getLinkage(),
+      Function *NF = Function::Create(cast<FunctionType>(remapper->remapType(I.getValueType())), I.getLinkage(),
                                       I.getAddressSpace(), old_name, &dev);
       NF->copyAttributesFrom(&I);
       LLVM_DEBUG(llvm::dbgs() << "Created function: " << NF->getName() << "\n");
@@ -208,7 +222,6 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
   //     NewNMD->addOperand(MapMetadata(NMD.getOperand(i), GtoG));
   // }
 
-  llvm::dbgs() << "Pizza\n";
   ValueMapper VM(GtoG, llvm::RF_None | llvm::RF_None, remapper.get());
   if (auto kmpc = dev.getFunction("__kmpc_fork_call"))
     for (auto call_user : make_early_inc_range(kmpc->users())) {
@@ -393,6 +406,39 @@ void clean_host(llvm::Module &M, llvm::LLVMContext &cntx)
   LLVM_DEBUG(llvm::dbgs() << "END " << __PRETTY_FUNCTION__ << "\n");
 }
 
+void normalize_addrspace(llvm::Module &dev)
+{
+  //go through all instructions until a fixed point is reached each time search for GEP with address space not aligned between source and dest and recreate a new GEP with the correct address space
+  // also we cannot use RAUW because address space is part of the type so we use remapinstruction that has the power to create invalid IR
+  //we continue to iterate until all GEP are correctly handled
+  // the fixed point iteration is due to possible dependency on future gep
+  //all this stuff is a hack because clonefunctioninto creates invalid GEP, and we cannot remap all pointers to pointer addrespace(1) as this will imply also local alloca will be transformed.
+  bool stop_looping = false;
+  ValueToValueMapTy VM{};
+  while (!stop_looping) {
+    stop_looping = true;
+    for (auto &fnct : dev) {
+      for (auto &BB : fnct)
+        for (auto &I : make_early_inc_range(BB)) {
+          if (auto gep = dyn_cast<GetElementPtrInst>(&I)) {
+            if (VM.find(gep) == VM.end() && gep->getOperand(0)->getType()->isPointerTy() && gep->getType()->isPointerTy() && gep->getOperand(0)->getType()->getPointerAddressSpace() != gep->getType()->getPointerAddressSpace()) {
+              SmallVector<Value *, 8> elems;
+              for (unsigned int i = 1; i < gep->getNumOperands(); ++i)
+                elems.push_back(gep->getOperand(i));
+              VM[gep] = GetElementPtrInst::Create(gep->getSourceElementType(), gep->getOperand(0), elems, "", gep);
+              for (auto user : gep->users()) {
+                RemapInstruction(cast<Instruction>(user), VM, llvm::RF_IgnoreMissingLocals);
+              }
+              stop_looping = false;
+            }
+          } else {
+            RemapInstruction(cast<Instruction>(&I), VM, llvm::RF_IgnoreMissingLocals);
+          }
+        }
+    }
+  }
+}
+
 
 void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functions_to_export, StringRef filename, llvm::LLVMContext &cntx)
 {
@@ -414,6 +460,7 @@ void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functi
 
   ValueToValueMapTy GtoG;
   cloneGlobalVariable(*dev_module, M, GtoG);
+  normalize_addrspace(*dev_module);
 
 
   for (auto function_to_export_call : functions_to_export) {
@@ -483,19 +530,16 @@ void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functi
 
 
   verifyModule(*dev_module);
-  int file = 0;
-  auto err = llvm::sys::fs::openFileForWrite(filename, file);
-  assert(!err.value() && "Fail open module");
-  raw_fd_ostream stream{file, false};
-  dev_module->print(stream, nullptr);
+  write_module(filename, *dev_module);
   LLVM_DEBUG(llvm::dbgs() << "END " << __PRETTY_FUNCTION__ << "\n");
-  llvm::sys::fs::closeFile(file);
 }
 
 void flttofix::FloatToFixed::handleHero(llvm::Module &host_module, bool Hero)
 {
   if (!Hero)
     return;
+
+  write_module("bef_hero.ll", host_module);
 
   LLVM_DEBUG(llvm::dbgs() << "\n##### Handle Init Hero ######\n");
   auto end_position = host_module.getModuleIdentifier().find("-host.ll");
@@ -509,7 +553,6 @@ void flttofix::FloatToFixed::handleHero(llvm::Module &host_module, bool Hero)
   functions_to_export.append(fix_call(target_teams_mapper));
 
   export_functions(host_module, functions_to_export, dev_name, host_module.getContext());
-  host_module.dump();
   clean_host(host_module, host_module.getContext());
 
 

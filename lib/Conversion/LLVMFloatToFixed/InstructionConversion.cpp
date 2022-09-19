@@ -11,6 +11,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
@@ -147,7 +148,9 @@ Value *FloatToFixed::convertStore(StoreInst *store)
         if (!(fixPType(newval) == valtype))
           LLVM_DEBUG(
               dbgs()
-              << "unsolvable fixp type mismatch between store dest and src!\n");
+              << "unsolvable fixp type mismatch between store dest and src!\n"
+              << fixPType(newval) << " -> " << valtype << "\n");
+
       } else {
         /* best case: store <value> into <value> pointer */
         valtype = fixPType(newptr);
@@ -400,9 +403,22 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
     convArgs.push_back(thisArgument);
     typeArgs.push_back(thisArgument->getType());
     if (convArgs[i]->getType() != f_arg->getType()) {
-      LLVM_DEBUG(dbgs() << "CALL: type mismatch in actual argument " << i
-                        << " (" << *f_arg << ") vs. formal argument\n");
-      return nullptr;
+      auto lft = dyn_cast<PointerType>(convArgs[i]->getType());
+      auto rgt = dyn_cast<PointerType>(f_arg->getType());
+      if (lft == nullptr || rgt == nullptr) {
+        LLVM_DEBUG(dbgs() << "CALL: type mismatch in actual argument " << i
+                          << " (" << *f_arg << ") vs. formal argument\n");
+        LLVM_DEBUG(dbgs() << "      (actual " << *convArgs[i]->getType()
+                          << ", vs. formal " << *f_arg->getType() << ")\n");
+        return nullptr;
+      }
+      if (lft->getElementType() != rgt->getElementType()) {
+        LLVM_DEBUG(dbgs() << "CALL: type mismatch in actual argument " << i
+                          << " (" << *f_arg << ") vs. formal argument\n");
+        LLVM_DEBUG(dbgs() << "      (actual " << *lft
+                          << ", vs. formal " << *rgt << ")\n");
+        return nullptr;
+      }
     }
     i++;
     call_arg++;
@@ -564,7 +580,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
                                              : builder.CreateZExt(val1, dbfxt);
       Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
                                              : builder.CreateZExt(val2, dbfxt);
-      Value *fixop = builder.CreateMul(ext1, ext2);
+      Value *fixop = builder.CreateMul(ext1, ext2, "", true, true);
       cpMetaData(ext1, val1);
       cpMetaData(ext2, val2);
       cpMetaData(fixop, instr);
@@ -769,6 +785,15 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
       return builder.CreateBitCast(newOperand, newType);
     } else {
       return builder.CreateBitCast(operand, newType);
+    }
+  }
+  if (AddrSpaceCastInst *ac = dyn_cast<AddrSpaceCastInst>(cast)) {
+    Value *newOperand = operandPool[operand];
+    Type *newType = getLLVMFixedPointTypeForFloatType(ac->getDestTy(), fixpt);
+    if (newOperand && newOperand != ConversionError) {
+      return builder.CreatePointerBitCastOrAddrSpaceCast(newOperand, newType);
+    } else {
+      return builder.CreatePointerBitCastOrAddrSpaceCast(operand, newType);
     }
   }
   if (operand->getType()->isFloatingPointTy()) {

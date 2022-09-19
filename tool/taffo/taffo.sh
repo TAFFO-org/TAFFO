@@ -180,6 +180,7 @@ for opt in $raw_opts; do
           ;;
         -hero)
           init_flags="$init_flags -hero=1"
+          conversion_flags="$conversion_flags -hero=1"
           ;;
         -mixedmode)
           dta_flags="$dta_flags -mixedmode=1"
