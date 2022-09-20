@@ -256,6 +256,22 @@ TEST_F(VRAnalyzerTest, handleIntrinsic_memcpy)
     EXPECT_EQ(scalarNode->getRange()->max(), 1);
 }
 
+TEST_F(VRAnalyzerTest, handleCast)
+{
+  auto op = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
+  VRA.setNode(op, std::make_shared<VRAScalarNode>(*scalar));
+  I = CastInst::Create(Instruction::CastOps::SExt, op, Type::getInt64Ty(Context), "cast", BB);
+
+  VRA.analyzeInstruction(I);
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
 TEST_F(VRAnalyzerTest, handleBinaryInstr)
 {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
