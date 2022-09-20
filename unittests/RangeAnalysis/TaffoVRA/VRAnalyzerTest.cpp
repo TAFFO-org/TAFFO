@@ -124,6 +124,118 @@ TEST_F(VRAnalyzerTest, handleMathCallInstruction)
   EXPECT_FALSE(scalar->isFinal());
 }
 
+TEST_F(VRAnalyzerTest, handleMallocCall_calloc)
+{
+  F = genFunction(*M, "calloc", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+  ASSERT_NE(ptrNode, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 0);
+  EXPECT_EQ(scalarNode->getRange()->max(), 0);
+}
+
+TEST_F(VRAnalyzerTest, handleMallocCall_scalar)
+{
+  F = genFunction(*M, "malloc", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+  mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
+  GlobalStore->harvestMetadata(*M);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+  ASSERT_NE(ptrNode, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
+TEST_F(VRAnalyzerTest, handleMallocCall_scalarNoAnno)
+{
+  F = genFunction(*M, "malloc", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+  ASSERT_NE(ptrNode, nullptr);
+  EXPECT_EQ(ptrNode->getParent(), nullptr);
+}
+
+TEST_F(VRAnalyzerTest, handleMallocCall_struct)
+{
+  auto ST = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
+  F = genFunction(*M, "malloc", PointerType::get(ST, 0), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+  auto BC = BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
+  auto *SI = new mdutils::StructInfo(2);
+  SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
+  SI->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
+  mdutils::MetadataManager::setMDInfoMetadata(I, SI);
+  GlobalStore->harvestMetadata(*M);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto structNode = std::dynamic_ptr_cast_or_null<VRAStructNode>(node);
+  ASSERT_NE(structNode, nullptr);
+  ASSERT_EQ(structNode->fields().size(), 2);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structNode->fields()[0]);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+  scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structNode->fields()[1]);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+}
+
+TEST_F(VRAnalyzerTest, handleMallocCall_structNoAnno)
+{
+  auto ST = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
+  F = genFunction(*M, "malloc", PointerType::get(ST, 0), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+  auto BC = BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto structNode = std::dynamic_ptr_cast_or_null<VRAStructNode>(node);
+  ASSERT_NE(structNode, nullptr);
+  ASSERT_EQ(structNode->fields().size(), 0);
+}
+
+TEST_F(VRAnalyzerTest, handleMallocCall_pointer)
+{
+  F = genFunction(*M, "malloc", PointerType::get(Type::getInt32Ty(Context), 0), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+  auto BC = BitCastInst::Create(Instruction::BitCast, I, PointerType::get(PointerType::get(Type::getInt32Ty(Context), 0), 0), "", BB);
+  mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
+  GlobalStore->harvestMetadata(*M);
+
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto ptrNode = std::dynamic_ptr_cast_or_null<VRAPtrNode>(node);
+  ASSERT_NE(ptrNode, nullptr);
+  EXPECT_EQ(ptrNode->getParent(), nullptr);
+}
+
 TEST_F(VRAnalyzerTest, handleBinaryInstr)
 {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
