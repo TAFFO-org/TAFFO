@@ -236,6 +236,26 @@ TEST_F(VRAnalyzerTest, handleMallocCall_pointer)
   EXPECT_EQ(ptrNode->getParent(), nullptr);
 }
 
+TEST_F(VRAnalyzerTest, handleIntrinsic_memcpy)
+{
+  auto dst = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  auto src = ConstantInt::get(Type::getInt32Ty(Context), 2);
+  auto dst_bitcast = new BitCastInst(dst, Type::getInt32Ty(Context), "", BB);
+  auto src_bitcast = new BitCastInst(src, Type::getInt32Ty(Context), "", BB);
+
+    F = genFunction(*M, "llvm.memcpy", Type::getVoidTy(Context), {dst_bitcast->getType(), src_bitcast->getType()});
+    I = InvokeInst::Create(F, BB, BB, {dst_bitcast, src_bitcast}, "", BB);
+
+    VRA.analyzeInstruction(I);
+
+    auto node = VRA.getNode(dst);
+    ASSERT_NE(node, nullptr);
+    auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+    ASSERT_NE(scalarNode, nullptr);
+    EXPECT_EQ(scalarNode->getRange()->min(), 1);
+    EXPECT_EQ(scalarNode->getRange()->max(), 1);
+}
+
 TEST_F(VRAnalyzerTest, handleBinaryInstr)
 {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
