@@ -256,6 +256,20 @@ TEST_F(VRAnalyzerTest, handleIntrinsic_memcpy)
     EXPECT_EQ(scalarNode->getRange()->max(), 1);
 }
 
+TEST_F(VRAnalyzerTest, handleReturn)
+{
+  // FIXME: needs a non-null Pass
+  /*
+  auto F0 = genFunction(*M, "f0", Type::getInt32Ty(Context), {});
+  CI.interpretFunction(F0); // needed to create the FunctionStore in the CodeInterpreter
+
+    F = genFunction(*M, "foo", Type::getInt32Ty(Context), {Type::getInt32Ty(Context)});
+    I = ReturnInst::Create(Context, ConstantInt::get(Type::getInt32Ty(Context), 1), BB);
+
+    VRA.analyzeInstruction(I);
+*/
+}
+
 TEST_F(VRAnalyzerTest, handleCast)
 {
   auto op = ConstantInt::get(Type::getInt32Ty(Context), 1);
@@ -372,6 +386,11 @@ TEST_F(VRAnalyzerTest, handleAllocaInstr_scalar)
   ASSERT_NE(scalarNode, nullptr);
   EXPECT_EQ(scalarNode->getRange()->min(), 1);
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
+TEST_F(VRAnalyzerTest, handleLoadInstr)
+{
+  // FIXME: needs a non-null Pass
 }
 
 TEST_F(VRAnalyzerTest, handleStoreInstr_value)
