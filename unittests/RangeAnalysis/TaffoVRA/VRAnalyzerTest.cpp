@@ -109,6 +109,21 @@ TEST_F(VRAnalyzerTest, convexMerge_VRAFunctionStore)
 /*
  * handling of instructions is tested by proxy via analyzeInstruction
  */
+TEST_F(VRAnalyzerTest, handleMathCallInstruction)
+{
+  F = genFunction(*M, "ceil", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
+  VRA.analyzeInstruction(I);
+
+  auto node = VRA.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->max(), 1);
+  EXPECT_FALSE(scalar->isFinal());
+}
+
 TEST_F(VRAnalyzerTest, handleBinaryInstr)
 {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
