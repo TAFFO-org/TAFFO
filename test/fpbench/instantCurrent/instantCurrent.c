@@ -10,28 +10,30 @@
 #endif
 
 float ex0(float t, float resistance, float frequency, float inductance,
-          float maxVoltage) {
-  float pi = 3.14159265359;
+          float maxVoltage)
+{
+  float pi = 3.14159265359f;
   float impedance_re = resistance;
-  float impedance_im = ((2.0 * pi) * frequency) * inductance;
+  float impedance_im = ((2.0f * pi) * frequency) * inductance;
   float denom = (impedance_re * impedance_re) + (impedance_im * impedance_im);
   float current_re = (maxVoltage * impedance_re) / denom;
   float current_im = -(maxVoltage * impedance_im) / denom;
   float maxCurrent =
       sqrt(((current_re * current_re) + (current_im * current_im)));
   float theta = atan((current_im / current_re));
-  return maxCurrent * cos(((((2.0 * pi) * frequency) * t) + theta));
+  return maxCurrent * cos(((((2.0f * pi) * frequency) * t) + theta));
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 5;
-  float __attribute__((annotate("target('main') scalar(range(0, 300))")))
+  float __attribute__((annotate("target('main') scalar(range(-2, 300))")))
   t[len];
-  float __attribute__((annotate("scalar(range(1, 50))"))) resistance[len];
-  float __attribute__((annotate("scalar(range(1, 100))"))) frequency[len];
-  float __attribute__((annotate("scalar(range(0.001, 0.004))")))
+  float __attribute__((annotate("scalar(range(-10, 50))"))) resistance[len];
+  float __attribute__((annotate("scalar(range(-10, 100))"))) frequency[len];
+  float __attribute__((annotate("scalar(range(-2, 2))")))
   inductance[len];
-  float __attribute__((annotate("scalar(range(1, 12))"))) maxVoltage[len];
+  float __attribute__((annotate("scalar(range(-2, 12))"))) maxVoltage[len];
   float res[len];
   for (int i = 0; i < len; ++i) {
 

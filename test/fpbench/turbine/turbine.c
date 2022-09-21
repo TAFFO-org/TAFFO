@@ -8,13 +8,15 @@
 #ifndef M
 #define M 10000
 #endif
-float ex0(float v, float w, float r) {
-  return ((3.0 + (2.0 / (r * r))) -
-          (((0.125 * (3.0 - (2.0 * v))) * (((w * w) * r) * r)) / (1.0 - v))) -
-         4.5;
+float ex0(float v, float w, float r)
+{
+  return ((3.0f + (2.0f / (r * r))) -
+          (((0.125f * (3.0f - (2.0f * v))) * (((w * w) * r) * r)) / (1.0f - v))) -
+         4.5f;
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 3;
   float __attribute__((annotate("target('main') scalar(range(-5, 0) final)")))
   v[len];

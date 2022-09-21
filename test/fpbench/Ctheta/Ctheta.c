@@ -9,13 +9,15 @@
 #define M 10000
 #endif
 
-float ex0(float x, float y) {
-  float pi = 3.14159265359;
+float ex0(float x, float y)
+{
+  float pi = 3.14159265359f;
   float radiant = atan((y / x));
-  return radiant * (180.0 / pi);
+  return radiant * (180.0f / pi);
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 2;
   float __attribute__((annotate("target('main') scalar(range(1, 100))")))
   x[len];

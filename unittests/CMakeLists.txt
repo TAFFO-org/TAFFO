@@ -68,7 +68,8 @@ endfunction()
 
 add_taffo_unittest(TAFFOUnitTests
         SanityCheckTest.cpp
-        RangeOperationsTest.cpp
-        MultiValueMapTest.cpp)
+        #RangeOperationsTest.cpp
+        #MultiValueMapTest.cpp
+        )
 
 

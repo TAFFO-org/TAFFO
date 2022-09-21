@@ -9,26 +9,28 @@
 #define M 10
 #endif
 
-float ex0(float lat1, float lat2, float lon1, float lon2) {
+float ex0(float lat1, float lat2, float lon1, float lon2)
+{
   float dLon = lon2 - lon1;
-  float __attribute__((annotate("scalar(range(-4, 4))"))) s_lat1 = sin(lat1);
-  float __attribute__((annotate("scalar(range(-4, 4))"))) c_lat1 = cos(lat1);
-  float __attribute__((annotate("scalar(range(-4, 4))"))) s_lat2 = sin(lat2);
-  float __attribute__((annotate("scalar(range(-4, 4))"))) c_lat2 = cos(lat2);
-  float __attribute__((annotate("scalar(range(-4, 4))"))) s_dLon = sin(dLon);
-  float __attribute__((annotate("scalar(range(-4, 4))"))) c_dLon = cos(dLon);
+  float __attribute__((annotate("scalar(range(-1, 1))"))) s_lat1 = sin(lat1);
+  float __attribute__((annotate("scalar(range(-1, 1))"))) c_lat1 = cos(lat1);
+  float __attribute__((annotate("scalar(range(-1, 1))"))) s_lat2 = sin(lat2);
+  float __attribute__((annotate("scalar(range(-1, 1))"))) c_lat2 = cos(lat2);
+  float __attribute__((annotate("scalar(range(-1, 1))"))) s_dLon = sin(dLon);
+  float __attribute__((annotate("scalar(range(-1, 1))"))) c_dLon = cos(dLon);
 
   return atan(
       ((c_lat2 * s_dLon) / ((c_lat1 * s_lat2) - ((s_lat1 * c_lat2) * c_dLon))));
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 4;
-  float __attribute__((annotate("target('main') scalar(range(-1, 1))")))
+  float __attribute__((annotate("target('main') scalar(range(-1, 1) final) ")))
   lat1[len];
-  float __attribute__((annotate("scalar(range(-1, 1))"))) lat2[len];
-  float __attribute__((annotate("scalar(range(-4, 4))"))) lon1[len];
-  float __attribute__((annotate("scalar(range(-4, 4))"))) lon2[len];
+  float __attribute__((annotate("scalar(range(-1, 1) final)"))) lat2[len];
+  float __attribute__((annotate("scalar(range(-4, 4) final)"))) lon1[len];
+  float __attribute__((annotate("scalar(range(-4, 4) final)"))) lon2[len];
   float res[len];
   for (int i = 0; i < len; ++i) {
 

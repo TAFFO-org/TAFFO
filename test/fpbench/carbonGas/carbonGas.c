@@ -9,13 +9,14 @@
 #define M 10000
 #endif
 
-float ex0(float v) {
-  const float p = 35000000.0;
-  const float a = 0.401;
-  const float b = 4.27e-05;
-  const float t = 300.0;
-  const float n = 1000.0;
-  const float k = 1.3806503e-23;
+float ex0(float v)
+{
+  const float p = 35000000.0f;
+  const float a = 0.401f;
+  const float b = 4.27e-05f;
+  const float t = 300.0f;
+  const float n = 1000.0f;
+  const float k = 1.3806503e-23f;
   float pv = p * v;
   float __attribute__((annotate("scalar(range(401014, 3062257153))"))) ann =
       a * n * n / v;
@@ -29,7 +30,8 @@ float ex0(float v) {
   return ret;
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]);
   float __attribute__((annotate("target('main') scalar(range(0, 1))"))) v[len];
   float res[len];

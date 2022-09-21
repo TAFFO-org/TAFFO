@@ -9,18 +9,20 @@
 #define M 10000
 #endif
 
-float ex0(float u, float v, float T) {
-  float t1 = 331.4 + (0.6 * T);
+float ex0(float u, float v, float T)
+{
+  float __attribute__((annotate(" target('x0') scalar()"))) t1 = 331.4f + (0.6f * T);
   return (-t1 * v) / ((t1 + u) * (t1 + u));
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 3;
   float
-      __attribute__((annotate("target('main') scalar(range(-100, 100) final)")))
+      __attribute__((annotate("target('main') scalar(range(-500, 500) final)")))
       u[len];
-  float __attribute__((annotate("scalar(range(20, 20000) final)"))) v[len];
-  float __attribute__((annotate("scalar(range(-30, 50) final)"))) T[len];
+  float __attribute__((annotate("scalar(range(-20, 20000) final)"))) v[len];
+  float __attribute__((annotate("scalar(range(-50, 50) final)"))) T[len];
 
   float res[len];
 

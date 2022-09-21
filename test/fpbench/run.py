@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 import argparse
 from pathlib import *
 import subprocess
@@ -28,22 +28,40 @@ def generatedata(path : Path):
     subprocess.run("cd {}; ./datagenerator.py > data.h".format(path.as_posix()), shell=True)
 
 def compiletaffo(path: Path):
+    global debug
     bench_name = path.name + ".c"
     bench_exec = path.name + "-taffo"
+    pipe_out = subprocess.DEVNULL
+    compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize"
+    if debug:
+        (path / "./llvm-file").mkdir(parents=True, exist_ok=True)
+        compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize -debug -temp-dir ./llvm-file"
+        pipe_out = open(f"{path.as_posix()}/{path.name}_taffo.log", "w")
+
+
     print("Compiling: {}\t".format(bench_exec), end="")
     flush()
-    s = subprocess.run("cd {}; taffo -O3 {} -o {} -lm".format(path.as_posix(), bench_name, bench_exec), shell=True , stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    s = subprocess.run("cd {}; taffo {} {} -o {} -lm".format(path.as_posix(), compile_flag, bench_name, bench_exec), shell=True , stdout=pipe_out, stderr=pipe_out)
     if s.returncode == 0:
         print_okk()
     else:
         print_err()
+    if pipe_out == subprocess.DEVNULL and debug:
+        pipe_out.close()
+
 
 def compilefloat(path: Path):
+    global debug
+    compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize"
+    pipe_out = subprocess.DEVNULL
+    if debug:
+        compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize"
+        pipe_out = open(f"{path.as_posix()}/{path.name}_float.log", "w")
     bench_name = path.name + ".c"
     bench_exec = path.name + "-float"
     print("Compiling: {}\t".format(bench_exec), end="")
     flush()
-    s = subprocess.run("cd {}; gcc -O3 {} -o {} -lm &> /dev/null".format(path.as_posix(), bench_name, bench_exec), shell=True,  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    s = subprocess.run("cd {}; clang-12 {} {} -o {} -lm &> /dev/null".format(path.as_posix(), compile_flag ,bench_name, bench_exec), shell=True,  stdout=pipe_out, stderr=pipe_out)
 
     if s.returncode == 0:
         print_okk()
@@ -124,9 +142,9 @@ def getData(file: str):
         abs_err.append(tmp)
         rel_err.append(tmp/abs(float_value))
         max_abs = max(max_abs, tmp)
-        max_rel = max(max_rel, tmp/abs(float_value)*100)
+        max_rel = max(max_rel, tmp/abs(float_value))
     abs_err = np.mean(abs_err)
-    rel_err = np.mean(rel_err)*100
+    rel_err = np.mean(rel_err)
     return {"rel_err" : rel_err,  "max_rel" : max_rel, "abs_err": abs_err, "max_abs" : max_abs }
 
 
@@ -150,7 +168,7 @@ def ordereddiff(path :Path):
             continue
 
         tmp = abs(taffo_value-float_value)
-        rel_err.append((f+i, tmp/abs(float_value)*100))
+        rel_err.append((f+i, tmp/abs(float_value)))
         i = i +1
 
     rel_err.sort(reverse=True, key= lambda x : x[1])
@@ -180,16 +198,21 @@ def clean(path :Path, suffix : tuple):
     bench_name = path.name
     files= [x for x in path.glob("*") if not x.name.endswith(suffix) ]
     for f in files:
-        f.unlink()
+        if f.is_file():
+            f.unlink()
+        if f.is_dir():
+            clean(f, (".cc"))
+            f.rmdir()
 
     
 def print_tables(table):
     table = pd.DataFrame(table)
-    print(table)
+    print(table.to_string(columns=["name", "speedup", "rel_err", "abs_err"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
 
 
 
 if __name__ == '__main__':
+    debug = False
     parser = argparse.ArgumentParser(description='FPbench runner')
     parser.add_argument('-M', metavar='integer', type=int, nargs='?',
                         help='Number of Iteration', default=10000)
@@ -202,7 +225,9 @@ if __name__ == '__main__':
     parser.add_argument('-run', metavar='bool', type=bool, default=False, nargs='?', help='Run Benchmarks',   const=True)
     parser.add_argument('-validate', metavar='bool', type=bool, default=False, nargs='?', help='Validate Benchmarks', const=True)
     parser.add_argument('-ordereddiff', metavar='bool', type=bool, default=False, nargs='?', help='Print out an ordered list of line, error sorted by max error', const=True)
-    
+    parser.add_argument('-debug', metavar='bool', type=bool, default=False, nargs='?', help='debug build', const=True)
+
+
     args = parser.parse_args()
     M = args.M
     if args.only is None:
@@ -213,6 +238,7 @@ if __name__ == '__main__':
     bcompile = args.compile
     bvalidate = args.validate
     brun = args.run
+    debug = args.debug
     if (bcompile or bvalidate or brun) == False :
         bcompile=True
         brun=True

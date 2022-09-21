@@ -9,13 +9,15 @@
 #define M 10000
 #endif
 
-float ex0(float radius, float theta) {
-  float pi = 3.14159265359;
-  float radiant = theta * (pi / 180.0);
+float ex0(float radius, float theta)
+{
+  float pi = 3.14159265359f;
+  float radiant = theta * (pi / 180.0f);
   return radius * cos(radiant);
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 2;
   float __attribute__((annotate("target('main') scalar(range(1, 10))")))
   radius[len];

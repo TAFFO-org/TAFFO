@@ -9,22 +9,24 @@
 #define M 10000
 #endif
 
-float ex0(float x1, float x2) {
-  float t = (((3.0 * x1) * x1) + (2.0 * x2)) - x1;
-  float t_42_ = (((3.0 * x1) * x1) - (2.0 * x2)) - x1;
-  float d = (x1 * x1) + 1.0;
+float ex0(float x1, float x2)
+{
+  float t = (((3.0f * x1) * x1) + (2.0f * x2)) - x1;
+  float t_42_ = (((3.0f * x1) * x1) - (2.0f * x2)) - x1;
+  float d = (x1 * x1) + 1.0f;
   float s = t / d;
   float s_42_ = t_42_ / d;
-  return x1 + (((((((((2.0 * x1) * s) * (s - 3.0)) +
-                    ((x1 * x1) * ((4.0 * s) - 6.0))) *
+  return x1 + (((((((((2.0f * x1) * s) * (s - 3.0f)) +
+                    ((x1 * x1) * ((4.0f * s) - 6.0f))) *
                    d) +
-                  (((3.0 * x1) * x1) * s)) +
+                  (((3.0f * x1) * x1) * s)) +
                  ((x1 * x1) * x1)) +
                 x1) +
-               (3.0 * s_42_));
+               (3.0f * s_42_));
 }
 
-int main() {
+int main()
+{
   static const int len = sizeof(arr) / sizeof(arr[0]) / 2;
   float __attribute__((annotate("target('main') scalar(range(-5, 5))")))
   x1[len];
