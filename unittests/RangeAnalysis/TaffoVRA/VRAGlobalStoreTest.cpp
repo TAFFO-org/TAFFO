@@ -640,6 +640,146 @@ TEST_F(VRAGlobalStoreTest, setConstRangeMD_FP)
   EXPECT_FLOAT_EQ(II[1]->IRange->Max, 2.7182);
 }
 
+TEST_F(VRAGlobalStoreTest, saveResults_globalVar)
+{
+  auto globalVar = genGlobalVariable(*M, Type::getInt32Ty(Context));
+  auto scalar = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(3, 4));
+  VRAgs.setNode(globalVar, scalar);
+  mdutils::MetadataManager::setInputInfoMetadata(*globalVar, *genII(1, 2));
+
+  VRAgs.saveResults(*M);
+
+  auto node = VRAgs.getNode(globalVar);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+  auto II = mdutils::MetadataManager::getMetadataManager().retrieveInputInfo(*globalVar);
+  ASSERT_NE(II, nullptr);
+  EXPECT_EQ(II->IRange->Min, 3);
+  EXPECT_EQ(II->IRange->Max, 4);
+}
+
+TEST_F(VRAGlobalStoreTest, saveResults_globalVarNoMD)
+{
+  auto globalVar = genGlobalVariable(*M, Type::getInt32Ty(Context));
+  auto scalar = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(1, 2));
+  VRAgs.setNode(globalVar, scalar);
+
+  VRAgs.saveResults(*M);
+
+  auto node = VRAgs.getNode(globalVar);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+  auto md = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(globalVar);
+  ASSERT_NE(md, nullptr);
+  auto II = mdutils::MetadataManager::getMetadataManager().retrieveInputInfo(*globalVar);
+  ASSERT_NE(II, nullptr);
+  EXPECT_EQ(II->IRange->Min, 1);
+  EXPECT_EQ(II->IRange->Max, 2);
+}
+
+TEST_F(VRAGlobalStoreTest, saveResults_functionArg)
+{
+  F = genFunction(*M, Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  auto arg = F->args().begin();
+  auto scalar = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(3, 4));
+  VRAgs.setNode(arg, scalar);
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, {genII(1, 2)});
+
+  VRAgs.saveResults(*M);
+
+  auto node = VRAgs.getNode(arg);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+  auto MD = new SmallVector<mdutils::MDInfo *, 1U>();
+  mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, *MD);
+  ASSERT_NE(MD, nullptr);
+  EXPECT_EQ(MD->size(), 1);
+  auto II = llvm::dyn_cast<mdutils::InputInfo>(*MD->begin());
+  EXPECT_EQ(II->IRange->Min, 3);
+  EXPECT_EQ(II->IRange->Max, 4);
+}
+
+TEST_F(VRAGlobalStoreTest, saveResults_functionArgNoMD)
+{
+  F = genFunction(*M, Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  auto arg = F->args().begin();
+  auto scalar = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(3, 4));
+  VRAgs.setNode(arg, scalar);
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, {nullptr});
+
+
+  VRAgs.saveResults(*M);
+
+  auto node = VRAgs.getNode(arg);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+  auto MD = new SmallVector<mdutils::MDInfo *, 1U>();
+  mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, *MD);
+  ASSERT_NE(MD, nullptr);
+  ASSERT_EQ(MD->size(), 1);
+  auto II = llvm::dyn_cast<mdutils::InputInfo>(*MD->begin());
+  EXPECT_EQ(II->IRange->Min, 3);
+  EXPECT_EQ(II->IRange->Max, 4);
+}
+
+TEST_F(VRAGlobalStoreTest, saveResults_instruction)
+{
+  F = genFunction(*M, Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  auto BB = BasicBlock::Create(Context, "", F);
+  auto arg = F->args().begin();
+  auto scalar = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(3, 4));
+  auto I = BinaryOperator::Create(Instruction::Add, arg, arg, "", BB);
+  mdutils::MetadataManager::setInputInfoMetadata(*I, *genII(1, 2));
+  VRAgs.setNode(I, scalar);
+
+  VRAgs.saveResults(*M);
+
+  auto node = VRAgs.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+  auto II = mdutils::MetadataManager::getMetadataManager().retrieveInputInfo(*I);
+  ASSERT_NE(II, nullptr);
+  EXPECT_EQ(II->IRange->Min, 3);
+  EXPECT_EQ(II->IRange->Max, 4);
+}
+
+TEST_F(VRAGlobalStoreTest, saveResults_instructionNoMD)
+{
+  F = genFunction(*M, Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  auto BB = BasicBlock::Create(Context, "", F);
+  auto arg = F->args().begin();
+  auto scalar = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(3, 4));
+  auto I = BinaryOperator::Create(Instruction::Add, arg, arg, "", BB);
+  VRAgs.setNode(I, scalar);
+
+  VRAgs.saveResults(*M);
+
+  auto node = VRAgs.getNode(I);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 3);
+  EXPECT_EQ(scalarNode->getRange()->max(), 4);
+  auto II = mdutils::MetadataManager::getMetadataManager().retrieveInputInfo(*I);
+  ASSERT_NE(II, nullptr);
+  EXPECT_EQ(II->IRange->Min, 3);
+  EXPECT_EQ(II->IRange->Max, 4);
+}
 
 TEST_F(VRAGlobalStoreTest, harvestMD_globalScalar)
 {
