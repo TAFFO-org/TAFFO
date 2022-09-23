@@ -995,7 +995,28 @@ TEST_F(VRAGlobalStoreTest, harvestMD_instructionNoWeightScalar)
 
 TEST_F(VRAGlobalStoreTest, harvestMD_instructionNoWeightStruct)
 {
-  // TODO: find an instruction which has a struct as operand type
+  auto ST = StructType::get(Context, {Type::getFloatTy(Context), Type::getFloatTy(Context)});
+  F = genFunction(*M, Type::getVoidTy(Context), {PointerType::get(ST, 0)});
+  BB = BasicBlock::Create(Context, "", F);
+  auto structMD = new mdutils::StructInfo(2);
+  structMD->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
+  structMD->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
+  auto I = new AllocaInst(ST, 0, "alloca", BB);
+  mdutils::MetadataManager::setStructInfoMetadata(*I, *structMD);
+  VRAgs.harvestMetadata(*M);
+
+  auto retUI = VRAgs.getUserInput(I);
+  ASSERT_NE(retUI, nullptr);
+  auto UI = std::dynamic_ptr_cast_or_null<VRAStructNode>(retUI);
+  ASSERT_NE(UI, nullptr);
+  auto scalarUI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(UI->fields()[0]);
+  ASSERT_NE(scalarUI, nullptr);
+  EXPECT_EQ(scalarUI->getRange()->min(), 1);
+  EXPECT_EQ(scalarUI->getRange()->max(), 2);
+  scalarUI = std::dynamic_ptr_cast_or_null<VRAScalarNode>(UI->fields()[1]);
+  ASSERT_NE(scalarUI, nullptr);
+  EXPECT_EQ(scalarUI->getRange()->min(), 3);
+  EXPECT_EQ(scalarUI->getRange()->max(), 4);
 }
 
 TEST_F(VRAGlobalStoreTest, harvestMD_instructionWithWeight)
