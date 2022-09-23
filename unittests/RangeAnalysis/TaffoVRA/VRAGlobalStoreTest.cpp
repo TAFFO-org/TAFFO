@@ -876,6 +876,22 @@ TEST_F(VRAGlobalStoreTest, harvestMD_globalStructDerived)
   ASSERT_EQ(DR->getParent(), nullptr);
 }
 
+TEST_F(VRAGlobalStoreTest, harvestMD_globalStructNoAnno)
+{
+  auto ST = StructType::create(Context, {Type::getFloatTy(Context), Type::getFloatTy(Context)});
+  auto globalVar = genGlobalVariable(*M, ST);
+  VRAgs.harvestMetadata(*M);
+
+  auto retUI = VRAgs.getUserInput(globalVar);
+  ASSERT_EQ(retUI, nullptr);
+
+  auto retDS = VRAgs.getNode(globalVar);
+  ASSERT_NE(retDS, nullptr);
+  auto DS = std::dynamic_ptr_cast_or_null<VRAStructNode>(retDS);
+  ASSERT_NE(DS, nullptr);
+  ASSERT_EQ(DS->fields().size(), 0);
+}
+
 TEST_F(VRAGlobalStoreTest, harvestMD_globalScalarDerived)
 {
   auto globalVar = genGlobalVariable(*M, Type::getInt32Ty(Context));
