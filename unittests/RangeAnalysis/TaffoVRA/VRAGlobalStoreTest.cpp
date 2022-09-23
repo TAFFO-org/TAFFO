@@ -1092,5 +1092,100 @@ TEST_F(VRAGlobalStoreTest, harvestMD_instructionAlloca)
   ASSERT_EQ(retUI, nullptr);
 }
 
+TEST_F(VRAGlobalStoreTest, fetchRangeNode_noAnno)
+{
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 42);
+  VRAgs.setNode(V, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(1, 2)));
+
+  auto node = VRAgs.fetchRangeNode(V);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchRangeNode_finalScalar)
+{
+  auto V = genGlobalVariable(*M, Type::getInt32Ty(Context), 42);
+  mdutils::MetadataManager::setMDInfoMetadata(V, genII(1, 2, true));
+  VRAgs.harvestMetadata(*M);
+  VRAgs.setNode(V, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(3, 4)));
+
+  auto node = VRAgs.fetchRangeNode(V);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  EXPECT_EQ(scalarNode->getRange()->max(), 2);
+  EXPECT_TRUE(scalarNode->isFinal());
+}
+
+TEST_F(VRAGlobalStoreTest, fetchRangeNode_struct)
+{
+  auto ST = StructType::create(Context);
+  ST->setBody({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
+  auto V = genGlobalVariable(*M, PointerType::get(ST, 0));
+
+  auto *SI = new mdutils::StructInfo(2);
+  SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
+  SI->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
+  mdutils::MetadataManager::setMDInfoMetadata(V, SI);
+  VRAgs.harvestMetadata(*M);
+
+  auto sNode = new VRAStructNode();
+  sNode->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(5, 6)));
+  sNode->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(7, 8)));
+  VRAgs.setNode(V, std::make_shared<VRAStructNode>(*sNode));
+
+  auto node = VRAgs.fetchRangeNode(V);
+  ASSERT_NE(node, nullptr);
+  auto structNode = std::dynamic_ptr_cast_or_null<VRAStructNode>(node);
+  ASSERT_NE(structNode, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structNode->fields()[0]);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 5);
+  EXPECT_EQ(scalarNode->getRange()->max(), 6);
+  scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structNode->fields()[1]);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 7);
+  EXPECT_EQ(scalarNode->getRange()->max(), 8);
+}
+
+TEST_F(VRAGlobalStoreTest, getNode_constantNoAnno)
+{
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 42);
+
+  auto node = VRAgs.getNode(V);
+  ASSERT_NE(node, nullptr);
+  auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalarNode, nullptr);
+  EXPECT_EQ(scalarNode->getRange()->min(), 42);
+  EXPECT_EQ(scalarNode->getRange()->max(), 42);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchRange)
+{
+  auto V = ConstantInt::get(Type::getInt32Ty(Context), 42);
+  VRAgs.setNode(V, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(1, 2)));
+
+  auto range = VRAgs.fetchRange(V);
+  ASSERT_NE(range, nullptr);
+  EXPECT_EQ(range->min(), 1);
+  EXPECT_EQ(range->max(), 2);
+}
+
+TEST_F(VRAGlobalStoreTest, fetchRange_annotatedScalar)
+{
+  // the only case I could find where UserInput is populated and DerivedRanges is not is for function args, so here we go
+  F = genFunction(*M, Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
+  BB = BasicBlock::Create(Context, "", F);
+  mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, {genII(1, 2)});
+  VRAgs.harvestMetadata(*M);
+
+  auto range = VRAgs.fetchRange(F->args().begin());
+  ASSERT_NE(range, nullptr);
+  EXPECT_EQ(range->min(), 1);
+  EXPECT_EQ(range->max(), 2);
 
 } // namespace
