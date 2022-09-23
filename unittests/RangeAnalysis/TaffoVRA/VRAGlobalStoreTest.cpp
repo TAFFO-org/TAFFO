@@ -33,7 +33,8 @@ protected:
  * more in-depth testing on convexMerge is done in VRAStoreTest.cpp,
  * here we test only the sameScalar case
  */
-TEST_F(VRAGlobalStoreTest, convexMerge_VRAnalyzer) {
+TEST_F(VRAGlobalStoreTest, convexMerge_VRAnalyzer)
+{
   Pass *Pass;
   auto CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), std::make_shared<VRAGlobalStore>(VRAGlobalStore()));
   VRAnalyzer Other(CI);
@@ -55,7 +56,8 @@ TEST_F(VRAGlobalStoreTest, convexMerge_VRAnalyzer) {
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAGlobalStoreTest, convexMerge_VRAGlobalStore) {
+TEST_F(VRAGlobalStoreTest, convexMerge_VRAGlobalStore)
+{
   VRAGlobalStore Other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
@@ -75,7 +77,8 @@ TEST_F(VRAGlobalStoreTest, convexMerge_VRAGlobalStore) {
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAGlobalStoreTest, convexMerge_VRAFunctionStore) {
+TEST_F(VRAGlobalStoreTest, convexMerge_VRAFunctionStore)
+{
   Pass *Pass;
   auto CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), std::make_shared<VRAGlobalStore>(VRAGlobalStore()));
   VRAFunctionStore Other(CI);
@@ -536,7 +539,7 @@ TEST_F(VRAGlobalStoreTest, fetchConstant_GEPExpr)
 
 TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateStruct)
 {
-  // FIXME: write once implemented
+  // TODO: write once implemented
 }
 
 TEST_F(VRAGlobalStoreTest, fetchConstant_AggregateArray)
@@ -1187,5 +1190,5 @@ TEST_F(VRAGlobalStoreTest, fetchRange_annotatedScalar)
   ASSERT_NE(range, nullptr);
   EXPECT_EQ(range->min(), 1);
   EXPECT_EQ(range->max(), 2);
-
+}
 } // namespace
