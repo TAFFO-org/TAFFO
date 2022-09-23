@@ -377,6 +377,44 @@ TEST_F(VRAGlobalStoreTest, updateMDInfo_Struct)
   // EXPECT_TRUE(II_INNER->IFinal);
 }
 
+TEST_F(VRAGlobalStoreTest, updateMDInfo_StructPartialMD)
+{
+  auto *structInner = new VRAStructNode();
+  range_t r_inner = {0, 1, true};
+  auto *scalarInner = new VRAScalarNode(std::make_shared<range_t>(r_inner));
+  //structInner->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarInner));
+  auto *structOuter = new VRAStructNode();
+  range_t r_outer = {2, 3, false};
+  auto *scalarOuter = new VRAScalarNode(std::make_shared<range_t>(r_outer));
+  structOuter->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarOuter));
+  structOuter->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner));
+
+  auto *SI = new mdutils::StructInfo(2);
+  SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(4, 5, true)));
+  auto *SI_INNER = new mdutils::StructInfo(1);
+  SI_INNER->setField(0, std::make_shared<mdutils::InputInfo>(*genII(6, 7, true)));
+  SI->setField(1, std::make_shared<mdutils::StructInfo>(*SI_INNER));
+  auto MDtoUpdate = std::shared_ptr<mdutils::StructInfo>(SI);
+
+  VRAgs.updateMDInfo(MDtoUpdate, std::shared_ptr<VRAStructNode>(structOuter));
+
+  EXPECT_EQ(MDtoUpdate->size(), 2);
+  mdutils::InputInfo *II_OUTER;
+  EXPECT_NE(II_OUTER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(MDtoUpdate->getField(0)).get(), nullptr);
+  EXPECT_EQ(II_OUTER->IRange->Min, 2);
+  EXPECT_EQ(II_OUTER->IRange->Max, 3);
+  // EXPECT_FALSE(II_OUTER->IFinal);
+  mdutils::StructInfo *SI_INNER_NEW;
+  EXPECT_NE(SI_INNER_NEW = std::dynamic_ptr_cast_or_null<mdutils::StructInfo>(MDtoUpdate->getField(1)).get(), nullptr);
+  EXPECT_EQ(SI_INNER_NEW->size(), 1);
+  mdutils::InputInfo *II_INNER;
+  EXPECT_NE(II_INNER = std::dynamic_ptr_cast_or_null<mdutils::InputInfo>(SI_INNER_NEW->getField(0)).get(), nullptr);
+  // taken from SI_INNER instead of structInner
+  EXPECT_EQ(II_INNER->IRange->Min, 6);
+  EXPECT_EQ(II_INNER->IRange->Max, 7);
+  // EXPECT_TRUE(II_INNER->IFinal);
+}
+
 TEST_F(VRAGlobalStoreTest, fetchConstant_Integer)
 {
   auto *k = ConstantInt::get(Type::getInt32Ty(Context), 42);
