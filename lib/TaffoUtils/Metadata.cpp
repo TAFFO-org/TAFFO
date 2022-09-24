@@ -319,6 +319,8 @@ Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
     } else {
       llvm_unreachable("attempted to attach metadata to unsupported value type");
     }
+    if (!Node || Node->getNumOperands() != 1)
+      return Optional<std::string>();
     String = dyn_cast_or_null<MDString>(Node->getOperand(0U));
   }
 
