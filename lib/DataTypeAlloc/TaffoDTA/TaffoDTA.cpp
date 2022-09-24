@@ -47,6 +47,8 @@ PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
   mergeFixFormat(vals, valset);
 #endif
 
+  mergeBufferIDSets();
+
   std::vector<Function *> toDel;
   toDel = collapseFunction(m);
 
@@ -77,8 +79,10 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
   LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
   for (GlobalObject &globObj : m.globals()) {
     MDInfo *MDI = MDManager.retrieveMDInfo(&globObj);
-    if (processMetadataOfValue(&globObj, MDI))
+    if (processMetadataOfValue(&globObj, MDI)) {
       vals.push_back(&globObj);
+      retrieveBufferID(&globObj);
+    }
   }
   LLVM_DEBUG(dbgs() << "\n");
 
@@ -91,15 +95,19 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
     MDManager.retrieveArgumentInputInfo(f, argsII);
     auto arg = f.arg_begin();
     for (auto itII = argsII.begin(); itII != argsII.end(); itII++) {
-      if (processMetadataOfValue(arg, *itII))
+      if (processMetadataOfValue(arg, *itII)) {
         vals.push_back(arg);
+        retrieveBufferID(arg);
+      }
       arg++;
     }
 
     for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
       MDInfo *MDI = MDManager.retrieveMDInfo(&(*iIt));
-      if (processMetadataOfValue(&(*iIt), MDI))
+      if (processMetadataOfValue(&(*iIt), MDI)) {
         vals.push_back(&*iIt);
+        retrieveBufferID(&(*iIt));
+      }
     }
     LLVM_DEBUG(dbgs() << "\n");
   }
@@ -117,6 +125,21 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
  * Reads metadata for a value and DOES THE ACTUAL DATA TYPE ALLOCATION.
  * Yes you read that right.
  */
+void TaffoTuner::retrieveBufferID(llvm::Value *V)
+{
+  LLVM_DEBUG(dbgs() << "Looking up buffer id of " << *V << "\n");
+  auto MaybeBID = mdutils::MetadataManager::retrieveBufferIDMetadata(V);
+  if (MaybeBID.hasValue()) {
+    std::string Tag = *MaybeBID;
+    auto& Set = bufferIDSets[Tag];
+    Set.insert(V);
+    LLVM_DEBUG(dbgs() << "Found buffer ID '" << Tag << "' for " << *V << "\n");
+  } else {
+    LLVM_DEBUG(dbgs() << "No buffer ID for " << *V << "\n");
+  }
+}
+
+
 bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 {
   LLVM_DEBUG(dbgs() << "\n" << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
@@ -514,12 +537,12 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
   return false;
 }
 
-bool TaffoTuner::isMergeable(mdutils::FPType *fpv, mdutils::FPType *fpu) const
+bool tuner::isMergeable(mdutils::FPType *fpv, mdutils::FPType *fpu)
 {
   return fpv->getWidth() == fpu->getWidth() && (std::abs((int)fpv->getPointPos() - (int)fpu->getPointPos()) + (fpv->isSigned() == fpu->isSigned() ? 0 : 1)) <= SimilarBits;
 }
 
-std::shared_ptr<mdutils::FPType> TaffoTuner::merge(mdutils::FPType *fpv, mdutils::FPType *fpu) const
+std::shared_ptr<mdutils::FPType> tuner::merge(mdutils::FPType *fpv, mdutils::FPType *fpu)
 {
   int sign_v = fpv->isSigned() ? 1 : 0;
   int int_v = fpv->getWidth() - fpv->getPointPos() - sign_v;
@@ -534,6 +557,65 @@ std::shared_ptr<mdutils::FPType> TaffoTuner::merge(mdutils::FPType *fpv, mdutils
     return nullptr; // Invalid format.
   else
     return std::shared_ptr<FPType>(new FPType(size_res, frac_res, sign_res));
+}
+
+std::shared_ptr<mdutils::TType> tuner::merge(mdutils::TType *fpv, mdutils::TType *fpu)
+{
+  if (isa<FPType>(fpv) && isa<FPType>(fpu))
+    return merge(dyn_cast<FPType>(fpv), dyn_cast<FPType>(fpu));
+  if (isa<FPType>(fpv) && isa<FloatType>(fpu))
+    return std::shared_ptr<FloatType>(new FloatType(*dyn_cast<FloatType>(fpu)));
+  if (isa<FPType>(fpu) && isa<FloatType>(fpv))
+    return std::shared_ptr<FloatType>(new FloatType(*dyn_cast<FloatType>(fpv)));
+  if (isa<FloatType>(fpu) && isa<FloatType>(fpv)) {
+    FloatType *a = dyn_cast<FloatType>(fpu);
+    FloatType *b = dyn_cast<FloatType>(fpv);
+    FloatType::FloatStandard MaxStd = std::max(a->getStandard(), b->getStandard());
+    double MaxMax = std::max(a->getGreatestNumber(), b->getGreatestNumber());
+    return std::shared_ptr<FloatType>(new FloatType(MaxStd, MaxMax));
+  }
+  llvm_unreachable("unknown TType subclass");
+}
+
+void TaffoTuner::mergeBufferIDSets()
+{
+  for (auto& Set: bufferIDSets) {
+    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << "\n");
+
+    auto DestType = std::shared_ptr<mdutils::TType>(nullptr);
+    for (auto *V: Set.second) {
+      auto VInfo = valueInfo(V);
+      auto IInfo = dyn_cast<InputInfo>(VInfo->metadata.get());
+      if (!IInfo) {
+        LLVM_DEBUG(dbgs() << "Metadata is null or struct, not handled, bailing out! Value='" << *V << "'\n");
+        goto nextSet;
+      }
+      TType *T = IInfo->IType.get();
+      if (T) {
+        LLVM_DEBUG(dbgs() << "Type=" << T->toString() << " Value='" << *V << "'\n");
+      } else {
+        LLVM_DEBUG(dbgs() << "Type is null, not handled, bailing out! Value='" << *V << "'\n");
+        continue;
+      }
+      
+      if (!DestType.get()) {
+        DestType.reset(T->clone());
+      } else {
+        DestType = merge(DestType.get(), T);
+      }
+    }
+    LLVM_DEBUG(dbgs() << "Computed merged type: " << DestType->toString() << "\n");
+
+    for (auto *V: Set.second) {
+      auto VInfo = valueInfo(V);
+      auto IInfo = dyn_cast<InputInfo>(VInfo->metadata.get());
+      IInfo->IType.reset(DestType->clone());
+      restoreTypesAcrossFunctionCall(V);
+    }
+
+nextSet:
+    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << " DONE\n");
+  }
 }
 
 

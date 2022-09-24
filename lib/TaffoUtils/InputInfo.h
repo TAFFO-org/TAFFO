@@ -219,6 +219,11 @@ public:
     return standard;
   }
 
+  double getGreatestNumber() const
+  {
+    return greatestNunber;
+  }
+
 protected:
   FloatStandard standard;
 

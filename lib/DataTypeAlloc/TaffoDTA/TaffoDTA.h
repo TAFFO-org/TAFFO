@@ -9,11 +9,16 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include <map>
 
 #define DEBUG_TYPE "taffo-dta"
 
 namespace tuner
 {
+
+bool isMergeable(mdutils::FPType *fpv, mdutils::FPType *fpu);
+std::shared_ptr<mdutils::FPType> merge(mdutils::FPType *fpv, mdutils::FPType *fpu);
+std::shared_ptr<mdutils::TType> merge(mdutils::TType *fpv, mdutils::TType *fpu);
 
 struct ValueInfo {
   std::shared_ptr<mdutils::MDInfo> metadata;
@@ -33,11 +38,15 @@ public:
   llvm::DenseMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
   /* original function -> cloned function map */
   llvm::DenseMap<llvm::Function *, std::vector<FunInfo>> functionPool;
+  /* buffer ID sets */
+  std::map<std::string, llvm::SmallPtrSet<llvm::Value *, 2>> bufferIDSets;
 
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 
   void retrieveAllMetadata(llvm::Module &m, std::vector<llvm::Value *> &vals,
                            llvm::SmallPtrSetImpl<llvm::Value *> &valset);
+  
+  void retrieveBufferID(llvm::Value *V);
 
   bool processMetadataOfValue(llvm::Value *v, mdutils::MDInfo *MDI);
 
@@ -59,10 +68,7 @@ public:
 
   bool mergeFixFormatIterative(llvm::Value *v, llvm::Value *u);
 
-  bool isMergeable(mdutils::FPType *fpv, mdutils::FPType *fpu) const;
-
-  std::shared_ptr<mdutils::FPType> merge(mdutils::FPType *fpv,
-                                         mdutils::FPType *fpu) const;
+  void mergeBufferIDSets();
 
   void restoreTypesAcrossFunctionCall(llvm::Value *arg_or_call_param);
   void setTypesOnFunctionArgumentFromCallArgument(llvm::Value *call_param, std::shared_ptr<mdutils::MDInfo> finalMd);
