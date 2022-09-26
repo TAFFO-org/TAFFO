@@ -205,7 +205,8 @@ TEST_F(VRAStoreTest, fetchRangeNode_struct)
   ASSERT_EQ(node, nullptr);
 }
 
-TEST_F(VRAStoreTest, saveValueRange_new) {
+TEST_F(VRAStoreTest, saveValueRange_new)
+{
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto range = std::make_shared<range_t>(range_t{1, 2, false});
   VRAs.saveValueRange(V, range);
@@ -219,7 +220,8 @@ TEST_F(VRAStoreTest, saveValueRange_new) {
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, saveValueRange_union) {
+TEST_F(VRAStoreTest, saveValueRange_union)
+{
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto range = std::make_shared<range_t>(range_t{1, 2, false});
   VRAs.saveValueRange(V, range);
@@ -235,7 +237,8 @@ TEST_F(VRAStoreTest, saveValueRange_union) {
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, saveValueRange_struct) {
+TEST_F(VRAStoreTest, saveValueRange_struct)
+{
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto range = new VRAStructNode();
   range->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
@@ -469,7 +472,8 @@ TEST_F(VRAStoreTest, storeNode_genericPtr)
   EXPECT_EQ(ret, src);
 }
 
-TEST_F(VRAStoreTest, storeNode_structOffset) {
+TEST_F(VRAStoreTest, storeNode_structOffset)
+{
   // TODO: implement
 }
 

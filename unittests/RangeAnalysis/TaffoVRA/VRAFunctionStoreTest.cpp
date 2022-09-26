@@ -41,7 +41,8 @@ protected:
  * more in-depth testing on convexMerge is done in VRAStoreTest.cpp,
  * here we test only the sameScalar case
  */
-TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer) {
+TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer)
+{
   VRAnalyzer Other(CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
@@ -61,7 +62,8 @@ TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer) {
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore) {
+TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore)
+{
   VRAGlobalStore Other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
@@ -81,7 +83,8 @@ TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore) {
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAFunctionStoreTest, convexMerge_VRAFunctionStore) {
+TEST_F(VRAFunctionStoreTest, convexMerge_VRAFunctionStore)
+{
   VRAFunctionStore Other(CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);

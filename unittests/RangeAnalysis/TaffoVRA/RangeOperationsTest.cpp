@@ -15,7 +15,6 @@ protected:
   range_ptr_t op2;
   range_ptr_t result;
   llvm::LLVMContext Context;
-
 };
 
 // ADD
@@ -227,25 +226,27 @@ TEST_F(RangeOperationsTest, Trunc) // TODO: check if truncation should apply als
 {
   op1 = make_range(2.718, 10.3256);
   result = handleTrunc(op1, llvm::Type::getInt32Ty(Context));
-    EXPECT_EQ(result->min(), 2);
-    EXPECT_EQ(result->max(), 10); // FIXME: this should be correct but the test fails,  check implementation
+  EXPECT_EQ(result->min(), 2);
+  EXPECT_EQ(result->max(), 10); // FIXME: this should be correct but the test fails,  check implementation
 }
 
-TEST_F(RangeOperationsTest, FPTrunc) {
+TEST_F(RangeOperationsTest, FPTrunc)
+{
   double Dbound = 1.0000000000000002; // smallest double < 1
-  float Fbound = 1.0000001192092896; // smallest float < 1
-    op1 = make_range(Dbound, Dbound);
-    result = handleFPTrunc(op1, llvm::Type::getFloatTy(Context));
-    EXPECT_DOUBLE_EQ(result->min(), 1); // conservative bound
-    EXPECT_DOUBLE_EQ(result->max(), Fbound);
+  float Fbound = 1.0000001192092896;  // smallest float < 1
+  op1 = make_range(Dbound, Dbound);
+  result = handleFPTrunc(op1, llvm::Type::getFloatTy(Context));
+  EXPECT_DOUBLE_EQ(result->min(), 1); // conservative bound
+  EXPECT_DOUBLE_EQ(result->max(), Fbound);
 }
 
 // Cast - lose info about decimal digits
-TEST_F(RangeOperationsTest, CastToUI) {
+TEST_F(RangeOperationsTest, CastToUI)
+{
   op1 = make_range(2.4345, 10.56);
   result = handleCastToUI(op1);
   EXPECT_EQ(result->min(), 2);
-    EXPECT_EQ(result->max(), 10);
+  EXPECT_EQ(result->max(), 10);
 }
 
 TEST_F(RangeOperationsTest, CastToSI)
@@ -258,27 +259,29 @@ TEST_F(RangeOperationsTest, CastToSI)
 
 
 // boolean
-TEST_F(RangeOperationsTest, BooleanXor) {
-    op1 = make_range(0.0, 1.0);
-    op2 = make_range(0.0, 1.0);
-    result = handleBooleanXor(op1, op2);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 1.0);
+TEST_F(RangeOperationsTest, BooleanXor)
+{
+  op1 = make_range(0.0, 1.0);
+  op2 = make_range(0.0, 1.0);
+  result = handleBooleanXor(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.0);
 
-    op1 = make_range(0.0, 0.0);
-    op2 = make_range(0.0, 0.0);
-    result = handleBooleanXor(op1, op2);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 0.0);
+  op1 = make_range(0.0, 0.0);
+  op2 = make_range(0.0, 0.0);
+  result = handleBooleanXor(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 0.0);
 
-    op1 = make_range(1.0, 1.0);
-    op2 = make_range(1.0, 1.0);
-    result = handleBooleanXor(op1, op2);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 0.0);
+  op1 = make_range(1.0, 1.0);
+  op2 = make_range(1.0, 1.0);
+  result = handleBooleanXor(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 0.0);
 }
 
-TEST_F(RangeOperationsTest, BooleanAnd) {
+TEST_F(RangeOperationsTest, BooleanAnd)
+{
   op1 = make_range(0.0, 1.0);
   op2 = make_range(0.0, 1.0);
   result = handleBooleanAnd(op1, op2);
@@ -298,7 +301,8 @@ TEST_F(RangeOperationsTest, BooleanAnd) {
   EXPECT_EQ(result->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, BooleanOr) {
+TEST_F(RangeOperationsTest, BooleanOr)
+{
   op1 = make_range(0.0, 1.0);
   op2 = make_range(0.0, 1.0);
   result = handleBooleanOr(op1, op2);
@@ -318,7 +322,8 @@ TEST_F(RangeOperationsTest, BooleanOr) {
   EXPECT_EQ(result->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, copyRange_scalar) {
+TEST_F(RangeOperationsTest, copyRange_scalar)
+{
   op1 = make_range(0.0, 1.0);
   auto orig = std::make_shared<RangeNodePtrT>(new VRAScalarNode(op1));
   auto copy = copyRange(*orig);
@@ -327,12 +332,13 @@ TEST_F(RangeOperationsTest, copyRange_scalar) {
   auto copy_cast = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy);
 
   ASSERT_NE(orig_cast, nullptr);
-    ASSERT_NE(copy_cast, nullptr);
-    EXPECT_EQ(orig_cast->getRange()->min(), copy_cast->getRange()->min());
-    EXPECT_EQ(orig_cast->getRange()->max(), copy_cast->getRange()->max());
+  ASSERT_NE(copy_cast, nullptr);
+  EXPECT_EQ(orig_cast->getRange()->min(), copy_cast->getRange()->min());
+  EXPECT_EQ(orig_cast->getRange()->max(), copy_cast->getRange()->max());
 }
 
-TEST_F(RangeOperationsTest, copyRange_struct) {
+TEST_F(RangeOperationsTest, copyRange_struct)
+{
   auto *orig_structInner = new VRAStructNode();
   auto *orig_scalarInner = new VRAScalarNode(make_range(0, 1));
   orig_structInner->setNodeAt(0, std::shared_ptr<VRAScalarNode>(orig_scalarInner));
@@ -344,56 +350,61 @@ TEST_F(RangeOperationsTest, copyRange_struct) {
 
   auto copy_structOuter = std::dynamic_ptr_cast_or_null<VRAStructNode>(copyRange(orig));
 
-    ASSERT_NE(copy_structOuter, nullptr);
-    EXPECT_EQ(copy_structOuter->fields().size(), 2);
-    auto copy_scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy_structOuter->fields()[0]);
-    ASSERT_NE(copy_scalarOuter, nullptr);
-    EXPECT_EQ(copy_scalarOuter->getRange()->min(), orig_scalarOuter->getRange()->min());
-    EXPECT_EQ(copy_scalarOuter->getRange()->max(), orig_scalarOuter->getRange()->max());
-    auto copy_structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(copy_structOuter->fields()[1]);
-    ASSERT_NE(copy_structInner, nullptr);
-    EXPECT_EQ(copy_structInner->fields().size(), 1);
-    auto copy_scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy_structInner->fields()[0]);
-    ASSERT_NE(copy_scalarInner, nullptr);
-    EXPECT_EQ(copy_scalarInner->getRange()->min(), orig_scalarInner->getRange()->min());
-    EXPECT_EQ(copy_scalarInner->getRange()->max(), orig_scalarInner->getRange()->max());
+  ASSERT_NE(copy_structOuter, nullptr);
+  EXPECT_EQ(copy_structOuter->fields().size(), 2);
+  auto copy_scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy_structOuter->fields()[0]);
+  ASSERT_NE(copy_scalarOuter, nullptr);
+  EXPECT_EQ(copy_scalarOuter->getRange()->min(), orig_scalarOuter->getRange()->min());
+  EXPECT_EQ(copy_scalarOuter->getRange()->max(), orig_scalarOuter->getRange()->max());
+  auto copy_structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(copy_structOuter->fields()[1]);
+  ASSERT_NE(copy_structInner, nullptr);
+  EXPECT_EQ(copy_structInner->fields().size(), 1);
+  auto copy_scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(copy_structInner->fields()[0]);
+  ASSERT_NE(copy_scalarInner, nullptr);
+  EXPECT_EQ(copy_scalarInner->getRange()->min(), orig_scalarInner->getRange()->min());
+  EXPECT_EQ(copy_scalarInner->getRange()->max(), orig_scalarInner->getRange()->max());
 }
 
-TEST_F(RangeOperationsTest, unionRange_overlap) {
-    op1 = make_range(0.0, 1.0);
-    op2 = make_range(0.5, 1.5);
-    result = getUnionRange(op1, op2);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 1.5);
+TEST_F(RangeOperationsTest, unionRange_overlap)
+{
+  op1 = make_range(0.0, 1.0);
+  op2 = make_range(0.5, 1.5);
+  result = getUnionRange(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.5);
 }
 
-TEST_F(RangeOperationsTest, unionRange_disjoint) {
-    op1 = make_range(0.0, 1.0);
-    op2 = make_range(2.0, 3.0);
-    result = getUnionRange(op1, op2);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 3.0);
+TEST_F(RangeOperationsTest, unionRange_disjoint)
+{
+  op1 = make_range(0.0, 1.0);
+  op2 = make_range(2.0, 3.0);
+  result = getUnionRange(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 3.0);
 }
 
-TEST_F(RangeOperationsTest, unionRange_contained) {
-    op1 = make_range(0.0, 1.0);
-    op2 = make_range(0.5, 0.8);
-    result = getUnionRange(op1, op2);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 1.0);
+TEST_F(RangeOperationsTest, unionRange_contained)
+{
+  op1 = make_range(0.0, 1.0);
+  op2 = make_range(0.5, 0.8);
+  result = getUnionRange(op1, op2);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, unionRange_scalar) {
+TEST_F(RangeOperationsTest, unionRange_scalar)
+{
   auto scalar1 = std::make_shared<VRAScalarNode>(make_range(0.0, 1.0));
-    auto scalar2 = std::make_shared<VRAScalarNode>(make_range(2.0, 3.0));
+  auto scalar2 = std::make_shared<VRAScalarNode>(make_range(2.0, 3.0));
 
-    auto unionRange = std::dynamic_ptr_cast_or_null<VRAScalarNode>(getUnionRange(scalar1, scalar2));
-    ASSERT_NE(unionRange, nullptr);
-    EXPECT_EQ(unionRange->getRange()->min(), 0.0);
-    EXPECT_EQ(unionRange->getRange()->max(), 3.0);
+  auto unionRange = std::dynamic_ptr_cast_or_null<VRAScalarNode>(getUnionRange(scalar1, scalar2));
+  ASSERT_NE(unionRange, nullptr);
+  EXPECT_EQ(unionRange->getRange()->min(), 0.0);
+  EXPECT_EQ(unionRange->getRange()->max(), 3.0);
 }
 
-TEST_F(RangeOperationsTest, unionRange_struct) {
+TEST_F(RangeOperationsTest, unionRange_struct)
+{
   auto *structInner1 = new VRAStructNode();
   auto *scalarInner1 = new VRAScalarNode(make_range(0, 1));
   auto *scalarPtrInner1 = new VRAPtrNode(std::make_shared<VRAScalarNode>(*scalarInner1));
@@ -415,28 +426,29 @@ TEST_F(RangeOperationsTest, unionRange_struct) {
   structOuter2->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner2));
 
   auto unionRange = std::dynamic_ptr_cast_or_null<VRAStructNode>(getUnionRange(std::make_shared<VRAStructNode>(*structOuter1), std::make_shared<VRAStructNode>(*structOuter2)));
-    ASSERT_NE(unionRange, nullptr);
-    EXPECT_EQ(unionRange->fields().size(), 2);
-    auto scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(unionRange->fields()[0]);
-    ASSERT_NE(scalarOuter, nullptr);
-    EXPECT_EQ(scalarOuter->getRange()->min(), 0.0);
-    EXPECT_EQ(scalarOuter->getRange()->max(), 4.0);
-    auto structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(unionRange->fields()[1]);
-    ASSERT_NE(structInner, nullptr);
-    EXPECT_EQ(structInner->fields().size(), 2);
-    auto scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structInner->fields()[0]);
-    ASSERT_NE(scalarInner, nullptr);
-    EXPECT_EQ(scalarInner->getRange()->min(), 0.0);
-    EXPECT_EQ(scalarInner->getRange()->max(), 3.0);
-    auto scalarPtrInner = std::dynamic_ptr_cast_or_null<VRAPtrNode>(structInner->fields()[1]);
-    ASSERT_NE(scalarPtrInner, nullptr);
-    auto scalarInnerP= std::dynamic_ptr_cast_or_null<VRAScalarNode>(scalarPtrInner->getParent());
-    ASSERT_NE(scalarPtrInner, nullptr);
-    EXPECT_EQ(scalarInnerP->getRange()->min(), 0.0);
-    EXPECT_EQ(scalarInnerP->getRange()->max(), 1.0);
+  ASSERT_NE(unionRange, nullptr);
+  EXPECT_EQ(unionRange->fields().size(), 2);
+  auto scalarOuter = std::dynamic_ptr_cast_or_null<VRAScalarNode>(unionRange->fields()[0]);
+  ASSERT_NE(scalarOuter, nullptr);
+  EXPECT_EQ(scalarOuter->getRange()->min(), 0.0);
+  EXPECT_EQ(scalarOuter->getRange()->max(), 4.0);
+  auto structInner = std::dynamic_ptr_cast_or_null<VRAStructNode>(unionRange->fields()[1]);
+  ASSERT_NE(structInner, nullptr);
+  EXPECT_EQ(structInner->fields().size(), 2);
+  auto scalarInner = std::dynamic_ptr_cast_or_null<VRAScalarNode>(structInner->fields()[0]);
+  ASSERT_NE(scalarInner, nullptr);
+  EXPECT_EQ(scalarInner->getRange()->min(), 0.0);
+  EXPECT_EQ(scalarInner->getRange()->max(), 3.0);
+  auto scalarPtrInner = std::dynamic_ptr_cast_or_null<VRAPtrNode>(structInner->fields()[1]);
+  ASSERT_NE(scalarPtrInner, nullptr);
+  auto scalarInnerP = std::dynamic_ptr_cast_or_null<VRAScalarNode>(scalarPtrInner->getParent());
+  ASSERT_NE(scalarPtrInner, nullptr);
+  EXPECT_EQ(scalarInnerP->getRange()->min(), 0.0);
+  EXPECT_EQ(scalarInnerP->getRange()->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, fillRangeHoles_struct) {
+TEST_F(RangeOperationsTest, fillRangeHoles_struct)
+{
   // TODO: ask questions on how this is supposed to work, just to be sure
   auto *structInner1 = new VRAStructNode();
   auto *scalarInner1 = new VRAScalarNode(make_range(0, 1));
@@ -449,7 +461,7 @@ TEST_F(RangeOperationsTest, fillRangeHoles_struct) {
   structOuter1->setNodeAt(1, std::shared_ptr<VRAStructNode>(structInner1));
 
   auto *structInner2 = new VRAStructNode();
-  //auto *scalarInner2 = new VRAScalarNode(make_range(2, 3));
+  // auto *scalarInner2 = new VRAScalarNode(make_range(2, 3));
   auto ptr = new VRAPtrNode(nullptr);
   structInner2->setNodeAt(0, std::make_shared<VRAPtrNode>(*ptr));
   structInner2->setNodeAt(1, nullptr);
@@ -478,26 +490,30 @@ TEST_F(RangeOperationsTest, fillRangeHoles_struct) {
   EXPECT_EQ(scalarInner->getRange()->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, copyRange_raw) {
+TEST_F(RangeOperationsTest, copyRange_raw)
+{
   op1 = make_range(0.0, 1.0);
   result = copyRange(op1);
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 1.0);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, getGenericBooleanRange) {
+TEST_F(RangeOperationsTest, getGenericBooleanRange)
+{
   result = getGenericBoolRange();
-    EXPECT_EQ(result->min(), 0.0);
-    EXPECT_EQ(result->max(), 1.0);
+  EXPECT_EQ(result->min(), 0.0);
+  EXPECT_EQ(result->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, getTrueBooleanRange) {
+TEST_F(RangeOperationsTest, getTrueBooleanRange)
+{
   result = getAlwaysTrue();
   EXPECT_EQ(result->min(), 1.0);
   EXPECT_EQ(result->max(), 1.0);
 }
 
-TEST_F(RangeOperationsTest, getFalseBooleanRange) {
+TEST_F(RangeOperationsTest, getFalseBooleanRange)
+{
   result = getAlwaysFalse();
   EXPECT_EQ(result->min(), 0.0);
   EXPECT_EQ(result->max(), 0.0);
