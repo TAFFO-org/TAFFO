@@ -12,6 +12,7 @@
 #include "DTAConfig.h"
 #include "Metadata.h"
 #include "TaffoDTA.h"
+#include "BufferIDFiles.h"
 #ifdef TAFFO_BUILD_ILP_DTA
 #include "ILP/MetricBase.h"
 #include "ILP/Optimizer.h"
@@ -579,29 +580,41 @@ std::shared_ptr<mdutils::TType> tuner::merge(mdutils::TType *fpv, mdutils::TType
 
 void TaffoTuner::mergeBufferIDSets()
 {
+  LLVM_DEBUG(dbgs() << "\n" << __PRETTY_FUNCTION__ << " BEGIN\n\n");
+  BufferIDTypeMap InMap, OutMap;
+  if (BufferIDImport != "") {
+    LLVM_DEBUG(dbgs() << "Importing Buffer ID sets from " << BufferIDImport << "\n\n");
+    ReadBufferIDFile(BufferIDImport, InMap);
+  }
+
   for (auto& Set: bufferIDSets) {
     LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << "\n");
 
     auto DestType = std::shared_ptr<mdutils::TType>(nullptr);
-    for (auto *V: Set.second) {
-      auto VInfo = valueInfo(V);
-      auto IInfo = dyn_cast<InputInfo>(VInfo->metadata.get());
-      if (!IInfo) {
-        LLVM_DEBUG(dbgs() << "Metadata is null or struct, not handled, bailing out! Value='" << *V << "'\n");
-        goto nextSet;
-      }
-      TType *T = IInfo->IType.get();
-      if (T) {
-        LLVM_DEBUG(dbgs() << "Type=" << T->toString() << " Value='" << *V << "'\n");
-      } else {
-        LLVM_DEBUG(dbgs() << "Type is null, not handled, bailing out! Value='" << *V << "'\n");
-        continue;
-      }
-      
-      if (!DestType.get()) {
-        DestType.reset(T->clone());
-      } else {
-        DestType = merge(DestType.get(), T);
+    if (InMap.find(Set.first) != InMap.end()) {
+      LLVM_DEBUG(dbgs() << "Set has type specified in file\n");
+      DestType.reset(InMap.at(Set.first).get()->clone());
+    } else {
+      for (auto *V: Set.second) {
+        auto VInfo = valueInfo(V);
+        auto IInfo = dyn_cast<InputInfo>(VInfo->metadata.get());
+        if (!IInfo) {
+          LLVM_DEBUG(dbgs() << "Metadata is null or struct, not handled, bailing out! Value='" << *V << "'\n");
+          goto nextSet;
+        }
+        TType *T = IInfo->IType.get();
+        if (T) {
+          LLVM_DEBUG(dbgs() << "Type=" << T->toString() << " Value='" << *V << "'\n");
+        } else {
+          LLVM_DEBUG(dbgs() << "Type is null, not handled, bailing out! Value='" << *V << "'\n");
+          continue;
+        }
+        
+        if (!DestType.get()) {
+          DestType.reset(T->clone());
+        } else {
+          DestType = merge(DestType.get(), T);
+        }
       }
     }
     LLVM_DEBUG(dbgs() << "Computed merged type: " << DestType->toString() << "\n");
@@ -612,10 +625,18 @@ void TaffoTuner::mergeBufferIDSets()
       IInfo->IType.reset(DestType->clone());
       restoreTypesAcrossFunctionCall(V);
     }
+    OutMap[Set.first].reset(DestType->clone());
 
 nextSet:
-    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << " DONE\n");
+    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << " DONE\n\n");
   }
+
+  if (BufferIDExport != "") {
+    LLVM_DEBUG(dbgs() << "Exporting Buffer ID sets to " << BufferIDExport << "\n\n");
+    WriteBufferIDFile(BufferIDExport, OutMap);
+  }
+
+  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " END\n\n");
 }
 
 

@@ -5,6 +5,8 @@ set(DTA_SRC
   TaffoDTA.h
   DTAConfig.cpp
   DTAConfig.h
+  BufferIDFiles.h
+  BufferIDFiles.cpp
   )
 
 if (TAFFO_BUILD_ILP_DTA)
