@@ -75,6 +75,7 @@ target_include_directories(TestUtils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(TaffoUtils)
 add_subdirectory(Initializer)
 add_subdirectory(RangeAnalysis)
+add_subdirectory(DataTypeAlloc)
 
 taffo_add_unittest(SanityTest SanityTest
         SanityCheckTest.cpp)
