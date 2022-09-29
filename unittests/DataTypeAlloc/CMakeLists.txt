@@ -2,6 +2,7 @@ set(SELF DataTypeAllocTests)
 
 taffo_add_unittest(${SELF} ${SELF}
         TaffoDTA/ILP/UtilsTest.cpp
+        TaffoDTA/ILP/PhiWatcherTest.cpp
         )
 
 include_directories(${CMAKE_SOURCE_DIR}/lib/DataTypeAlloc)
