@@ -237,7 +237,12 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
       int nbits = fixpt.scalarBitsAmt();
       mdutils::Range range(dblval, dblval);
       int minflt = isMaxIntPolicy(typepol) ? -1 : 0;
-      mdutils::FPType t = taffo::fixedPointTypeFromRange(range, nullptr, nbits, minflt);
+      FixedPointTypeGenError fpgerr;
+      mdutils::FPType t = taffo::fixedPointTypeFromRange(range, &fpgerr, nbits, minflt);
+      if (fpgerr != FixedPointTypeGenError::NoError) {
+        LLVM_DEBUG(dbgs() << "[Info] Skipping " << t.toString() << ", error generating fixed type\n");
+        return nullptr;
+      }
       fixpt = FixedPointType(&t);
     }
 

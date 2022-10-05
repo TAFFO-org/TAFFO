@@ -180,7 +180,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(V
   /*//introducing precision cost: the more a variable is precise, the better it is
   model.insertObjectiveElement(make_pair(optimizerInfo->getFractBitsVariable(), (-1) * TUNING_ENOB));
 
-  //La variabile indica solo se il costo è attivo o meno, senza indicare nulla riguardo ENOB
+  //The variable only indicates whether the cost is active or not, without indicating anything about ENOB
   //Enob is computed from Range
 
   model.insertObjectiveElement(make_pair(optimizerInfo->getFloatSelectedVariable(), (-1) * TUNING_ENOB * ENOBfloat));
@@ -659,10 +659,12 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
 
   int fractionalDigits;
   int minExponentPower; // eheheh look at this
+  int maxExponentPower;
   switch (standard) {
   case mdutils::FloatType::Float_half:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEhalf()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEhalf());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::IEEEhalf());
     break;
   case mdutils::FloatType::Float_float:
     if (SinglePrecisionBits == -1) {
@@ -672,26 +674,32 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
       fractionalDigits = SinglePrecisionBits;
     }
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEsingle());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::IEEEsingle());
     break;
   case mdutils::FloatType::Float_double:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEdouble()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEdouble());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::IEEEdouble());
     break;
   case mdutils::FloatType::Float_bfloat:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::BFloat()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::BFloat());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::BFloat());
     break;
   case mdutils::FloatType::Float_fp128:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEquad()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEquad());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::IEEEquad());
     break;
   case mdutils::FloatType::Float_ppc_fp128:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::PPCDoubleDouble()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::PPCDoubleDouble());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::PPCDoubleDouble());
     break;
   case mdutils::FloatType::Float_x86_fp80:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::x87DoubleExtended()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::x87DoubleExtended());
+    maxExponentPower = llvm::APFloat::semanticsMaxExponent(llvm::APFloat::x87DoubleExtended());
     break;
   default:
     llvm_unreachable("Unsupported type here!");
@@ -699,26 +707,30 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
 
   // We explore the range in order to understand where to compute the number of bits
   // TODO: implement other less pessimistics algorithm, like medium value, or wathever
-  double smallestRepresentableNumber;
-  if (range->Min <= 0 && range->Max >= 0) {
-    // range overlapping 0
-    smallestRepresentableNumber = 0;
-  } else if (range->Min >= 0) {
-    // both are greater than 0
-    smallestRepresentableNumber = range->Min;
-  } else {
-    // Both are less than 0
-    smallestRepresentableNumber = abs(range->Max);
-  }
+//  double smallestRepresentableNumber;
+//  if (range->Min <= 0 && range->Max >= 0) {
+//    // range overlapping 0
+//    smallestRepresentableNumber = 0;
+//  } else if (range->Min >= 0) {
+//    // both are greater than 0
+//    smallestRepresentableNumber = range->Min;
+//  } else {
+//    // Both are less than 0
+//    smallestRepresentableNumber = abs(range->Max);
+//  }
 
-  double exponentOfExponent = log2(smallestRepresentableNumber);
-  int exponentInt = floor(exponentOfExponent);
+  double largestRepresentableNumber = max(abs(range->Min), abs(range->Max));
+  double exponentOfExponent = log2(largestRepresentableNumber);
+  int exponentInt = ceil(exponentOfExponent);
 
   /*dbgs() << "smallestNumber: " << smallestRepresentableNumber << "\n";
   dbgs() << "exponentInt: " << exponentInt << "\n";*/
 
-  if (exponentInt < minExponentPower)
+  if (exponentInt < minExponentPower) {
     exponentInt = minExponentPower;
+  } else if (exponentInt > maxExponentPower) {
+    exponentInt = maxExponentPower;
+  }
 
 
   return (-exponentInt) + fractionalDigits;

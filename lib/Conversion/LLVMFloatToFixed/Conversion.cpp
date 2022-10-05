@@ -225,8 +225,9 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
       if (ii->IRange) {
         FixedPointTypeGenError err;
         mdutils::FPType fpt = taffo::fixedPointTypeFromRange(*(ii->IRange), &err, iofixpt.scalarBitsAmt());
-        if (err != FixedPointTypeGenError::InvalidRange)
+        if (err == FixedPointTypeGenError::NoError) {
           iofixpt = FixedPointType(&fpt);
+        }
       }
     }
   }
@@ -241,8 +242,9 @@ bool FloatToFixed::associateFixFormat(mdutils::InputInfo *II, FixedPointType &io
 
   FixedPointTypeGenError fpgerr;
   // Using default parameters of DTA
-  mdutils::FPType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
+  mdutils::FPType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 32, 0);
   assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
+  assert(fpgerr == FixedPointTypeGenError::NoError && "Cannot assign a fixed point type 2!");
 
   iofixpt = FixedPointType(res.isSigned(), res.getPointPos(), res.getWidth());
 
