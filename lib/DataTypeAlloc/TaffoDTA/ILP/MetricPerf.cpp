@@ -13,7 +13,7 @@ using namespace mdutils;
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<mdutils::FPType> fpInfo, shared_ptr<mdutils::Range> rangeInfo, shared_ptr<double> suggestedMinError,
                                                                                bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
 {
-  assert(!valueHasInfo(value) && "The value considered already have an info!");
+  assert(!valueHasInfo(value) && "The value considered already has optimizer info!");
 
   assert(fpInfo && "fpInfo should not be nullptr here!");
   assert(rangeInfo && "rangeInfo should not be nullptr here!");

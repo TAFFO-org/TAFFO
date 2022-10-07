@@ -4,6 +4,7 @@
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "TaffoDTA.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -27,7 +28,6 @@ public:
 
   OptimizerInfo(OptimizerInfoKind K) : Kind(K) {}
 
-
   // virtual OptimizerInfo *clone() const = 0;
 
   virtual ~OptimizerInfo() = default;
@@ -43,7 +43,6 @@ public:
   {
     return Kind == b.Kind;
   }
-
 
 private:
   const OptimizerInfoKind Kind;
