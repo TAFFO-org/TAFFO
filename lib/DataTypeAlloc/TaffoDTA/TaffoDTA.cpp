@@ -61,11 +61,20 @@ PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
 }
 
 
+/**
+ * Reads metadata for the program and DOES THE ACTUAL DATA TYPE ALLOCATION.
+ * Yes you read that right.
+ */
 void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals,
                                      llvm::SmallPtrSetImpl<llvm::Value *> &valset)
 {
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
+  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " BEGIN\n");
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
+
   mdutils::MetadataManager &MDManager = mdutils::MetadataManager::getMetadataManager();
 
+  LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
   for (GlobalObject &globObj : m.globals()) {
     MDInfo *MDI = MDManager.retrieveMDInfo(&globObj);
     if (processMetadataOfValue(&globObj, MDI))
@@ -75,6 +84,7 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
   for (Function &f : m.functions()) {
     if (f.isIntrinsic())
       continue;
+    LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand() << "  <<<<===============\n");
 
     SmallVector<mdutils::MDInfo *, 5> argsII;
     MDManager.retrieveArgumentInputInfo(f, argsII);
@@ -92,10 +102,19 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
     }
   }
 
+  LLVM_DEBUG(dbgs() << "=============>>>>  SORTING QUEUE  <<<<===============\n");
   sortQueue(vals, valset);
+
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
+  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " END\n");
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
 }
 
 
+/**
+ * Reads metadata for a value and DOES THE ACTUAL DATA TYPE ALLOCATION.
+ * Yes you read that right.
+ */
 bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 {
   LLVM_DEBUG(dbgs() << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
@@ -309,6 +328,10 @@ void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
   for (auto i = revQueue.rbegin(); i != revQueue.rend(); ++i) {
     vals.push_back(*i);
     valset.insert(*i);
+    if (Argument *Arg = dyn_cast<Argument>(*i)) {
+      LLVM_DEBUG(dbgs() << "Restoring consistency of argument " << *Arg << " of function " << Arg->getParent()->getNameOrAsOperand() << "\n");
+      restoreTypesAcrossFunctionCall(Arg);
+    }
   }
 }
 
@@ -522,10 +545,19 @@ void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::
     if (isa<CallInst>(*it) || isa<InvokeInst>(*it)) {
       Value *callarg = it->getOperand(n);
       LLVM_DEBUG(dbgs() << " --> target " << *callarg << ", CallBase " << **it << "\n");
+
       if (!hasInfo(callarg)) {
-        LLVM_DEBUG(dbgs() << " --> argument doesn't get converted; skipping\n");
-      } else {
-        valueInfo(callarg)->metadata.reset(finalMd->clone());
+        if (!isa<Argument>(callarg)) {
+          LLVM_DEBUG(dbgs() << " --> actual argument doesn't get converted; skipping\n");
+          continue;
+        } else {
+          LLVM_DEBUG(dbgs() << " --> actual argument IS AN ARGUMENT ITSELF! not skipping even if it doesn't get converted\n");
+        }
+      }
+      valueInfo(callarg)->metadata.reset(finalMd->clone());
+      if (Argument *Arg = dyn_cast<Argument>(callarg)) {
+        LLVM_DEBUG(dbgs() << " --> actual argument IS AN ARGUMENT ITSELF, recursing\n");
+        setTypesOnCallArgumentFromFunctionArgument(Arg, finalMd);
       }
     }
   }
