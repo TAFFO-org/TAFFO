@@ -12,9 +12,13 @@ all: ${EXECUTABLE} ${PTXFILE} ${EXECUTABLE_TAFFO} ${PTXFILE_TAFFO}
 ${EXECUTABLE}:
 	$(CLANG) -O3 -DPOLYBENCH_STACK_ARRAYS -I${PATH_TO_UTILS} ${LIB} ${CFLAGS} ${CFILES} -o ${EXECUTABLE}
 
-${EXECUTABLE_TAFFO}:
+${EXECUTABLE_TAFFO}: ${PTXFILE_TAFFO}
 	mkdir -p taffo_drvr_logs
-	taffo -O3 -DPOLYBENCH_STACK_ARRAYS -Xvra -max-unroll=0 -Xdta -notypemerge -I${PATH_TO_UTILS} ${LIB} ${CFLAGS} ${CFILES} -o ${EXECUTABLE_TAFFO} -temp-dir taffo_drvr_logs -debug \
+	taffo -O3 -DPOLYBENCH_STACK_ARRAYS \
+    -Xvra -max-unroll=0 \
+    -Xdta -notypemerge \
+    -Xdta -bufferid-import -Xdta taffo_kern_logs/bufferid.yaml \
+    -I${PATH_TO_UTILS} ${LIB} ${CFLAGS} ${CFILES} -o ${EXECUTABLE_TAFFO} -temp-dir taffo_drvr_logs -debug \
         2> taffo_drvr_logs/taffo.log
 
 ${PTXFILE}:
@@ -38,6 +42,7 @@ ${PTXFILE_TAFFO}: ${PTXFILE}
 	mkdir -p taffo_kern_logs
 	taffo ${CLFILE}.ll \
 		-S -emit-llvm -oclkern -Xdta -notypemerge -target nvptx64-unknown-nvcl -temp-dir taffo_kern_logs -debug \
+		-Xdta -bufferid-export -Xdta taffo_kern_logs/bufferid.yaml -mixedmode -costmodel core2 \
 		-o ${CLFILE}.taffo.ll \
 			2> taffo_kern_logs/taffo.log
 	$(LLVM_LINK) \
