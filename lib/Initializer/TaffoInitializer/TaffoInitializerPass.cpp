@@ -363,6 +363,14 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
     uinfo.metadata = gepi_mdi;
     uinfo.bufferID = vinfo.bufferID;
   }
+  // Copy BufferID across bitcasts
+  if (isa<BitCastInst>(user)) {
+    uinfo.bufferID = vinfo.bufferID;
+  }
+  // Copy BufferID across loads of pointers
+  if (isa<LoadInst>(user) && user->getType()->isPointerTy()) {
+    uinfo.bufferID = vinfo.bufferID;
+  }
 }
 
 std::shared_ptr<mdutils::MDInfo>
@@ -566,6 +574,9 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
       allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance + 2);
       roots.push_back(allocaOfArgument, allocaVi);
     }
+
+    // Propagate BufferID
+    argumentVi.bufferID = callVi.bufferID;
 
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed\n");
     LLVM_DEBUG(dbgs() << "    md = " << argumentVi.metadata->toString() << "\n");
