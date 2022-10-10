@@ -7,6 +7,7 @@ add_subdirectory(DataTypeAlloc)
 add_subdirectory(Conversion)
 add_subdirectory(ErrorAnalysis)
 add_subdirectory(TaffoMem2Reg)
+add_subdirectory(FloatSizeAnalysis)
 
 add_llvm_library(Taffo MODULE
   $<TARGET_OBJECTS:obj.TaffoInitializer>
@@ -15,6 +16,7 @@ add_llvm_library(Taffo MODULE
   $<TARGET_OBJECTS:obj.LLVMFloatToFixed>
   $<TARGET_OBJECTS:obj.LLVMErrorPropagator>
   $<TARGET_OBJECTS:obj.TaffoMem2Reg>
+  $<TARGET_OBJECTS:obj.FloatSizeAnalysis>
   PassPluginInfo.cpp
   ../cmake/dummy.cpp
 
