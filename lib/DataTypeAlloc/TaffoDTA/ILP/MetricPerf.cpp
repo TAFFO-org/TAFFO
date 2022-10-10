@@ -707,30 +707,26 @@ int MetricPerf::getENOBFromRange(const shared_ptr<mdutils::Range> &range, mdutil
 
   // We explore the range in order to understand where to compute the number of bits
   // TODO: implement other less pessimistics algorithm, like medium value, or wathever
-//  double smallestRepresentableNumber;
-//  if (range->Min <= 0 && range->Max >= 0) {
-//    // range overlapping 0
-//    smallestRepresentableNumber = 0;
-//  } else if (range->Min >= 0) {
-//    // both are greater than 0
-//    smallestRepresentableNumber = range->Min;
-//  } else {
-//    // Both are less than 0
-//    smallestRepresentableNumber = abs(range->Max);
-//  }
+  double smallestRepresentableNumber;
+  if (range->Min <= 0 && range->Max >= 0) {
+    // range overlapping 0
+    smallestRepresentableNumber = 0;
+  } else if (range->Min >= 0) {
+    // both are greater than 0
+    smallestRepresentableNumber = range->Min;
+  } else {
+    // Both are less than 0
+    smallestRepresentableNumber = abs(range->Max);
+  }
 
-  double largestRepresentableNumber = max(abs(range->Min), abs(range->Max));
-  double exponentOfExponent = log2(largestRepresentableNumber);
-  int exponentInt = ceil(exponentOfExponent);
+  double exponentOfExponent = log2(smallestRepresentableNumber);
+  int exponentInt = floor(exponentOfExponent);
 
   /*dbgs() << "smallestNumber: " << smallestRepresentableNumber << "\n";
   dbgs() << "exponentInt: " << exponentInt << "\n";*/
 
-  if (exponentInt < minExponentPower) {
+  if (exponentInt < minExponentPower)
     exponentInt = minExponentPower;
-  } else if (exponentInt > maxExponentPower) {
-    exponentInt = maxExponentPower;
-  }
 
 
   return (-exponentInt) + fractionalDigits;

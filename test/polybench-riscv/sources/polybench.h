@@ -374,8 +374,8 @@ extern void polybench_timer_print();
 # endif
 
 // these functions are there to demarcate the region of interest, they do not do anything
-void timer_start() {}
-void timer_stop() {}
+void timer_start() __attribute__((optnone)) {}
+void timer_stop() __attribute__((optnone)) {}
 
 /* PAPI support. */
 # ifdef POLYBENCH_PAPI

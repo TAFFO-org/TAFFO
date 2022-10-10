@@ -20,6 +20,8 @@ if [[ -z $LLVM_DIR ]]; then
   echo -e '\033[33m'"Warning"'\033[39m'" using default llvm/clang";
 else
   llvmbin="$LLVM_DIR/bin/";
+  if [[ -z "$CLANG" ]]; then CLANG=${llvmbin}clang; fi
+  if [[ -z "$CLANGXX" ]]; then CLANGXX=${CLANG}++; fi
 fi
 if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
 
@@ -36,12 +38,31 @@ compile_one()
   benchname=$(basename $benchpath .c)
   mkdir -p build/"$scaling"/"$benchname"
   $TIMEOUT taffo \
-    -o build/"$scaling"/"$benchname"/"$benchname".out \
+    -o build/"$scaling"/"$benchname"/"$benchname".out.ll \
+    -emit-llvm \
     -temp-dir build/"$scaling"/"$benchname" \
     "$benchpath" \
     -Isources/. \
     $xparams \
     -debug-taffo \
+    -lm \
+    -DSCALING_FACTOR=$scaling \
+    2> build/"$scaling"/"$benchname"/${benchname}.log || return $?
+}
+
+compile_one_float()
+{
+  benchpath="$1"
+  scaling="$2"
+  xparams="$3"
+  benchname=$(basename $benchpath .c)
+  mkdir -p build/"$scaling"/"$benchname"
+  $TIMEOUT $CLANG \
+    -o build/"$scaling"/"$benchname"/"$benchname".out.ll \
+    -S -emit-llvm \
+    "$benchpath" \
+    -Isources/. \
+    $xparams \
     -lm \
     -DSCALING_FACTOR=$scaling \
     2> build/"$scaling"/"$benchname"/${benchname}.log || return $?
@@ -100,6 +121,7 @@ TAFFO_PREFIX=$(dirname $(which taffo))/..
 SCALING_MAX=1024
 
 if [[ -z $mixedmode ]];  then export mixedmode=0; fi
+if [[ -z $floatmode ]];  then export floatmode=0; fi
 if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3'; fi
 if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
 if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
@@ -142,20 +164,26 @@ for bench in $all_benchs; do
   for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*4 ))
   do
     printf '[....] %s' "$benchname"_"$scaling"
-    stats=$(read_stats ${benchname} ${scaling})
-    compile_one "$bench" \
-      "$scaling" \
-      "-m32 \
-      ${CFLAGS} \
-      ${errorprop} \
-      ${mixedmodeopts} \
-      ${stats}"
+    if [ "$floatmode" -ne "0" ]; then
+      compile_one_float "$bench" \
+            "$scaling" \
+            "-m32 \
+            ${CFLAGS}"
+    else
+      compile_one "$bench" \
+            "$scaling" \
+            "-m32 \
+            ${CFLAGS} \
+            ${errorprop} \
+            ${mixedmodeopts} \
+            ${stats}"
+    fi
     bpid_fc=$?
     if [[ $bpid_fc == 0 ]]; then
       bpid_fc=' ok '
     fi
     printf '\033[1G[%4s] %s\n' "$bpid_fc" "$benchname"_"$scaling"
-    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.5.taffotmp.ll \
+    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.ll \
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
   done
