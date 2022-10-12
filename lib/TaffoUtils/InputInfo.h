@@ -223,6 +223,7 @@ public:
   Range(double Min, double Max) : Min(Min), Max(Max) {}
 
   Range(Range &r) : Min(r.Min), Max(r.Max) {}
+  Range(const Range &r) : Min(r.Min), Max(r.Max) {}
 
   std::string toString() const
   {
