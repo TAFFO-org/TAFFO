@@ -122,7 +122,7 @@ SCALING_MAX=1024
 
 if [[ -z $mixedmode ]];  then export mixedmode=0; fi
 if [[ -z $floatmode ]];  then export floatmode=0; fi
-if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3'; fi
+if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3 -fno-slp-vectorize -fno-vectorize'; fi
 if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
 if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
 if [[ -z $instrset ]];   then export instrset=soc_zoni; fi
@@ -186,6 +186,13 @@ for bench in $all_benchs; do
     taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.ll \
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
+    "$OPT" \
+      -S \
+      -load "$TAFFO_PREFIX"/lib/Taffo.so \
+      --taffo-float-size-analysis \
+      -stats_output_file build_stats/"$scaling"/"$benchname"/${benchname}_float_size.csv \
+      build/"$scaling"/"$benchname"/${benchname}.out.ll \
+      -o /dev/null
   done
 #  if [ $benchname = "trisolv" ]; then
 #     break

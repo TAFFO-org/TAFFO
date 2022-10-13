@@ -2,13 +2,22 @@
 
 SCALING_MAX=1024
 
+if [[ -z $LLVM_DIR ]]; then
+  echo -e '\033[33m'"Warning"'\033[39m'" using default llvm/clang";
+else
+  llvmbin="$LLVM_DIR/bin/";
+  if [[ -z "$CLANG" ]]; then CLANG=${llvmbin}clang; fi
+  if [[ -z "$CLANGXX" ]]; then CLANGXX=${CLANG}++; fi
+fi
+if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
+
 compile_stats()
 {
   benchpath="$1"
   scaling="$2"
   benchname=$(basename $benchpath .c)
   mkdir -p build_stats/"$scaling"/"$benchname"
-  cc \
+  "$CLANG" \
     -o build_stats/"$scaling"/"$benchname"/"$benchname".out \
     "$benchpath" \
     -Isources/. \

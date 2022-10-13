@@ -7,10 +7,15 @@ from os.path import isfile, join, isdir
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from io import StringIO
 
 pd.options.display.max_columns = None
 # plt.rcParams.update({'font.size': 8})
 
+def safe_div(x,y):
+    if y == 0:
+        return 0
+    return x / y
 def main(argv):
     stats_path = "./build_stats"
     stats_summary = pd.DataFrame()
@@ -22,8 +27,10 @@ def main(argv):
         for bench in bench_dirs:
             var_stats_path = join(stats_path, scale, bench, f"{bench}.csv")
             ops_stats_path = join(stats_path, scale, bench, f"{bench}.mix.txt")
+            fz_stats_path = join(stats_path, scale, bench, f"{bench}_float_size.csv")
             print(var_stats_path)
             print(ops_stats_path)
+            print(fz_stats_path)
             var_stats = pd.read_csv(var_stats_path)
             # print(var_stats)
             ops_placeholder = 0
@@ -33,10 +40,27 @@ def main(argv):
                 ops_stats = ops_stats[1:]
                 ops_stats.columns=header
             except:
-                print(f"{bench} compilation error")
+                print(f"{bench}_{scale} ops stats compilation error")
                 ops_stats = pd.DataFrame()
                 ops_stats = ops_stats.append({}, ignore_index=True)
                 ops_placeholder = np.nan
+
+            fz_placeholder = 0
+            try:
+                fz_stats = pd.read_csv(fz_stats_path, sep=",")
+            except:
+                print(f"{bench}_{scale} float size compilation error")
+                fz_stats = pd.read_csv(StringIO("op_type,op1_range_set,op2_range_set,op0_range_min,op0_range_max,op1_range_min,op1_range_max,op0_range_normal,op1_range_normal,op0_exponent_min,op0_exponent_max,op1_exponent_min,op1_exponent_max,max_exponent_diff,"), sep=",")
+                fz_placeholder = np.nan
+
+            # print(fz_stats)
+
+            fz_stats_valid = fz_stats.loc[(
+                (fz_stats['op1_range_set'] > 0) &
+                (fz_stats['op2_range_set'] > 0) &
+                (fz_stats['op0_range_normal'] > 0) &
+                (fz_stats['op1_range_normal'] > 0)
+            )]
 
             print(ops_stats)
             stats_row = {
@@ -62,6 +86,16 @@ def main(argv):
                 'Shift': ops_stats.iloc[0].get("Shift", ops_placeholder),
                 'fdiv': ops_stats.iloc[0].get("fdiv", ops_placeholder),
                 'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
+                'total_float': len(fz_stats),
+                'float_finite_ranges': len(fz_stats_valid),
+                'exp_diff_lt7': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]),
+                'exp_diff_lt10': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]),
+                'exp_diff_lt15': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]),
+                'exp_diff_lt23': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]),
+                'exp_diff_lt7_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]), len(fz_stats_valid)),
+                'exp_diff_lt10_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]), len(fz_stats_valid)),
+                'exp_diff_lt15_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]), len(fz_stats_valid)),
+                'exp_diff_lt23_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]), len(fz_stats_valid)),
             }
             stats_summary = stats_summary.append(stats_row, ignore_index=True)
 

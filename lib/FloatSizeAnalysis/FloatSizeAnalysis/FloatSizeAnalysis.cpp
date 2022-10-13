@@ -53,20 +53,20 @@ bool FloatSizeAnalysis::runOnModule(llvm::Module &M)
     }
   }
 
-  for (auto &s: stats) {
-    errs() << "-----\n";
-    errs() << *s.instruction << "\n";
-    if (s.op0_range_set) {
-      errs() << "op0: (" << s.op0.Min << ", " << s.op0.Max << ")\n";
-    } else {
-      errs() << "op0: (None, None)\n";
-    }
-    if (s.op1_range_set) {
-      errs() << "op1: (" << s.op1.Min << ", " << s.op1.Max << ")\n";
-    } else {
-      errs() << "op1: (None, None)\n";
-    }
-  }
+//  for (auto &s: stats) {
+//    errs() << "-----\n";
+//    errs() << *s.instruction << "\n";
+//    if (s.op0_range_set) {
+//      errs() << "op0: (" << s.op0.Min << ", " << s.op0.Max << ")\n";
+//    } else {
+//      errs() << "op0: (None, None)\n";
+//    }
+//    if (s.op1_range_set) {
+//      errs() << "op1: (" << s.op1.Min << ", " << s.op1.Max << ")\n";
+//    } else {
+//      errs() << "op1: (None, None)\n";
+//    }
+//  }
 
   printStatsCSV();
 
@@ -119,11 +119,13 @@ void FloatSizeAnalysis::printStatsCSV() {
     result << maxExponentDiff(s.op0, s.op1) << ",";
     result << "\n";
   }
-  errs() << result.str();
+
   if (output_file.hasArgStr()) {
     std::ofstream outputFile(output_file.getValue());
     outputFile << result.str();
     outputFile.close();
+  } else {
+    errs() << result.str();
   }
 }
 
@@ -139,7 +141,8 @@ int FloatSizeAnalysis::minExponent(mdutils::Range& range) {
   if (!(finite(range.Min) && finite(range.Max))) {
     return 0;
   }
-  int minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEsingle());
+//  int minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEsingle());
+  int minExponentPower = -10;
   double smallestRepresentableNumber;
   if (range.Min <= 0 && range.Max >= 0) {
     // range overlapping 0
