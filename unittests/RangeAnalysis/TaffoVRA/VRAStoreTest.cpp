@@ -1,15 +1,14 @@
-#include "gtest/gtest.h"
-#include <memory>
+#include "TestUtils.h"
 
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
-#include "TestUtils.h"
 
 namespace
 {
 
 using namespace llvm;
 using namespace taffo;
+using namespace taffo_test;
 
 class VRAStoreStub : public VRAStore
 {
@@ -18,17 +17,10 @@ public:
       : VRAStore(VRASK_VRAGlobalStore, std::make_shared<VRALogger>()) {}
 };
 
-class VRAStoreTest : public testing::Test
+class VRAStoreTest : public taffo_test::Test
 {
 protected:
   VRAStoreStub VRAs;
-
-  LLVMContext Context;
-  std::shared_ptr<Module> M;
-  VRAStoreTest()
-  {
-    M = std::make_unique<Module>("test", Context);
-  }
 };
 
 TEST_F(VRAStoreTest, convexMerge_sameScalar)

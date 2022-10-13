@@ -1,20 +1,15 @@
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/raw_ostream.h"
-#include "gtest/gtest.h"
-
-#include "TaffoInitializer/TaffoInitializerPass.h"
 #include "TestUtils.h"
 
+#include "TaffoInitializer/TaffoInitializerPass.h"
 
 namespace
 {
-using namespace taffo;
 using namespace llvm;
+using namespace taffo;
+using namespace taffo_test;
 
 
-class AnnotationsTest : public testing::Test
+class AnnotationsTest : public taffo_test::Test
 {
 protected:
   const std::string STARTP_NOT_INIT_ERR = "__taffo_vra_starting_function not initialized to anything or initialized incorrectly!";
@@ -23,7 +18,6 @@ protected:
   std::string code;
   taffo::ValueInfo info;
   llvm::Value *val{};
-  llvm::LLVMContext Context;
 
 
   TaffoInitializer initializer;

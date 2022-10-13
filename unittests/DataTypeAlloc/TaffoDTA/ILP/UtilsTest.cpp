@@ -6,19 +6,10 @@ namespace
 {
 
 using namespace llvm;
+using namespace taffo_test;
 
 
-class UtilsTest : public testing::Test
-{
-protected:
-  LLVMContext Context;
-  std::shared_ptr<Module> M;
-
-  UtilsTest()
-  {
-    M = std::make_unique<Module>("module", Context);
-  }
-};
+class UtilsTest : public taffo_test::Test{};
 
 TEST_F(UtilsTest, uniqueID_instr)
 {

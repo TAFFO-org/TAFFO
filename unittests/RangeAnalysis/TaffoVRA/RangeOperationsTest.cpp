@@ -1,14 +1,16 @@
+#include "TestUtils.h"
+
 #include "TaffoVRA/RangeOperations.hpp"
 #include "TaffoVRA/Range.hpp"
-#include "gtest/gtest.h"
 
 namespace
 {
 
 using namespace taffo;
+using namespace taffo_test;
 
 
-class RangeOperationsTest : public testing::Test
+class RangeOperationsTest : public taffo_test::Test
 {
 protected:
   range_ptr_t op1;

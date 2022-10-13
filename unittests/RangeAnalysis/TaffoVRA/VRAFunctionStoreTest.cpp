@@ -1,19 +1,18 @@
-#include "gtest/gtest.h"
-#include <memory>
+#include "TestUtils.h"
 
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAFunctionStore.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
 #include "TaffoVRA/VRAnalyzer.hpp"
-#include "TestUtils.h"
 
 namespace
 {
 
 using namespace llvm;
 using namespace taffo;
+using namespace taffo_test;
 
-class VRAFunctionStoreTest : public testing::Test
+class VRAFunctionStoreTest : public taffo_test::Test
 {
 private:
   VRAGlobalStore GlobalStore = VRAGlobalStore();
@@ -23,18 +22,11 @@ protected:
   CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), std::make_shared<VRAGlobalStore>(GlobalStore));
   VRAFunctionStore VRAfs = VRAFunctionStore(CI);
 
-  LLVMContext Context;
-  std::shared_ptr<Module> M;
   Function *F;
   std::vector<Type *> args;
   std::list<NodePtrT> argsRanges;
   NodePtrT retval;
   NodePtrT ret;
-
-  VRAFunctionStoreTest()
-  {
-    M = std::make_unique<Module>("test", Context);
-  }
 };
 
 /*

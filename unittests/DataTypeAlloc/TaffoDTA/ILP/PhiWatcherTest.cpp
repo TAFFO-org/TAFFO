@@ -6,14 +6,13 @@ namespace
 {
 
 using namespace llvm;
+using namespace taffo_test;
 using namespace tuner;
 
 
-class PhiWatcherTest : public testing::Test
+class PhiWatcherTest : public taffo_test::Test
 {
 protected:
-  LLVMContext Context;
-  std::shared_ptr<Module> M;
   Function *F;
   BasicBlock *BB;
 
@@ -25,7 +24,6 @@ protected:
 
   PhiWatcherTest()
   {
-    M = std::make_unique<Module>("module", Context);
     F = genFunction(*M, "functionName", Type::getVoidTy(Context), {});
     BB = BasicBlock::Create(Context, "basicblock", F);
 

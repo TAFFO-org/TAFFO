@@ -1,19 +1,18 @@
-#include "gtest/gtest.h"
-#include <memory>
+#include "TestUtils.h"
 
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
 #include "TaffoVRA/VRAnalyzer.hpp"
-#include "TestUtils.h"
 
 namespace
 {
 
 using namespace llvm;
 using namespace taffo;
+using namespace taffo_test;
 
 
-class VRAnalyzerTest : public testing::Test
+class VRAnalyzerTest : public taffo_test::Test
 {
 private:
   Pass *Pass;
@@ -24,8 +23,6 @@ protected:
   CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), GlobalStore);
   VRAnalyzer VRA = VRAnalyzer(CI);
 
-  LLVMContext Context;
-  std::shared_ptr<Module> M;
   Function *F;
   BasicBlock *BB;
   Instruction *I;
@@ -33,7 +30,6 @@ protected:
 
   VRAnalyzerTest()
   {
-    M = std::make_unique<Module>("test", Context);
     F0 = genFunction(*M, "main", Type::getVoidTy(Context), {});
     BB = BasicBlock::Create(Context, "entry", F0);
   }

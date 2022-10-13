@@ -1,32 +1,24 @@
-#include "gtest/gtest.h"
-#include <memory>
+#include "TestUtils.h"
 
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
 #include "TaffoVRA/VRAnalyzer.hpp"
-#include "TestUtils.h"
 
 namespace
 {
 
 using namespace llvm;
 using namespace taffo;
+using namespace taffo_test;
 
 
-class VRAGlobalStoreTest : public testing::Test
+class VRAGlobalStoreTest : public taffo_test::Test
 {
 protected:
   VRAGlobalStore VRAgs;
 
-  LLVMContext Context;
-  std::shared_ptr<Module> M;
   Function *F;
   BasicBlock *BB;
-
-  VRAGlobalStoreTest()
-  {
-    M = std::make_unique<Module>("test", Context);
-  }
 };
 
 /*

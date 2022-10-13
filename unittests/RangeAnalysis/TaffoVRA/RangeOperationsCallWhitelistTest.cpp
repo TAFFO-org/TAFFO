@@ -1,13 +1,15 @@
+#include "TestUtils.h"
+
 #include "TaffoVRA/RangeOperationsCallWhitelist.hpp"
-#include "gtest/gtest.h"
 
 namespace
 {
 
 using namespace taffo;
+using namespace taffo_test;
 
 
-class RangeOperationsCallWhitelistTest : public testing::Test
+class RangeOperationsCallWhitelistTest : public taffo_test::Test
 {
 protected:
   std::list<range_ptr_t> operands;

@@ -1,10 +1,4 @@
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include "TestUtils.h"
 
 #include "TaffoInitializer/AnnotationParser.h"
 
@@ -14,7 +8,7 @@ namespace
 using namespace taffo;
 using namespace llvm;
 
-class AnnotationParserTest : public testing::Test
+class AnnotationParserTest : public taffo_test::Test
 {
 protected:
   AnnotationParser parser;
