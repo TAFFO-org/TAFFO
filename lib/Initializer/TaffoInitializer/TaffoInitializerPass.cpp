@@ -2,6 +2,7 @@
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "WriteModule.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -43,7 +44,7 @@ llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
                                           llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
 bool Hero;
 static llvm::cl::opt<bool, true> Hero_opt("hero",
-                                          llvm::cl::desc("Enables TAFFO to work with hero"), cl::location(Hero), llvm::cl::init(true));
+                                          llvm::cl::desc("Enables TAFFO to work with hero"), cl::location(Hero), llvm::cl::init(false));
 
 
 bool TaffoInitializer::runOnModule(Module &m)
@@ -560,8 +561,12 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
       LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
       continue;
     }
-    if (user_begin != newArgumentI->user_end()) {
-      allocaOfArgument = user_begin->getOperand(0);
+
+
+    for (; user_begin != newArgumentI->user_end(); ++user_begin) {
+      if (llvm::StoreInst *store = llvm::dyn_cast<StoreInst>(*user_begin)) {
+        allocaOfArgument = store->getOperand(1);
+      }
     }
 
     Value *callOperand = call->getOperand(i);
