@@ -507,8 +507,18 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
       continue;
     }
 
+
+
     Value *callOperand = call->getOperand(i);
     Value *allocaOfArgument = user_begin->getOperand(1);
+
+
+    for (; user_begin != newArgumentI->user_end(); ++user_begin) {
+      if (llvm::StoreInst *store = llvm::dyn_cast<StoreInst>(*user_begin)) {
+        allocaOfArgument = store->getOperand(1);
+      }
+    }
+
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
 
