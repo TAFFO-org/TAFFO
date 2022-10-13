@@ -3,6 +3,7 @@
 #include "CreateSpecialFunction.h"
 #include "DebugPrint.h"
 #include "TypeUtils.h"
+#include "WriteModule.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"

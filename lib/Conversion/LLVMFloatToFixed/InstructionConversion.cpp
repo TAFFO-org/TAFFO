@@ -1,5 +1,6 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
+#include "WriteModule.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -145,11 +146,14 @@ Value *FloatToFixed::convertStore(StoreInst *store)
          * so everything is fine and there is nothing special to do.
          * Only logging type mismatches because we trust DTA has done its job */
         newval = matchOp(val);
-        if (!(fixPType(newval) == valtype))
+        if (!(fixPType(newval) == valtype)) {
           LLVM_DEBUG(
               dbgs()
               << "unsolvable fixp type mismatch between store dest and src!\n"
               << fixPType(newval) << " -> " << valtype << "\n");
+
+          newval = CastInst::CreatePointerBitCastOrAddrSpaceCast(newval, peltype, "", store);
+        }
 
       } else {
         /* best case: store <value> into <value> pointer */
@@ -194,6 +198,7 @@ Value *FloatToFixed::convertStore(StoreInst *store)
   if (!newval)
     return nullptr;
   MaybeAlign alignment(store->getAlignment());
+
   StoreInst *newinst =
       new StoreInst(newval, newptr, store->isVolatile(), alignment.valueOrOne(),
                     store->getOrdering(), store->getSyncScopeID());

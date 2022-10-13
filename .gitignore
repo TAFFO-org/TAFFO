@@ -20,3 +20,4 @@ tool/taffo-costmodel-embedded/obj*
 *.elf
 *.map
 *.sh
+compile.sh

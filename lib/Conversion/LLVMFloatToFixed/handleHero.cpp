@@ -4,15 +4,18 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalObject.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -30,15 +33,19 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <deque>
+#include <llvm-12/llvm/ADT/Twine.h>
+#include <llvm/Support/FormatVariadic.h>
 #include <memory>
+#include <ostream>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-
+static constexpr int substring_size = 6;
 class ident_struct_type_remapper : public ValueMapTypeRemapper
 {
 
@@ -101,13 +108,13 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
   std::unordered_set<Function *> alredy_present_function;
 
   for (const llvm::GlobalVariable &I : host.globals()) {
-    if (!(I.getName().startswith("__dev") || I.getName().startswith("__tgt_offload_entry")))
+    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__tgt_offload_entry")))
       continue;
 
 
     StringRef old_name = I.getName();
-    if (I.getName().startswith("__dev"))
-      old_name = I.getName().substr(6, std::string::npos);
+    if (I.getName().startswith("__dev-"))
+      old_name = I.getName().substr(substring_size, std::string::npos);
     LLVM_DEBUG(llvm::dbgs() << "Searching global: " << I.getName() << " as " << old_name << "\n");
     if (auto glob = dev.getNamedGlobal(old_name)) {
       LLVM_DEBUG(llvm::dbgs() << "Found global: " << *glob << "\n");
@@ -117,7 +124,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
       llvm::GlobalVariable *NewGV = new GlobalVariable(
           dev, remapper->remapType(I.getValueType()), I.isConstant(), I.getLinkage(),
           (llvm::Constant *)nullptr, old_name, (llvm::GlobalVariable *)nullptr,
-          I.getThreadLocalMode(), remapper->remapType(I.getValueType())->getPointerAddressSpace());
+          I.getThreadLocalMode(), remapper->remapType(I.getType())->getPointerAddressSpace());
       NewGV->copyAttributesFrom(&I);
       LLVM_DEBUG(llvm::dbgs() << "Created global: " << *NewGV << "\n");
 
@@ -128,11 +135,11 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 
   // Loop over the functions in the module, making external functions as before
   for (const Function &I : host) {
-    if (!(I.getName().startswith("__dev") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")))
+    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) || I.getName().contains("_trampoline"))
       continue;
     auto old_name = I.getName();
-    if (I.getName().startswith("__dev")) {
-      old_name = old_name.substr(6, std::string::npos);
+    if (I.getName().startswith("__dev-")) {
+      old_name = old_name.substr(substring_size, std::string::npos);
     }
     LLVM_DEBUG(llvm::dbgs() << "Search function: " << I.getName() << " as " << old_name << "\n");
     if (auto old = dev.getFunction(old_name)) {
@@ -156,7 +163,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
   for (const GlobalVariable &G : host.globals()) {
     if (G.getName().startswith("llvm.used"))
       continue;
-    if (!(G.getName().startswith("__dev") || G.getName().startswith("__tgt_offload_entry")))
+    if (!(G.getName().startswith("__dev-") || G.getName().startswith("__tgt_offload_entry")))
       continue;
 
     GlobalVariable *GV = cast<GlobalVariable>(GtoG[&G]);
@@ -179,7 +186,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
   // Similarly, copy over function bodies now...
 
   for (const Function &I : host) {
-    if (!(I.getName().startswith("__dev") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")))
+    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) || I.getName().contains("trampoline"))
       continue;
     Function *F = cast<Function>(GtoG[&I]);
     if (!F->isDeclaration()) {
@@ -239,7 +246,152 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 }
 
 
-SmallVector<llvm::CallSite *> fix_call(llvm::Function *function)
+//openmp .offload_sizes express the dimension of the underlyng data in bytes
+// sometimes can be zero if it is alredy specified by previous call
+// prev_call_site is the call to the fixpoint version of the function without indirection
+// target_mapper is the call to one of the possible mapper function
+void fix_size(CallSite *prev_call_site, llvm::CallSite *target_mapper_caller, const llvm::DenseMap<llvm::Function *, llvm::Function *> &functionPool)
+{
+  //retrive old global size
+  auto size_global = cast<ConstantDataArray>(cast<GlobalVariable>(target_mapper_caller->getOperand(6)->stripPointerCastsAndAliases())->getInitializer());
+  auto &cntx = prev_call_site->getContext();
+  auto &M = *prev_call_site->getModule();
+
+  //retrive old type size
+  Function *old_f = nullptr;
+  for (const auto &fun : functionPool) {
+    if (fun.getSecond() == prev_call_site->getCalledFunction()) {
+      old_f = fun.getFirst();
+    }
+  }
+
+  if (old_f == nullptr) {
+    return;
+  }
+
+  SmallVector<Type *> old_arg_types;
+  for (const auto &arg : old_f->args()) {
+    old_arg_types.push_back(arg.getType());
+  }
+
+  //retrive new type size
+  SmallVector<Type *> new_arg_types;
+  for (const auto &arg : prev_call_site->getCalledFunction()->args()) {
+    new_arg_types.push_back(arg.getType());
+  }
+
+  SmallVector<unsigned long, 3> calculated_sizes;
+
+  for (const auto &arg : enumerate(zip(old_arg_types, new_arg_types))) {
+    Type *old_arg = std::get<0>(arg.value());
+    Type *new_arg = std::get<1>(arg.value());
+    auto size = size_global->getElementAsInteger(arg.index());
+    unsigned long old_size = 0;
+    unsigned long new_size = 0;
+
+    if (const auto *pointed = dyn_cast<PointerType>(old_arg)) {
+      if (pointed->getElementType()->isArrayTy()) {
+        //TODO handle recursion of array
+        auto old_array_type = cast<ArrayType>(pointed->getElementType());
+        auto new_array_type = cast<ArrayType>(cast<PointerType>(new_arg)->getElementType());
+        old_size = old_array_type->getElementType()->getScalarSizeInBits();
+        new_size = new_array_type->getElementType()->getScalarSizeInBits();
+
+      } else if (pointed->getElementType()->isIntOrIntVectorTy() || pointed->getElementType()->isFPOrFPVectorTy()) {
+        old_size = pointed->getElementType()->getScalarSizeInBits();
+        new_size = cast<PointerType>(new_arg)->getElementType()->getScalarSizeInBits();
+
+      } else {
+        llvm_unreachable("Type not handled");
+      }
+    } else {
+      if (old_arg->isArrayTy()) {
+        //TODO handle recursion of array
+        auto old_array_type = cast<ArrayType>(old_arg);
+        auto new_array_type = cast<ArrayType>(new_arg);
+        old_size = old_array_type->getElementType()->getScalarSizeInBits();
+        new_size = new_array_type->getElementType()->getScalarSizeInBits();
+
+      } else if (old_arg->isIntOrIntVectorTy() || old_arg->isFPOrFPVectorTy()) {
+        old_size = old_arg->getScalarSizeInBits();
+        new_size = new_arg->getScalarSizeInBits();
+
+      } else {
+        llvm_unreachable("Type not handled");
+      }
+    }
+    if (old_size == 0 || new_size == 0) {
+      LLVM_DEBUG(llvm::dbgs() << llvm::formatv("Error on size handling\n\tOld Size {2}-> {0}\n\tNew Size {3}->{1}", old_size, new_size, *old_arg, *new_arg));
+
+    } else if (old_size != new_size) {
+      assert(size % old_size == 0 && "Not a multiple of size");
+      size = size / old_size * new_size;
+    }
+    calculated_sizes.push_back(size);
+  }
+  auto data_to_insert = cast<ConstantDataArray>(ConstantDataArray::get(cntx, calculated_sizes));
+  auto new_data = new GlobalVariable(M, data_to_insert->getType(), true, llvm::GlobalValue::InternalLinkage, data_to_insert, ".offload_sizes");
+  Constant *C[2] = {cast<Constant>(ConstantInt::get(Type::getInt32Ty(cntx), 0)), cast<Constant>(ConstantInt::get(Type::getInt32Ty(cntx), 0))};
+  auto const_expr = ConstantExpr::getGetElementPtr(data_to_insert->getType(), new_data, C, true);
+  target_mapper_caller->setOperand(6, const_expr);
+}
+
+
+// prev_call_site is the call to the fixpoint version of the function without indirection
+// target_mapper is the call to one of the possible mapper function
+void fix_argument_cast(CallSite *prev_call_site, llvm::CallSite *target_mapper_caller)
+{
+  LLVM_DEBUG(llvm::dbgs() << "In " << prev_call_site->getParent()->getParent()->getName() << "\nfound " << *target_mapper_caller << "\nwith predecessor " << *prev_call_site << "\n");
+
+  llvm::IRBuilder<> builder(prev_call_site->getContext());
+  auto call_site = prev_call_site;
+  builder.SetInsertPoint(call_site);
+  auto base_arg = llvm::cast<GetElementPtrInst>(target_mapper_caller->getOperand(4))->getOperand(0);
+  auto not_base_arg = llvm::cast<GetElementPtrInst>(target_mapper_caller->getOperand(5))->getOperand(0);
+
+  size_t i = 0;
+
+  for (auto &op : call_site->args()) {
+    auto &arg = *llvm::cast<llvm::Value>(op.get());
+    auto arg_type = arg.getType();
+    auto base_gep = builder.CreateGEP(base_arg, {builder.getInt32(0), builder.getInt32(i)});
+    auto not_base_gep = builder.CreateGEP(not_base_arg, {builder.getInt32(0), builder.getInt32(i)});
+    auto end_type = base_gep->getType()->getPointerElementType();
+
+    if (arg_type->isPointerTy()) {
+
+      LLVM_DEBUG(llvm::dbgs() << "Create a casting pointer " << *arg_type << " to pointer " << *end_type << " and store it\n");
+
+      auto op_code = llvm::CastInst::getCastOpcode(&arg, true, end_type, true);
+      LLVM_DEBUG(llvm::dbgs() << "\tcode: \n");
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *base_gep << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *not_base_gep << "\n");
+      auto tmp = llvm::CastInst::Create(op_code, &arg, end_type, "", call_site);
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *tmp << "\n");
+      auto dbg = builder.CreateStore(tmp, base_gep);
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
+      dbg = builder.CreateStore(tmp, not_base_gep);
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
+    } else {
+
+
+      auto tmp = builder.CreateBitOrPointerCast(base_gep, arg_type->getPointerTo());
+      LLVM_DEBUG(llvm::dbgs() << "store the value " << *arg_type << " in the pointer " << *tmp << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "\tcode: \n");
+      auto dbg = builder.CreateStore(&arg, tmp);
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
+
+
+      tmp = builder.CreateBitOrPointerCast(not_base_gep, arg_type->getPointerTo());
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *tmp << "\n");
+      dbg = builder.CreateStore(&arg, tmp);
+      LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
+    }
+    i++;
+  }
+}
+
+SmallVector<llvm::CallSite *> fix_call(llvm::Function *function, llvm::DenseMap<llvm::Function *, llvm::Function *> &functionPool)
 {
   LLVM_DEBUG(llvm::dbgs() << "START " << __PRETTY_FUNCTION__ << "\n");
   SmallVector<llvm::CallSite *> ret{};
@@ -250,61 +402,14 @@ SmallVector<llvm::CallSite *> fix_call(llvm::Function *function)
 
 
   //Find all call place
-  for (auto caller : function->users()) {
-    if (auto target_mapper_caller = llvm::dyn_cast<llvm::CallSite>(caller)) {
+  for (const auto &caller : function->users()) {
+    if (const auto &target_mapper_caller = llvm::dyn_cast<llvm::CallSite>(caller)) {
       //search for a call site as previous instruction
-      if (auto prev_inst = llvm::dyn_cast<llvm::CallSite>(target_mapper_caller->getPrevNode())) {
-        if (prev_inst->getCalledFunction()->getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) {
-
-          LLVM_DEBUG(llvm::dbgs() << "In " << prev_inst->getParent()->getParent()->getName() << "\nfound " << *caller << "\nwith predecessor " << *prev_inst << "\n");
-
-          llvm::IRBuilder<> builder(function->getContext());
-          auto call_site = prev_inst;
-          builder.SetInsertPoint(call_site);
-          auto base_arg = llvm::cast<GetElementPtrInst>(target_mapper_caller->getOperand(4))->getOperand(0);
-          auto not_base_arg = llvm::cast<GetElementPtrInst>(target_mapper_caller->getOperand(5))->getOperand(0);
-
-          size_t i = 0;
-
-          for (auto &op : call_site->args()) {
-            auto &arg = *llvm::cast<llvm::Value>(op.get());
-            auto arg_type = arg.getType();
-            auto base_gep = builder.CreateGEP(base_arg, {builder.getInt32(0), builder.getInt32(i)});
-            auto not_base_gep = builder.CreateGEP(not_base_arg, {builder.getInt32(0), builder.getInt32(i)});
-            auto end_type = base_gep->getType()->getPointerElementType();
-
-            if (arg_type->isPointerTy()) {
-
-              LLVM_DEBUG(llvm::dbgs() << "Create a casting pointer " << *arg_type << " to pointer " << *end_type << " and store it\n");
-
-              auto op_code = llvm::CastInst::getCastOpcode(&arg, true, end_type, true);
-              LLVM_DEBUG(llvm::dbgs() << "\tcode: \n");
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *base_gep << "\n");
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *not_base_gep << "\n");
-              auto tmp = llvm::CastInst::Create(op_code, &arg, end_type, "", call_site);
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *tmp << "\n");
-              auto dbg = builder.CreateStore(tmp, base_gep);
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
-              dbg = builder.CreateStore(tmp, not_base_gep);
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
-            } else {
-
-
-              auto tmp = builder.CreateBitOrPointerCast(base_gep, arg_type->getPointerTo());
-              LLVM_DEBUG(llvm::dbgs() << "store the value " << *arg_type << " in the pointer " << *tmp << "\n");
-              LLVM_DEBUG(llvm::dbgs() << "\tcode: \n");
-              auto dbg = builder.CreateStore(&arg, tmp);
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
-
-
-              tmp = builder.CreateBitOrPointerCast(not_base_gep, arg_type->getPointerTo());
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *tmp << "\n");
-              dbg = builder.CreateStore(&arg, tmp);
-              LLVM_DEBUG(llvm::dbgs() << "\t\t" << *dbg << "\n");
-            }
-            i++;
-          }
-          ret.emplace_back(call_site);
+      if (const auto &prev_call_site = llvm::dyn_cast<llvm::CallSite>(target_mapper_caller->getPrevNode())) {
+        if (prev_call_site->getCalledFunction()->getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) {
+          fix_size(prev_call_site, target_mapper_caller, functionPool);
+          fix_argument_cast(prev_call_site, target_mapper_caller);
+          ret.emplace_back(prev_call_site);
         }
       }
     }
@@ -315,7 +420,7 @@ SmallVector<llvm::CallSite *> fix_call(llvm::Function *function)
 
 void retrive_constexpr_user(llvm::Constant *c, std::vector<User *> &to_remove)
 {
-  for (auto user : c->users()) {
+  for (const auto &user : c->users()) {
     if (llvm::isa<Constant>(user) && !llvm::isa<GlobalValue>(user)) {
       if (!std::any_of(to_remove.cbegin(), to_remove.cend(), [&user](auto elem) { return user == elem; })) {
         to_remove.push_back(user);
@@ -329,18 +434,18 @@ void retrive_constexpr_user(llvm::Constant *c, std::vector<User *> &to_remove)
   }
 }
 
-void clean_host(llvm::Module &M, llvm::LLVMContext &cntx)
+void clean_host(llvm::Module &M, const llvm::LLVMContext &cntx)
 {
   LLVM_DEBUG(llvm::dbgs() << "START " << __PRETTY_FUNCTION__ << "\n");
   std::vector<User *> to_remove;
   for (auto &glob : M.globals()) {
-    if (glob.hasName() && (glob.getName().startswith("__dev") || glob.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99"))) {
+    if (glob.hasName() && (glob.getName().startswith("__dev-") || glob.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99"))) {
       to_remove.push_back(&glob);
     }
   }
 
   for (auto &glob : M.functions()) {
-    if (glob.hasName() && (glob.getName().startswith("__dev") || glob.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99"))) {
+    if (glob.hasName() && (glob.getName().startswith("__dev-") || glob.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99"))) {
       to_remove.push_back(&glob);
     }
   }
@@ -350,7 +455,7 @@ void clean_host(llvm::Module &M, llvm::LLVMContext &cntx)
 
     auto front = to_remove[i];
 
-    for (auto user : front->users()) {
+    for (const auto &user : front->users()) {
       if (llvm::isa<Constant>(user) && !llvm::isa<GlobalValue>(user)) {
         retrive_constexpr_user(llvm::cast<llvm::Constant>(user), to_remove);
       } else {
@@ -413,26 +518,71 @@ void normalize_addrspace(llvm::Module &dev)
   //we continue to iterate until all GEP are correctly handled
   // the fixed point iteration is due to possible dependency on future gep
   //all this stuff is a hack because clonefunctioninto creates invalid GEP, and we cannot remap all pointers to pointer addrespace(1) as this will imply also local alloca will be transformed.
-  bool stop_looping = false;
-  ValueToValueMapTy VM{};
-  while (!stop_looping) {
-    stop_looping = true;
+  {
+    bool stop_looping = false;
+    ValueToValueMapTy VM{};
+    llvm::SmallVector<Instruction *, 6> to_rem;
+    while (!stop_looping) {
+      stop_looping = true;
+      for (auto &fnct : dev) {
+        for (auto &BB : fnct)
+          for (auto &I : make_early_inc_range(BB)) {
+            if (auto gep = dyn_cast<GetElementPtrInst>(&I)) {
+              if (VM.find(gep) == VM.end() && gep->getOperand(0)->getType()->isPointerTy() && gep->getType()->isPointerTy() && gep->getOperand(0)->getType()->getPointerAddressSpace() != gep->getType()->getPointerAddressSpace()) {
+                SmallVector<Value *, 8> elems;
+                for (unsigned int i = 1; i < gep->getNumOperands(); ++i)
+                  elems.push_back(gep->getOperand(i));
+                to_rem.push_back(gep);
+                VM[gep] = GetElementPtrInst::Create(gep->getSourceElementType(), gep->getOperand(0), elems, "", gep);
+                for (auto user : gep->users()) {
+                  RemapInstruction(cast<Instruction>(user), VM, llvm::RF_IgnoreMissingLocals);
+                }
+                stop_looping = false;
+              }
+            } else {
+              RemapInstruction(cast<Instruction>(&I), VM, llvm::RF_IgnoreMissingLocals);
+            }
+          }
+      }
+    }
+
+    for (auto *rem : to_rem) {
+
+      rem->dropAllReferences();
+      rem->eraseFromParent();
+    }
+  }
+  //fix address space inside array of pointers
+  {
     for (auto &fnct : dev) {
       for (auto &BB : fnct)
         for (auto &I : make_early_inc_range(BB)) {
-          if (auto gep = dyn_cast<GetElementPtrInst>(&I)) {
-            if (VM.find(gep) == VM.end() && gep->getOperand(0)->getType()->isPointerTy() && gep->getType()->isPointerTy() && gep->getOperand(0)->getType()->getPointerAddressSpace() != gep->getType()->getPointerAddressSpace()) {
-              SmallVector<Value *, 8> elems;
-              for (unsigned int i = 1; i < gep->getNumOperands(); ++i)
-                elems.push_back(gep->getOperand(i));
-              VM[gep] = GetElementPtrInst::Create(gep->getSourceElementType(), gep->getOperand(0), elems, "", gep);
-              for (auto user : gep->users()) {
-                RemapInstruction(cast<Instruction>(user), VM, llvm::RF_IgnoreMissingLocals);
-              }
-              stop_looping = false;
+          if (auto sto = dyn_cast<StoreInst>(&I)) {
+            auto fir_type = sto->getOperand(0)->getType();
+            auto sec_type = cast<PointerType>(sto->getOperand(1)->getType())->getPointerElementType();
+
+            if (fir_type->isPointerTy() && sec_type->isPointerTy() && fir_type->getPointerAddressSpace() != sec_type->getPointerAddressSpace()) {
+              auto fir_addr = fir_type->getPointerAddressSpace();
+              auto new_stored_type = cast<PointerType>(sec_type)->getElementType()->getPointerTo(fir_addr)->getPointerTo(0);
+              auto CasI = CastInst::CreatePointerBitCastOrAddrSpaceCast(sto->getOperand(1), new_stored_type, "", sto);
+              sto->setOperand(1, CasI);
             }
-          } else {
-            RemapInstruction(cast<Instruction>(&I), VM, llvm::RF_IgnoreMissingLocals);
+          }
+        }
+    }
+  }
+  // fix bitcast with invalid address space
+  {
+    for (auto &fnct : dev) {
+      for (auto &BB : fnct)
+        for (auto &I : make_early_inc_range(BB)) {
+          if (auto cast_inst = dyn_cast<BitCastInst>(&I)) {
+            if (!CastInst::castIsValid(Instruction::BitCast, cast_inst->getOperand(0), cast_inst->getType())) {
+
+              auto new_cast = CastInst::CreatePointerBitCastOrAddrSpaceCast(cast_inst->getOperand(0), cast_inst->getType(), "", cast_inst);
+              cast_inst->replaceAllUsesWith(new_cast);
+              cast_inst->eraseFromParent();
+            }
           }
         }
     }
@@ -440,7 +590,15 @@ void normalize_addrspace(llvm::Module &dev)
 }
 
 
-void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functions_to_export, StringRef filename, llvm::LLVMContext &cntx)
+auto set_new_region_id(Module &M, CallSite *function_to_export_call, Twine function_name)
+{
+  auto &cntx = M.getContext();
+  auto new_region_id = new GlobalVariable(M, Type::getInt8Ty(cntx), true, llvm::GlobalValue::WeakAnyLinkage, ConstantInt::get(Type::getInt8Ty(cntx), 0), "." + function_name + ".region_id");
+  function_to_export_call->getNextNode()->setOperand(2, new_region_id);
+  return new_region_id;
+}
+
+void export_functions(llvm::Module &M, const SmallVectorImpl<llvm::CallSite *> &functions_to_export, StringRef filename, llvm::LLVMContext &cntx)
 {
   LLVM_DEBUG(llvm::dbgs() << "START " << __PRETTY_FUNCTION__ << "\n");
   IRBuilder<> builder(cntx);
@@ -461,9 +619,10 @@ void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functi
   ValueToValueMapTy GtoG;
   cloneGlobalVariable(*dev_module, M, GtoG);
   normalize_addrspace(*dev_module);
+  assert(!verifyModule(*dev_module, &llvm::dbgs()) && "Broken after normal Dev module");
 
 
-  for (auto function_to_export_call : functions_to_export) {
+  for (const auto &function_to_export_call : functions_to_export) {
     auto function_to_export = function_to_export_call->getCalledFunction();
     auto function_name = function_to_export->getName();
 
@@ -504,9 +663,9 @@ void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functi
           return elem->getName().startswith("struct.__tgt_offload_entry");
         });
         assert(type_tgt_offload_entry != identifiers.end() && "Not found type");
-        (*type_tgt_offload_entry)->dump();
-        auto new_region_id = new GlobalVariable(M, Type::getInt8Ty(cntx), true, llvm::GlobalValue::WeakAnyLinkage, builder.getInt8(0), "." + function_name + ".region_id");
-        function_to_export_call->getNextNode()->setOperand(2, new_region_id);
+
+        auto new_region_id = set_new_region_id(M, function_to_export_call, function_name);
+
         Constant *global_value_values[5];
 
         global_value_values[0] = ConstantExpr::getBitCast(new_region_id, Type::getInt8PtrTy(cntx));
@@ -529,9 +688,10 @@ void export_functions(llvm::Module &M, SmallVectorImpl<llvm::CallSite *> &functi
   }
 
 
-  verifyModule(*dev_module);
   write_module(filename, *dev_module);
-  LLVM_DEBUG(llvm::dbgs() << "END " << __PRETTY_FUNCTION__ << "\n");
+  llvm::dbgs() << "\n\n\n";
+  assert(!verifyModule(*dev_module, &llvm::dbgs()) && "Broken Dev module");
+  LLVM_DEBUG(llvm::dbgs() << "\nEND " << __PRETTY_FUNCTION__ << "\n");
 }
 
 void flttofix::FloatToFixed::handleHero(llvm::Module &host_module, bool Hero)
@@ -539,7 +699,6 @@ void flttofix::FloatToFixed::handleHero(llvm::Module &host_module, bool Hero)
   if (!Hero)
     return;
 
-  write_module("bef_hero.ll", host_module);
 
   LLVM_DEBUG(llvm::dbgs() << "\n##### Handle Init Hero ######\n");
   auto end_position = host_module.getModuleIdentifier().find("-host.ll");
@@ -549,12 +708,18 @@ void flttofix::FloatToFixed::handleHero(llvm::Module &host_module, bool Hero)
   auto target_mapper = host_module.getFunction("__tgt_target_mapper");
   auto target_teams_mapper = host_module.getFunction("__tgt_target_teams_mapper");
 
-  auto functions_to_export = fix_call(target_mapper);
-  functions_to_export.append(fix_call(target_teams_mapper));
+
+  auto functions_to_export = fix_call(target_mapper, functionPool);
+  functions_to_export.append(fix_call(target_teams_mapper, functionPool));
+
+  write_module("before_export.ll", host_module);
 
   export_functions(host_module, functions_to_export, dev_name, host_module.getContext());
+
   clean_host(host_module, host_module.getContext());
 
+
+  assert(!verifyModule(host_module, &llvm::dbgs()) && "Broken host module");
 
   LLVM_DEBUG(llvm::dbgs() << "##### End Init Hero ######\n\n");
 }

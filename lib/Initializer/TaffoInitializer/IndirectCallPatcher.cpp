@@ -219,7 +219,7 @@ void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                                     const CallSite *curCall,
                                     llvm::Function *indirectFunction);
   const static std::map<const std::string, handler_function> indirectCallFunctions = {
-      {"__kmpc_fork_call", &handleKmpcFork}, {"__dev__kmpc_fork_call", &handleKmpcFork}};
+      {"__kmpc_fork_call", &handleKmpcFork}, {"__dev-__kmpc_fork_call", &handleKmpcFork}};
 
   auto indirectCallHandler =
       indirectCallFunctions.find((std::string)indirectFunction->getName());

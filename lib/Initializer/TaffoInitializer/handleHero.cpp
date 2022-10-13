@@ -2,12 +2,13 @@
 #include "ModuleCloneUtils.h"
 #include "OpenMPAnalyzer.h"
 #include "TaffoInitializerPass.h"
+#include "WriteModule.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -70,6 +71,7 @@ llvm::Function *create_function_less_cast(llvm::Function *function_to_clone)
 
       auto cast_inst = llvm::cast<llvm::CastInst>(user);
       if (cast_inst->getSrcTy() == cast_inst->getDestTy()) {
+        llvm::dbgs() << "Pizza " << *cast_inst << "\n";
         cast_inst->replaceAllUsesWith(cast_inst->getOperand(0));
         cast_inst->eraseFromParent();
       }
@@ -88,6 +90,8 @@ llvm::Function *create_function_less_cast(llvm::Function *function_to_clone)
       for (auto store_users : make_early_inc_range(store_inst->getPointerOperand()->users()))
         if (auto cast_inst = llvm::dyn_cast<llvm::CastInst>(store_users)) {
           cast_inst->replaceAllUsesWith(&arg);
+          llvm::dbgs() << "Pizza " << *cast_inst << "\n";
+          llvm::dbgs() << "Pizza " << *store_inst << "\n";
           cast_inst->eraseFromParent();
           store_inst->eraseFromParent();
         }
@@ -203,7 +207,7 @@ void TaffoInitializer::handleHero(llvm::Module &host_module, bool Hero)
   auto end_position = host_module.getModuleIdentifier().find("-host.ll");
   auto dev_name = host_module.getModuleIdentifier().substr(0, end_position) + "-dev.ll";
   auto dev_module = cloneModuleInto(dev_name, host_module, "__dev-");
-
+  dev_module = nullptr;
 
   auto target_mapper = host_module.getFunction("__tgt_target_mapper");
   auto target_teams_mapper = host_module.getFunction("__tgt_target_teams_mapper");
@@ -254,6 +258,8 @@ void TaffoInitializer::handleHero(llvm::Module &host_module, bool Hero)
   function_cloner_by_index(target_teams_mapper, 2);
 
 
+  write_module("before_end_init.ll", host_module);
+  assert(!verifyModule(host_module) && "rotto");
   LLVM_DEBUG(llvm::dbgs() << "##### End Init Hero ######\n\n");
 }
 
