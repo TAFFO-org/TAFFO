@@ -367,8 +367,8 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
   if (isa<BitCastInst>(user)) {
     uinfo.bufferID = vinfo.bufferID;
   }
-  // Copy BufferID across loads of pointers
-  if (isa<LoadInst>(user) && user->getType()->isPointerTy()) {
+  // Copy BufferID across loads
+  if (isa<LoadInst>(user)) {
     uinfo.bufferID = vinfo.bufferID;
   }
 }
