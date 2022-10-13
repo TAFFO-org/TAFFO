@@ -102,4 +102,21 @@ static llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, d
   llvm::dbgs() << "Type and initial value not compatible\n";
   return nullptr;
 }
+
+static llvm::LoadInst *genLoadInstr(llvm::LLVMContext &Context)
+{
+  std::string code = R"(
+    define i32 @main() {
+      %a = alloca float, align 4
+      %b = load float, float* %a, align 4
+      ret i32 0
+    }
+  )";
+
+  auto M = makeLLVMModule(Context, code);
+  auto F = M->getFunction("main");
+  auto load = F->getEntryBlock().getFirstNonPHI()->getNextNode();
+  if (isa<llvm::LoadInst>(load))
+    return cast<llvm::LoadInst>(load);  
+}
 }
