@@ -1,0 +1,33 @@
+ADD_HALF,         1
+ADD_FIX,          1.9
+ADD_FLOAT,        2
+ADD_DOUBLE,       4
+SUB_HALF,         1
+SUB_FIX,          1.9
+SUB_FLOAT,        2
+SUB_DOUBLE,       4
+MUL_HALF,         1
+MUL_FIX,          1.9
+MUL_FLOAT,        2
+MUL_DOUBLE,       4
+DIV_HALF,         1
+DIV_FIX,          1.9
+DIV_FLOAT,        2
+DIV_DOUBLE,       4
+REM_HALF,         1
+REM_FIX,          1.9
+REM_FLOAT,        2
+REM_DOUBLE,       4
+CAST_HALF_FIX,    1
+CAST_HALF_FLOAT,  1
+CAST_HALF_DOUBLE, 1
+CAST_FIX_HALF,    1
+CAST_FIX_FLOAT,   1
+CAST_FIX_DOUBLE,  1
+CAST_FLOAT_HALF,  1
+CAST_FLOAT_FIX,   1
+CAST_FLOAT_DOUBLE,1
+CAST_DOUBLE_HALF, 1
+CAST_DOUBLE_FIX,  1
+CAST_DOUBLE_FLOAT,1
+CAST_FIX_FIX,     1
