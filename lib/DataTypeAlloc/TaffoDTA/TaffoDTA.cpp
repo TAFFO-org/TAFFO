@@ -135,6 +135,8 @@ void TaffoTuner::retrieveBufferID(llvm::Value *V)
     auto& Set = bufferIDSets[Tag];
     Set.insert(V);
     LLVM_DEBUG(dbgs() << "Found buffer ID '" << Tag << "' for " << *V << "\n");
+    if (hasInfo(V))
+      valueInfo(V)->bufferID = Tag;
   } else {
     LLVM_DEBUG(dbgs() << "No buffer ID for " << *V << "\n");
   }

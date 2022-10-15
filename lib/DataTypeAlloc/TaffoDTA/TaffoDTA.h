@@ -9,6 +9,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/ADT/Optional.h"
+#include <string>
 #include <map>
 
 #define DEBUG_TYPE "taffo-dta"
@@ -23,6 +25,7 @@ std::shared_ptr<mdutils::TType> merge(mdutils::TType *fpv, mdutils::TType *fpu);
 struct ValueInfo {
   std::shared_ptr<mdutils::MDInfo> metadata;
   std::shared_ptr<mdutils::TType> initialType;
+  llvm::Optional<std::string> bufferID;
 };
 
 struct FunInfo {
