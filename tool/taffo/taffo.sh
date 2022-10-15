@@ -198,8 +198,11 @@ for opt in $raw_opts; do
         -costmodel)
           parse_state=11
           ;;
+        -instructionset)
+          parse_state=13
+          ;;
         -time-profile-file)
-          parse_state=99
+          parse_state=14
           ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
@@ -296,7 +299,17 @@ for opt in $raw_opts; do
       float_opts="$float_opts $opt";
       parse_state=0;
       ;;
-    99)
+    13)
+      f="$TAFFO_PREFIX"/share/ILP/constrain/"$opt"
+      if [[ -e "$f" ]]; then
+        dta_inst_set="-instructionsetfile=$f"
+      else
+        printf 'error: specified instruction set "%s" does not exist\n' "$opt"
+        exit 1
+      fi
+      parse_state=0
+      ;;
+    14)
       time_profile_file="$opt";
       parse_state=0;
       ;;
@@ -337,6 +350,7 @@ Options:
     -costmodel <name>          Loads one of the builtin cost models
     -costmodelfilename=<file>  Loads the given the cost model file
                                (produced by taffo-costmodel)
+    -instructionset <name>     Loads one of the builtin instruction sets
     -instructionsetfile=<file> Loads the given instruction whitelist file
   -enable-err           Enable the error propagator (disabled by default)
   -err-out <file>       Produce a textual report about the estimates performed
@@ -366,6 +380,14 @@ HELP_END
   for f in "$TAFFO_PREFIX"/share/ILP/cost/*.csv; do
     fn=$(basename "$f")
     printf '  %s\n' ${fn%%.csv}
+  done
+  echo
+  echo 'Available builtin instruction sets:'
+  for f in "$TAFFO_PREFIX"/share/ILP/constrain/*; do
+    if [[ ! ( $f == *.md ) ]]; then
+      fn=$(basename "$f")
+      printf '  %s\n' ${fn}
+    fi
   done
   exit 0
 fi
