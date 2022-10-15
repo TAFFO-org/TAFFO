@@ -265,6 +265,8 @@ void Optimizer::handleCallFromRoot(Function *f)
     }
     auto valueInfo = tuner->valueInfo(value);
 
+    std::shared_ptr<OptimizerInfo> optScalInfo;
+
     /* FIXME: this is basically a copy-paste from handleAlloca. Similar instances should be de-duplicated */
     if (valueInfo->metadata->getKind() == MDInfo::K_Field) {
       LLVM_DEBUG(dbgs() << "Arg " << *value << " This is a real field\n";);
@@ -279,9 +281,8 @@ void Optimizer::handleCallFromRoot(Function *f)
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;
       }
-      auto info = metric->allocateNewVariableForValue(value, fptype, fieldInfo->IRange, fieldInfo->IError,
+      optScalInfo = metric->allocateNewVariableForValue(value, fptype, fieldInfo->IRange, fieldInfo->IError,
                                               false);
-      arg_errors.push_back(info);
     } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {
       LLVM_DEBUG(dbgs() << "Arg " << *value << " This is a real structure\n";);
 
@@ -291,10 +292,17 @@ void Optimizer::handleCallFromRoot(Function *f)
         return;
       }
 
-      auto optInfo = metric->loadStructInfo(value, fieldInfo, "");
-      arg_errors.push_back(optInfo);
+      optScalInfo = metric->loadStructInfo(value, fieldInfo, "");
     } else {
       llvm_unreachable("Unknown metadata!");
+    }
+
+    // Wrap pointers
+    if (value->getType()->isPointerTy()) {
+      std::shared_ptr<OptimizerPointerInfo> optPtrInfo(new OptimizerPointerInfo(optScalInfo));
+      arg_errors.push_back(optPtrInfo);
+    } else {
+      arg_errors.push_back(optScalInfo);
     }
   }
 
