@@ -1,7 +1,4 @@
-## Constrain Grammar in EBFN
-
-
-
+# Constraint Grammar in EBNF
 
 *start* → [*exp*__,__]\* *exp* | **ε**
 *exp*   →  **N**_item_
