@@ -116,7 +116,7 @@ static llvm::LoadInst *genLoadInstr(llvm::LLVMContext &Context)
   auto M = makeLLVMModule(Context, code);
   auto F = M->getFunction("main");
   auto load = F->getEntryBlock().getFirstNonPHI()->getNextNode();
-  if (isa<llvm::LoadInst>(load))
-    return cast<llvm::LoadInst>(load);  
+  if (llvm::isa<llvm::LoadInst>(load))
+    return llvm::cast<llvm::LoadInst>(load);  
 }
 }

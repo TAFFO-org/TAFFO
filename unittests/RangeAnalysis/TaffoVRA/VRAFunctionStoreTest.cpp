@@ -16,10 +16,10 @@ class VRAFunctionStoreTest : public taffo_test::Test
 {
 private:
   VRAGlobalStore GlobalStore = VRAGlobalStore();
-  Pass *Pass;
+  Pass *P;
 
 protected:
-  CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), std::make_shared<VRAGlobalStore>(GlobalStore));
+  CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(P), std::make_shared<VRAGlobalStore>(GlobalStore));
   VRAFunctionStore VRAfs = VRAFunctionStore(CI);
 
   Function *F;

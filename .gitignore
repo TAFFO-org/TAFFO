@@ -22,3 +22,4 @@ tool/taffo-costmodel-embedded/obj*
 *.map
 compile.sh
 test/axbench/jmeint/log_*
+lcov*

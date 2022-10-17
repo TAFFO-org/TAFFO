@@ -15,12 +15,12 @@ using namespace taffo_test;
 class VRAnalyzerTest : public taffo_test::Test
 {
 private:
-  Pass *Pass;
+  Pass *P;
   Function *F0; // acts like a main from which instructions are called
 
 protected:
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>(*new VRAGlobalStore());
-  CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), GlobalStore);
+  CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(P), GlobalStore);
   VRAnalyzer VRA = VRAnalyzer(CI);
 
   Function *F;
