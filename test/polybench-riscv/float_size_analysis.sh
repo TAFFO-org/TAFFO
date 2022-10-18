@@ -1,4 +1,4 @@
-export LLVM_DIR=export LLVM_DIR=/home/denisovlev/Data/llvm-12-debug/bin/
+export LLVM_DIR=/home/denisovlev/Data/llvm-12-debug/bin/
 TAFFO_PREFIX=$(dirname $(which taffo))/..
 
 "$LLVM_DIR"opt \

@@ -142,7 +142,7 @@ int FloatSizeAnalysis::minExponent(mdutils::Range& range) {
     return 0;
   }
 //  int minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEsingle());
-  int minExponentPower = -10;
+  int minExponentPower = -5;
   double smallestRepresentableNumber;
   if (range.Min <= 0 && range.Max >= 0) {
     // range overlapping 0

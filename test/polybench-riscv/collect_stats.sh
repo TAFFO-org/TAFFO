@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCALING_MAX=1024
+SCALING_MAX=4
 
 if [[ -z $LLVM_DIR ]]; then
   echo -e '\033[33m'"Warning"'\033[39m'" using default llvm/clang";
@@ -32,7 +32,7 @@ rm -f build_stats.log
 all_benchs=$(cat ./benchmark_list)
 for bench in $all_benchs; do
   benchname=$(basename $bench .c)
-  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*4 ))
+  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*2 ))
   do
      printf '[....] %s' "$bench"_"$scaling"
      compile_stats "$bench" "$scaling"

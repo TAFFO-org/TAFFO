@@ -61,8 +61,9 @@ def main(argv):
                 (fz_stats['op0_range_normal'] > 0) &
                 (fz_stats['op1_range_normal'] > 0)
             )]
+            print(fz_stats_valid)
 
-            print(ops_stats)
+            # print(ops_stats)
             stats_row = {
                 'bench': bench,
                 'scale': int(scale),
@@ -82,10 +83,14 @@ def main(argv):
                 'FloatMulDivDoubleOp': ops_stats.iloc[0].get("FloatMulDivDoubleOp", ops_placeholder),
                 'smul.fix.i32': ops_stats.iloc[0].get("call(llvm.smul.fix.i32)", ops_placeholder),
                 'sdiv.fix.i32': ops_stats.iloc[0].get("call(llvm.sdiv.fix.i32)", ops_placeholder),
+                'add': ops_stats.iloc[0].get("add", ops_placeholder),
+                'sub': ops_stats.iloc[0].get("sub", ops_placeholder),
                 'CastOp': ops_stats.iloc[0].get("CastOp", ops_placeholder),
                 'Shift': ops_stats.iloc[0].get("Shift", ops_placeholder),
                 'fdiv': ops_stats.iloc[0].get("fdiv", ops_placeholder),
                 'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
+                'fadd': ops_stats.iloc[0].get("fadd", ops_placeholder),
+                'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
                 'total_float': len(fz_stats),
                 'float_finite_ranges': len(fz_stats_valid),
                 'exp_diff_lt7': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]),
@@ -121,13 +126,13 @@ def main(argv):
     sns.heatmap(smul, annot=True, linewidths=.5, ax=ax[0,0], cmap='Blues')
     ax[0,0].title.set_text('smul.fix.i32')
 
-    fmul = stats_summary.pivot(index='bench', columns='scale', values='fmul')
-    sns.heatmap(fmul, annot=True, linewidths=.5, ax=ax[1,0], cmap='Blues')
-    ax[1,0].title.set_text('fmul')
-
     sdiv = stats_summary.pivot(index='bench', columns='scale', values='sdiv.fix.i32')
-    sns.heatmap(sdiv, annot=True, linewidths=.5, ax=ax[0,1], cmap='Blues')
-    ax[0,1].title.set_text('sdiv.fix.i32')
+    sns.heatmap(sdiv, annot=True, linewidths=.5, ax=ax[1,0], cmap='Blues')
+    ax[1,0].title.set_text('sdiv.fix.i32')
+
+    fmul = stats_summary.pivot(index='bench', columns='scale', values='fmul')
+    sns.heatmap(fmul, annot=True, linewidths=.5, ax=ax[0,1], cmap='Blues')
+    ax[0,1].title.set_text('fmul')
 
     fdiv = stats_summary.pivot(index='bench', columns='scale', values='fdiv')
     sns.heatmap(fdiv, annot=True, linewidths=.5, ax=ax[1,1], cmap='Blues')
@@ -156,6 +161,28 @@ def main(argv):
     ax2[1,1].title.set_text('Shift')
 
     fig2.savefig(f'{stats_path}/int_float.png', dpi=fig2.dpi)
+
+
+    fig3, ax3 = plt.subplots(2, 2, constrained_layout=True)
+    fig3.set_size_inches(18, 12, forward=True)
+
+    add = stats_summary.pivot(index='bench', columns='scale', values='add')
+    sns.heatmap(add, annot=True, linewidths=.5, ax=ax3[0,0], cmap='Blues')
+    ax3[0,0].title.set_text('add')
+
+    fadd = stats_summary.pivot(index='bench', columns='scale', values='fadd')
+    sns.heatmap(fadd, annot=True, linewidths=.5, ax=ax3[0,1], cmap='Blues')
+    ax3[0,1].title.set_text('fadd')
+
+    sub = stats_summary.pivot(index='bench', columns='scale', values='sub')
+    sns.heatmap(sub, annot=True, linewidths=.5, ax=ax3[1,0], cmap='Blues')
+    ax3[1,0].title.set_text('sub')
+
+    fsub = stats_summary.pivot(index='bench', columns='scale', values='fsub')
+    sns.heatmap(fsub, annot=True, linewidths=.5, ax=ax3[1,1], cmap='Blues')
+    ax3[1,1].title.set_text('fsub')
+
+    fig3.savefig(f'{stats_path}/add_sub.png', dpi=fig3.dpi)
 
     plt.show()
 

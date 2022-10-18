@@ -24,6 +24,10 @@ else
   if [[ -z "$CLANGXX" ]]; then CLANGXX=${CLANG}++; fi
 fi
 if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
+if [[ -z "$LAMP_SIMULATOR" ]];
+then LAMP_SIMULATOR=/home/denisovlev/Projects/LAMPSimulator/build/LAMPSimulator/LAMPSimulator.so;
+fi
+
 
 if [[ -z $(which taffo) ]]; then
   echo -e '\031[33m'"Error"'\033[39m'" taffo command not found. Install taffo and make sure the place where you installed it is in your PATH!";
@@ -118,18 +122,19 @@ fi
 
 TAFFO_PREFIX=$(dirname $(which taffo))/..
 
-SCALING_MAX=1024
+SCALING_MAX=4
 
 if [[ -z $mixedmode ]];  then export mixedmode=0; fi
 if [[ -z $floatmode ]];  then export floatmode=0; fi
-if [[ -z $CFLAGS ]];     then export CFLAGS='-g -O3 -fno-slp-vectorize -fno-vectorize'; fi
+if [[ -z $CFLAGS ]];     then export CFLAGS='-g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize'; fi
 if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
 if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
 if [[ -z $instrset ]];   then export instrset=soc_zoni; fi
-if [[ -z $enobweight ]]; then export enobweight=1; fi
-if [[ -z $timeweight ]]; then export timeweight=100; fi
-if [[ -z $castweight ]]; then export castweight=100; fi
+if [[ -z $enobweight ]]; then export enobweight=1000; fi
+if [[ -z $timeweight ]]; then export timeweight=1000; fi
+if [[ -z $castweight ]]; then export castweight=1; fi
 if [[ -z $single_precision_frac_bits ]]; then export single_precision_frac_bits=10; fi
+if [[ -z $mantissa ]]; then export mantissa=""; fi
 export mixedmodeopts=""
 
 printf 'Configuration:\n'
@@ -142,16 +147,14 @@ if [ "$mixedmode" -ne "0" ]; then
   printf '  enobweight       = %s\n' "$enobweight"
   printf '  timeweight       = %s\n' "$timeweight"
   printf '  castweight       = %s\n' "$castweight"
-  printf '  single_precision_frac_bits       = %s\n' "$single_precision_frac_bits"
+#  printf '  single_precision_frac_bits       = %s\n' "$single_precision_frac_bits"
 
   mixedmodeopts=" -mixedmode \
   -costmodel "$costmodel" \
   -instructionsetfile="$TAFFO_PREFIX/share/ILP/constrain/$instrset" \
   -Xdta -mixedtuningenob -Xdta "$enobweight" \
   -Xdta -mixedtuningtime -Xdta "$timeweight" \
-  -Xdta -mixedtuningcastingtime -Xdta "$castweight" \
-  -Xdta -mixeddoubleenabled \
-  -Xdta -single_precision_frac_bits -Xdta "$single_precision_frac_bits" "
+  -Xdta -mixedtuningcastingtime -Xdta "$castweight" "
 fi
 
 mkdir -p build
@@ -161,7 +164,7 @@ all_benchs=$(cat ./benchmark_list)
 for bench in $all_benchs; do
   benchname=$(basename $bench .c)
   opts=$(read_opts ${bench})
-  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*4 ))
+  for (( scaling=1; scaling<=SCALING_MAX; scaling=scaling*2 ))
   do
     printf '[....] %s' "$benchname"_"$scaling"
     if [ "$floatmode" -ne "0" ]; then
@@ -186,13 +189,22 @@ for bench in $all_benchs; do
     taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.ll \
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
-    "$OPT" \
-      -S \
-      -load "$TAFFO_PREFIX"/lib/Taffo.so \
-      --taffo-float-size-analysis \
-      -stats_output_file build_stats/"$scaling"/"$benchname"/${benchname}_float_size.csv \
-      build/"$scaling"/"$benchname"/${benchname}.out.ll \
-      -o /dev/null
+#    "$OPT" \
+#      -S \
+#      -load "$TAFFO_PREFIX"/lib/Taffo.so \
+#      --taffo-float-size-analysis \
+#      -stats_output_file build_stats/"$scaling"/"$benchname"/${benchname}_float_size.csv \
+#      build/"$scaling"/"$benchname"/${benchname}.out.ll \
+#      -o /dev/null
+#
+#    "$OPT" \
+#      -S \
+#      -debug \
+#      -load "$LAMP_SIMULATOR" \
+#      -lampsim \
+#      "$mantissa" \
+#      build/"$scaling"/"$benchname"/${benchname}.out.ll \
+#      -o build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll
   done
 #  if [ $benchname = "trisolv" ]; then
 #     break
