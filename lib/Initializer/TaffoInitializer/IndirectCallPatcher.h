@@ -6,6 +6,13 @@
 
 #define DEBUG_TYPE "taffo-init"
 
+#ifdef UNITTESTS
+#include <unordered_set>
+bool containsUnsupportedFunctions( const llvm::Function *function, std::unordered_set<llvm::Function *> traversedFunctions);
+void handleKmpcFork(const llvm::Module &m, std::vector<llvm::Instruction *> &toDelete, llvm::CallInst *curCallInstruction, const llvm::CallSite *curCall, llvm::Function *indirectFunction);
+void handleIndirectCall(const llvm::Module &m, std::vector<llvm::Instruction *> &toDelete, llvm::CallInst *curCallInstruction, const llvm::CallBase *curCall, llvm::Function *indirectFunction);
+#endif
+
 namespace taffo
 {
 

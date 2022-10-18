@@ -32,5 +32,6 @@ if (TAFFO_BUILD_ILP_DTA)
 endif ()
 
 if (TAFFO_UNITTESTS)
+  target_compile_definitions(obj.TaffoInitializer PUBLIC UNITTESTS)
   target_compile_definitions(obj.TaffoVRA PUBLIC UNITTESTS)
 endif()

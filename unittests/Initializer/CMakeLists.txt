@@ -3,6 +3,7 @@ set(SELF InitializerTests)
 taffo_add_unittest(${SELF} ${SELF}
         TaffoInitializer/AnnotationParserTest.cpp
         TaffoInitializer/AnnotationsTest.cpp
+        TaffoInitializer/IndirectCallPatcherTest.cpp
         )
 
 include_directories(${CMAKE_SOURCE_DIR}/lib/Initializer)
