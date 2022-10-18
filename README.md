@@ -82,16 +82,16 @@ $ cmake .. -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage -w" \
            -DCMAKE_C_COMPILER="gcc-12" \
            -DTAFFO_UNITTESTS="ON" \
            -DTAFFO_BUILD_ORTOOLS="ON" \
-           -DTAFFO_BUILD_ILP_DTA="ON"
+           -DTAFFO_BUILD_ILP_DTA="ON" 
 $ cmake --build .
 ```
 After building we need to create a baseline (```lcov_base.info```) with
 ```shell
-$ lcov --capture --initial --directory . --output-file lcov_base.info
+$ lcov --capture --initial --rc lcov_branch_coverage=1 --directory . --output-file lcov_base.info
 ```
 At this point we can run the tests with ```ctest``` and generate the coverage data by running
 ```shell
-$ lcov --capture --directory . --output-file lcov.info
+$ lcov --capture --rc lcov_branch_coverage=1 --directory . --output-file lcov.info
 $ lcov --add-tracefile lcov_base.info --add-tracefile lcov.info --output-file lcov.info
 ```
 The ```lcov.info``` file can then be used to generate a report with any compatible tool (e.g [VSCode-LCOV](https://marketplace.visualstudio.com/items?itemName=alexdima.vscode-lcov))
