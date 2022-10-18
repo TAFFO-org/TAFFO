@@ -169,21 +169,22 @@ TEST_F(VRAStoreTest, fetchRangeNode_scalar)
 
 TEST_F(VRAStoreTest, fetchRangeNode_scalarPtr)
 {
-  // TODO: how do I get a pointer value?
-  /*
-    auto V1 = ConstantInt::get(Type::getInt32PtrTy(Context), 1);
-    auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-    auto N1 = new VRAPtrNode(std::make_shared<VRAScalarNode>(*parent));
-    VRAs.setNode(V1, std::make_shared<VRAPtrNode>(*N1));
+  // yep, I couldn't find a better way to create a Value of pointer type
+  auto F = genFunction(*M, "malloc", PointerType::get(Type::getInt32Ty(Context), 0), {Type::getInt32Ty(Context)});
+  auto BB = BasicBlock::Create(Context, "BB", F);
+  auto V1 = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
 
-    auto node = VRAs.fetchRangeNode(V1);
-    ASSERT_NE(node, nullptr);
-    auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
-    ASSERT_NE(scalar, nullptr);
-    EXPECT_EQ(scalar->getRange()->min(), 1);
-    EXPECT_EQ(scalar->getRange()->max(), 2);
-    EXPECT_FALSE(scalar->isFinal());
-    */
+  auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
+  auto N1 = new VRAPtrNode(std::make_shared<VRAScalarNode>(*parent));
+  VRAs.setNode(V1, std::make_shared<VRAPtrNode>(*N1));
+
+  auto node = VRAs.fetchRangeNode(V1);
+  ASSERT_NE(node, nullptr);
+  auto scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(node);
+  ASSERT_NE(scalar, nullptr);
+  EXPECT_EQ(scalar->getRange()->min(), 1);
+  EXPECT_EQ(scalar->getRange()->max(), 2);
+  EXPECT_FALSE(scalar->isFinal());
 }
 
 TEST_F(VRAStoreTest, fetchRangeNode_struct)
