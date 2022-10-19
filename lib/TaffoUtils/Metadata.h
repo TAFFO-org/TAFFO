@@ -26,6 +26,7 @@
 #include "llvm/IR/GlobalObject.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
 #include <memory>
 //#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
 
@@ -46,6 +47,8 @@
 #define OMP_DISABLED_METADATA "taffo.ompDisabled"
 
 #define INIT_OCL_TRAMPOLINE_METADATA "taffo.ocl.trampoline"
+
+#define CUDA_KERNEL_METADATA "nvvm.annotations"
 
 /* Integer which specifies the distance of the metadata from the
  * original annotation as data flow node counts.
@@ -136,6 +139,8 @@ public:
 
   static void setBufferIDMetadata(llvm::Value *V, std::string BufID);
   static llvm::Optional<std::string> retrieveBufferIDMetadata(llvm::Value *V);
+
+  static void getCudaKernels(llvm::Module &M, llvm::SmallVectorImpl<llvm::Function *> &Fs);
 
   ///\section Error Propagation Metadata
 

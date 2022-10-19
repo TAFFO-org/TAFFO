@@ -329,6 +329,28 @@ Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
   return Optional<std::string>();
 }
 
+void MetadataManager::getCudaKernels(Module &M, SmallVectorImpl<Function *> &Fs) {
+  NamedMDNode *MD = M.getOrInsertNamedMetadata(CUDA_KERNEL_METADATA);
+ 
+  if (!MD)
+    return;
+ 
+  for (auto *Op : MD->operands()) {
+    if (Op->getNumOperands() < 2)
+      continue;
+    MDString *KindID = dyn_cast<MDString>(Op->getOperand(1));
+    if (!KindID || KindID->getString() != "kernel")
+      continue;
+ 
+    Function *KernelFn = mdconst::dyn_extract_or_null<Function>(Op->getOperand(0));
+    if (!KernelFn)
+      continue;
+ 
+    Fs.append({KernelFn});
+  }
+ 
+  return;
+}
 void MetadataManager::setInputInfoInitWeightMetadata(llvm::Function *f,
                                                      const llvm::ArrayRef<int> weights)
 {
