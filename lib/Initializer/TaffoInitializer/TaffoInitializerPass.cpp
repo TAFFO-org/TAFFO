@@ -3,6 +3,7 @@
 #include "Metadata.h"
 #include "TypeUtils.h"
 #include "OpenCLKernelPatcher.h"
+#include "CudaKernelPatcher.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -37,12 +38,19 @@ cl::opt<bool> OpenCLKernelMode("oclkern",
     cl::desc("Allows cloning of OpenCL kernel functions"),
     cl::init(false));
 
+cl::opt<bool> CudaKernelMode("cudakern",
+    cl::desc("Allows cloning of Cuda kernel functions"),
+    cl::init(false));
 
 PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
 {
   if (OpenCLKernelMode) {
     LLVM_DEBUG(dbgs() << "OpenCLKernelMode == true!\n");
     createOpenCLKernelTrampolines(m);
+  }
+  else if (CudaKernelMode) {
+    LLVM_DEBUG(dbgs() << "CudaKernelMode == true!\n");
+    createCudaKernelTrampolines(m);
   }
 
   LLVM_DEBUG(printAnnotatedObj(m));
