@@ -6,6 +6,10 @@ import re
 import numpy as np
 import pandas as pd
 import sys
+import gmpy2
+from gmpy2 import mpfr, trunc, log2
+gmpy2.get_context().precision=100
+
 
 def bold( s : str):
     sys.stdout.buffer.write(b"\x1B\x5B1m")
@@ -28,14 +32,14 @@ def generatedata(path : Path):
     subprocess.run("cd {}; ./datagenerator.py > data.h".format(path.as_posix()), shell=True)
 
 def compiletaffo(path: Path):
-    global debug
+    global debug, common_flags
     bench_name = path.name + ".c"
     bench_exec = path.name + "-taffo"
     pipe_out = subprocess.DEVNULL
-    compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize"
+    compile_flag = f"{common_flags}"
     if debug:
         (path / "./llvm-file").mkdir(parents=True, exist_ok=True)
-        compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize -debug -temp-dir ./llvm-file"
+        compile_flag = f"{common_flags} -debug -temp-dir ./llvm-file"
         pipe_out = open(f"{path.as_posix()}/{path.name}_taffo.log", "w")
 
 
@@ -51,17 +55,17 @@ def compiletaffo(path: Path):
 
 
 def compilefloat(path: Path):
-    global debug
-    compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize"
+    global debug, common_flags
+    compile_flag = f"{common_flags}"
     pipe_out = subprocess.DEVNULL
     if debug:
-        compile_flag = "-O3 -fno-vectorize -fno-slp-vectorize"
+        compile_flag = f"{common_flags}"
         pipe_out = open(f"{path.as_posix()}/{path.name}_float.log", "w")
     bench_name = path.name + ".c"
     bench_exec = path.name + "-float"
     print("Compiling: {}\t".format(bench_exec), end="")
     flush()
-    s = subprocess.run("cd {}; clang-12 {} {} -o {} -lm &> /dev/null".format(path.as_posix(), compile_flag ,bench_name, bench_exec), shell=True,  stdout=pipe_out, stderr=pipe_out)
+    s = subprocess.run("cd {}; clang-12 {}   {} -o {}  -lm &> /dev/null".format(path.as_posix(), compile_flag ,bench_name, bench_exec), shell=True,  stdout=pipe_out, stderr=pipe_out)
 
     if s.returncode == 0:
         print_okk()
@@ -210,9 +214,50 @@ def print_tables(table):
     print(table.to_string(columns=["name", "speedup", "rel_err", "abs_err"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
 
 
+def extract_first_n_bit( x : float, n : int, inte : int, frac : int):
+
+    x = mpfr(x)
+    if x < 0:
+        x = x * -1        
+    x = x * pow(2, frac)
+    x = int(x)
+    x=x >> (inte-n) 
+    return(x)
+
+def extract_int(x: float):
+    if x < 0 :
+        x = x * -1
+    x = mpfr(x)
+    x = trunc(x)
+    if x == 0:
+        return 0
+    return int(log2(x)) + 1
+
+def comp_first_n_bit(path :Path, n : int):
+    bench_name = path.name
+    print("\nComparing : {}\n".format(bench_name), end="")
+    files= retriveFiles(path)
+    float_values = re.findall(r"Values Begin\n([\s\S]*)\nValues End",files[0])[0]
+    taffo_values = re.findall(r"Values Begin\n([\s\S]*)\nValues End",files[1])[0]
+    max_int_size = 0
+    for float_value in float_values.split("\n"):
+        max_int_size = max(max_int_size, extract_int(float(float_value)))
+    print(f"max int: {max_int_size}")
+    for float_value,taffo_value in zip(float_values.split("\n"),taffo_values.split("\n")):
+        float_value = float(float_value)
+        taffo_value = float(taffo_value)
+        float_n_bit = extract_first_n_bit(float_value,n,128, 128-max_int_size)
+        taffo_n_bit =  extract_first_n_bit(taffo_value,n,128, 128-max_int_size)
+
+        if  float_n_bit + 1 < taffo_n_bit or float_n_bit - 1 > taffo_n_bit:
+            print(("{} != {} -> {:0"+str(n)+"b} != {:0"+str(n)+"b}").format(float_value,taffo_value, float_n_bit, taffo_n_bit))
+
+
+
 
 if __name__ == '__main__':
     debug = False
+    common_flags = "-O3 -DAPP_MFUNC -DM=100000 -fno-vectorize -fno-slp-vectorize"
     parser = argparse.ArgumentParser(description='FPbench runner')
     parser.add_argument('-M', metavar='integer', type=int, nargs='?',
                         help='Number of Iteration', default=10000)
@@ -224,6 +269,7 @@ if __name__ == '__main__':
     parser.add_argument('-compile', metavar='bool', type=bool, default=False, nargs='?', help='Compile Benchmarks' , const=True)
     parser.add_argument('-run', metavar='bool', type=bool, default=False, nargs='?', help='Run Benchmarks',   const=True)
     parser.add_argument('-validate', metavar='bool', type=bool, default=False, nargs='?', help='Validate Benchmarks', const=True)
+    parser.add_argument('-comp_int', metavar='int', type=int, default=0, nargs='?', help='Compare first n bit', const=True)
     parser.add_argument('-ordereddiff', metavar='bool', type=bool, default=False, nargs='?', help='Print out an ordered list of line, error sorted by max error', const=True)
     parser.add_argument('-debug', metavar='bool', type=bool, default=False, nargs='?', help='debug build', const=True)
 
@@ -280,6 +326,16 @@ if __name__ == '__main__':
         for path in only:
             datas.append(validate(path))
         print_tables(datas)
+        if args.comp_int > 0:
+            for path in only:
+                print("4 bits")
+                comp_first_n_bit(path, 4)
+            for path in only:
+                print("8 bits")
+                comp_first_n_bit(path, 8)
+            for path in only:
+                print("16 bits")
+                comp_first_n_bit(path, 16)
 
 
     
