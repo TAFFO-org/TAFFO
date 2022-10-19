@@ -75,7 +75,7 @@ TEST_F(AnnotationsTest, StartingPoint_None)
     }
     )";
 
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   llvm::Function *F = initializer.findStartingPointFunctionGlobal(*M);
   ASSERT_EQ(F, nullptr);
 }
@@ -90,7 +90,7 @@ TEST_F(AnnotationsTest, StartingPoint_Set)
     }
     )";
 
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   llvm::Function *F = initializer.findStartingPointFunctionGlobal(*M);
   ASSERT_NE(F, nullptr);
   EXPECT_EQ(F->getName(), "main");
@@ -108,7 +108,7 @@ TEST_F(AnnotationsTest, StartingPoint_Unset)
         ret i32 0
     }
     )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   try {
     llvm::Function *F = initializer.findStartingPointFunctionGlobal(*M);
   } catch (const std::exception &e) {
@@ -125,7 +125,7 @@ TEST_F(AnnotationsTest, StartingPoint_NotAFunction)
       ret i32 0
     }
     )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   try {
     llvm::Function *F = initializer.findStartingPointFunctionGlobal(*M);
   } catch (const std::exception &e) {
@@ -153,7 +153,7 @@ TEST_F(AnnotationsTest, ParseAnnotation_GlobalVariable)
     define dso_local i32 @main() #0 {
       ret i32 0
   })";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   GlobalVariable *globalVars = M->getGlobalVariable("llvm.global.annotations");
   ASSERT_NE(globalVars, nullptr);
 
@@ -199,7 +199,7 @@ TEST_F(AnnotationsTest, ParseAnnotation_Function)
     }
   )";
 
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   GlobalVariable *globalVars = M->getGlobalVariable("llvm.global.annotations");
   ASSERT_NE(globalVars, nullptr);
 
@@ -245,7 +245,7 @@ TEST_F(AnnotationsTest, ParseAnnotation_LocalVariable)
 
   declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   auto instruction = M->getFunction("main")->getBasicBlockList().begin()->getInstList().begin();
   auto *user = cast<llvm::Value>(instruction); // the register %1
   instruction = instruction.operator++().operator++();
@@ -290,7 +290,7 @@ TEST_F(AnnotationsTest, ReadLocalAnnos_None)
       ret i32 0
     }
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
   auto fun = M->getFunction("main");
   initializer.readLocalAnnotations(*fun, variables);
@@ -329,7 +329,7 @@ TEST_F(AnnotationsTest, ReadLocalAnnos_MultipleAnnos)
 
     declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
   auto fun = M->getFunction("main");
   initializer.readLocalAnnotations(*fun, variables);
@@ -358,7 +358,7 @@ TEST_F(AnnotationsTest, ReadLocalAnnos_StartingPointSet)
 
     declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
   auto fun = M->getFunction("main");
   initializer.readLocalAnnotations(*fun, variables);
@@ -388,7 +388,7 @@ TEST_F(AnnotationsTest, ReadLocalAnnos_StartingPointNotSet)
 
     declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
   auto fun = M->getFunction("main");
   initializer.readLocalAnnotations(*fun, variables);
@@ -438,7 +438,7 @@ TEST_F(AnnotationsTest, ReadAllLocalAnnos) {
   ret void
   })";
 
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
   initializer.readAllLocalAnnotations(*M, variables);
 
@@ -482,7 +482,7 @@ TEST_F(AnnotationsTest, ReadAllLocalAnnos_MultipleStartingPoints) {
   ret i32 %3
   }
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
   initializer.readAllLocalAnnotations(*M, variables);
 
@@ -524,7 +524,7 @@ TEST_F(AnnotationsTest, RemoveNoFloat_AllocaFloat)
 
     declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   auto instruction = M->getFunction("main")->getBasicBlockList().begin()->getInstList().begin();
   instruction = instruction.operator++().operator++();
 
@@ -544,7 +544,7 @@ TEST_F(AnnotationsTest, RemoveNoFloat_AllocaNoFloat)
 {
   /*
    * TODO: test this case, it is not currently possible to test
-   * however, the RemoveNoFloatTy function is not called on local variables (only on global ones)
+   * There is currently an issue with the MultiValueMap iterator 
    */
   code = R"(
     @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
@@ -565,7 +565,7 @@ TEST_F(AnnotationsTest, RemoveNoFloat_AllocaNoFloat)
 
     declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #1
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   auto instruction = M->getFunction("main")->getBasicBlockList().begin()->getInstList().begin();
   instruction = instruction.operator++().operator++();
 
@@ -577,8 +577,8 @@ TEST_F(AnnotationsTest, RemoveNoFloat_AllocaNoFloat)
   ASSERT_TRUE(res);
 
   EXPECT_EQ(variables.size(), 1);
-  // initializer.removeNoFloatTy(variables);
-  // EXPECT_EQ(variables.size(), 0);
+  //initializer.removeNoFloatTy(variables);
+  //EXPECT_EQ(variables.size(), 0);
 }
 
 TEST_F(AnnotationsTest, RemoveNoFloat_GlobalFloat)
@@ -601,7 +601,7 @@ TEST_F(AnnotationsTest, RemoveNoFloat_GlobalFloat)
       ret i32 0
     }
   )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   GlobalVariable *globalVars = M->getGlobalVariable("llvm.global.annotations");
   ASSERT_NE(globalVars, nullptr);
 
@@ -660,7 +660,7 @@ TEST_F(AnnotationsTest, ReadGlobalAnnotations_None)
         ret i32 0
     }
     )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> variables;
 
   initializer.readGlobalAnnotations(*M, variables, false);
@@ -706,7 +706,7 @@ TEST_F(AnnotationsTest, ReadGlobalAnnotations_Variables)
       ret float 0.000000e+00
     }
     )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> queue;
 
   initializer.readGlobalAnnotations(*M, queue, false);
@@ -759,7 +759,7 @@ TEST_F(AnnotationsTest, ReadGlobalAnnotations_Functions)
       ret float 0.000000e+00
     }
     )";
-  std::unique_ptr<llvm::Module> M = makeLLVMModule(Context, code);
+  M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> queue;
 
   // TODO: implement this test
