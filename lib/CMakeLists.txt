@@ -8,8 +8,10 @@ add_subdirectory(Conversion)
 add_subdirectory(ErrorAnalysis)
 add_subdirectory(TaffoMem2Reg)
 add_subdirectory(FloatSizeAnalysis)
+add_subdirectory(DynamicAnalysis)
 
 add_llvm_library(Taffo MODULE
+  TaffoToolsInterface.cpp
   $<TARGET_OBJECTS:obj.TaffoInitializer>
   $<TARGET_OBJECTS:obj.TaffoVRA>
   $<TARGET_OBJECTS:obj.TaffoDTA>
@@ -17,6 +19,7 @@ add_llvm_library(Taffo MODULE
   $<TARGET_OBJECTS:obj.LLVMErrorPropagator>
   $<TARGET_OBJECTS:obj.TaffoMem2Reg>
   $<TARGET_OBJECTS:obj.FloatSizeAnalysis>
+  $<TARGET_OBJECTS:obj.DynamicTracing>
   PassPluginInfo.cpp
   ../cmake/dummy.cpp
 

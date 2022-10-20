@@ -26,6 +26,26 @@ compile_stats()
     2> build_stats/"$scaling"/"$benchname"/${benchname}.log || return $?
 }
 
+compile_dynamic_tracing()
+{
+  benchpath="$1"
+  scaling="$2"
+  benchname=$(basename $benchpath .c)
+  mkdir -p build_stats/"$scaling"/"$benchname"
+  taffo -temp-dir build_stats/"$scaling"/"$benchname" \
+        -o build_stats/"$scaling"/"$benchname"/"$benchname".out.dynamic_instrumented \
+        -O0 -disable-O0-optnone \
+        -lm \
+        -dynamic-instrument \
+        "$benchpath" \
+        -Isources/. \
+        -DSCALING_FACTOR=$scaling \
+        2> build_stats/"$scaling"/"$benchname"/${benchname}.log || return $?
+
+  "build_stats/"$scaling"/"$benchname"/"$benchname".out.dynamic_instrumented" \
+       > "build_stats/"$scaling"/"$benchname"/${benchname}.instrumented.trace" || return $?
+}
+
 mkdir -p build_stats
 rm -f build_stats.log
 
@@ -36,6 +56,7 @@ for bench in $all_benchs; do
   do
      printf '[....] %s' "$bench"_"$scaling"
      compile_stats "$bench" "$scaling"
+     compile_dynamic_tracing "$bench" "$scaling"
      bpid_fc=$?
      if [[ $bpid_fc == 0 ]]; then
        bpid_fc=' ok '

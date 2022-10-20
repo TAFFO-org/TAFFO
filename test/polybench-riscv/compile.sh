@@ -54,6 +54,27 @@ compile_one()
     2> build/"$scaling"/"$benchname"/${benchname}.log || return $?
 }
 
+compile_one_dynamic()
+{
+  benchpath="$1"
+  scaling="$2"
+  xparams="$3"
+  benchname=$(basename $benchpath .c)
+  mkdir -p build/"$scaling"/"$benchname"
+  $TIMEOUT taffo \
+    -o build/"$scaling"/"$benchname"/"$benchname".dynamic.out.ll \
+    -dynamic-trace "build_stats/"$scaling"/"$benchname"/"$benchname".instrumented.trace" \
+    -emit-llvm \
+    -temp-dir build/"$scaling"/"$benchname" \
+    "$benchpath" \
+    -Isources/. \
+    $xparams \
+    -debug-taffo \
+    -lm \
+    -DSCALING_FACTOR=$scaling \
+    2> build/"$scaling"/"$benchname"/${benchname}.dynamic.log || return $?
+}
+
 compile_one_float()
 {
   benchpath="$1"
@@ -186,15 +207,28 @@ for bench in $all_benchs; do
       bpid_fc=' ok '
     fi
     printf '\033[1G[%4s] %s\n' "$bpid_fc" "$benchname"_"$scaling"
-    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.ll \
+    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.dynamic.out.ll \
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
+
+#   compile_one_dynamic "$bench" \
+#               "$scaling" \
+#               "-m32 \
+#               ${CFLAGS} \
+#               ${errorprop} \
+#               ${mixedmodeopts} \
+#               ${stats}"
+#   bpid_fc=$?
+#   if [[ $bpid_fc == 0 ]]; then
+#     bpid_fc=' ok '
+#   fi
+#   printf '\033[1G[%4s] %s\n' "$bpid_fc" "$benchname"_"$scaling"
 #    "$OPT" \
 #      -S \
 #      -load "$TAFFO_PREFIX"/lib/Taffo.so \
 #      --taffo-float-size-analysis \
 #      -stats_output_file build_stats/"$scaling"/"$benchname"/${benchname}_float_size.csv \
-#      build/"$scaling"/"$benchname"/${benchname}.out.ll \
+#      build/"$scaling"/"$benchname"/${benchname}.dynamic.out.ll \
 #      -o /dev/null
 #
 #    "$OPT" \

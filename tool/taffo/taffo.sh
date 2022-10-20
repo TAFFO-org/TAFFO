@@ -102,6 +102,8 @@ pe_model_file=
 temporary_dir=$(mktemp -d)
 del_temporary_dir=1
 help=0
+dynamic_instrument=0
+dynamic_trace=
 for opt in $raw_opts; do
   case $parse_state in
     0)
@@ -216,6 +218,12 @@ for opt in $raw_opts; do
           printf '%s\n' ${llvmbin}
           exit 0
           ;;
+        -dynamic-instrument)
+            dynamic_instrument=1
+            ;;
+        -dynamic-trace)
+            parse_state=14
+            ;;
         -help | -h | -version | -v | --help | --version)
           help=1
           ;;
@@ -288,6 +296,10 @@ for opt in $raw_opts; do
       float_opts="$float_opts $opt";
       parse_state=0;
       ;;
+    14)
+      dynamic_trace="$opt";
+      parse_state=0;
+      ;;
   esac;
 done
 
@@ -339,6 +351,8 @@ Options:
   -debug-taffo          Enable TAFFO-only debug logging during the compilation.
   -temp-dir <dir>       Store various temporary files related to the execution
                         of TAFFO to the specified directory.
+  -dynamic-instrument   Create an instrumented binary for the dynamic tuning mode
+  -dynamic-trace        Path to the file with the trace data for the dynamic tuning mode
 
 Available builtin cost models:
 HELP_END
@@ -391,6 +405,8 @@ build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_c
 # line args are all parsed, and because -load does not register new pass manager
 # passes at all.
 
+if [[ $dynamic_instrument -eq 0 ]] && [ -z "$dynamic_trace" ]; then
+#  Static tuning
 ###
 ###  TAFFO initialization
 ###
@@ -470,6 +486,53 @@ while [[ $feedback_stop -eq 0 ]]; do
     dta_flags="${base_dta_flags} ${newflgs}"
   fi
 done
+
+else
+#  Dynamic tuning
+  ${OPT} \
+    -load "$TAFFOLIB" -S \
+    --taffo-strip-annotations \
+    "${temporary_dir}/${output_basename}.1.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" || exit $?
+
+  ${OPT} \
+    -load=${TAFFOLIB} -S \
+    --taffoinit \
+    ${init_flags} \
+    "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" || exit $?
+
+  ${OPT} -load=${TAFFOLIB} -S \
+    --taffo-name-variables \
+    "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" \
+    -o "${temporary_dir}/${output_basename}.named.taffotmp.ll" || exit $?
+
+  if [[ $dynamic_instrument -ne 0 ]]; then
+    ${OPT} -load=${TAFFOLIB} -S \
+      --taffo-inject-func-call \
+      "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
+      -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
+  elif [ ! -z "$dynamic_trace" ]; then
+    ${OPT} -load=${TAFFOLIB} -S \
+      --taffo-read-trace \
+      -trace_file "$dynamic_trace" \
+      "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
+      -o "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" || exit $?
+
+    ${OPT} -load=${TAFFOLIB} -S \
+      --taffodta \
+      -globaldce \
+      ${dta_flags} ${dta_inst_set} \
+      "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" \
+      -o "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" || exit $?
+
+    ${OPT} -load=${TAFFOLIB} -S \
+      --flttofix -dce -globaldce \
+      ${conversion_flags} \
+      "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" \
+      -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
+  fi
+fi
 
 ###
 ###  Backend

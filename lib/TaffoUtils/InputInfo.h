@@ -156,7 +156,17 @@ public:
     Float_bfloat
   };
 
+  static const llvm::Type::TypeID llvmFloatTypes[7];
+
   static std::string getFloatStandardName(FloatStandard standard);
+
+  static std::string getFloatStandardName(llvm::Type::TypeID typeId);
+
+  static llvm::Type::TypeID getLLVMTypeID(FloatType::FloatStandard);
+
+  static FloatType::FloatStandard getFloatStandard(llvm::Type::TypeID typeId);
+
+  static FloatType::FloatStandard getFloatStandard(const std::string& typeIdStr);
 
   FloatType(FloatStandard standard, double greatestNumber)
       : TType(K_FloatType), standard(standard), greatestNunber(greatestNumber) {}

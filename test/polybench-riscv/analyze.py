@@ -93,6 +93,8 @@ def main(argv):
                 'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
                 'total_float': len(fz_stats),
                 'float_finite_ranges': len(fz_stats_valid),
+                'min_exp_diff': min(fz_stats_valid['max_exponent_diff']),
+                'max_exp_diff': max(fz_stats_valid['max_exponent_diff']),
                 'exp_diff_lt7': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]),
                 'exp_diff_lt10': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]),
                 'exp_diff_lt15': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]),
