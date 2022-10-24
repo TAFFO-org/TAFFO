@@ -32,8 +32,7 @@ __kernel void mean_kernel(__global DATA_TYPE *mean ANN_MEAN, __global DATA_TYPE 
 			mean[j] += data[i*m + j];
 		}
 		
-		DATA_TYPE __attribute__((annotate("scalar(range(0,2100) final)"))) tmp = mean[j];
-		mean[j] = tmp / float_n;
+		mean[j] /= float_n;
 	}
 }
 

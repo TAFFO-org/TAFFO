@@ -342,7 +342,7 @@ void correlation(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n), DATA_TY
 			mean[j] += data[i][j];
    		}
 		
-		mean[j] /= (DATA_TYPE)FLOAT_N;
+    mean[j] /= (DATA_TYPE)FLOAT_N;
 		//fprintf(stderr, "%f\n", mean[j]);
    	}
 
@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
 
 	cl_launch_kernel(m, n);
 
-	//errcode = clEnqueueReadBuffer(clCommandQue, data_mem_obj, CL_TRUE, 0, M * N * sizeof(DATA_TYPE), POLYBENCH_ARRAY(data_gpu), 0, NULL, NULL);
+	//errcode = clEnqueueReadBuffer(clCommandQue, data_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(data_gpu), 0, NULL, NULL);
 	//if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
 	errcode = clEnqueueReadBuffer(clCommandQue, symmat_mem_obj, CL_TRUE, 0, M * N * sizeof(DATA_TYPE), POLYBENCH_ARRAY(symmat_outputFromGpu), 0, NULL, NULL);
 	if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
@@ -455,8 +455,9 @@ int main(int argc, char *argv[])
 
 		//for (int i=0; i<M; i++) {
 		//	for (int j=0; j<N; j++)
-		//		fprintf(stderr, "%f %f\n", symmat_outputFromGpu[i][j], symmat[i][j]);
+		//		fprintf(stderr, "GPU=%f CPU=%f\n", data_gpu[i][j], data[i][j]);
 		//}
+    //fprintf(stderr, "-----\n");
 
 		compareResults(m, n, POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(symmat_outputFromGpu));
 
