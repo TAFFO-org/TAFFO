@@ -131,9 +131,11 @@ Value *FloatToFixed::convertSingleValue(Module &m, Value *val, FixedPointType &f
 Value *
 FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instruction *ip, TypeMatchPolicy typepol, bool wasHintForced)
 {
+  LLVM_DEBUG(dbgs() << "translateOrMatchOperand of " << *val << "\n");
+  
   // FIXME: handle all the cases, we need more info about destination!
   if (typepol == TypeMatchPolicy::ForceHint) {
-    LLVM_DEBUG(dbgs() << "Forcing hint!\n");
+    LLVM_DEBUG(dbgs() << "translateOrMatchOperand: forcing hint as requested!\n");
     FixedPointType origfixpt = iofixpt;
     llvm::Value *tmp = translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::RangeOverHintMaxFrac, true);
     return genConvertFixedToFixed(tmp, iofixpt, origfixpt, ip);
@@ -148,12 +150,13 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
 
     // The value has to be converted into a floating point value, convert it, full stop.
     if (iofixpt.isFloatingPoint()) {
+      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: converting converted value to floating point\n");
       return genConvertFixedToFixed(res, valueInfo(res)->fixpType, iofixpt, ip);
     }
 
     // Converting Floating point to whatever
     if (valueInfo(res)->fixpType.isFloatingPoint()) {
-      LLVM_DEBUG(dbgs() << "Converting floating point to whatever.\n";);
+      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: Converting floating point to whatever.\n";);
       LLVM_DEBUG(dbgs() << "Is floating, calling subroutine, " << valueInfo(res)->fixpType.toString() << " --> " << iofixpt.toString() << "\n";);
       LLVM_DEBUG(dbgs() << "This value will be converted to fixpoint: ";);
       LLVM_DEBUG(val->print(dbgs()););
@@ -181,6 +184,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
 
     if (!valueInfo(val)->noTypeConversion) {
       /* the value has been successfully converted to fixed point in a previous step */
+      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: value has been converted in the past, not adding any extra conversion\n");
       iofixpt = fixPType(res);
       return res;
     }
@@ -194,6 +198,8 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
   }
 
   assert(val->getType()->isFloatingPointTy());
+
+  LLVM_DEBUG(dbgs() << "translateOrMatchOperand: non-converted value, converting now\n");
 
   /* try the easy cases first
    *   this is essentially duplicated from genConvertFloatToFix because once we

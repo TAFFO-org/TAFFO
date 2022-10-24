@@ -269,7 +269,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       for (Value *u : inst->operands()) {
         OpIdx++;
         if (!isa<User>(u) && !isa<Argument>(u)) {
-          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " not a User or an Argument\n");
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " not a User or an Argument, ignoring\n");
           continue;
         }
         if (isa<StoreInst>(inst) && OpIdx == 1 && mydepth == 1) {
@@ -277,13 +277,17 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           continue;
         }
         if (isa<Function>(u) || isa<BlockAddress>(u)) {
-          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is a function/block address\n");
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is a function/block address, ignoring\n");
+          continue;
+        }
+        if (isa<Constant>(u)) {
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is a constant, ignoring\n");
           continue;
         }
         LLVM_DEBUG(dbgs() << " - " << *u);
 
         if (!isFloatType(u->getType())) {
-          LLVM_DEBUG(dbgs() << " not a float\n");
+          LLVM_DEBUG(dbgs() << " not a float, ignoring\n");
           continue;
         }
 
