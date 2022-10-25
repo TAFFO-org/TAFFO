@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from io import StringIO
+import math
 
 pd.options.display.max_columns = None
 # plt.rcParams.update({'font.size': 8})
@@ -28,6 +29,7 @@ def main(argv):
             var_stats_path = join(stats_path, scale, bench, f"{bench}.csv")
             ops_stats_path = join(stats_path, scale, bench, f"{bench}.mix.txt")
             fz_stats_path = join(stats_path, scale, bench, f"{bench}_float_size.csv")
+            trace_path = join(stats_path, scale, bench, f"{bench}.instrumented.trace")
             print(var_stats_path)
             print(ops_stats_path)
             print(fz_stats_path)
@@ -62,6 +64,43 @@ def main(argv):
                 (fz_stats['op1_range_normal'] > 0)
             )]
             print(fz_stats_valid)
+
+            float_op_count = 0
+            by_opcode_count = {
+                'fmul': 0,
+                'fdiv': 0,
+                'fadd': 0,
+                'fsub': 0,
+            }
+            float_op_abs_max = 0
+            by_opcode_abs_max = {
+                'fmul': 0,
+                'fdiv': 0,
+                'fadd': 0,
+                'fsub': 0,
+            }
+
+            with open(trace_path) as f:
+                for line in f:
+                    line = line.strip()
+                    parts = line.split(" ")
+                    if len(parts) == 0 or parts[0] != "TAFFO_TRACE": continue
+                    value = float.fromhex(parts[2])
+                    opcode = parts[4]
+                    # print(opcode, value)
+                    if opcode == 'fmul' or opcode == 'fdiv' or opcode == 'fadd' or opcode == 'fsub':
+                        float_op_count += 1
+                        by_opcode_count[opcode] += 1
+                        float_op_abs_max = max(float_op_abs_max, abs(value))
+                        by_opcode_abs_max[opcode] = max(by_opcode_abs_max[opcode], abs(value))
+
+
+            logn = math.ceil(math.log2(float_op_count))
+            log_max_value = math.ceil(math.log2(float_op_abs_max))
+            err_float16 = logn - 7
+            err_float19 = logn - 10
+            err_float24 = logn - 15
+            err_float32 = logn - 23
 
             # print(ops_stats)
             stats_row = {
@@ -103,6 +142,10 @@ def main(argv):
                 'exp_diff_lt10_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]), len(fz_stats_valid)),
                 'exp_diff_lt15_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]), len(fz_stats_valid)),
                 'exp_diff_lt23_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]), len(fz_stats_valid)),
+                'err_float16': err_float16,
+                'err_float19': err_float19,
+                'err_float24': err_float24,
+                'err_float32': err_float32,
             }
             stats_summary = stats_summary.append(stats_row, ignore_index=True)
 
