@@ -4,3 +4,4 @@
 *.ptx
 taffo_drvr_logs
 taffo_kern_logs
+_experiment_*

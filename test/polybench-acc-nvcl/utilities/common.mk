@@ -6,10 +6,56 @@ CLANG             :=$(shell taffo -print-llvm-bin-dir)/clang
 LLVM_LINK         :=$(shell taffo -print-llvm-bin-dir)/llvm-link
 LIB               =-lOpenCL -lm
 
-TAFFO_EXEC_OPTS   ?=-Xdta -bufferid-import -Xdta taffo_kern_logs/bufferid.yaml \
-                    -mixedmode -costmodel i7-4 -instructionset fix \
-TAFFO_KERN_OPTS   ?=-Xdta -bufferid-export -Xdta taffo_kern_logs/bufferid.yaml \
-                    -mixedmode -costmodel nv_sm86 -instructionset gpu -Xdta -mixedtuningenob -Xdta 1 -Xdta -mixedtuningtime -Xdta 10000 -Xdta -mixedtuningcastingtime -Xdta 10000 \
+TAFFO_HOST_DTA    ?=fixp
+TAFFO_KERN_ARGS   ?=fixp
+TAFFO_KERN_DTA    ?=fixp
+
+ifeq ($(TAFFO_HOST_DTA),fixp)
+endif
+ifeq ($(TAFFO_HOST_DTA),f16)
+TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta fp16
+endif
+ifeq ($(TAFFO_HOST_DTA),f32)
+TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta fp32
+endif
+ifeq ($(TAFFO_HOST_DTA),mixed) #ilp
+TAFFO_EXEC_OPTS   += -mixedmode -costmodel i7-4 -instructionset fix
+endif
+
+ifeq ($(TAFFO_KERN_ARGS),fixp)
+TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp32.yaml
+TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp32.yaml
+endif
+ifeq ($(TAFFO_KERN_ARGS),f16)
+TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fp16.yaml
+TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fp16.yaml
+endif
+ifeq ($(TAFFO_KERN_ARGS),f32)
+TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fp32.yaml
+TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fp32.yaml
+endif
+ifeq ($(TAFFO_KERN_ARGS),mixed)
+TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta taffo_kern_logs/bufferid.yaml
+TAFFO_KERN_OPTS   += -Xdta -bufferid-export -Xdta taffo_kern_logs/bufferid.yaml
+endif
+
+ifeq ($(TAFFO_KERN_DTA),fixp)
+endif
+ifeq ($(TAFFO_KERN_DTA),f16)
+TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta fp16
+endif
+ifeq ($(TAFFO_KERN_DTA),f32)
+TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta fp32
+endif
+ifeq ($(TAFFO_KERN_DTA),mixed) #ilp
+TAFFO_KERN_OPTS   += -mixedmode -costmodel nv_sm86 -instructionset gpu -Xdta -mixedtuningenob -Xdta 1 -Xdta -mixedtuningtime -Xdta 10000 -Xdta -mixedtuningcastingtime -Xdta 10000
+endif
+
+ifeq ($(MAKECMDGOALS),)
+$(info Host DTA config type    = $(TAFFO_HOST_DTA))
+$(info Kernel args config type = $(TAFFO_KERN_ARGS))
+$(info Kernel DTA config type  = $(TAFFO_KERN_DTA))
+endif
 
 .PHONY: all
 all: ${EXECUTABLE} ${PTXFILE} ${EXECUTABLE_TAFFO} ${PTXFILE_TAFFO}
@@ -60,6 +106,7 @@ ${PTXFILE_TAFFO}: ${PTXFILE}
 
 .PHONY: run
 run: ${EXECUTABLE} ${EXECUTABLE_TAFFO}
+	echo BENCHMARK = $$(basename $$(pwd))
 	ulimit -s unlimited; ./${EXECUTABLE} 2> ${EXECUTABLE}.txt
 	ulimit -s unlimited; ./${EXECUTABLE_TAFFO} 2> ${EXECUTABLE_TAFFO}.txt
 
