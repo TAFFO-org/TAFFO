@@ -7,11 +7,11 @@ BENCHS := \
 
 .PHONY: all
 all:
-	for b in $(BENCHS); do $(MAKE) -C $$b; done
+	for b in $(BENCHS); do $(MAKE) -C $$b& done
 
 .PHONY: clean
 clean:
-	for b in $(BENCHS); do $(MAKE) -C $$b clean; done
+	for b in $(BENCHS); do $(MAKE) -C $$b clean& done
 
 .PHONY: run
 run:
@@ -19,4 +19,4 @@ run:
 
 .PHONY: validate
 validate:
-	for b in $(BENCHS); do echo "$$b"; $(MAKE) -s -C $$b validate; done
+	for b in $(BENCHS); do echo "$$b"; $(MAKE) -s -C $$b validate& done

@@ -42,10 +42,10 @@ endif
 ifeq ($(TAFFO_KERN_DTA),fixp)
 endif
 ifeq ($(TAFFO_KERN_DTA),f16)
-TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta fp16
+TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta f16
 endif
 ifeq ($(TAFFO_KERN_DTA),f32)
-TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta fp32
+TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta f32
 endif
 ifeq ($(TAFFO_KERN_DTA),mixed) #ilp
 TAFFO_KERN_OPTS   += -mixedmode -costmodel nv_sm86 -instructionset gpu -Xdta -mixedtuningenob -Xdta 1 -Xdta -mixedtuningtime -Xdta 10000 -Xdta -mixedtuningcastingtime -Xdta 10000

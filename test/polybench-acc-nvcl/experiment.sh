@@ -13,10 +13,23 @@ kern_dta_set='fixp f32 f16 mixed'
 for host_dta in $host_dta_set; do
   for kern_args in $kern_args_set; do
     for kern_dta in $kern_dta_set; do
-      make clean || continue
-      make TAFFO_HOST_DTA=${host_dta} TAFFO_KERN_ARGS=${kern_args} TAFFO_KERN_DTA=${kern_dta} || continue
-      make -s run > ${exp_dir}/${host_dta}_${kern_args}_${kern_dta}_run.txt || continue
-      make -s validate > ${exp_dir}/${host_dta}_${kern_args}_${kern_dta}_validate.txt || continue
+      exp_file_prefix="${exp_dir}/${host_dta}_${kern_args}_${kern_dta}"
+      echo host_dta=${host_dta} kern_args=${kern_args} kern_dta=${kern_dta}
+      make clean &> /dev/null || continue
+
+      echo build
+      make TAFFO_HOST_DTA=${host_dta} TAFFO_KERN_ARGS=${kern_args} TAFFO_KERN_DTA=${kern_dta} -j`nproc` &> ${exp_file_prefix}_build.txt
+      build_res=$?
+      find . -name 'taffo.log' | xargs cat >> ${exp_file_prefix}_build.txt
+      if [[ $build_res != 0 ]]; then
+        continue
+      fi
+      
+      echo run
+      make -s run &> ${exp_file_prefix}_run.txt || continue
+
+      echo validate
+      make -s validate &> ${exp_file_prefix}_validate.txt || continue
     done
   done
 done
