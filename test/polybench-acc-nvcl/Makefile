@@ -3,7 +3,8 @@ BENCHS := \
 	covariance \
 	lu \
 	fdtd-2d \
-	jacobi-1d-imper
+	jacobi-1d-imper \
+	jacobi-2d-imper
 
 .PHONY: all
 all:
