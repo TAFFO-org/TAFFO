@@ -13,10 +13,10 @@ TAFFO_KERN_DTA    ?=fixp
 ifeq ($(TAFFO_HOST_DTA),fixp)
 endif
 ifeq ($(TAFFO_HOST_DTA),f16)
-TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta fp16
+TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta f16
 endif
 ifeq ($(TAFFO_HOST_DTA),f32)
-TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta fp32
+TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta f32
 endif
 ifeq ($(TAFFO_HOST_DTA),mixed) #ilp
 TAFFO_EXEC_OPTS   += -mixedmode -costmodel i7-4 -instructionset fix
