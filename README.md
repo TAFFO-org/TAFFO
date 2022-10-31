@@ -70,31 +70,7 @@ cmake .. -DTAFFO_BUILD_ORTOOLS=ON -DTAFFO_UNITTESTS=ON
 cmake --build .
 ctest -VV
 ```
-### Code coverage
-In order to get coverage information we need to add the following compile arguments
-```shell
-$ mkdir build
-$ cd build/
-$ cmake .. -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage -w" \
-           -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage -w" \
-           -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
-           -DCMAKE_CXX_COMPILER="g++-12" \
-           -DCMAKE_C_COMPILER="gcc-12" \
-           -DTAFFO_UNITTESTS="ON" \
-           -DTAFFO_BUILD_ORTOOLS="ON" \
-           -DTAFFO_BUILD_ILP_DTA="ON" 
-$ cmake --build .
-```
-After building we need to create a baseline (```lcov_base.info```) with
-```shell
-$ lcov --capture --initial --rc lcov_branch_coverage=1 --directory . --output-file lcov_base.info
-```
-At this point we can run the tests with ```ctest``` and generate the coverage data by running
-```shell
-$ lcov --capture --rc lcov_branch_coverage=1 --directory . --output-file lcov.info
-$ lcov --add-tracefile lcov_base.info --add-tracefile lcov.info --output-file lcov.info
-```
-The ```lcov.info``` file can then be used to generate a report with any compatible tool (e.g [VSCode-LCOV](https://marketplace.visualstudio.com/items?itemName=alexdima.vscode-lcov))
+For further information about the unit tests, check the dedicated [unittests/README.md](unittests/README.md) file.
 
 ## How to run integration tests
 
