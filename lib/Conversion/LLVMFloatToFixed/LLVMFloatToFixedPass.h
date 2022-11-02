@@ -112,7 +112,7 @@ struct FloatToFixed {
   void sortQueue(std::vector<llvm::Value *> &vals);
   void cleanup(const std::vector<llvm::Value *> &queue);
   void insertOpenMPIndirection(llvm::Module &m);
-  void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global);
+  void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, llvm::Module &m);
   llvm::Function *createFixFun(llvm::CallBase *call, bool *old);
   void printConversionQueue(std::vector<llvm::Value *> vals);
   void performConversion(llvm::Module &m, std::vector<llvm::Value *> &q);

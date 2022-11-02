@@ -1,5 +1,6 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
+#include "Metadata.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
@@ -184,7 +185,7 @@ PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM)
   MetadataCount = vals.size();
 
   sortQueue(vals);
-  propagateCall(vals, global);
+  propagateCall(vals, global, m);
   LLVM_DEBUG(printConversionQueue(vals));
   ConversionCount = vals.size();
 
@@ -471,7 +472,7 @@ void FloatToFixed::cleanup(const std::vector<Value *> &q)
 }
 
 
-void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global)
+void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, Module &m)
 {
   mdutils::MetadataManager &MM = mdutils::MetadataManager::getMetadataManager();
   SmallPtrSet<Function *, 16> oldFuncs;
@@ -513,8 +514,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
      * This is not exactly what we want for OpenCL kernels because the alignment
      * after the conversion is not defined by us but by the OpenCL runtime.
      * So we need to compensate for this. */
-
-    if (newF->getCallingConv() == CallingConv::SPIR_KERNEL) {
+    if (newF->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, oldF)) {
       /* OpenCL spec says the alignment is equal to the size of the type */
       SmallVector<AttributeSet, 4> NewAttrs(newF->arg_size());
       AttributeList OldAttrs = newF->getAttributes();
