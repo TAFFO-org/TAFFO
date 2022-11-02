@@ -532,7 +532,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
   }
   SmallVector<ReturnInst *, 100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
-  if (!OpenCLKernelMode)
+  if (!OpenCLKernelMode && !CudaKernelMode)
     newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 
