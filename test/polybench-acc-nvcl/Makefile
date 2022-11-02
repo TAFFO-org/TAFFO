@@ -20,4 +20,4 @@ run:
 
 .PHONY: validate
 validate:
-	for b in $(BENCHS); do echo "$$b"; $(MAKE) -s -C $$b validate& done
+	for b in $(BENCHS); do echo "$$b"; $(MAKE) -s -C $$b validate; done
