@@ -11,11 +11,11 @@ BENCHMARK := average
 BENCHMARK_LL := $(BUILD_DIR)/$(BENCHMARK).0.ll
 
 MANTISSA := 8 11 16 24
-INPUT_SIZE := 100 1000 10000 100000 1000000
+INPUT_SIZE := 1 10 100 1000 10000 100000 1000000
 MAX_INPUT_SIZE := 1000000
 PRECISION_OUT_LL = $(BUILD_DIR)/$(BENCHMARK)-m$@bit.ll
 PRECISION_OUT = $(BUILD_DIR)/$(BENCHMARK)-m$@bit
-RESULT = $(BUILD_DIR)/$(BENCHMARK)-m$@bit-$(input_size).txt
+RESULT = $(BUILD_DIR)/$(BENCHMARK)-m$@bit-input$(input_size)rows.txt
 
 
 all: $(BUILD_DIR) $(BUILD_DIR)/data.txt $(BENCHMARK_LL) $(MANTISSA) aggregate-all
@@ -25,7 +25,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/data.txt: $(SRC_DIRS)/generate_data.py
-	python3 src/generate_data.py $(MAX_INPUT_SIZE) > $(BUILD_DIR)/data.txt
+	python3 $(SRC_DIRS)/generate_data.py $(MAX_INPUT_SIZE) > $(BUILD_DIR)/data.txt
 
 $(BENCHMARK_LL): $(SRC_DIRS)/$(BENCHMARK).c
 	$(CLANG) \
@@ -66,6 +66,10 @@ $(MANTISSA): $(BENCHMARK_LL)
 aggregate-all: $(wildcard $(BUILD_DIR)/$(BENCHMARK)-m*.txt)
 	rm -f $(BUILD_DIR)/summary.csv
 	@$(foreach file, $?, printf "%s,%f\n" $(file) $$(cat $(file)) >> $(BUILD_DIR)/summary.csv;)
+
+.PHONY: analyze
+analyze: aggregate-all
+	python3 $(SRC_DIRS)/analyze.py
 
 .PHONY: clean
 clean:
