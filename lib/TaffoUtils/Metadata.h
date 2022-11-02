@@ -142,6 +142,8 @@ public:
 
   static void getCudaKernels(llvm::Module &M, llvm::SmallVectorImpl<llvm::Function *> &Fs);
 
+  static bool isCudaKernel(llvm::Module &M, llvm::Function* Fs);
+
   ///\section Error Propagation Metadata
 
   /// Attach MaxRecursionCount to the given function.
