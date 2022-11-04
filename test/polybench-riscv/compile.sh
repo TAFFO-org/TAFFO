@@ -91,6 +91,10 @@ compile_one_float()
     -lm \
     -DSCALING_FACTOR=$scaling \
     2> build/"$scaling"/"$benchname"/${benchname}.log || return $?
+  $CLANG \
+    build/"$scaling"/"$benchname"/"$benchname".out.ll \
+    -m32 \
+    -o build/"$scaling"/"$benchname"/"$benchname".out || return $?
 }
 
 read_opts()
@@ -157,6 +161,7 @@ if [[ -z $castweight ]]; then export castweight=1; fi
 if [[ -z $single_precision_frac_bits ]]; then export single_precision_frac_bits=10; fi
 if [[ -z $mantissa ]]; then export mantissa=""; fi
 export mixedmodeopts=""
+export mantissaopts=""
 
 printf 'Configuration:\n'
 printf '  CFLAGS           = %s\n' "$CFLAGS"
@@ -176,6 +181,12 @@ if [ "$mixedmode" -ne "0" ]; then
   -Xdta -mixedtuningenob -Xdta "$enobweight" \
   -Xdta -mixedtuningtime -Xdta "$timeweight" \
   -Xdta -mixedtuningcastingtime -Xdta "$castweight" "
+fi
+
+if [ ! -z "$mantissa" ]; then
+  printf '  mantissa        = %s\n' "$mantissa"
+
+  mantissaopts="-mantissa=$mantissa"
 fi
 
 mkdir -p build
@@ -207,7 +218,7 @@ for bench in $all_benchs; do
       bpid_fc=' ok '
     fi
     printf '\033[1G[%4s] %s\n' "$bpid_fc" "$benchname"_"$scaling"
-    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.dynamic.out.ll \
+    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.dynamic.5.out.ll \
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
 
@@ -231,18 +242,23 @@ for bench in $all_benchs; do
 #      build/"$scaling"/"$benchname"/${benchname}.dynamic.out.ll \
 #      -o /dev/null
 #
-#    "$OPT" \
-#      -S \
-#      -debug \
-#      -load "$LAMP_SIMULATOR" \
-#      -lampsim \
-#      "$mantissa" \
-#      build/"$scaling"/"$benchname"/${benchname}.out.ll \
-#      -o build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll
+    "$OPT" \
+      -S \
+      -debug \
+      -load "$LAMP_SIMULATOR" \
+      -lampsim \
+      "$mantissaopts" \
+      build/"$scaling"/"$benchname"/${benchname}.out.ll \
+      -o build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll
+
+    $CLANG \
+      build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll \
+      -m32 \
+      -o build/"$scaling"/"$benchname"/${benchname}.lamp
   done
-#  if [ $benchname = "trisolv" ]; then
-#     break
-#  fi
+  if [ $benchname = "2mm" ]; then
+     break
+  fi
 done
 
 
