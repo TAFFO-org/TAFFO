@@ -372,6 +372,9 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   /* Special-case known OpenCL API calls */
   if (isSupportedOpenCLFunction(oldF))
     return convertOpenCLCall(call);
+  /* Special-case known OpenCL API calls */
+  if (isSupportedCudaFunction(oldF))
+    return convertCudaCall(call);  
   /* Special-case known math intrinsics */
   if (isSupportedMathIntrinsicFunction(oldF))
     return convertMathIntrinsicFunction(call, fixpt);

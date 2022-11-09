@@ -9,6 +9,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   IndirectCallConversion.cpp
   InstructionConversion.cpp
   OpenCLConversion.cpp
+  CudaConversion.cpp
   MathIntrinsicConversion.cpp
 
   ADDITIONAL_HEADERS

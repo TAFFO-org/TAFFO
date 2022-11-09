@@ -197,6 +197,10 @@ struct FloatToFixed {
   llvm::Value *convertOpenCLCall(llvm::CallBase *C);
   void cleanUpOpenCLKernelTrampolines(llvm::Module *M);
 
+  /*Cuda support */
+  bool isSupportedCudaFunction(llvm::Function *F);
+  llvm::Value *convertCudaCall(llvm::CallBase *C);
+
   /* Math intrinsic support */
   bool isSupportedMathIntrinsicFunction(llvm::Function *F);
   llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);

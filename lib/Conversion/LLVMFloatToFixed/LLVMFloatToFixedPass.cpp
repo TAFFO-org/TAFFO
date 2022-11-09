@@ -283,6 +283,8 @@ bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
     Function *F = Call->getCalledFunction();
     if (isSupportedOpenCLFunction(F))
       return true;
+    if (isSupportedCudaFunction(F))
+      return true;  
   }
   return false;
 }
