@@ -48,6 +48,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Config/llvm-config.h"
 #include <algorithm>
 #include <cassert>
 #include <iterator>
@@ -706,7 +707,12 @@ void PromoteMem2Reg::run() {
       PHINode *PN = I->second;
 
       // If this PHI node merges one value and/or undefs, get the value.
-      if (Value *V = SimplifyInstruction(PN, SQ)) {
+      #if (LLVM_VERSION_MAJOR >= 15)
+      Value *V = simplifyInstruction(PN, SQ);
+      #else
+      Value *V = SimplifyInstruction(PN, SQ);
+      #endif
+      if (V) {
         PN->replaceAllUsesWith(V);
         PN->eraseFromParent();
         NewPhiNodes.erase(I++);
