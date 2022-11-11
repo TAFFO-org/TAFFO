@@ -128,10 +128,10 @@ Value *flttofix::adjustBufferSize(Value *OrigSize, Type *OldTy, Type *NewTy, Ins
   if (int_const == nullptr) {
     IRBuilder<> builder(IP);
     Res = builder.CreateMul(OrigSize, ConstantInt::get(OrigSize->getType(), Num));
-    Res = builder.CreateAdd(OrigSize, ConstantInt::get(OrigSize->getType(), Num-1));
+    Res = builder.CreateAdd(Res, ConstantInt::get(OrigSize->getType(), Den-1));
     Res = builder.CreateUDiv(Res, ConstantInt::get(OrigSize->getType(), Den));
   } else {
-    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Num-1)).udiv(Den));
+    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den-1)).udiv(Den));
   }
 
   LLVM_DEBUG(dbgs() << "Buffer size adjusted to " << *Res << "\n");
