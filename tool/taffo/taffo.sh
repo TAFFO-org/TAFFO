@@ -159,7 +159,7 @@ for opt in $raw_opts; do
             init_flags="$init_flags --debug-only=taffo-init";
             dta_flags="$dta_flags --debug-only=taffo-dta";
             conversion_flags="$conversion_flags --debug-only=taffo-conversion";
-            vra_flags="$vra_flags --debug-only=taffo-vra";
+            vra_flags="$vra_flags --debug-only=taffo-vra --debug-only=taffo_mem2reg";
             errorprop_flags="$errorprop_flags --debug-only=errorprop";
           fi
           LOG=/dev/stderr
