@@ -527,7 +527,7 @@ void VRAnalyzer::handlePhiNode(const llvm::Instruction *phi)
     return;
   }
   LLVM_DEBUG(Logger->logInstruction(phi));
-  RangeNodePtrT res = nullptr;
+  RangeNodePtrT res = copyRange(getGlobalStore()->getUserInput(phi));
   for (unsigned index = 0U; index < phi_n->getNumIncomingValues(); index++) {
     const llvm::Value *op = phi_n->getIncomingValue(index);
     NodePtrT op_node = getNode(op);
