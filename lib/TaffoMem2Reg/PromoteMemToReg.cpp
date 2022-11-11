@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "PromoteMemToReg.h"
+#include "TaffoUtils/Metadata.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
@@ -855,8 +856,9 @@ void PromoteMem2Reg::ComputeLiveInBlocks(
 /// Returns true if there wasn't already a phi-node for that variable
 bool PromoteMem2Reg::QueuePhiNode(BasicBlock *BB, unsigned AllocaNo,
                                   unsigned &Version) {
-  // Look up the basic-block in question.
+  // Look up the basic-block and alloca in question.
   PHINode *&PN = NewPhiNodes[std::make_pair(BBNumbers[BB], AllocaNo)];
+  AllocaInst *A = Allocas[AllocaNo];
 
   // If the BB already has a phi node added for the i'th alloca then we're done!
   if (PN)
@@ -864,11 +866,23 @@ bool PromoteMem2Reg::QueuePhiNode(BasicBlock *BB, unsigned AllocaNo,
 
   // Create a PhiNode using the dereferenced type... and add the phi-node to the
   // BasicBlock.
-  PN = PHINode::Create(Allocas[AllocaNo]->getAllocatedType(), getNumPreds(BB),
-                       Allocas[AllocaNo]->getName() + "." + Twine(Version++),
+  PN = PHINode::Create(A->getAllocatedType(), getNumPreds(BB),
+                       A->getName() + "." + Twine(Version++),
                        &BB->front());
   ++NumPHIInsert;
   PhiToAllocaMap[PN] = AllocaNo;
+
+  // TAFFO-SPECIFIC: Transfer metadata from the alloca to the phi node.
+  auto& MM = mdutils::MetadataManager::getMetadataManager();
+  mdutils::InputInfo *II = MM.retrieveInputInfo(*A);
+  if (II)
+    MM.setInputInfoMetadata(*PN, *II);
+  int IIWeight = MM.retrieveInputInfoInitWeightMetadata(A);
+  if (IIWeight >= 0)
+    mdutils::MetadataManager::setInputInfoInitWeightMetadata(PN, IIWeight);
+  LLVM_DEBUG(dbgs() << "TaffoMem2Reg: Copied TAFFO metadata from '" << *A << 
+      "' to new phi '" << *PN << "'\n");
+
   return true;
 }
 
