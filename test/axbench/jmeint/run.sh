@@ -40,5 +40,5 @@ do
 	time ./bin/${benchmark}.out.fixp ${f} data/output/${filename}_${benchmark}_out.data.fixp 2> log_${filename}_fixp.txt
 	
 	echo -e "\e[32m### QoS ###\e[0m"
-	python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
+	./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
 done

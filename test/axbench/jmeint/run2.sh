@@ -71,7 +71,7 @@ do
   fi
   
   if [[ -z $NOERROR ]]; then
-    error=$(python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp)
+    error=$(./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp)
     mabs_error=$(match_error "$error" 'Absolute error')
     mrel_error=$(match_error "$error" 'Relative error')
   else

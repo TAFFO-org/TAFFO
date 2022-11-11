@@ -19,5 +19,5 @@ do
 	time ./bin/inversek2j.out.fixp ${f} data/output/${filename}_${benchmark}_out.data.fixp
 	
 	echo -e "\e[32m### QoS ###\e[0m"
-	python ./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
+	./scripts/qos.py data/output/${filename}_${benchmark}_out.data data/output/${filename}_${benchmark}_out.data.fixp
 done

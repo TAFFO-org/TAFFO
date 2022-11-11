@@ -18,5 +18,5 @@ do
 	time ./bin/${benchmark}.out.fixp ${f} data/output/${f}_${benchmark}_out.data.fixp
 	
 	echo -e "\e[32m### QoS ###\e[0m"
-	python ./scripts/qos.py data/output/${f}_${benchmark}_out.data data/output/${f}_${benchmark}_out.data.fixp
+	./scripts/qos.py data/output/${f}_${benchmark}_out.data data/output/${f}_${benchmark}_out.data.fixp
 done
