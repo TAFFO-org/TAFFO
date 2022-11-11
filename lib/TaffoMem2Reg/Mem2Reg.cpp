@@ -29,7 +29,7 @@
 using namespace llvm;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo_mem2reg"
+#define DEBUG_TYPE "taffo-mem2reg"
 
 STATISTIC(NumPromoted, "Number of alloca's promoted");
 

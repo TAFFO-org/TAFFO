@@ -57,7 +57,7 @@
 using namespace llvm;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo_mem2reg"
+#define DEBUG_TYPE "taffo-mem2reg"
 
 STATISTIC(NumLocalPromoted, "Number of alloca's promoted within one block");
 STATISTIC(NumSingleStore,   "Number of alloca's promoted with a single store");
