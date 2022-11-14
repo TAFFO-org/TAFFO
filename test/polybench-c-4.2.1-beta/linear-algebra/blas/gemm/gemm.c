@@ -30,7 +30,8 @@ void init_array(int ni, int nj, int nk,
 		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
 		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
 {
-  int i, j;
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) "))")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) "))")));
 
   *alpha = 1.5;
   *beta = 1.2;

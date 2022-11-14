@@ -25,9 +25,9 @@ def compute_error(fix_data, flt_data):
 
   for svfix, svflo in zip(fix_data, flt_data):
     vfix, vflo = Decimal(svfix), Decimal(svflo)
-    if vfix.is_nan():
+    if not vfix.is_finite():
       fix_nofl += 1
-    elif vflo.is_nan():
+    elif not vflo.is_finite():
       flo_nofl += 1
       fix_nofl += 1
     elif ((vflo + vfix).copy_abs() - (vflo.copy_abs() + vfix.copy_abs())) > thres_ofl_cp:

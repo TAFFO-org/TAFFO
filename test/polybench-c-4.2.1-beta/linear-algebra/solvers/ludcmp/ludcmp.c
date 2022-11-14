@@ -29,7 +29,7 @@ void init_array (int n,
 		 DATA_TYPE POLYBENCH_1D(x,N,n),
 		 DATA_TYPE POLYBENCH_1D(y,N,n))
 {
-  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   DATA_TYPE __attribute__((annotate("scalar()"))) fn = (DATA_TYPE)n;
 
@@ -65,6 +65,8 @@ void init_array (int n,
       for (s = 0; s < n; ++s)
 	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
   POLYBENCH_FREE_ARRAY(B);
+//  print_A(n, POLYBENCH_ARRAY(A));
+//  print_b(n, POLYBENCH_ARRAY(b));
 
 }
 
@@ -100,7 +102,7 @@ void kernel_ludcmp(int n,
 {
   int i, j, k;
 
-  DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))) w;
+  DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final)"))) w;
 
 #pragma scop
   for (i = 0; i < _PB_N; i++) {
@@ -144,7 +146,7 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final)"))), N, N, n, n);
   POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);

@@ -27,7 +27,8 @@ void init_array (int m, int n,
 		 DATA_TYPE *float_n,
 		 DATA_TYPE POLYBENCH_2D(data,N,M,n,m))
 {
-  int i, j;
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
+  int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
 
   *float_n = (DATA_TYPE)n;
 
