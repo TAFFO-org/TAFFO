@@ -49,9 +49,9 @@ def ComputeDifference(fix_data, flt_data):
   for svfix, svflo in zip(fix_data, flt_data):
     vfix, vflo = Decimal(svfix), Decimal(svflo)
 
-    if vfix.is_nan():
+    if not vfix.is_finite():
       fix_nofl += 1
-    elif vflo.is_nan():
+    elif not vflo.is_finite():
       flo_nofl += 1
       fix_nofl += 1
     elif ((vflo + vfix).copy_abs() - (vflo.copy_abs() + vfix.copy_abs())) > thres_ofl_cp:
@@ -75,7 +75,7 @@ def ComputeSpeedups(float_times, fixp_times):
   fixp_list = [Decimal(di) for di in fixp_times]
   float_avg = stat.median(float_list)
   fixp_avg = stat.median(fixp_list)
-  speedup = float_avg / fixp_avg
+  speedup = float_avg / fixp_avg if fixp_avg != 0 else -1
   return {'fix_t': fixp_avg, 'flt_t': float_avg, 'speedup': speedup}
           
           
@@ -109,7 +109,7 @@ if __name__ == "__main__":
       res.update(ComputeSpeedups(float_times, fixp_times))
       g_res[BenchmarkName(bench)] = res
     except Exception as inst:
-      print("Problem With " + name)
+      print("Problem With " + name + ": " + str(inst))
 
     
   print(PrettyPrint(g_res))

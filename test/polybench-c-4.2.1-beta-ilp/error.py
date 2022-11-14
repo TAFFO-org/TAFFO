@@ -37,7 +37,7 @@ def compute_error(fix_data, flt_data):
       accerr += (vflo - vfix).copy_abs()
       accval += vflo
       
-  e_perc = (accerr / accval * 100) if accval > 0 and n > 0 else -1
+  e_perc = (accerr / accval * 100) if accval != 0 and n > 0 else -1
   e_abs = (accerr / n) if n > 0 else -1
       
   return {'fix_nofl': fix_nofl,
