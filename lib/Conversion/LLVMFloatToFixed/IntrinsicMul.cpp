@@ -6,6 +6,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/NoFolder.h"
 #include "llvm/IR/IRBuilder.h"
 
 using namespace llvm;
@@ -30,7 +31,10 @@ Value* FloatToFixed::TransformToMulIntrinsic(Value *val1,
   FixedPointType signedResultType = ToSigned(result_type);
   Value* signedVal1 = genConvertFixedToFixed(val1, type1, signedType1, instr);
   Value* signedVal2 = genConvertFixedToFixed(val2, type2, signedType2, instr);
-  return TransformToMulIntrinsicOpSigned(signedVal1, signedVal2, signedType1, signedType2, instr, signedResultType);
+
+  Value* intrinsic = TransformToMulIntrinsicOpSigned(signedVal1, signedVal2, signedType1, signedType2, instr, signedResultType);
+  auto outType = FixedPointType(getInputInfo(intrinsic)->IType.get());
+  return genConvertFixedToFixed(intrinsic, outType, result_type, instr);
 }
 
 FixedPointType FloatToFixed::ToSigned(const FixedPointType& type) {
@@ -78,7 +82,7 @@ Value* FloatToFixed::ToMulIntrinsic(Value *val1,
                                     Value *val2,
                                     Instruction *instr,
                         const FixedPointType &result_type) {
-  IRBuilder<> builder(instr);
+  IRBuilder<NoFolder> builder(instr);
   // create list of formal argument types
   Type *Tys[] ={builder.getIntNTy(result_type.scalarBitsAmt())};
   // create the funcCall as intrinsic
@@ -112,7 +116,9 @@ Value* FloatToFixed::TransformToDivIntrinsic(Value *val1,
   FixedPointType signedResultType = ToSigned(result_type);
   Value* signedVal1 = genConvertFixedToFixed(val1, type1, signedType1, instr);
   Value* signedVal2 = genConvertFixedToFixed(val2, type2, signedType2, instr);
-  return TransformToDivIntrinsicOpSigned(signedVal1, signedVal2, signedType1, signedType2, instr, signedResultType);
+  Value* intrinsic = TransformToDivIntrinsicOpSigned(signedVal1, signedVal2, signedType1, signedType2, instr, signedResultType);
+  auto outType = FixedPointType(getInputInfo(intrinsic)->IType.get());
+  return genConvertFixedToFixed(intrinsic, outType, result_type, instr);
 }
 
 Value* FloatToFixed::TransformToDivIntrinsicOpSigned(Value *val1,
@@ -152,7 +158,7 @@ Value* FloatToFixed::ToDivIntrinsic(Value *val1,
                                     Value *val2,
                                     Instruction *instr,
                                     const FixedPointType &result_type) {
-  IRBuilder<> builder(instr);
+  IRBuilder<NoFolder> builder(instr);
   // create list of formal argument types
   Type *Tys[] ={builder.getIntNTy(result_type.scalarBitsAmt())};
   // create the funcCall as intrinsic

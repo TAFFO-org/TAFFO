@@ -11,7 +11,6 @@ add_subdirectory(FloatSizeAnalysis)
 add_subdirectory(DynamicAnalysis)
 
 add_llvm_library(Taffo MODULE
-  TaffoToolsInterface.cpp
   $<TARGET_OBJECTS:obj.TaffoInitializer>
   $<TARGET_OBJECTS:obj.TaffoVRA>
   $<TARGET_OBJECTS:obj.TaffoDTA>

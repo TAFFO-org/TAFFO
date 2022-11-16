@@ -223,31 +223,32 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
 
     LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
 
-      II.IType.reset(res.clone());
+    II.IType.reset(res.clone());
+    return true;
+
+
+  } else {
+    FixedPointTypeGenError fpgerr;
+    FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 32, 0);
+
+    if (fpgerr == FixedPointTypeGenError::NotEnoughFracBits || fpgerr == FixedPointTypeGenError::NotEnoughIntAndFracBits) {
+      LLVM_DEBUG(dbgs() << "[Info] Cannot fit " << II.toString() << "into fixed point type, use float\n");
+      FloatType resFloat(FloatType(mdutils::FloatType::Float_float, std::max(std::abs(rng->Max), std::abs(rng->Min))));
+      II.IType.reset(resFloat.clone());
       return true;
+    }
 
-
-  } else {*/
-  FixedPointTypeGenError fpgerr;
-  FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 32, 0);
-
-  if (fpgerr == FixedPointTypeGenError::NotEnoughFracBits || fpgerr == FixedPointTypeGenError::NotEnoughIntAndFracBits) {
-    LLVM_DEBUG(dbgs() << "[Info] Cannot fit " << II.toString() << "into fixed point type, use float\n");
-    FloatType resFloat(FloatType(mdutils::FloatType::Float_float, std::max(std::abs(rng->Max), std::abs(rng->Min))));
-    II.IType.reset(resFloat.clone());
+    if (fpgerr == FixedPointTypeGenError::InvalidRange) {
+      LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
+      return false;
+    }
+    if (fpgerr != FixedPointTypeGenError::NoError) {
+      LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", error generating fixed type\n");
+      return false;
+    }
+    II.IType.reset(res.clone());
     return true;
   }
-
-  if (fpgerr == FixedPointTypeGenError::InvalidRange) {
-    LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
-    return false;
-  }
-  if (fpgerr != FixedPointTypeGenError::NoError) {
-    LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", error generating fixed type\n");
-    return false;
-  }
-  II.IType.reset(res.clone());
-  return true;
 }
 
 
@@ -562,10 +563,10 @@ std::vector<Function *> TaffoTuner::collapseFunction(Module &m)
         Function *fClone = dyn_cast<Function>(md->getValue());
         if (fClone->user_begin() == fClone->user_end()) {
           LLVM_DEBUG(dbgs() << "\t Ignoring " << fClone->getName()
-              << " because it's not used anywhere\n");
+                            << " because it's not used anywhere\n");
         } else if (Function *eqFun = findEqFunction(fClone, &f)) {
           LLVM_DEBUG(dbgs() << "\t Replace function " << fClone->getName()
-              << " with " << eqFun->getName() << "\n";);
+                            << " with " << eqFun->getName() << "\n";);
           fClone->replaceAllUsesWith(eqFun);
           toDel.push_back(fClone);
         }
@@ -620,14 +621,14 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   std::vector<std::pair<int, std::shared_ptr<MDInfo>>> fixSign;
 
   LLVM_DEBUG(dbgs() << "\t\t Search eq function for " << fun->getName()
-      << " in " << origin->getName() << " pool\n";);
+                    << " in " << origin->getName() << " pool\n";);
 
   if (isFloatType(fun->getReturnType()) && hasInfo(*fun->user_begin())) {
     std::shared_ptr<MDInfo> retval = valueInfo(*fun->user_begin())->metadata;
     if (retval) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(-1, retval)); // ret value in signature
       LLVM_DEBUG(dbgs() << "\t\t Return type : "
-          << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
+                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
     }
   }
 
@@ -636,7 +637,7 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
     if (hasInfo(&arg) && valueInfo(&arg)->metadata) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(i, valueInfo(&arg)->metadata));
       LLVM_DEBUG(dbgs() << "\t\t Arg " << i << " type : "
-          << valueInfo(&arg)->metadata->toString() << "\n";);
+                        << valueInfo(&arg)->metadata->toString() << "\n";);
     }
     i++;
   }

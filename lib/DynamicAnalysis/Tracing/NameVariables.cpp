@@ -123,7 +123,7 @@ llvm::Function *NameVariables::createFunctionCopy(llvm::CallBase *call)
     mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst *, 100> returns;
-  CloneFunctionInto(newF, oldF, mapArgs, true, returns);
+  CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
   newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   return newF;
 }
