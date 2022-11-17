@@ -94,6 +94,12 @@ void createCudaKernelTrampoline(Module &M, Function& KernF)
   auto FunName = KernF.getName() + ".taffo.ocl.tramp";
   Function *NewF = Function::Create(FunTy, KernF.getLinkage(), KernF.getAddressSpace(), FunName, &M);
   BasicBlock *TheBB = BasicBlock::Create(NewF->getContext(), "", NewF);
+  /* Disable optimizations on the trampoline function. This is required later to ensure the VRA is properly fooled,
+   * otherwise mem2reg will replace all our work with a function consisting of just a call.
+   *   See also: in Annotations.cpp we disable removing this attribute just for trampolines. */
+  NewF->addFnAttr(Attribute::OptimizeNone);
+  NewF->addFnAttr(Attribute::NoInline);
+
 
   /* Do the dirty job and simulate clang... */
   SmallVector<AllocaInst *, 8> Allocas;

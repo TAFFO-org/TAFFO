@@ -151,7 +151,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
     readLocalAnnotations(f, t);
     res.insert(res.end(), t.begin(), t.end());
 
-    /* Otherwise dce pass ignores the function (removed also where it's not required).
+       /* Otherwise dce pass ignores the function (removed also where it's not required).
      *   Don't remove for OCL trampolines because we want to keep the useless code there
      * deliberately. These trampolines will be removed by conversion later anyway. */
     if (!f.hasMetadata(INIT_OCL_TRAMPOLINE_METADATA)) {
