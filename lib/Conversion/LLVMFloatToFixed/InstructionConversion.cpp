@@ -407,7 +407,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
       if (!hasInfo(*call_arg)) {
         thisArgument = *call_arg;
       } else {
-        thisArgument = fallbackMatchValue(*call_arg, f_arg->getType());
+        thisArgument = fallbackMatchValue(*call_arg, f_arg->getType(), call);
       }
     } else if (hasInfo(*call_arg) &&
                valueInfo(*call_arg)->noTypeConversion == false) {
