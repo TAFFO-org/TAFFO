@@ -76,8 +76,8 @@ if [[ $llvm_ver_maj -ge 15 ]]; then
   compat_flags_opt='-opaque-pointers=0'
 fi
 
-cudakern=0
 parse_state=0
+cuda_kern=0
 raw_opts="$@"
 input_files=()
 output_file="a"
@@ -132,8 +132,8 @@ for opt in $raw_opts; do
           init_flags="$init_flags -oclkern"
           ;;
         -cudakern)
+          cuda_kern=1
           init_flags="$init_flags -cudakern"
-          cudakern=1
           ;;  
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
@@ -243,7 +243,6 @@ for opt in $raw_opts; do
           ;;
         *.cu)
           input_files+=( "$opt" );
-          opts="$opts --cuda-gpu-arch=sm_60";  
           ;;
         *.c | *.ll)
           input_files+=( "$opt" );
@@ -445,20 +444,11 @@ append_time_string "taffo_start"
 ###
 if [[ ${#input_files[@]} -eq 1 ]]; then
   # one input file
-  if [[ ${cudakern} -eq 1 ]]; then
-  # cuda kernel input 
-    ${CLANG} \
-      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone --cuda-device-only $compat_flags_clang \
-      -c -emit-llvm \
-      ${input_files} \
-      -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?  
-  else
-    ${CLANG} \
-      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
-      -c -emit-llvm \
-      ${input_files} \
-      -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $? 
-  fi       
+  ${CLANG} \
+    $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
+    -c -emit-llvm \
+    ${input_files} \
+    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?       
 else
   # > 1 input files
   tmp=()
@@ -576,11 +566,19 @@ done
 append_time_string "backend_start"
 # Produce the requested output file
 if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
-  ${CLANG} \
+  if [[ $cuda_kern == 1 ]]; then
+    ${CLANG} \
+    $opts -target nvptx64-nvidia-cuda ${optimization} $compat_flags_clang \
+    -c \
+    "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
+    -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
+  else
+    ${CLANG} \
     $opts ${optimization} $compat_flags_clang \
     -c \
     "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
     -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
+  fi  
 fi
 if [[ $emit_source == "s" ]]; then
   cp "${temporary_dir}/${output_basename}.taffotmp.s" "$output_file"
