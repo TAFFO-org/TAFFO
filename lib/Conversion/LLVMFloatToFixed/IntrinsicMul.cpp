@@ -26,21 +26,8 @@ Value* FloatToFixed::TransformToMulIntrinsic(Value *val1,
                         const FixedPointType& type2,
                                              Instruction *instr,
                         const FixedPointType &result_type) {
-  FixedPointType signedType1;
-  FixedPointType signedType2;
-  if (auto *const1 = dyn_cast<ConstantInt>(val1)) {
-    int intBits1 = const1->getValue().abs().getActiveBits();
-    signedType1 = FixedPointType(true, type1.scalarBitsAmt() - intBits1 - 1, type1.scalarBitsAmt());
-  } else {
-    signedType1 = ToSigned(type1);
-  }
-  if (auto *const2 = dyn_cast<ConstantInt>(val2)) {
-    int intBits2 = const2->getValue().abs().getActiveBits();
-    signedType2 = FixedPointType(true, type2.scalarBitsAmt() - intBits2 - 1, type2.scalarBitsAmt());
-  } else {
-    signedType2 = ToSigned(type2);
-  }
-
+  FixedPointType signedType1 = ToMinSignedType(type1, val1);
+  FixedPointType signedType2 = ToMinSignedType(type2, val2);
   FixedPointType signedResultType = ToSigned(result_type);
   Value* signedVal1 = genConvertFixedToFixed(val1, type1, signedType1, instr);
   Value* signedVal2 = genConvertFixedToFixed(val2, type2, signedType2, instr);
@@ -56,6 +43,21 @@ FixedPointType FloatToFixed::ToSigned(const FixedPointType& type) {
   fracBits = fracBits < 0 ? 0 : fracBits;
   FixedPointType signedType(true, fracBits, type.scalarBitsAmt());
   return signedType;
+}
+
+FixedPointType FloatToFixed::ToMinSignedType(const flttofix::FixedPointType &type1, llvm::Value *val1)
+{
+  FixedPointType signedType1;
+  if (type1.scalarFracBitsAmt() == 0 && isa<ConstantInt>(val1)) {
+    auto *const1 = dyn_cast<ConstantInt>(val1);
+    int intBits1 = const1->getValue().abs().getActiveBits();
+    int fracBits = type1.scalarBitsAmt() - intBits1 - 1;
+    if (fracBits < 0) fracBits = 0;
+    signedType1 = FixedPointType(true, fracBits, type1.scalarBitsAmt());
+  } else {
+    signedType1 = ToSigned(type1);
+  }
+  return signedType1;
 }
 
 Value* FloatToFixed::TransformToMulIntrinsicOpSigned(Value *val1,
@@ -124,20 +126,8 @@ Value* FloatToFixed::TransformToDivIntrinsic(Value *val1,
                                              const FixedPointType& type2,
                                              Instruction *instr,
                                              const FixedPointType &result_type) {
-  FixedPointType signedType1;
-  FixedPointType signedType2;
-  if (auto *const1 = dyn_cast<ConstantInt>(val1)) {
-    int intBits1 = const1->getValue().abs().getActiveBits();
-    signedType1 = FixedPointType(true, type1.scalarBitsAmt() - intBits1 - 1, type1.scalarBitsAmt());
-  } else {
-    signedType1 = ToSigned(type1);
-  }
-  if (auto *const2 = dyn_cast<ConstantInt>(val2)) {
-    int intBits2 = const2->getValue().abs().getActiveBits();
-    signedType2 = FixedPointType(true, type2.scalarBitsAmt() - intBits2 - 1, type2.scalarBitsAmt());
-  } else {
-    signedType2 = ToSigned(type2);
-  }
+  FixedPointType signedType1 = ToMinSignedType(type1, val1);
+  FixedPointType signedType2 = ToMinSignedType(type2, val2);
   FixedPointType signedResultType = ToSigned(result_type);
   Value* signedVal1 = genConvertFixedToFixed(val1, type1, signedType1, instr);
   Value* signedVal2 = genConvertFixedToFixed(val2, type2, signedType2, instr);
