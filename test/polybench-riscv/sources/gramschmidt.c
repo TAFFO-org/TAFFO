@@ -32,8 +32,8 @@ void init_array(int m, int n,
 		DATA_TYPE POLYBENCH_2D(R,N,N,n,n),
 		DATA_TYPE POLYBENCH_2D(Q,M,N,m,n))
 {
-  int i __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) " final))")));
-  int j __attribute__((annotate("scalar(range(-" PB_XSTR(N) ", " PB_XSTR(N) " final))")));
+  int i __attribute__((annotate("scalar(range(0.0, " PB_XSTR(N) "))")));
+  int j __attribute__((annotate("scalar(range(0.0, " PB_XSTR(N) "))")));
 
   for (i = 0; i < m; i++)
     for (j = 0; j < n; j++) {
@@ -90,7 +90,7 @@ void kernel_gramschmidt(int m, int n,
 {
   int i, j, k;
 
-  DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final)"))) nrm;
+  DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000))"))) nrm;
 
 #pragma scop
   for (k = 0; k < _PB_N; k++)

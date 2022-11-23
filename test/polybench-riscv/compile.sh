@@ -205,6 +205,7 @@ for bench in $all_benchs; do
             "-m32 \
             ${CFLAGS}"
     else
+      stats=$(read_stats ${benchname} ${scaling})
       compile_one "$bench" \
             "$scaling" \
             "-m32 \
@@ -218,7 +219,7 @@ for bench in $all_benchs; do
       bpid_fc=' ok '
     fi
     printf '\033[1G[%4s] %s\n' "$bpid_fc" "$benchname"_"$scaling"
-    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.dynamic.5.out.ll \
+    taffo-instmix build/"$scaling"/"$benchname"/${benchname}.out.ll \
      1> build_stats/"$scaling"/"$benchname"/${benchname}.mix.txt \
      2> build_stats/"$scaling"/"$benchname"/${benchname}.mix.log.txt
 
@@ -242,23 +243,23 @@ for bench in $all_benchs; do
 #      build/"$scaling"/"$benchname"/${benchname}.dynamic.out.ll \
 #      -o /dev/null
 #
-    "$OPT" \
-      -S \
-      -debug \
-      -load "$LAMP_SIMULATOR" \
-      -lampsim \
-      "$mantissaopts" \
-      build/"$scaling"/"$benchname"/${benchname}.out.ll \
-      -o build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll
-
-    $CLANG \
-      build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll \
-      -m32 \
-      -o build/"$scaling"/"$benchname"/${benchname}.lamp
+#    "$OPT" \
+#      -S \
+#      -debug \
+#      -load "$LAMP_SIMULATOR" \
+#      -lampsim \
+#      "$mantissaopts" \
+#      build/"$scaling"/"$benchname"/${benchname}.out.ll \
+#      -o build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll
+#
+#    $CLANG \
+#      build/"$scaling"/"$benchname"/${benchname}.lamp.out.ll \
+#      -m32 \
+#      -o build/"$scaling"/"$benchname"/${benchname}.lamp
   done
-  if [ $benchname = "2mm" ]; then
-     break
-  fi
+#  if [ $benchname = "2mm" ]; then
+#     break
+#  fi
 done
 
 

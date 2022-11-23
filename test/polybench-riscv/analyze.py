@@ -44,7 +44,7 @@ def main(argv):
             except:
                 print(f"{bench}_{scale} ops stats compilation error")
                 ops_stats = pd.DataFrame()
-                ops_stats = ops_stats.append({}, ignore_index=True)
+                ops_stats = ops_stats.concat([ops_stats, pd.DataFrame([{}])])
                 ops_placeholder = np.nan
 
             fz_placeholder = 0
@@ -63,7 +63,7 @@ def main(argv):
                 (fz_stats['op0_range_normal'] > 0) &
                 (fz_stats['op1_range_normal'] > 0)
             )]
-            print(fz_stats_valid)
+            # print(fz_stats_valid)
 
             float_op_count = 0
             by_opcode_count = {
@@ -130,24 +130,24 @@ def main(argv):
                 'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
                 'fadd': ops_stats.iloc[0].get("fadd", ops_placeholder),
                 'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
-                'total_float': len(fz_stats),
-                'float_finite_ranges': len(fz_stats_valid),
-                'min_exp_diff': min(fz_stats_valid['max_exponent_diff']),
-                'max_exp_diff': max(fz_stats_valid['max_exponent_diff']),
-                'exp_diff_lt7': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]),
-                'exp_diff_lt10': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]),
-                'exp_diff_lt15': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]),
-                'exp_diff_lt23': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]),
-                'exp_diff_lt7_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]), len(fz_stats_valid)),
-                'exp_diff_lt10_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]), len(fz_stats_valid)),
-                'exp_diff_lt15_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]), len(fz_stats_valid)),
-                'exp_diff_lt23_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]), len(fz_stats_valid)),
+                # 'total_float': len(fz_stats),
+                # 'float_finite_ranges': len(fz_stats_valid),
+                # 'min_exp_diff': min(fz_stats_valid['max_exponent_diff']),
+                # 'max_exp_diff': max(fz_stats_valid['max_exponent_diff']),
+                # 'exp_diff_lt7': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]),
+                # 'exp_diff_lt10': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]),
+                # 'exp_diff_lt15': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]),
+                # 'exp_diff_lt23': len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]),
+                # 'exp_diff_lt7_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 7]), len(fz_stats_valid)),
+                # 'exp_diff_lt10_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 10]), len(fz_stats_valid)),
+                # 'exp_diff_lt15_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 15]), len(fz_stats_valid)),
+                # 'exp_diff_lt23_rel': safe_div(len(fz_stats_valid[fz_stats_valid['max_exponent_diff'] < 23]), len(fz_stats_valid)),
                 'err_float16': err_float16,
                 'err_float19': err_float19,
                 'err_float24': err_float24,
                 'err_float32': err_float32,
             }
-            stats_summary = stats_summary.append(stats_row, ignore_index=True)
+            stats_summary = pd.concat([stats_summary, pd.DataFrame([stats_row])])
 
     stats_summary = stats_summary.sort_values(['bench', 'scale'], ascending=False)
     stats_summary["bench_scale"] = stats_summary['bench'].astype(str) +"-"+ stats_summary["scale"].astype(str)

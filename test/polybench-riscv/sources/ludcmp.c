@@ -34,7 +34,7 @@ void init_array (int n,
 		 DATA_TYPE POLYBENCH_1D(x,N,n),
 		 DATA_TYPE POLYBENCH_1D(y,N,n))
 {
-  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) ") final)")));
+  int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   DATA_TYPE __attribute__((annotate("scalar()"))) fn = (DATA_TYPE)n;
 
@@ -119,7 +119,7 @@ void kernel_ludcmp(int n,
 {
   int i, j, k;
 
-  DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) final)"))) w;
+  DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final)"))) w;
 
 #pragma scop
   for (i = 0; i < _PB_N; i++) {
