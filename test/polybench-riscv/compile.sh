@@ -33,6 +33,12 @@ if [[ -z $(which taffo) ]]; then
   echo -e '\031[33m'"Error"'\033[39m'" taffo command not found. Install taffo and make sure the place where you installed it is in your PATH!";
 fi
 
+to_executable()
+{
+  bench_ll="$1"
+  output_name="$2"
+  $CLANG -m32 "$bench_ll" -o "$output_name"
+}
 
 compile_one()
 {
@@ -52,6 +58,11 @@ compile_one()
     -lm \
     -DSCALING_FACTOR=$scaling \
     2> build/"$scaling"/"$benchname"/${benchname}.log || return $?
+
+  to_executable \
+    build/"$scaling"/"$benchname"/"$benchname".out.ll \
+    build/"$scaling"/"$benchname"/"$benchname".out \
+    2>> build/"$scaling"/"$benchname"/${benchname}.log || return $?
 }
 
 compile_one_dynamic()
@@ -151,7 +162,7 @@ SCALING_MAX=4
 
 if [[ -z $mixedmode ]];  then export mixedmode=0; fi
 if [[ -z $floatmode ]];  then export floatmode=0; fi
-if [[ -z $CFLAGS ]];     then export CFLAGS='-g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize'; fi
+if [[ -z $CFLAGS ]];     then export CFLAGS='-g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize -D_PRINT_OUTPUT -DPOLYBENCH_DUMP_ARRAYS'; fi
 if [[ -z $errorprop ]];  then export errorprop=''; fi # -enable-err
 if [[ -z $costmodel ]];  then export costmodel=soc_im_zm; fi
 if [[ -z $instrset ]];   then export instrset=soc_zoni; fi

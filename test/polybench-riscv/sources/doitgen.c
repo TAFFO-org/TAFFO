@@ -49,7 +49,7 @@ void init_array(int nr, int nq, int np,
 }
 
 
-#ifndef _LAMP
+#if (!defined _LAMP) || (defined _PRINT_OUTPUT)
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static
@@ -164,6 +164,9 @@ int main(int argc, char** argv)
     for (int j = 0; j < nq; j++)
       for (int k = 0; k < np; k++)
 	      A_float[i][j][k] = A[i][j][k];
+#ifdef _PRINT_OUTPUT
+  polybench_prevent_dce(print_array(nr, nq, np,  POLYBENCH_ARRAY(A_float)));
+#endif
 #endif
 
   return 0;
