@@ -7,6 +7,12 @@ LAMP_SIMULATOR := $(LAMP_SIMULATOR_DIR)/LAMPSimulator/LAMPSimulator.so
 TAFFO := $(shell eval which taffo)
 TAFFO_PREFIX := $(dir $(TAFFO))/..
 TAFFO_INSTMIX := $(shell eval which taffo-instmix)
+DEBUG := 0
+ifeq ($(DEBUG), 1)
+	DEBUG_TAFFO := -debug-taffo
+else
+	DEBUG_TAFFO :=
+endif
 
 BUILD_DIR := ./build
 SRC_DIR := ./sources
@@ -17,13 +23,14 @@ CFLAGS := -g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -f
 errorprop :=
 costmodel := soc_im_zm
 instrset := soc_zoni
+instrset_file := $(TAFFO_PREFIX)/share/ILP/constrain/$(instrset)
 enobweight := 1000
 timeweight := 1000
 castweight := 1
 
 modes := float fixed mixed
-#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
-benchmarks := 2mm
+benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#benchmarks := 2mm
 mantissa_sizes := 8 11 16 24
 input_sizes := standard
 scaling_factors := 1
@@ -40,13 +47,6 @@ jobs := $(foreach bench, $(benchmarks), \
 						$(foreach scaling, $(scaling_factors), \
 							job-$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa) )))))
 
-.PHONY: all
-all: ${stats_jobs} ${jobs} ; echo $@ Success
-
-.PHONY: clean
-clean:
-	rm -r $(BUILD_DIR)
-
 bench = $(word 1, $(subst -, ,$*))
 input_size = $(word 2, $(subst -, ,$*))
 scaling = $(word 3, $(subst -, ,$*))
@@ -55,9 +55,22 @@ mantissa = $(word 5, $(subst -, ,$*))
 bench_src = $(SRC_DIR)/$(bench).c
 job_dir = $(BUILD_DIR)/bin/$(mode)/$(bench)/$(mantissa)
 job_file_base = $(job_dir)/$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa)
-
 stats_job_dir = $(BUILD_DIR)/stats/$(bench)/$(scaling)
 stats_job_file_base = $(stats_job_dir)/$(bench)-$(input_size)-$(scaling)
+summary_dir = $(BUILD_DIR)/summary
+configurations_file = $(BUILD_DIR)/configurations.csv
+
+.PHONY: all
+all: $(clean_configurations) ${stats_jobs} ${jobs} summary ; echo $@ Success
+
+.PHONY: clean
+clean:
+	rm -r $(BUILD_DIR)
+
+.PHONY: clean_configurations
+clean_configurations:
+	rm -r $(configurations_file)
+
 .PHONY: ${stats_jobs}
 ${stats_jobs}: stats-job-%:
 	@mkdir -p $(stats_job_dir)
@@ -68,9 +81,9 @@ ${stats_jobs}: stats-job-%:
 
 .PHONY: ${jobs}
 ${jobs}: job-%:
-	@#echo mode is $(mode) bench is $(bench) mantissa is $(mantissa) input size is $(input_size) scaling is $(scaling)
+	@echo $(bench),$(input_size),$(scaling),$(mode),$(mantissa),$(job_file_base),$(stats_job_file_base) \
+ 		>> $(configurations_file)
 	@mkdir -p $(job_dir)
-	@#$(call read_stats)
 	$(call build_$(mode))
 	$(call truncated_precision)
 	$(call compile_binary)
@@ -78,6 +91,11 @@ ${jobs}: job-%:
 	$(call call_binary)
 	$(call call_truncated_binary)
 	$(call run_instmix)
+
+.PHONY: summary
+summary:
+	@mkdir -p $(summary_dir)
+	@python3 ./analyze.py $(BUILD_DIR)
 
 define build_float
     @echo float $(bench) $(mantissa)
@@ -103,7 +121,7 @@ define build_fixed
 		-emit-llvm \
 		-temp-dir $(job_dir) \
 		-lm \
-		-debug-taffo \
+		$(DEBUG_TAFFO) \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		$$VAR_RANGES \
@@ -120,10 +138,10 @@ define build_mixed
 		-emit-llvm \
 		-temp-dir $(job_dir) \
 		-lm \
-		-debug-taffo \
+		$(DEBUG_TAFFO) \
 		-mixedmode \
 		-costmodel $(costmodel) \
-		-instructionsetfile=$(TAFFO_PREFIX)/share/ILP/constrain/$(instrset) \
+		-instructionsetfile=$(instrset_file) \
 		-Xdta -mixedtuningenob -Xdta $(enobweight) \
 		-Xdta -mixedtuningtime -Xdta $(timeweight) \
 		-Xdta -mixedtuningcastingtime -Xdta $(castweight) \
@@ -155,6 +173,7 @@ define stats_build_tracing
 		-o $(stats_job_file_base).out.dynamic_instrumented \
 		-O0 -disable-O0-optnone \
 		-lm \
+		$(DEBUG_TAFFO) \
 		-dynamic-instrument \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
