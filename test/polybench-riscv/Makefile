@@ -20,8 +20,8 @@ timeweight := 1000
 castweight := 1
 
 modes := float fixed mixed
-benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
-#benchmarks := 2mm 3mm
+#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+benchmarks := 2mm
 mantissa_sizes := 8 11 16 24
 input_sizes := standard
 scaling_factors := 1
@@ -51,13 +51,15 @@ job_file_base = $(job_dir)/$(bench)-$(mantissa)-$(input_size)-$(scaling)
 
 .PHONY: ${jobs}
 ${jobs}: job-%:
-	@echo $(TAFFO_PREFIX)
 	@#echo mode is $(mode) bench is $(bench) mantissa is $(mantissa) input size is $(input_size) scaling is $(scaling)
 	@mkdir -p $(job_dir)
 	@#$(call read_stats)
 	$(call build_$(mode))
+	$(call truncated_precision)
 	$(call compile_binary)
+	$(call compile_truncated_binary)
 	$(call call_binary)
+	$(call call_truncated_binary)
 
 define build_float
     @echo float $(bench) $(mantissa)
@@ -115,6 +117,18 @@ define build_mixed
 		2> $(job_file_base).log
 endef
 
+define truncated_precision
+	$(OPT) \
+	-S \
+	-debug \
+	-load $(LAMP_SIMULATOR) \
+	--load-pass-plugin=$(LAMP_SIMULATOR) \
+	--passes="no-op-function,lampsim" \
+	-mantissa=$(mantissa) \
+	$(job_file_base).out.ll \
+	-o $(job_file_base).lamp.out.ll
+endef
+
 define compile_binary
 	$(CLANG) \
 		$(job_file_base).out.ll \
@@ -122,8 +136,19 @@ define compile_binary
 		-o $(job_file_base).out
 endef
 
+define compile_truncated_binary
+	$(CLANG) \
+		$(job_file_base).lamp.out.ll \
+		-m32 \
+		-o $(job_file_base).lamp.out
+endef
+
 define call_binary
 	$(job_file_base).out 2> $(job_file_base).csv
+endef
+
+define call_truncated_binary
+	$(job_file_base).lamp.out 2> $(job_file_base).lamp.csv
 endef
 
 define read_stats
