@@ -2,9 +2,11 @@ LLVM_BIN := $(LLVM_DIR)/bin/
 OPT := $(LLVM_BIN)opt
 CLANG := $(LLVM_BIN)clang
 CLANGXX := $(CLANG)++
-LAMP_SIMULATOR := /home/denisovlev/Projects/LAMPSimulator/build/LAMPSimulator/LAMPSimulator.so
+LAMP_SIMULATOR_DIR := /home/denisovlev/Projects/LAMPSimulator/build/
+LAMP_SIMULATOR := $(LAMP_SIMULATOR_DIR)/LAMPSimulator/LAMPSimulator.so
 TAFFO := $(shell eval which taffo)
 TAFFO_PREFIX := $(dir $(TAFFO))/..
+TAFFO_INSTMIX := $(shell eval which taffo-instmix)
 
 BUILD_DIR := ./build
 SRC_DIR := ./sources
@@ -75,6 +77,7 @@ ${jobs}: job-%:
 	$(call compile_truncated_binary)
 	$(call call_binary)
 	$(call call_truncated_binary)
+	$(call run_instmix)
 
 define build_float
     @echo float $(bench) $(mantissa)
@@ -187,6 +190,12 @@ define compile_truncated_binary
 		$(job_file_base).lamp.out.ll \
 		-m32 \
 		-o $(job_file_base).lamp.out
+endef
+
+define run_instmix
+	$(TAFFO_INSTMIX) $(job_file_base).out.ll \
+		1> $(job_file_base).mix.txt \
+		2> $(job_file_base).mix.log.txt
 endef
 
 define call_binary
