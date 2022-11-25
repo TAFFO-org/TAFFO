@@ -26,28 +26,43 @@ mantissa_sizes := 8 11 16 24
 input_sizes := standard
 scaling_factors := 1
 
+stats_jobs := $(foreach bench, $(benchmarks), \
+				$(foreach input_size, $(input_sizes), \
+					$(foreach scaling, $(scaling_factors), \
+						stats-job-$(bench)-$(input_size)-$(scaling) )))
+
 jobs := $(foreach bench, $(benchmarks), \
 			$(foreach mode, $(modes), \
 				$(foreach mantissa, $(mantissa_sizes), \
 					$(foreach input_size, $(input_sizes), \
 						$(foreach scaling, $(scaling_factors), \
-							job-$(mode)-$(bench)-$(mantissa)-$(input_size)-$(scaling) )))))
+							job-$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa) )))))
 
 .PHONY: all
-all: ${jobs} ; echo $@ Success
+all: ${stats_jobs} ${jobs} ; echo $@ Success
 
 .PHONY: clean
 clean:
 	rm -r $(BUILD_DIR)
 
-mode = $(word 1, $(subst -, ,$*))
-bench = $(word 2, $(subst -, ,$*))
-mantissa = $(word 3, $(subst -, ,$*))
-input_size = $(word 4, $(subst -, ,$*))
-scaling = $(word 5, $(subst -, ,$*))
+bench = $(word 1, $(subst -, ,$*))
+input_size = $(word 2, $(subst -, ,$*))
+scaling = $(word 3, $(subst -, ,$*))
+mode = $(word 4, $(subst -, ,$*))
+mantissa = $(word 5, $(subst -, ,$*))
 bench_src = $(SRC_DIR)/$(bench).c
 job_dir = $(BUILD_DIR)/bin/$(mode)/$(bench)/$(mantissa)
-job_file_base = $(job_dir)/$(bench)-$(mantissa)-$(input_size)-$(scaling)
+job_file_base = $(job_dir)/$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa)
+
+stats_job_dir = $(BUILD_DIR)/stats/$(bench)/$(scaling)
+stats_job_file_base = $(stats_job_dir)/$(bench)-$(input_size)-$(scaling)
+.PHONY: ${stats_jobs}
+${stats_jobs}: stats-job-%:
+	@mkdir -p $(stats_job_dir)
+	$(call stats_build)
+	$(call stats_build_run)
+	$(call stats_build_tracing)
+	$(call stats_build_tracing_run)
 
 .PHONY: ${jobs}
 ${jobs}: job-%:
@@ -80,7 +95,7 @@ endef
 define build_fixed
     @echo fixed $(bench) $(mantissa)
     export VAR_RANGES=$$($(call read_stats)); \
-    taffo \
+    $(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
@@ -97,7 +112,7 @@ endef
 define build_mixed
     @echo mixed $(bench) $(mantissa)
     export VAR_RANGES=$$($(call read_stats)); \
-	taffo \
+	$(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
@@ -115,6 +130,37 @@ define build_mixed
 		$(CFLAGS) \
 		-DSCALING_FACTOR=$(scaling) \
 		2> $(job_file_base).log
+endef
+
+define stats_build
+	$(CLANG) \
+		-o $(stats_job_file_base).out \
+		$(bench_src) \
+		-I$(HEADERS_DIR) \
+		-DCOLLECT_STATS \
+		-DSCALING_FACTOR=$(scaling) \
+		2> $(stats_job_file_base).log
+endef
+
+define stats_build_run
+	@$(stats_job_file_base).out 2> $(stats_job_file_base).csv
+endef
+
+define stats_build_tracing
+	$(TAFFO) \
+	 	-temp-dir $(stats_job_dir) \
+		-o $(stats_job_file_base).out.dynamic_instrumented \
+		-O0 -disable-O0-optnone \
+		-lm \
+		-dynamic-instrument \
+		$(bench_src) \
+		-I$(HEADERS_DIR) \
+		-DSCALING_FACTOR=$(scaling) \
+		2> $(stats_job_file_base).dynamic_instrumented.log
+endef
+
+define stats_build_tracing_run
+	@$(stats_job_file_base).out.dynamic_instrumented > $(stats_job_file_base).instrumented.trace
 endef
 
 define truncated_precision
@@ -152,5 +198,5 @@ define call_truncated_binary
 endef
 
 define read_stats
-  python3 ./stats_to_opts.py ./build_stats/$(scaling)/$(bench)/$(bench).csv
+  python3 ./stats_to_opts.py $(stats_job_file_base).csv
 endef
