@@ -10,6 +10,7 @@ import numpy as np
 from io import StringIO
 import math
 from pandas.api.types import CategoricalDtype
+from decimal import *
 
 pd.options.display.max_columns = None
 # plt.rcParams.update({'font.size': 8})
@@ -26,6 +27,54 @@ def main(argv):
                           names=["bench", "input_size", "scaling", "mode", "mantissa", "job_file_base", "stats_job_file_base"])
     print(configs)
     stats_summary = pd.DataFrame()
+    bench_results = pd.DataFrame()
+    highest_precision = pd.DataFrame()
+    for index, config in configs.iterrows():
+        bench = config['bench']
+        input_size = config['input_size']
+        scaling = config['scaling']
+        mode = config['mode']
+        mantissa = config['mantissa']
+        job_file_base = config['job_file_base']
+        bench_results_path = f"{job_file_base}.csv"
+        bench_lamp_results_path = f"{job_file_base}.lamp.csv"
+
+        try:
+            regular_data = np.fromiter(ReadValues(bench_results_path), dtype=object, count=-1)
+            lamp_data = np.fromiter(ReadValues(bench_lamp_results_path), dtype=object, count=-1)
+            data_row1 = {
+                'bench': bench,
+                'input_size': input_size,
+                'scale': int(scaling),
+                'mode': mode,
+                'mantissa': int(mantissa),
+                'job_file_base': job_file_base,
+                'bench_type': 'regular',
+                'data': regular_data
+            }
+            data_row2 = {
+                'bench': bench,
+                'input_size': input_size,
+                'scale': int(scaling),
+                'mode': mode,
+                'mantissa': int(mantissa),
+                'job_file_base': job_file_base,
+                'bench_type': 'lamp',
+                'data': lamp_data
+            }
+            row_df = pd.DataFrame([data_row1, data_row2])
+            bench_results = pd.concat([bench_results, row_df], ignore_index=True)
+        except Exception as inst:
+            print(f"{bench}_{scaling} ops stats compilation error: {str(inst)}")
+
+    highest_precision = bench_results[
+                        (bench_results['input_size'] == 'standard') &
+                        (bench_results['scale'] == 1) &
+                        (bench_results['mode'] == 'float') &
+                        (bench_results['bench_type'] == 'regular') &
+                        (bench_results['mantissa'] == 24)
+    ]
+
     for index, config in configs.iterrows():
         bench = config['bench']
         input_size = config['input_size']
@@ -84,11 +133,24 @@ def main(argv):
 
 
         logn = math.ceil(math.log2(float_op_count))
-        log_max_value = math.ceil(math.log2(float_op_abs_max))
-        err_float16 = logn - 7
-        err_float19 = logn - 10
-        err_float24 = logn - 15
-        err_float32 = logn - 23
+        # log_max_value = math.ceil(math.log2(float_op_abs_max))
+        # err_float16 = logn - 7
+        # err_float19 = logn - 10
+        # err_float24 = logn - 15
+        # err_float32 = logn - 23
+        err_perc_predicted_order = logn - int(mantissa) + 1
+
+        # print(highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data'])
+        precise_data = highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data']
+        approx_data = bench_results[
+            (bench_results['bench'] == bench) &
+            (bench_results['input_size'] == input_size) &
+            (bench_results['scale'] == int(scaling)) &
+            (bench_results['mode'] == mode) &
+            (bench_results['bench_type'] == 'lamp') &
+            (bench_results['mantissa'] == int(mantissa))
+        ].iloc[0]['data']
+        err_metrics = ComputeDifference(precise_data, approx_data)
 
         # print(ops_stats)
         stats_row = {
@@ -123,11 +185,13 @@ def main(argv):
             'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
             'fadd': ops_stats.iloc[0].get("fadd", ops_placeholder),
             'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
-            'err_float16': err_float16,
-            'err_float19': err_float19,
-            'err_float24': err_float24,
-            'err_float32': err_float32,
+            'err_predicted_perc_order': err_perc_predicted_order,
+            # 'err_float16': err_float16,
+            # 'err_float19': err_float19,
+            # 'err_float24': err_float24,
+            # 'err_float32': err_float32,
         }
+        stats_row.update(err_metrics)
         row_df = pd.DataFrame([stats_row])
         stats_summary = pd.concat([stats_summary, row_df])
 
@@ -140,8 +204,33 @@ def main(argv):
     stats_summary.to_csv(f'{results_path}/stats_summary.csv', index = None, header=True)
 
     plot_mode(results_path, stats_summary)
-    plt.show()
+    plot_error(results_path, stats_summary)
+    # plt.show()
 
+
+def plot_error(results_path, stats_summary_full):
+    file_base = f'{results_path}/errors'
+
+    stats_summary_float = stats_summary_full[(stats_summary_full['mode'] == 'float')]
+    stats_summary_fixed = stats_summary_full[(stats_summary_full['mode'] == 'fixed')]
+    stats_summary_mixed = stats_summary_full[(stats_summary_full['mode'] == 'mixed')]
+
+    fig, axd = plt.subplot_mosaic([['float', 'fixed'],['mixed', 'predicted']], constrained_layout=True)
+    fig.suptitle('Calculated and predicted log2(relative error)')
+    fig.set_size_inches(18, 12, forward=True)
+    float_err = stats_summary_float.pivot(index='bench', columns='mantissa', values='e_perc_order')
+    sns.heatmap(float_err, annot=True, linewidths=.5, ax=axd['float'], cmap='coolwarm', vmin=-25, vmax=25)
+    axd['float'].title.set_text('float')
+    fixed_err = stats_summary_fixed.pivot(index='bench', columns='mantissa', values='e_perc_order')
+    sns.heatmap(fixed_err, annot=True, linewidths=.5, ax=axd['fixed'], cmap='coolwarm', vmin=-25, vmax=25)
+    axd['fixed'].title.set_text('fixed')
+    mixed_err = stats_summary_mixed.pivot(index='bench', columns='mantissa', values='e_perc_order')
+    sns.heatmap(mixed_err, annot=True, linewidths=.5, ax=axd['mixed'], cmap='coolwarm', vmin=-25, vmax=25)
+    axd['mixed'].title.set_text('mixed')
+    predicted_err = stats_summary_float.pivot(index='bench', columns='mantissa', values='err_predicted_perc_order')
+    sns.heatmap(predicted_err, annot=True, linewidths=.5, ax=axd['predicted'], cmap='coolwarm', vmin=-25, vmax=25)
+    axd['predicted'].title.set_text('predicted')
+    fig.savefig(f'{file_base}_relative.png', dpi=fig.dpi)
 
 def plot_mode(results_path, stats_summary_full):
     file_base = f'{results_path}/modes'
@@ -200,6 +289,50 @@ def plot_mode(results_path, stats_summary_full):
     ax3[1, 1].title.set_text('fsub')
     fig3.savefig(f'{file_base}_add_sub.png', dpi=fig3.dpi)
 
+
+def ReadValues(filename):
+    with open(filename, 'r') as f:
+        l = f.readline()
+        while l != '':
+            for v in l.strip().split():
+                if v != '':
+                    yield v
+            l = f.readline()
+def ComputeDifference(fix_data, flt_data):
+    n = 0
+    accerr = Decimal(0)
+    accval = Decimal(0)
+    fix_nofl = 0
+    flo_nofl = 0
+
+    thres_ofl_cp = Decimal('0.01')
+
+    for svfix, svflo in zip(fix_data, flt_data):
+        vfix, vflo = Decimal(svfix), Decimal(svflo)
+
+        if not vfix.is_finite():
+            fix_nofl += 1
+        elif not vflo.is_finite():
+            flo_nofl += 1
+            fix_nofl += 1
+        elif ((vflo + vfix).copy_abs() - (vflo.copy_abs() + vfix.copy_abs())) > thres_ofl_cp:
+            fix_nofl += 1
+        else:
+            n += 1
+            accerr += (vflo - vfix).copy_abs()
+            accval += vflo
+
+    e_perc = (accerr / accval.copy_abs() * 100) if accval != 0 and n > 0 else -1
+    e_abs = (accerr / n) if n > 0 else -1
+
+    return {
+        'e_perc_order': np.ceil(np.log2(float(e_perc))),
+        'e_abs_order': np.ceil(np.log2(float(e_abs))),
+        'fix_nofl': fix_nofl,
+        'flo_nofl': flo_nofl,
+        'e_perc': e_perc,
+        'e_abs': e_abs,
+    }
 
 if __name__ == "__main__":
     main(sys.argv[1:])
