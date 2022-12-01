@@ -131,15 +131,6 @@ def main(argv):
                     float_op_abs_max = max(float_op_abs_max, abs(value))
                     by_opcode_abs_max[opcode] = max(by_opcode_abs_max[opcode], abs(value))
 
-
-        logn = math.ceil(math.log2(float_op_count))
-        # log_max_value = math.ceil(math.log2(float_op_abs_max))
-        # err_float16 = logn - 7
-        # err_float19 = logn - 10
-        # err_float24 = logn - 15
-        # err_float32 = logn - 23
-        err_perc_predicted_order = logn - int(mantissa) + 1
-
         # print(highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data'])
         precise_data = highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data']
         approx_data = bench_results[
@@ -152,6 +143,15 @@ def main(argv):
         ].iloc[0]['data']
         err_metrics = ComputeDifference(precise_data, approx_data)
 
+        logn = np.ceil(np.log2(float_op_count))
+        # log_max_value = np.ceil(np.log2(float_op_abs_max))
+        # err_float16 = logn - 7
+        # err_float19 = logn - 10
+        # err_float24 = logn - 15
+        # err_float32 = logn - 23
+        err_perc_predicted_order = logn - int(mantissa) + 1
+        err_perc_predicted_order_adjusted = logn - int(mantissa) + 1 - np.floor(np.log2(err_metrics['output_size']))
+
         # print(ops_stats)
         stats_row = {
             'bench': bench,
@@ -159,6 +159,7 @@ def main(argv):
             'scale': int(scaling),
             'mode': mode,
             'mantissa': int(mantissa),
+            'float_type': (f"float{int(mantissa) + 8}" if (int(mantissa) != 8) else "bfloat16"),
             'job_file_base': job_file_base,
             'stats_job_file_base': stats_job_file_base,
             'var_min': var_stats['var_min'].min(),
@@ -186,6 +187,7 @@ def main(argv):
             'fadd': ops_stats.iloc[0].get("fadd", ops_placeholder),
             'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
             'err_predicted_perc_order': err_perc_predicted_order,
+            'err_predicted_perc_order_adjusted': err_perc_predicted_order_adjusted,
             # 'err_float16': err_float16,
             # 'err_float19': err_float19,
             # 'err_float24': err_float24,
@@ -215,21 +217,24 @@ def plot_error(results_path, stats_summary_full):
     stats_summary_fixed = stats_summary_full[(stats_summary_full['mode'] == 'fixed')]
     stats_summary_mixed = stats_summary_full[(stats_summary_full['mode'] == 'mixed')]
 
-    fig, axd = plt.subplot_mosaic([['float', 'fixed'],['mixed', 'predicted']], constrained_layout=True)
+    fig, axd = plt.subplot_mosaic([['float', 'fixed', 'mixed'],['predicted', 'predicted_adjusted', 'empty']], constrained_layout=True)
     fig.suptitle('Calculated and predicted log2(relative error)')
-    fig.set_size_inches(18, 12, forward=True)
-    float_err = stats_summary_float.pivot(index='bench', columns='mantissa', values='e_perc_order')
+    fig.set_size_inches(22, 12, forward=True)
+    float_err = stats_summary_float.pivot(index='bench', columns='float_type', values='e_perc_order')
     sns.heatmap(float_err, annot=True, linewidths=.5, ax=axd['float'], cmap='coolwarm', vmin=-25, vmax=25)
     axd['float'].title.set_text('float')
-    fixed_err = stats_summary_fixed.pivot(index='bench', columns='mantissa', values='e_perc_order')
+    fixed_err = stats_summary_fixed.pivot(index='bench', columns='float_type', values='e_perc_order')
     sns.heatmap(fixed_err, annot=True, linewidths=.5, ax=axd['fixed'], cmap='coolwarm', vmin=-25, vmax=25)
     axd['fixed'].title.set_text('fixed')
-    mixed_err = stats_summary_mixed.pivot(index='bench', columns='mantissa', values='e_perc_order')
+    mixed_err = stats_summary_mixed.pivot(index='bench', columns='float_type', values='e_perc_order')
     sns.heatmap(mixed_err, annot=True, linewidths=.5, ax=axd['mixed'], cmap='coolwarm', vmin=-25, vmax=25)
     axd['mixed'].title.set_text('mixed')
-    predicted_err = stats_summary_float.pivot(index='bench', columns='mantissa', values='err_predicted_perc_order')
+    predicted_err = stats_summary_float.pivot(index='bench', columns='float_type', values='err_predicted_perc_order')
     sns.heatmap(predicted_err, annot=True, linewidths=.5, ax=axd['predicted'], cmap='coolwarm', vmin=-25, vmax=25)
     axd['predicted'].title.set_text('predicted')
+    predicted_err = stats_summary_float.pivot(index='bench', columns='float_type', values='err_predicted_perc_order_adjusted')
+    sns.heatmap(predicted_err, annot=True, linewidths=.5, ax=axd['predicted_adjusted'], cmap='coolwarm', vmin=-25, vmax=25)
+    axd['predicted_adjusted'].title.set_text('predicted adjusted to output size')
     fig.savefig(f'{file_base}_relative.png', dpi=fig.dpi)
 
 def plot_mode(results_path, stats_summary_full):
@@ -325,13 +330,18 @@ def ComputeDifference(fix_data, flt_data):
     e_perc = (accerr / accval.copy_abs() * 100) if accval != 0 and n > 0 else -1
     e_abs = (accerr / n) if n > 0 else -1
 
+    e_perc_order = np.ceil(np.log2(float(e_perc)))
+    if np.isinf(e_perc_order):
+        e_perc_order = -25 # min error
+    e_abs_order = np.ceil(np.log2(float(e_abs)))
     return {
-        'e_perc_order': np.ceil(np.log2(float(e_perc))),
-        'e_abs_order': np.ceil(np.log2(float(e_abs))),
+        'e_perc_order': e_perc_order,
+        'e_abs_order': e_abs_order,
         'fix_nofl': fix_nofl,
         'flo_nofl': flo_nofl,
         'e_perc': e_perc,
         'e_abs': e_abs,
+        'output_size': n,
     }
 
 if __name__ == "__main__":
