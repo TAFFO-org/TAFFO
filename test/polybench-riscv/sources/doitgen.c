@@ -21,7 +21,7 @@
 #include "doitgen.h"
 
 #ifdef _LAMP
-float POLYBENCH_3D(A_float,NR,NQ,NP,nr,nq,np);
+DATA_TYPE POLYBENCH_3D(A_float,NR,NQ,NP,nr,nq,np);
 #endif
 
 

@@ -21,7 +21,7 @@
 #include "symm.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(C_float,M,N,m,n);
+DATA_TYPE POLYBENCH_2D(C_float,M,N,m,n);
 #endif
 
 

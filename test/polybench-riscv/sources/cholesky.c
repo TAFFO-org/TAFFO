@@ -21,7 +21,7 @@
 #include "cholesky.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(A_float, N, N, n, n);
+DATA_TYPE POLYBENCH_2D(A_float, N, N, n, n);
 #endif
 
 

@@ -21,7 +21,7 @@
 #include "syr2k.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(C_float,N,N,n,n);
+DATA_TYPE POLYBENCH_2D(C_float,N,N,n,n);
 #endif
 
 

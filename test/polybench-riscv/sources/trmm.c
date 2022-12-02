@@ -21,7 +21,7 @@
 #include "trmm.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(B_float,M,N,m,n);
+DATA_TYPE POLYBENCH_2D(B_float,M,N,m,n);
 #endif
 
 

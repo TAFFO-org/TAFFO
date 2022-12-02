@@ -18,8 +18,11 @@ BUILD_DIR := ./build
 SRC_DIR := ./sources
 HEADERS_DIR := ./sources/.
 
-CFLAGS := -g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize \
-			-D_PRINT_OUTPUT -DPOLYBENCH_DUMP_ARRAYS
+CFLAGS := -g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
+POLYBENCH_PRINT_FLAGS := -D_PRINT_OUTPUT -DPOLYBENCH_DUMP_ARRAYS
+POLYBENCH_DATA_FLAGS := -DDATA_TYPE_IS_FLOAT
+POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
+
 errorprop :=
 costmodel := soc_im_zm
 instrset := soc_zoni
@@ -34,6 +37,11 @@ benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk 
 mantissa_sizes := 8 11 16 24
 input_sizes := standard
 scaling_factors := 1
+
+double_jobs := $(foreach bench, $(benchmarks), \
+				$(foreach input_size, $(input_sizes), \
+					$(foreach scaling, $(scaling_factors), \
+						double-job-$(bench)-$(input_size)-$(scaling) )))
 
 stats_jobs := $(foreach bench, $(benchmarks), \
 				$(foreach input_size, $(input_sizes), \
@@ -56,12 +64,15 @@ bench_src = $(SRC_DIR)/$(bench).c
 job_dir = $(BUILD_DIR)/bin/$(mode)/$(bench)/$(mantissa)
 job_file_base = $(job_dir)/$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa)
 stats_job_dir = $(BUILD_DIR)/stats/$(bench)/$(scaling)
+double_job_dir = $(BUILD_DIR)/bin/double/$(bench)/$(scaling)
 stats_job_file_base = $(stats_job_dir)/$(bench)-$(input_size)-$(scaling)
+double_job_file_base = $(double_job_dir)/$(bench)-$(input_size)-$(scaling)
 summary_dir = $(BUILD_DIR)/summary
 configurations_file = $(BUILD_DIR)/configurations.csv
+double_configurations_file = $(BUILD_DIR)/double_configurations.csv
 
 .PHONY: all
-all: $(clean_configurations) ${stats_jobs} ${jobs} summary ; echo $@ Success
+all: $(clean_configurations) ${double_jobs} ${stats_jobs} ${jobs} summary ; echo $@ Success
 
 .PHONY: clean
 clean:
@@ -70,6 +81,15 @@ clean:
 .PHONY: clean_configurations
 clean_configurations:
 	rm -r $(configurations_file)
+	rm -r $(double_job_file_base)
+
+.PHONY: ${double_jobs}
+${double_jobs}: double-job-%:
+	@mkdir -p $(double_job_dir)
+	@echo $(bench),$(input_size),$(scaling),$(double_job_file_base) \
+			>> $(double_configurations_file)
+	$(call double_build)
+	$(call double_build_run)
 
 .PHONY: ${stats_jobs}
 ${stats_jobs}: stats-job-%:
@@ -97,6 +117,20 @@ summary:
 	@mkdir -p $(summary_dir)
 	@python3 ./analyze.py $(BUILD_DIR)
 
+define double_build
+    @echo double $(bench)
+    $(CLANG) \
+        -o $(double_job_file_base).out \
+        -lm \
+        $(bench_src) \
+        -I$(HEADERS_DIR) \
+        $(CFLAGS) \
+        $(POLYBENCH_PRINT_FLAGS) \
+        $(POLYBENCH_DOUBLE_DATA_FLAGS) \
+        -DSCALING_FACTOR=$(scaling) \
+        2> $(double_job_file_base).log
+endef
+
 define build_float
     @echo float $(bench) $(mantissa)
     export VAR_RANGES=$$($(call read_stats)); \
@@ -109,6 +143,8 @@ define build_float
         -I$(HEADERS_DIR) \
         $$VAR_RANGES \
         $(CFLAGS) \
+        $(POLYBENCH_PRINT_FLAGS) \
+        $(POLYBENCH_DATA_FLAGS) \
         -DSCALING_FACTOR=$(scaling) \
         2> $(job_file_base).log
 endef
@@ -126,6 +162,8 @@ define build_fixed
 		-I$(HEADERS_DIR) \
 		$$VAR_RANGES \
 		$(CFLAGS) \
+		$(POLYBENCH_PRINT_FLAGS) \
+		$(POLYBENCH_DATA_FLAGS) \
 		-DSCALING_FACTOR=$(scaling) \
 		2> $(job_file_base).log
 endef
@@ -149,6 +187,8 @@ define build_mixed
 		-I$(HEADERS_DIR) \
 		$$VAR_RANGES \
 		$(CFLAGS) \
+		$(POLYBENCH_PRINT_FLAGS) \
+		$(POLYBENCH_DATA_FLAGS) \
 		-DSCALING_FACTOR=$(scaling) \
 		2> $(job_file_base).log
 endef
@@ -158,9 +198,14 @@ define stats_build
 		-o $(stats_job_file_base).out \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
+		$(POLYBENCH_DATA_FLAGS) \
 		-DCOLLECT_STATS \
 		-DSCALING_FACTOR=$(scaling) \
 		2> $(stats_job_file_base).log
+endef
+
+define double_build_run
+	@$(double_job_file_base).out 2> $(double_job_file_base).csv
 endef
 
 define stats_build_run
@@ -177,6 +222,7 @@ define stats_build_tracing
 		-dynamic-instrument \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
+		$(POLYBENCH_DATA_FLAGS) \
 		-DSCALING_FACTOR=$(scaling) \
 		2> $(stats_job_file_base).dynamic_instrumented.log
 endef

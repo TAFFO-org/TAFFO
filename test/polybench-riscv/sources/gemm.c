@@ -21,7 +21,7 @@
 #include "gemm.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(C_float,NI,NJ,ni,nj);
+DATA_TYPE POLYBENCH_2D(C_float,NI,NJ,ni,nj);
 #endif
 
 

@@ -21,7 +21,7 @@
 #include "trisolv.h"
 
 #ifdef _LAMP
-float POLYBENCH_1D(x_float, N, n);
+DATA_TYPE POLYBENCH_1D(x_float, N, n);
 #endif
 
 /* Array initialization. */

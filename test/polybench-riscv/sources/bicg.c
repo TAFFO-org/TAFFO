@@ -21,8 +21,8 @@
 #include "bicg.h"
 
 #ifdef _LAMP
-float POLYBENCH_1D(s_float, M, m);
-float POLYBENCH_1D(q_float, N, n);
+DATA_TYPE POLYBENCH_1D(s_float, M, m);
+DATA_TYPE POLYBENCH_1D(q_float, N, n);
 #endif
 
 

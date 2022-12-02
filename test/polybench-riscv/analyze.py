@@ -22,13 +22,38 @@ def safe_div(x,y):
 def main(argv):
     build_dir = argv[0]
     configs_file_path = f"{build_dir}/configurations.csv"
+    double_configs_file_path = f"{build_dir}/double_configurations.csv"
     results_path = f"{build_dir}/summary"
     configs = pd.read_csv(configs_file_path, sep=",",
                           names=["bench", "input_size", "scaling", "mode", "mantissa", "job_file_base", "stats_job_file_base"])
+    double_configs = pd.read_csv(double_configs_file_path, sep=",",
+                          names=["bench", "input_size", "scaling", "job_file_base"])
     print(configs)
     stats_summary = pd.DataFrame()
     bench_results = pd.DataFrame()
     highest_precision = pd.DataFrame()
+    for index, config in double_configs.iterrows():
+        bench = config['bench']
+        input_size = config['input_size']
+        scaling = config['scaling']
+        job_file_base = config['job_file_base']
+        bench_results_path = f"{job_file_base}.csv"
+
+        try:
+            regular_data = np.fromiter(ReadValues(bench_results_path), dtype=object, count=-1)
+            data_row1 = {
+                'bench': bench,
+                'input_size': input_size,
+                'scale': int(scaling),
+                'job_file_base': job_file_base,
+                'bench_type': 'double',
+                'data': regular_data
+            }
+            row_df = pd.DataFrame([data_row1])
+            highest_precision = pd.concat([highest_precision, row_df], ignore_index=True)
+        except Exception as inst:
+            print(f"{bench}_{scaling} double ops stats compilation error: {str(inst)}")
+
     for index, config in configs.iterrows():
         bench = config['bench']
         input_size = config['input_size']
@@ -66,14 +91,6 @@ def main(argv):
             bench_results = pd.concat([bench_results, row_df], ignore_index=True)
         except Exception as inst:
             print(f"{bench}_{scaling} ops stats compilation error: {str(inst)}")
-
-    highest_precision = bench_results[
-                        (bench_results['input_size'] == 'standard') &
-                        (bench_results['scale'] == 1) &
-                        (bench_results['mode'] == 'float') &
-                        (bench_results['bench_type'] == 'regular') &
-                        (bench_results['mantissa'] == 24)
-    ]
 
     for index, config in configs.iterrows():
         bench = config['bench']

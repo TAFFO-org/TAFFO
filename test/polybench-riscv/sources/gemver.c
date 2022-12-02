@@ -21,9 +21,9 @@
 #include "gemver.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(A_float, N, N, n, n);
-float POLYBENCH_1D(w_float, N, n);
-float POLYBENCH_1D(x_float, N, n);
+DATA_TYPE POLYBENCH_2D(A_float, N, N, n, n);
+DATA_TYPE POLYBENCH_1D(w_float, N, n);
+DATA_TYPE POLYBENCH_1D(x_float, N, n);
 #endif
 
 

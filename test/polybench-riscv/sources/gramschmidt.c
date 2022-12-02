@@ -21,8 +21,8 @@
 #include "gramschmidt.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(R_float,N,N,m,n);
-float POLYBENCH_2D(Q_float,M,N,m,n);
+DATA_TYPE POLYBENCH_2D(R_float,N,N,m,n);
+DATA_TYPE POLYBENCH_2D(Q_float,M,N,m,n);
 #endif
 
 /* Array initialization. */

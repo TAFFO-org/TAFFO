@@ -21,7 +21,7 @@
 #include "atax.h"
 
 #ifdef _LAMP
-float POLYBENCH_1D(y_float, N, n);
+DATA_TYPE POLYBENCH_1D(y_float, N, n);
 #endif
 
 

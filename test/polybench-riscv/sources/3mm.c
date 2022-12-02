@@ -21,7 +21,7 @@
 #include "3mm.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D (G_float, NI, NL, ni, nl);
+DATA_TYPE POLYBENCH_2D (G_float, NI, NL, ni, nl);
 #endif
 
 

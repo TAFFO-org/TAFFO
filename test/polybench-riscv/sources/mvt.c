@@ -21,8 +21,8 @@
 #include "mvt.h"
 
 #ifdef _LAMP
-float POLYBENCH_1D(x1_float, N, n);
-float POLYBENCH_1D(x2_float, N, n);
+DATA_TYPE POLYBENCH_1D(x1_float, N, n);
+DATA_TYPE POLYBENCH_1D(x2_float, N, n);
 #endif
 
 

@@ -21,7 +21,7 @@
 #include "2mm.h"
 
 #ifdef _LAMP
-float POLYBENCH_2D(D_float,NI,NL,ni,nl);
+DATA_TYPE POLYBENCH_2D(D_float,NI,NL,ni,nl);
 #endif
 
 

@@ -33,6 +33,29 @@
 #ifndef POLYBENCH_H
 # define POLYBENCH_H
 
+#ifdef DATA_TYPE_IS_INT
+#  define DATA_TYPE int
+#  define DATA_PRINTF_MODIFIER "%d "
+#endif
+
+#ifdef DATA_TYPE_IS_FLOAT
+#  define DATA_TYPE  float
+#  define DATA_PRINTF_MODIFIER "%0.16f "
+#  define SCALAR_VAL(x) x##f
+#  define SQRT_FUN(x) sqrtf_PB(x)
+#  define EXP_FUN(x) expf(x)
+#  define POW_FUN(x,y) powf(x,y)
+# endif
+
+#ifdef DATA_TYPE_IS_DOUBLE
+#  define DATA_TYPE double
+#  define DATA_PRINTF_MODIFIER "%0.16lf "
+#  define SCALAR_VAL(x) x
+#  define SQRT_FUN(x) sqrt(x)
+#  define EXP_FUN(x) exp(x)
+#  define POW_FUN(x,y) pow(x,y)
+# endif
+
 #define PB_STR(x) #x
 #define PB_XSTR(x) PB_STR(x)
 
@@ -232,17 +255,17 @@ float sqrtf_PB(float val)
 #define SCALING_FACTOR 1
 #endif
 
-void scale_scalar(float* val, int factor) {
+void scale_scalar(DATA_TYPE* val, int factor) {
   *val = *val * factor;
 }
 
-void scale_1d(int n, float val[n], int factor) {
+void scale_1d(int n, DATA_TYPE val[n], int factor) {
   for (int i = 0; i < n; i++) {
     val[i] = val[i] * factor;
   }
 }
 
-void scale_2d(int n, int m, float val[n][m], int factor) {
+void scale_2d(int n, int m, DATA_TYPE val[n][m], int factor) {
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < m; j++) {
       val[i][j] = val[i][j] * factor;
@@ -250,7 +273,7 @@ void scale_2d(int n, int m, float val[n][m], int factor) {
   }
 }
 
-void scale_3d(int n, int m, int p, float val[n][m][p], int factor) {
+void scale_3d(int n, int m, int p, DATA_TYPE val[n][m][p], int factor) {
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < m; j++) {
       for (int k = 0; k < p; k++) {
@@ -266,12 +289,12 @@ void stats_header() {
   fprintf (POLYBENCH_DUMP_TARGET, "var_scaling_factor,var_name,var_min,var_max,var_isnan,var_isinf\n");
 }
 
-void stats_scalar(char* name, float val) {
+void stats_scalar(char* name, DATA_TYPE val) {
   fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
           SCALING_FACTOR, name, val, val, isnan(val), isinf(val));
 }
 
-void stats_1d(char* name, int n, float val[n]) {
+void stats_1d(char* name, int n, DATA_TYPE val[n]) {
   float min = val[0];
   float max = val[0];
   bool is_nan = false;
@@ -290,7 +313,7 @@ void stats_1d(char* name, int n, float val[n]) {
           SCALING_FACTOR, name, min, max, is_nan, is_inf);
 }
 
-void stats_2d(char* name, int n, int m, float val[n][m]) {
+void stats_2d(char* name, int n, int m, DATA_TYPE val[n][m]) {
   float min = val[0][0];
   float max = val[0][0];
   bool is_nan = false;
@@ -311,7 +334,7 @@ void stats_2d(char* name, int n, int m, float val[n][m]) {
           SCALING_FACTOR, name, min, max, is_nan, is_inf);
 }
 
-void stats_3d(char* name, int n, int m, int p, float val[n][m][p]) {
+void stats_3d(char* name, int n, int m, int p, DATA_TYPE val[n][m][p]) {
   float min = val[0][0][0];
   float max = val[0][0][0];
   bool is_nan = false;

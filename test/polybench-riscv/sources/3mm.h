@@ -17,7 +17,6 @@
 # define NK 10
 # define NL 12
 # define NM 14
-# define DATA_TYPE_IS_FLOAT
 #endif
 
 /* Default to LARGE_DATASET. */
@@ -79,7 +78,7 @@
 
 /* Default data type */
 # if !defined(DATA_TYPE_IS_INT) && !defined(DATA_TYPE_IS_FLOAT) && !defined(DATA_TYPE_IS_DOUBLE)
-#  define DATA_TYPE_IS_DOUBLE
+#  define DATA_TYPE_IS_FLOAT
 # endif
 
 #ifdef DATA_TYPE_IS_INT
@@ -98,7 +97,7 @@
 
 #ifdef DATA_TYPE_IS_DOUBLE
 #  define DATA_TYPE double
-#  define DATA_PRINTF_MODIFIER "%0.2lf "
+#  define DATA_PRINTF_MODIFIER "%0.16lf "
 #  define SCALAR_VAL(x) x
 #  define SQRT_FUN(x) sqrt(x)
 #  define EXP_FUN(x) exp(x)
