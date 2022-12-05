@@ -28,8 +28,8 @@ costmodel := soc_im_zm
 instrset := soc_zoni
 instrset_file := $(TAFFO_PREFIX)/share/ILP/constrain/$(instrset)
 enobweight := 10
-timeweight := 1000
-castweight := 1
+timeweight := 2000
+castweight := 10
 
 modes := float fixed mixed
 benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
