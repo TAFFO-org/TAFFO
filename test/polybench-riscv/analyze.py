@@ -327,30 +327,44 @@ def ComputeDifference(fix_data, flt_data):
     fix_nofl = 0
     flo_nofl = 0
 
-    thres_ofl_cp = Decimal('0.01')
+    try:
+        thres_ofl_cp = Decimal('0.01')
 
-    for svfix, svflo in zip(fix_data, flt_data):
-        vfix, vflo = Decimal(svfix), Decimal(svflo)
+        for svfix, svflo in zip(fix_data, flt_data):
+            vfix, vflo = Decimal(svfix), Decimal(svflo)
 
-        if not vfix.is_finite():
-            fix_nofl += 1
-        elif not vflo.is_finite():
-            flo_nofl += 1
-            fix_nofl += 1
-        elif ((vflo + vfix).copy_abs() - (vflo.copy_abs() + vfix.copy_abs())) > thres_ofl_cp:
-            fix_nofl += 1
-        else:
-            n += 1
-            accerr += (vflo - vfix).copy_abs()
-            accval += vflo
+            if not vfix.is_finite():
+                fix_nofl += 1
+            elif not vflo.is_finite():
+                flo_nofl += 1
+                fix_nofl += 1
+            elif ((vflo + vfix).copy_abs() - (vflo.copy_abs() + vfix.copy_abs())) > thres_ofl_cp:
+                fix_nofl += 1
+            else:
+                n += 1
+                accerr += (vflo - vfix).copy_abs()
+                accval += vflo
 
-    e_perc = (accerr / accval.copy_abs() * 100) if accval != 0 and n > 0 else -1
-    e_abs = (accerr / n) if n > 0 else -1
+        e_perc = (accerr / accval.copy_abs() * 100) if accval != 0 and n > 0 else -1
+        e_abs = (accerr / n) if n > 0 else -1
 
-    e_perc_order = np.ceil(np.log2(float(e_perc)))
-    if np.isinf(e_perc_order):
-        e_perc_order = -25 # min error
-    e_abs_order = np.ceil(np.log2(float(e_abs)))
+        e_perc_order = np.ceil(np.log2(float(e_perc)))
+        if np.isinf(e_perc_order):
+            e_perc_order = -25 # min error
+        e_abs_order = np.ceil(np.log2(float(e_abs)))
+    except Exception as inst:
+        print(f"exception when computing error: {str(inst)}")
+        return {
+            'e_perc_order': np.nan,
+            'e_abs_order': np.nan,
+            'fix_nofl': 0,
+            'flo_nofl': 0,
+            'e_perc': np.nan,
+            'e_abs': np.nan,
+            'output_size': 0,
+        }
+
+
     return {
         'e_perc_order': e_perc_order,
         'e_abs_order': e_abs_order,

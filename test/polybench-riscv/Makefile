@@ -18,7 +18,7 @@ BUILD_DIR := ./build
 SRC_DIR := ./sources
 HEADERS_DIR := ./sources/.
 
-CFLAGS := -g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
+CFLAGS := -g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize -ffp-contract=off
 POLYBENCH_PRINT_FLAGS := -D_PRINT_OUTPUT -DPOLYBENCH_DUMP_ARRAYS
 POLYBENCH_DATA_FLAGS := -DDATA_TYPE_IS_FLOAT
 POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
@@ -27,7 +27,7 @@ errorprop :=
 costmodel := soc_im_zm
 instrset := soc_zoni
 instrset_file := $(TAFFO_PREFIX)/share/ILP/constrain/$(instrset)
-enobweight := 1000
+enobweight := 10
 timeweight := 1000
 castweight := 1
 
@@ -258,17 +258,17 @@ define compile_truncated_binary
 endef
 
 define run_instmix
-	$(TAFFO_INSTMIX) $(job_file_base).out.ll \
+	-$(TAFFO_INSTMIX) $(job_file_base).out.ll \
 		1> $(job_file_base).mix.txt \
 		2> $(job_file_base).mix.log.txt
 endef
 
 define call_binary
-	$(job_file_base).out 2> $(job_file_base).csv
+	-$(job_file_base).out 2> $(job_file_base).csv
 endef
 
 define call_truncated_binary
-	$(job_file_base).lamp.out 2> $(job_file_base).lamp.csv
+	-$(job_file_base).lamp.out 2> $(job_file_base).lamp.csv
 endef
 
 define read_stats

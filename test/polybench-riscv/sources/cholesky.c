@@ -126,7 +126,9 @@ int main(int argc, char** argv)
   /* Initialize array(s). */
   init_array (n, POLYBENCH_ARRAY(A));
 
+#if SCALING_FACTOR!=1
   scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+#endif
 
 #ifdef COLLECT_STATS
   stats_header();

@@ -116,9 +116,11 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(sum)
              );
 
+#if SCALING_FACTOR!=1
   scale_3d(NR,NQ,NP, POLYBENCH_ARRAY(A), SCALING_FACTOR);
   scale_1d(NP, POLYBENCH_ARRAY(sum), SCALING_FACTOR);
   scale_2d(NP,NP, POLYBENCH_ARRAY(C4), SCALING_FACTOR);
+#endif
 
 #ifdef COLLECT_STATS
   stats_header();

@@ -116,10 +116,12 @@ int main(int argc, char** argv)
   /* Initialize array(s). */
   init_array (m, n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(y), POLYBENCH_ARRAY(tmp));
 
+#if SCALING_FACTOR!=1
   scale_2d(M, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
   scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
   scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
   scale_1d(M, POLYBENCH_ARRAY(tmp), SCALING_FACTOR);
+#endif
 
 
 #ifdef COLLECT_STATS

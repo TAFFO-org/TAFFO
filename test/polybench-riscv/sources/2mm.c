@@ -142,6 +142,7 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(D),
               POLYBENCH_ARRAY(tmp));
 
+#if SCALING_FACTOR!=1
   scale_scalar(&alpha, SCALING_FACTOR);
   scale_scalar(&beta, SCALING_FACTOR);
   scale_2d(NI, NK, POLYBENCH_ARRAY(A), SCALING_FACTOR);
@@ -149,6 +150,7 @@ int main(int argc, char** argv)
   scale_2d(NJ, NL, POLYBENCH_ARRAY(C), SCALING_FACTOR);
   scale_2d(NI, NL, POLYBENCH_ARRAY(D), SCALING_FACTOR);
   scale_2d(NI, NJ, POLYBENCH_ARRAY(tmp), SCALING_FACTOR);
+#endif
 
 #ifdef COLLECT_STATS
   stats_header();

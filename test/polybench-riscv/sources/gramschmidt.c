@@ -135,9 +135,11 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(R),
 	      POLYBENCH_ARRAY(Q));
 
+#if SCALING_FACTOR!=1
   scale_2d(M,N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
   scale_2d(N,N, POLYBENCH_ARRAY(R), SCALING_FACTOR);
   scale_2d(M,N, POLYBENCH_ARRAY(Q), SCALING_FACTOR);
+#endif
 
 #ifdef COLLECT_STATS
   stats_header();

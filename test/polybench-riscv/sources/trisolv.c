@@ -107,9 +107,11 @@ int main(int argc, char** argv)
   /* Initialize array(s). */
   init_array (n, POLYBENCH_ARRAY(L), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(b));
 
+#if SCALING_FACTOR!=1
   scale_2d(N, N, POLYBENCH_ARRAY(L), SCALING_FACTOR);
   scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
   scale_1d(N, POLYBENCH_ARRAY(b), SCALING_FACTOR);
+#endif
 
 #ifdef COLLECT_STATS
   stats_header();
