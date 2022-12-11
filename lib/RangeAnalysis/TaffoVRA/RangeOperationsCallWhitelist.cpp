@@ -1,8 +1,11 @@
 #include "RangeOperationsCallWhitelist.hpp"
+#include "HeroCall.hpp"
 #include "Range.hpp"
+#include "VRAnalyzer.hpp"
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
 #include <limits>
 #include <list>
 #include <string>

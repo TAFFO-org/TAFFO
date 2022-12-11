@@ -35,8 +35,8 @@ void cloneGlobalVariable(llvm::Module &host_module, llvm::Module &dev_module, ll
 
   // Loop over the functions in the module, making external functions as before
   for (const Function &I : dev_module) {
-    if (I.getName().startswith("hero_"))
-      continue;
+    // if (I.getName().startswith("hero_"))
+    //   continue;
     Function *NF = Function::Create(cast<FunctionType>(I.getValueType()), I.getLinkage(),
                                     I.getAddressSpace(), prefix + I.getName(), &host_module);
     NF->copyAttributesFrom(&I);
@@ -67,8 +67,8 @@ void cloneGlobalVariable(llvm::Module &host_module, llvm::Module &dev_module, ll
   // Similarly, copy over function bodies now...
   //
   for (const Function &I : dev_module) {
-    if (I.getName().startswith("hero_"))
-      continue;
+    // if (I.getName().startswith("hero_"))
+    //   continue;
     Function *F = cast<Function>(GtoG[&I]);
 
     if (I.isDeclaration()) {

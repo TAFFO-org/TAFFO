@@ -135,7 +135,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 
   // Loop over the functions in the module, making external functions as before
   for (const Function &I : host) {
-    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) || I.getName().contains("_trampoline"))
+    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99") || I.getName().startswith("llvm.")) || I.getName().contains("_trampoline"))
       continue;
     auto old_name = I.getName();
     if (I.getName().startswith("__dev-")) {
@@ -186,7 +186,7 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
   // Similarly, copy over function bodies now...
 
   for (const Function &I : host) {
-    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) || I.getName().contains("trampoline"))
+    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99") || I.getName().startswith("llvm.")) || I.getName().startswith("llvm.") || I.getName().contains("trampoline"))
       continue;
     Function *F = cast<Function>(GtoG[&I]);
     if (!F->isDeclaration()) {
@@ -587,6 +587,23 @@ void normalize_addrspace(llvm::Module &dev)
         }
     }
   }
+
+
+    // AddrSpaceCast must be between different address spaces
+  {
+    for (auto &fnct : dev) {
+      for (auto &BB : fnct)
+        for (auto &I : make_early_inc_range(BB)) {
+          if (auto cast_inst = dyn_cast<AddrSpaceCastInst>(&I)) {
+            if (cast_inst->getSrcAddressSpace() == cast_inst->getDestAddressSpace() ) {
+              cast_inst->replaceAllUsesWith(cast_inst->getOperand(0));
+              cast_inst->removeFromParent();
+              cast_inst->deleteValue();
+            }
+          }
+        }
+    }
+  }
 }
 
 
@@ -712,7 +729,6 @@ void flttofix::FloatToFixed::handleHero(llvm::Module &host_module, bool Hero)
   auto functions_to_export = fix_call(target_mapper, functionPool);
   functions_to_export.append(fix_call(target_teams_mapper, functionPool));
 
-  write_module("before_export.ll", host_module);
 
   export_functions(host_module, functions_to_export, dev_name, host_module.getContext());
 

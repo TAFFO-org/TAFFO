@@ -71,7 +71,6 @@ llvm::Function *create_function_less_cast(llvm::Function *function_to_clone)
 
       auto cast_inst = llvm::cast<llvm::CastInst>(user);
       if (cast_inst->getSrcTy() == cast_inst->getDestTy()) {
-        llvm::dbgs() << "Pizza " << *cast_inst << "\n";
         cast_inst->replaceAllUsesWith(cast_inst->getOperand(0));
         cast_inst->eraseFromParent();
       }

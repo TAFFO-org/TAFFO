@@ -22,6 +22,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   VRAGlobalStore.hpp
   VRAFunctionStore.hpp
   VRALogger.hpp
+  HeroCall.hpp
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils

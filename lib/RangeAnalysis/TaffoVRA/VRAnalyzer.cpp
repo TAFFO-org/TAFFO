@@ -1,10 +1,14 @@
+#pragma once
 #include "VRAnalyzer.hpp"
+#include "HeroCall.hpp"
 
 #include "MemSSAUtils.hpp"
 #include "RangeOperations.hpp"
 #include "TypeUtils.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/Debug.h"
+#include <unordered_map>
 
 using namespace llvm;
 using namespace taffo;
@@ -165,7 +169,7 @@ bool VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const
   if (llvm::CallBase *CB = llvm::dyn_cast<llvm::CallBase>(I)) {
     if (!CB->isIndirectCall()) {
       llvm::Function *Called = CB->getCalledFunction();
-      return Called && !(Called->isIntrinsic() || isMathCallInstruction(Called->getName().str()) || isMallocLike(Called));
+      return Called && !(Called->isIntrinsic() || isMathCallInstruction(Called->getName().str()) || HeroCall::isHeroCallInstruction(Called->getName().str()) || isMallocLike(Called));
     }
     return true;
   }
@@ -247,6 +251,8 @@ void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
     saveValueRange(I, Res);
     LLVM_DEBUG(Logger->logInfo("whitelisted"));
     LLVM_DEBUG(Logger->logRangeln(Res));
+  } else if (HeroCall::isHeroCallInstruction(FunctionName.str())) {
+    HeroCall::handleHeroCall(FunctionName.str())(this, CB);
   } else if (isMallocLike(Callee)) {
     handleMallocCall(CB);
   } else if (Callee->isIntrinsic()) {
@@ -262,6 +268,33 @@ void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
     LLVM_DEBUG(Logger->logInfo("unsupported call"));
   }
 }
+
+
+void VRAnalyzer::handleHeroMemCpy(const llvm::CallBase *CB)
+{
+  LLVM_DEBUG(Logger->logInfo("handleHeroMemCpy"));
+  const BitCastInst *dest_bitcast =
+      dyn_cast<BitCastInst>(CB->getOperand(0U));
+  const BitCastInst *src_bitcast =
+      dyn_cast<BitCastInst>(CB->getOperand(1U));
+  // if (!(dest_bitcast && src_bitcast)) {
+  //   LLVM_DEBUG(Logger->logInfo("operand is not bitcast, aborting\n"));
+  //   return;
+  // }
+ const Value *dest = CB->getOperand(0U);
+ const Value * src = CB->getOperand(1U);
+
+  if (dest_bitcast)
+  dest = dest_bitcast->getOperand(0U);
+
+  if (src_bitcast) 
+    src = src_bitcast->getOperand(0U);
+
+  const NodePtrT src_node = loadNode(getNode(src));
+  storeNode(getNode(dest), src_node);
+  LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(src)));
+}
+
 
 void VRAnalyzer::handleMemCpyIntrinsics(const llvm::Instruction *memcpy)
 {

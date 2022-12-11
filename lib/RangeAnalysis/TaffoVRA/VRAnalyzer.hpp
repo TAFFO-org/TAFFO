@@ -50,6 +50,8 @@ public:
     return VS->getKind() == VRASK_VRAnalyzer;
   }
 
+  void handleHeroMemCpy(const llvm::CallBase *CB);
+
 private:
   // Instruction Handlers
   void handleSpecialCall(const llvm::Instruction *I);
@@ -107,6 +109,7 @@ private:
   void logRangeln(const llvm::Value *v);
 
   CodeInterpreter &CodeInt;
+  friend class HeroCall;
 };
 
 } // end namespace taffo

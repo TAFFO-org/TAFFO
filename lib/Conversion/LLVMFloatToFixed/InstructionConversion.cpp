@@ -10,6 +10,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
@@ -387,7 +389,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
         LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
                              "because mem2reg can interfere\n");
       }
-      thisArgument = translateOrMatchAnyOperandAndType(*call_arg, funfpt,
+      thisArgument = translateOrMatchAnyOperand(*call_arg, funfpt,
                                                        call);
       fixArgs.push_back(std::pair<int, FixedPointType>(i, funfpt));
     } else {
@@ -397,7 +399,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
                         << ") converted but not actual argument\n");
       LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
                            "because mem2reg can interfere\n");
-      thisArgument = translateOrMatchAnyOperandAndType(*call_arg, funfpt,
+      thisArgument = translateOrMatchAnyOperand(*call_arg, funfpt,
                                                        call);
     }
     if (!thisArgument) {
@@ -579,21 +581,53 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
           fixpt.scalarIsSigned(),
           intype1.scalarFracBitsAmt() + intype2.scalarFracBitsAmt(),
           intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
-      Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
-      IRBuilder<> builder(instr);
-      Value *ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
-                                             : builder.CreateZExt(val1, dbfxt);
-      Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
-                                             : builder.CreateZExt(val2, dbfxt);
-      Value *fixop = builder.CreateMul(ext1, ext2, "", true, true);
-      cpMetaData(ext1, val1);
-      cpMetaData(ext2, val2);
-      cpMetaData(fixop, instr);
-      updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
-                           intermtype.scalarFracBitsAmt(),
-                           intermtype.scalarBitsAmt());
-      updateConstTypeMetadata(fixop, 0U, intype1);
-      updateConstTypeMetadata(fixop, 1U, intype2);
+
+      auto max_int = 64;
+      Value *fixop = nullptr;
+
+      if (intermtype.scalarBitsAmt() > max_int) {
+        IRBuilder<> builder(instr);
+        auto &cntx = instr->getContext();
+        Type *dbfxt = fixpt.scalarToLLVMType(cntx);
+        auto first_conv = genConvertFixedToFixed(val1, intype1, fixpt, instr);
+        auto sec_conv = genConvertFixedToFixed(val2, intype2, fixpt, instr);
+
+
+        int ID = 0;
+        if (intype1.scalarIsSigned()) {
+          ID = Intrinsic::smul_fix;
+        } else {
+          ID = Intrinsic::umul_fix;
+        }
+
+        fixop = builder.CreateIntrinsic(Intrinsic::smul_fix, {dbfxt}, {first_conv, sec_conv, builder.getInt32(fixpt.scalarFracBitsAmt())});
+        cpMetaData(fixop, instr);
+        updateFPTypeMetadata(fixop, fixpt.scalarIsSigned(),
+                             fixpt.scalarFracBitsAmt(),
+                             fixpt.scalarBitsAmt());
+        updateConstTypeMetadata(fixop, 0U, intype1);
+        updateConstTypeMetadata(fixop, 1U, intype2);
+        write_module("macosa.ll", *instr->getModule());
+        return fixop;
+
+      } else {
+        IRBuilder<> builder(instr);
+
+        Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
+        Value *ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
+                                               : builder.CreateZExt(val1, dbfxt);
+        Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
+                                               : builder.CreateZExt(val2, dbfxt);
+        fixop = builder.CreateMul(ext1, ext2, "", true, true);
+        cpMetaData(ext1, val1);
+        cpMetaData(ext2, val2);
+        cpMetaData(fixop, instr);
+        updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
+                             intermtype.scalarFracBitsAmt(),
+                             intermtype.scalarBitsAmt());
+        updateConstTypeMetadata(fixop, 0U, intype1);
+        updateConstTypeMetadata(fixop, 1U, intype2);
+      }
       return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
     } else if (fixpt.isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
