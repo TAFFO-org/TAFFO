@@ -277,7 +277,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     M = args.M
     if args.only is None:
-        only = [x for x in Path(".").glob("*/") if x.is_dir()]
+        only = [x for x in Path(".").glob("*/") if x.is_dir() and "data" not in x.name]
     else:
         only = [Path("./" + x) for x in args.only.split(",")]
     
