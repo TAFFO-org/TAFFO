@@ -35,6 +35,12 @@ jobs:
           max-size: 500M
           key: sccache-ubuntu-latest
           variant: sccache
+          
+      - name: Fetch LLVM
+        uses: llvm/actions/get-llvm-project-src/@main
+        ref: f28c006a5895fc0e329fe15fead81e37457cb1d1
+        repo: llvm/llvm-project
+
       - name: Build and Test
         uses: llvm/actions/build-test-llvm-project@main
         env:
