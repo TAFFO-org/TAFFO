@@ -5,12 +5,12 @@ on:
 
 jobs:
   lit-tests:
-    name: Lit Tests
+    name: LLVM Build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
     steps:
-      - name: or-tools
+      - name: LLVM cache check
         uses: actions/cache@v3.2.0-beta.1
         id: llvm-cache
         with:
