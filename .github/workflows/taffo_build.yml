@@ -35,7 +35,7 @@ jobs:
       id: or-cache
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
-        path: /home/runner//ortools
+        path: "/home/runner/ortools"
           # An explicit key for restoring and saving the cache
         key: "ortools"
         
@@ -44,7 +44,7 @@ jobs:
       id: llvm-cache
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
-        path: /home/runner//llvm
+        path: "/home/runner/llvm"
           # An explicit key for restoring and saving the cache
         key: "llvm"
         
