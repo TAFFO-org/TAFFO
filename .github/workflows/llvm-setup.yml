@@ -10,19 +10,32 @@ jobs:
     strategy:
       fail-fast: false
     steps:
+      - name: or-tools
+        uses: actions/cache@v3.2.0-beta.1
+        id: llvm-cache
+        with:
+          # A list of files, directories, and wildcard patterns to cache and restore
+          path: "/home/runner/llvm"
+          # An explicit key for restoring and saving the cache
+          key: "llvm"
+          
       - name: Setup Python
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Install Ninja
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: llvm/actions/install-ninja@main
       # actions/checkout deletes any existing files in the new git directory,
       # so this needs to either run before ccache-action or it has to use
       # clean: false.
       - uses: actions/checkout@v3
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         with:
           fetch-depth: 250
       - name: Setup ccache
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           # A full build of llvm, clang, lld, and lldb takes about 250MB
@@ -37,12 +50,14 @@ jobs:
           variant: sccache
           
       - name: Fetch LLVM
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: llvm/actions/get-llvm-project-src/@main
         with:
           ref: f28c006a5895fc0e329fe15fead81e37457cb1d1
           repo: llvm/llvm-project
 
       - name: Build and Test
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: llvm/actions/build-test-llvm-project@main
         env:
           # Workaround for https://github.com/actions/virtual-environments/issues/5900.
@@ -53,6 +68,7 @@ jobs:
           build_target: 'install'
 
       - name: Cache
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: actions/cache@v3.2.0-beta.1
         with:
           path: "/home/runner/llvm"
