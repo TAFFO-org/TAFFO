@@ -23,6 +23,8 @@ jobs:
       run: |
         sudo apt install protobuf-compiler
         sudo apt install -y build-essential cmake lsb-release
+    - name: SetUp or-tool 
+    - uses: ./.github/workflows/or-tools.yml
     
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
