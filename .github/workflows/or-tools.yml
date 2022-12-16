@@ -1,0 +1,28 @@
+name: or-tool build
+
+on:
+  workflow_call:
+    
+    
+ jobs:
+  or-tool:
+  steps:    
+    
+    - name: Checkout or-tool 
+    - uses: actions/checkout@v3
+      with:
+       repository: google/or-tools/blob/stable/
+       ref: stable
+       path: '../ortools'
+       
+    - name: Install Ninja
+        uses: llvm/actions/install-ninja@main
+        
+    - name: Check cmake
+      run: cmake --version
+    - name: Configure
+      run: cmake -S. -Bbuild -G "Ninja" -DCMAKE_BUILD_TYPE="release" -DBUILD_DEPS=ON -DCMAKE_INSTALL_PREFIX=install
+    - name: Build
+      run: cmake --build build --config "release" --target all -v
+    - name: Install
+      run: cmake --build build --config "release" --target install -v 
