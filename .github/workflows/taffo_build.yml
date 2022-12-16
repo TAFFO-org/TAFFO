@@ -35,7 +35,7 @@ jobs:
       id: or-cache
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
-        path: "/home/runner/ortools"
+        path: ~/ortools
           # An explicit key for restoring and saving the cache
         key: "ortools"
         
@@ -44,7 +44,7 @@ jobs:
       id: llvm-cache
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
-        path: "/home/runner/llvm"
+        path: ~/llvm
           # An explicit key for restoring and saving the cache
         key: "llvm"
         
@@ -63,7 +63,7 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="/home/runner/llvm" -DCMAKE_PREFIX_PATH="/home/runner/ortools"
+      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="~/llvm" -DCMAKE_PREFIX_PATH="~/ortools"
 
     - name: Build
       # Build your program with the given configuration
