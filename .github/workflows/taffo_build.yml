@@ -23,13 +23,24 @@ jobs:
       run: |
         sudo apt install protobuf-compiler
         sudo apt install -y build-essential cmake lsb-release
+        
+    - name: or-tools
+      uses: actions/cache@v3.2.0-beta.1
+      with:
+        # A list of files, directories, and wildcard patterns to cache and restore
+        path: "$HOME/ortools"
+          # An explicit key for restoring and saving the cache
+        key: "ortools"
     
+    - name: Build or-tools
+      if: steps.or-tools.outputs.cache-hit != 'true'
+      uses: ./.github/workflow/or-tools.yml
 
     
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="$HOME/llvm"
+      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="$HOME/llvm" -DCMAKE_PREFIX_PATH=""$HOME/ortools""
 
     - name: Build
       # Build your program with the given configuration
