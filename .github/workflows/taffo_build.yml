@@ -28,7 +28,7 @@ jobs:
       uses: actions/cache@v3.2.0-beta.1
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
-        path: "$HOME/ortools"
+        path: "/home/runner/ortools"
           # An explicit key for restoring and saving the cache
         key: "ortools"
     
