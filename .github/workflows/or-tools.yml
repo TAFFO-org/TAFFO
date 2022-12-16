@@ -13,7 +13,7 @@ jobs:
         with:
          repository: google/or-tools
          ref: stable
-         path: '../ortools'
+
 
       - name: Install Ninja
         uses: llvm/actions/install-ninja@main
