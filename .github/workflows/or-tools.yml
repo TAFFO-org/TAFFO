@@ -20,8 +20,17 @@ jobs:
       - name: Check cmake
         run: cmake --version
       - name: Configure
-        run: cmake -S. -Bbuild -G "Ninja" -DCMAKE_BUILD_TYPE="release" -DBUILD_DEPS=ON -DCMAKE_INSTALL_PREFIX=install
+        run: cmake -S. -Bbuild -G "Ninja" -DCMAKE_BUILD_TYPE="release" -DBUILD_DEPS=ON -DCMAKE_INSTALL_PREFIX="$HOME/ortools"
       - name: Build
         run: cmake --build build --config "release" --target all -v
       - name: Install
         run: cmake --build build --config "release" --target install -v 
+      - name: Cache
+        uses: actions/cache@v3.2.0-beta.1
+        with:
+          # A list of files, directories, and wildcard patterns to cache and restore
+          path: "$HOME/ortools"
+            # An explicit key for restoring and saving the cache
+          key: "ortools"
+
+      
