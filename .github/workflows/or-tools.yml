@@ -1,7 +1,8 @@
 name: or-tool build
 
-on: push 
-    
+on:
+  workflow_call:
+  
 jobs:
   or-tool:
     name: OR Tool
