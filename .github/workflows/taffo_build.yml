@@ -34,7 +34,7 @@ jobs:
     
     - name: Build or-tools
       if: steps.or-tools.outputs.cache-hit != 'true'
-      uses: ./.github/workflow/or-tools.yml
+      uses: ./.github/workflows/or-tools.yml
 
     
     - name: Configure CMake
