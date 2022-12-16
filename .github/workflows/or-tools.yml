@@ -11,7 +11,7 @@ jobs:
       - name: Checkout or-tool 
         uses: actions/checkout@v3
         with:
-         repository: google/or-tools/blob/stable/
+         repository: google/or-tools
          ref: stable
          path: '../ortools'
 
