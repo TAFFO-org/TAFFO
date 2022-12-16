@@ -50,7 +50,15 @@ jobs:
         
     - uses: actions/checkout@v3
 
-
+    - name: Info disco
+      run: |
+        pwd
+        ls
+        ls ..
+        ls /home/runner/llvm
+        export LLVM_DIR=/home/runner/llvm
+        
+      
     
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
