@@ -8,7 +8,7 @@ env:
 
 jobs:
   depend:
-    uses: ./.github/workflows/llvm-setup.yml@gmagnani/ci_setup
+    uses: ./.github/workflows/llvm-setup.yml
   
   build:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
