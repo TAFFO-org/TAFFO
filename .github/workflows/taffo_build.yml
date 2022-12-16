@@ -5,6 +5,8 @@ on: push
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
+  LLVM_DIR: /home/runner/llvm
+  
 
 jobs:
 
@@ -49,12 +51,7 @@ jobs:
         key: "llvm"
         
     - uses: actions/checkout@v3
-
-    - name: Info disco
-      run: |
-        ls /home/runner/llvm
-        export LLVM_DIR=/home/runner/llvm
-        
+       
     - name: Info disco 2
       run: |
         echo $LLVM_DIR     
