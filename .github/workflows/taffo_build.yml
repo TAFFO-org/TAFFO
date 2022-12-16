@@ -39,10 +39,6 @@ jobs:
           # An explicit key for restoring and saving the cache
         key: "ortools"
         
-    - uses: actions/checkout@v3
-
-
-      
     - name: LLVM
       uses: actions/cache@v3.2.0-beta.1
       id: llvm-cache
@@ -52,14 +48,14 @@ jobs:
           # An explicit key for restoring and saving the cache
         key: "llvm"
         
+    - uses: actions/checkout@v3
 
-   
 
     
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="$HOME/llvm" -DCMAKE_PREFIX_PATH=""$HOME/ortools""
+      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="/home/runner/llvm" -DCMAKE_PREFIX_PATH="/home/runner/ortools"
 
     - name: Build
       # Build your program with the given configuration
