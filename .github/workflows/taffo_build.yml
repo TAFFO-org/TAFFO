@@ -63,14 +63,12 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist -DLLVM_DIR="/home/runner/llvm" -DCMAKE_PREFIX_PATH="/home/runner/ortools"
+      run: cmake -B ${{github.workspace}}/build -DLLVM_DIR="/home/runner/llvm" -DCMAKE_PREFIX_PATH="/home/runner/ortools"
 
     - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install -j 10
 
-    - name: Add taffo to path
-      run: echo "${{github.workspace}}/dist/bin" >> $GITHUB_PATH
 
     - name: Test
       working-directory: ${{github.workspace}}/build
