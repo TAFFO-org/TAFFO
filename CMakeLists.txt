@@ -44,4 +44,5 @@ add_subdirectory(utils)
 add_subdirectory(unittests)
 add_subdirectory(test-lit)
 add_subdirectory(tool)
+add_subdirectory(test)
 
