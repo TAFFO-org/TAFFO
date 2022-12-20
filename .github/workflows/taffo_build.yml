@@ -6,6 +6,7 @@ env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LLVM_DIR: /home/runner/llvm
+  LD_LIBRARY_PATH: /home/runner/ortools/lib
   
   
 
