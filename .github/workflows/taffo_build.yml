@@ -69,11 +69,15 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install -j 10
 
+    - name: Add taffo to path
+      run: echo "${{github.workspace}}/dist/bin" >> $GITHUB_PATH
+
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: |
-        echo "${{github.workspace}}/dist/bin" >> $GITHUB_PATH
+        
+        which taffo
         ctest -C ${{env.BUILD_TYPE}} -V
 
