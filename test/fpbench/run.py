@@ -49,7 +49,7 @@ def compiletaffo(path: Path):
     if s.returncode == 0:
         print_okk()
     else:
-        with open(f"{path.as_posix()}/{path.name}_taffo.log") as file:
+        with open(f"./{path.as_posix()}/{path.name}_taffo.log") as file:
             print(file.read())
         print_err()
     if pipe_out == subprocess.DEVNULL and debug:

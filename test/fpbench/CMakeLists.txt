@@ -1,5 +1,5 @@
 
-add_test(NAME fpbench COMMAND ./run.py -M 1 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/test/fpbench")
+add_test(NAME fpbench COMMAND ./run.py -M 1 -debug WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/test/fpbench")
 
 
 
