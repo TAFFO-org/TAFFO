@@ -75,5 +75,6 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: |
         export PATH="${{github.workspace}}/dist/bin:$PATH"
+        which taffo
         ctest -C ${{env.BUILD_TYPE}} -V
 
