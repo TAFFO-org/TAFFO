@@ -6,6 +6,7 @@ env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LLVM_DIR: /home/runner/llvm
+  PATH: "${{github.workspace}}/dist/bin:$PATH"
   
   
 
@@ -74,7 +75,6 @@ jobs:
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: |
-        export PATH="${{github.workspace}}/dist/bin:$PATH"
         which taffo
         ctest -C ${{env.BUILD_TYPE}} -V
 
