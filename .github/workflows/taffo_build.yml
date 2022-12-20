@@ -26,6 +26,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4.3.1
+      
+    - name: Pip
+      run: pip install numpy pandas gmpy2
 
     
     - name: Dependencies
