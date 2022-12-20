@@ -1,5 +1,10 @@
 
-add_test(NAME fpbench COMMAND ./run.py -M 1 WORKING_DIRECTORY "/home/ilgeco/opt/TAFFO/test/fpbench")
+add_test(NAME fpbench COMMAND ./run.py -M 1 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/test/fpbench")
+
+
+
+
+
 
 set (failRegex "ERR!")
 
