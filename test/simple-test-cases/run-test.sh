@@ -41,7 +41,7 @@ recompile_one() {
   if [[ $FLOAT -eq 1 ]]; then
     args="$args -float-output ${1%.*}.float.out"
   fi
-  $TIMEOUT taffo "$args" -o "$out" "$input" $extraargs -debug -temp-dir ./build 2> "$input".log
+  $TIMEOUT taffo "$args" -o "$out" "$input" $extraargs -debug -temp-dir ./build &> "$input".log
   cat "$input".log
   bpid_fc=$?
   if [[ $bpid_fc -ne 0 ]]; then    
