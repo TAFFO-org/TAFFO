@@ -259,7 +259,6 @@ def comp_first_n_bit(path :Path, n : int):
 
 if __name__ == '__main__':
     debug = False
-    common_flags = "-O3 -DAPP_MFUNC -DM=100000 -fno-vectorize -fno-slp-vectorize"
     parser = argparse.ArgumentParser(description='FPbench runner')
     parser.add_argument('-M', metavar='integer', type=int, nargs='?',
                         help='Number of Iteration', default=10000)
@@ -278,6 +277,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     M = args.M
+    common_flags = f"-O3 -DAPP_MFUNC -DM={M} -fno-vectorize -fno-slp-vectorize"
     if args.only is None:
         only = [x for x in Path(".").glob("*/") if x.is_dir() and "data" not in x.name]
     else:
