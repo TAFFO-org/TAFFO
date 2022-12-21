@@ -76,7 +76,7 @@ jobs:
     needs: "build_Taffo"
     runs-on: ubuntu-latest
     env:
-      LD_PRELOAD=/home/runner/llvm/lib/libomp.so
+      LD_LIBRARY_PATH: /home/runner/ortools/lib:/home/runner/llvm/lib/libomp.so
     steps:
     - name: Test
       working-directory: ${{github.workspace}}/build
