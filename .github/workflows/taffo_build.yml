@@ -74,7 +74,8 @@ jobs:
 
   test_Taffo:
     needs: "build_Taffo"
-
+    runs-on: ubuntu-latest
+    steps:
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.
