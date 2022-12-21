@@ -42,9 +42,9 @@ recompile_one() {
     args="$args -float-output ${1%.*}.float.out"
   fi
   $TIMEOUT taffo "$args" -o "$out" "$input" $extraargs -debug -temp-dir ./build 2> "$input".log
+  cat "$input".log
   bpid_fc=$?
-  if [[ $bpid_fc -ne 0 ]]; then
-    cat "$input".log
+  if [[ $bpid_fc -ne 0 ]]; then    
     code='FAIL'
     if [[ $bpid_fc -eq 124 ]]; then
       code='TIME'
