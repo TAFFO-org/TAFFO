@@ -269,7 +269,7 @@ static unsigned retrieveOMPExternalCallBoundaryTripCount(llvm::Function *F, llvm
         // If it is a omp loop search the constant value loaded in the ub
         for (auto s = load->getOperand(0)->use_begin(); s != load->getOperand(0)->use_end(); s++) {
           if (auto store = llvm::dyn_cast_or_null<llvm::StoreInst>(s->getUser())) {
-            store->dump();
+            LLVM_DEBUG(store->dump());
             if (auto constant_value = llvm::dyn_cast_or_null<llvm::ConstantInt>(store->getOperand(0))) {
               return constant_value->getSExtValue() + 1;
             }

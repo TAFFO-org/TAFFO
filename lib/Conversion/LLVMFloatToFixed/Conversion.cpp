@@ -310,8 +310,9 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
     int destinationBit = destt->getPrimitiveSizeInBits();
     if (startingBit == destinationBit) {
       // No casting is actually needed
-      assert((flt->dump(), destt->dump(), 1) && flt->getType() == destt && "Floating types having same bits but differents types");
+      LLVM_DEBUG(assert((flt->dump(), destt->dump(), 1) && flt->getType() == destt && "Floating types having same bits but differents types"));
       LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] no casting needed.\n");
+      assert(flt->getType() == destt && "Floating types having same bits but differents types");
       return flt;
     } else if (startingBit < destinationBit) {
       // Extension needed
@@ -351,7 +352,8 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
     if (startingBit == destinationBit) {
       // No casting is actually needed
-      assert((llvmsrct->dump(), llvmdestt->dump(), 1) && llvmsrct == llvmdestt && "Floating types having same bits but differents types");
+      LLVM_DEBUG(assert((llvmsrct->dump(), llvmdestt->dump(), 1) && llvmsrct == llvmdestt && "Floating types having same bits but differents types"));
+      assert( llvmsrct == llvmdestt && "Floating types having same bits but differents types");
       LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] no casting needed.\n");
       return fix;
     } else if (startingBit < destinationBit) {
@@ -432,7 +434,8 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
       if (startingBit == destinationBit) {
         // No casting is actually needed
-        assert((fix->dump(), destt->dump(), 1) && fix->getType() == destt && "Floating types having same bits but differents types");
+        LLVM_DEBUG(assert((fix->dump(), destt->dump(), 1) && fix->getType() == destt && "Floating types having same bits but differents types"));
+        assert(fix->getType() == destt && "Floating types having same bits but differents types");
         LLVM_DEBUG(dbgs() << "[genConvertFixToFloat] no casting needed.\n");
         return fix;
       } else if (startingBit < destinationBit) {
@@ -449,7 +452,8 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
       if (startingBit == destinationBit) {
         // No casting is actually needed
-        assert((fix->dump(), destt->dump(), 1) && fix->getType() == destt && "Floating types having same bits but differents types");
+        LLVM_DEBUG(assert((fix->dump(), destt->dump(), 1) && fix->getType() == destt && "Floating types having same bits but differents types"));
+        assert(fix->getType() == destt && "Floating types having same bits but differents types");
         LLVM_DEBUG(dbgs() << "[genConvertFixToFloat] no casting needed.\n");
         return fix;
       } else if (startingBit < destinationBit) {
