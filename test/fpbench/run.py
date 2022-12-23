@@ -36,10 +36,10 @@ def compiletaffo(path: Path):
     bench_name = path.name + ".c"
     bench_exec = path.name + "-taffo"
     pipe_out = subprocess.DEVNULL
-    compile_flag = f"{common_flags}"
+    compile_flag = f"{common_flags} -time-profile-file {path.absolute().as_posix()}/{path.name}_taffo_time.csv"
     if debug:
         (path / "./llvm-file").mkdir(parents=True, exist_ok=True)
-        compile_flag = f"{common_flags} -debug -temp-dir ./llvm-file"
+        compile_flag = f"{compile_flag} -debug -temp-dir ./llvm-file"
         pipe_out = open(f"{path.as_posix()}/{path.name}_taffo.log", "w")
 
 
@@ -114,6 +114,14 @@ def retriveFiles(path: Path):
         content.append(file.read())
     with open(path / "taffo-res", "r") as file:
         content.append(file.read())
+    return content
+
+def retriveCompilationTime(path: Path):
+    bench_name = path.name
+    time_file = (path / f"{bench_name}_taffo_time.csv")
+    if not (time_file.exists()):
+        print_err()
+    content = pd.read_csv(time_file, sep=',')
     return content
     
 def reject_outliers(data):
@@ -192,10 +200,12 @@ def ordereddiff(path :Path):
 def validate(path :Path):
     bench_name = path.name
     files= retriveFiles(path)
+    compile_breakdown = retriveCompilationTime(path)
     times = getTime(files)
     datas = getData(files)
     speedup = (times[0] /times[1])
-    ret = {"name" : bench_name, "speedup" : speedup}
+    compile_time = compile_breakdown.iloc[0]['taffo_end'] - compile_breakdown.iloc[0]['taffo_start']
+    ret = {"name" : bench_name, "speedup" : speedup, "compile_time": compile_time}
     ret.update(datas)
     return ret
 
@@ -213,7 +223,7 @@ def clean(path :Path, suffix : tuple):
     
 def print_tables(table):
     table = pd.DataFrame(table)
-    print(table.to_string(columns=["name", "speedup", "rel_err", "abs_err"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
+    print(table.to_string(columns=["name", "speedup", "compile_time", "rel_err", "abs_err"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
 
 
 def extract_first_n_bit( x : float, n : int, inte : int, frac : int):
