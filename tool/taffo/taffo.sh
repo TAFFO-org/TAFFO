@@ -99,6 +99,7 @@ dontlink=
 AUTO_CLANGXX=$CLANG
 feedback=0
 pe_model_file=
+time_profile_file=
 temporary_dir=$(mktemp -d)
 del_temporary_dir=1
 help=0
@@ -196,6 +197,9 @@ for opt in $raw_opts; do
         -costmodel)
           parse_state=11
           ;;
+        -time-profile-file)
+          parse_state=99
+          ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
           ;;
@@ -288,6 +292,10 @@ for opt in $raw_opts; do
       float_opts="$float_opts $opt";
       parse_state=0;
       ;;
+    99)
+      time_profile_file="$opt";
+      parse_state=0;
+      ;;
   esac;
 done
 
@@ -354,6 +362,22 @@ if [[ $LOG != /dev/null ]]; then
   set -x
 fi
 
+time_command () {
+  date +%s.%N
+}
+time_string_header="taffo_start,init_start,vra_start,dta_start,conversion_start,backend_start,taffo_end"
+time_string=$(time_command)
+append_time_string () {
+  time_string+=,$(time_command)
+}
+output_time_string () {
+  if [[ ! ( -z ${time_profile_file} ) ]]; then
+    printf '%s\n%s\n' ${time_string_header} ${time_string} > ${time_profile_file}
+  else
+    printf 'taffo stages time: %s\n%s\n' ${time_string_header} ${time_string}
+  fi
+}
+
 ###
 ###  Produce base .ll
 ###
@@ -394,6 +418,7 @@ build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_c
 ###
 ###  TAFFO initialization
 ###
+append_time_string
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
@@ -403,6 +428,7 @@ ${OPT} \
 ###
 ###  TAFFO Value Range Analysis
 ###
+append_time_string
 if [[ $disable_vra -eq 0 ]]; then
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
@@ -423,6 +449,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   ###  TAFFO Data Type Allocation
   ###
+  append_time_string
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,taffodta,globaldce" \
@@ -432,6 +459,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   ###  TAFFO Conversion
   ###
+  append_time_string
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoconv,globaldce,dce' \
@@ -474,7 +502,7 @@ done
 ###
 ###  Backend
 ###
-
+append_time_string
 # Produce the requested output file
 if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
   ${CLANG} \
@@ -515,4 +543,7 @@ fi
 if [[ $del_temporary_dir -ne 0 ]]; then
   rm -rf "${temporary_dir}"
 fi
+
+append_time_string
+output_time_string
 
