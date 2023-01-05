@@ -18,6 +18,7 @@ jobs:
           path: "/home/runner/ortools"
           # An explicit key for restoring and saving the cache
           key: "ortools"
+          restore-keys: "ortools"
        
        
       - name: Checkout or-tool
