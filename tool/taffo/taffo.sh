@@ -365,10 +365,19 @@ fi
 time_command () {
   date +%s.%N
 }
-time_string_header="taffo_start,init_start,vra_start,dta_start,conversion_start,backend_start,taffo_end"
-time_string=$(time_command)
+time_string_header=
+time_string=
 append_time_string () {
-  time_string+=,$(time_command)
+  if [[ -z ${time_string_header} ]]; then
+    time_string_header+="${1}"
+  else
+    time_string_header+=",${1}"
+  fi
+  if [[ -z ${time_string} ]]; then
+    time_string+=$(time_command)
+  else
+    time_string+=,$(time_command)
+  fi
 }
 output_time_string () {
   if [[ ! ( -z ${time_profile_file} ) ]]; then
@@ -377,6 +386,8 @@ output_time_string () {
     printf 'taffo stages time: %s\n%s\n' ${time_string_header} ${time_string}
   fi
 }
+
+append_time_string "taffo_start"
 
 ###
 ###  Produce base .ll
@@ -418,7 +429,7 @@ build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_c
 ###
 ###  TAFFO initialization
 ###
-append_time_string
+append_time_string "init_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
@@ -428,7 +439,7 @@ ${OPT} \
 ###
 ###  TAFFO Value Range Analysis
 ###
-append_time_string
+append_time_string "vra_start"
 if [[ $disable_vra -eq 0 ]]; then
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
@@ -449,7 +460,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   ###  TAFFO Data Type Allocation
   ###
-  append_time_string
+  append_time_string "dta_start"
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,taffodta,globaldce" \
@@ -459,7 +470,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   ###  TAFFO Conversion
   ###
-  append_time_string
+  append_time_string "conversion_start"
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoconv,globaldce,dce' \
@@ -502,7 +513,7 @@ done
 ###
 ###  Backend
 ###
-append_time_string
+append_time_string "backend_start"
 # Produce the requested output file
 if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
   ${CLANG} \
@@ -544,6 +555,6 @@ if [[ $del_temporary_dir -ne 0 ]]; then
   rm -rf "${temporary_dir}"
 fi
 
-append_time_string
+append_time_string "taffo_end"
 output_time_string
 
