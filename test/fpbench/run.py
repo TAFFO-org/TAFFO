@@ -254,8 +254,27 @@ def plot_compile_times(table):
         h, w, x, y = p.get_height(), p.get_width(), p.get_x(), p.get_y()
         text = f'{w * 100:0.2f} %'
         ax2.annotate(text=text, xy=(x + w / 2, y + h / 2), ha='center', va='center', color='white', size=10)
-
     fig2.savefig(f'compile_time_rel.png', dpi=fig2.dpi, bbox_inches = 'tight')
+
+    rel_taffo_plot_table = pd.DataFrame()
+    rel_taffo_plot_table["name"] = (table["name"])
+    rel_taffo_plot_table["base_ll_time_perc"] = (table["base_ll_time"] / (table["base_ll_time"] + table["backend_time"]))
+    rel_taffo_plot_table["backend_time_perc"] = (table["backend_time"] / (table["base_ll_time"] + table["backend_time"]))
+    rel_taffo_plot_table["taffo_init_time_perc"] = (table["taffo_init_time"] / (table["base_ll_time"] + table["backend_time"]))
+    rel_taffo_plot_table["vra_time_perc"] = (table["vra_time"] / (table["base_ll_time"] + table["backend_time"]))
+    rel_taffo_plot_table["dta_time_perc"] = (table["dta_time"] / (table["base_ll_time"] + table["backend_time"]))
+    rel_taffo_plot_table["conversion_time_perc"] = (table["conversion_time"] / (table["base_ll_time"] + table["backend_time"]))
+    ax3 = rel_taffo_plot_table.plot.barh(x='name', stacked=True, title='TAFFO vs plain compilation time', figsize=(10, 8))
+    fig3 = ax3.get_figure()
+    plt.xlabel("Percent")
+    plt.ylabel("Benchmark")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax3.xaxis.set_major_formatter(PercentFormatter(1))
+    for p in ax3.patches:
+        h, w, x, y = p.get_height(), p.get_width(), p.get_x(), p.get_y()
+        text = f'{w * 100:0.2f} %'
+        ax3.annotate(text=text, xy=(x + w / 2, y + h / 2), ha='center', va='center', color='white', size=10)
+    fig3.savefig(f'compile_time_taffo_rel.png', dpi=fig3.dpi, bbox_inches = 'tight')
 
 
 def clean(path :Path, suffix : tuple):
