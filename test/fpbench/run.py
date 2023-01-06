@@ -12,6 +12,9 @@ import gmpy2
 from gmpy2 import mpfr, trunc, log2
 gmpy2.get_context().precision=100
 
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_colwidth', None)
 
 def bold( s : str):
     sys.stdout.buffer.write(b"\x1B\x5B1m")
@@ -218,11 +221,11 @@ def extract_compile_time(path :Path):
         "name" : bench_name,
         "total_time": compile_breakdown.iloc[0]['taffo_end'] - compile_breakdown.iloc[0]['taffo_start'],
         "base_ll_time": compile_breakdown.iloc[0]['init_start'] - compile_breakdown.iloc[0]['taffo_start'],
+        "backend_time": compile_breakdown.iloc[0]['taffo_end'] - compile_breakdown.iloc[0]['backend_start'],
         "taffo_init_time": compile_breakdown.iloc[0]['vra_start'] - compile_breakdown.iloc[0]['init_start'],
         "vra_time": compile_breakdown.iloc[0]['dta_start'] - compile_breakdown.iloc[0]['vra_start'],
         "dta_time": compile_breakdown.iloc[0]['conversion_start'] - compile_breakdown.iloc[0]['dta_start'],
         "conversion_time": compile_breakdown.iloc[0]['backend_start'] - compile_breakdown.iloc[0]['conversion_start'],
-        "backend_time": compile_breakdown.iloc[0]['taffo_end'] - compile_breakdown.iloc[0]['backend_start'],
     }
     return ret
 
@@ -238,21 +241,21 @@ def plot_compile_times(table):
     rel_plot_table = pd.DataFrame()
     rel_plot_table["name"] = (table["name"])
     rel_plot_table["base_ll_time_perc"] = (table["base_ll_time"] / table["total_time"])
+    rel_plot_table["backend_time_perc"] = (table["backend_time"] / table["total_time"])
     rel_plot_table["taffo_init_time_perc"] = (table["taffo_init_time"] / table["total_time"])
     rel_plot_table["vra_time_perc"] = (table["vra_time"] / table["total_time"])
     rel_plot_table["dta_time_perc"] = (table["dta_time"] / table["total_time"])
     rel_plot_table["conversion_time_perc"] = (table["conversion_time"] / table["total_time"])
-    rel_plot_table["backend_time_perc"] = (table["backend_time"] / table["total_time"])
     # print(rel_plot_table)
     ax2 = rel_plot_table.plot.barh(x='name', stacked=True, title='TAFFO compilation stages time percentage', figsize=(10, 8))
     fig2 = ax2.get_figure()
-    plt.xlabel("Percent")
+    plt.xlabel("% Time")
     plt.ylabel("Benchmark")
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax2.xaxis.set_major_formatter(PercentFormatter(1))
     for p in ax2.patches:
         h, w, x, y = p.get_height(), p.get_width(), p.get_x(), p.get_y()
-        text = f'{w * 100:0.2f} %'
+        text = f'{w * 100:0.1f} %'
         ax2.annotate(text=text, xy=(x + w / 2, y + h / 2), ha='center', va='center', color='white', size=10)
     fig2.savefig(f'compile_time_rel.png', dpi=fig2.dpi, bbox_inches = 'tight')
 
@@ -264,17 +267,26 @@ def plot_compile_times(table):
     rel_taffo_plot_table["vra_time_perc"] = (table["vra_time"] / (table["base_ll_time"] + table["backend_time"]))
     rel_taffo_plot_table["dta_time_perc"] = (table["dta_time"] / (table["base_ll_time"] + table["backend_time"]))
     rel_taffo_plot_table["conversion_time_perc"] = (table["conversion_time"] / (table["base_ll_time"] + table["backend_time"]))
-    ax3 = rel_taffo_plot_table.plot.barh(x='name', stacked=True, title='TAFFO vs plain compilation time', figsize=(10, 8))
+    ax3 = rel_taffo_plot_table.plot.barh(x='name', stacked=True, title='TAFFO compilation time (normalized to plain compilation)', figsize=(10, 8))
     fig3 = ax3.get_figure()
-    plt.xlabel("Percent")
+    plt.xlabel("% Time")
     plt.ylabel("Benchmark")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend([
+        "C to LLVM IR",
+        "Backend",
+        "TAFFO init",
+        "VRA",
+        "DTA",
+        "Conversion",
+    ],
+    bbox_to_anchor=(1.05, 1), loc='upper left')
     ax3.xaxis.set_major_formatter(PercentFormatter(1))
     for p in ax3.patches:
         h, w, x, y = p.get_height(), p.get_width(), p.get_x(), p.get_y()
-        text = f'{w * 100:0.2f} %'
+        text = f'{w * 100:0.1f} %'
         ax3.annotate(text=text, xy=(x + w / 2, y + h / 2), ha='center', va='center', color='white', size=10)
     fig3.savefig(f'compile_time_taffo_rel.png', dpi=fig3.dpi, bbox_inches = 'tight')
+    print(rel_taffo_plot_table)
 
 
 def clean(path :Path, suffix : tuple):
