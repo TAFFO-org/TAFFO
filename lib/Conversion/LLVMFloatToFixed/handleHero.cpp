@@ -242,6 +242,22 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
         call_inst->eraseFromParent();
       }
     }
+
+  // Reset the function to corret call type
+  {
+    for (auto &fnct : dev) {
+      for (auto &BB : fnct)
+        for (auto &I : make_early_inc_range(BB)) {
+          if (auto call_inst = dyn_cast<CallSite>(&I)) {
+            PointerType *FPTy = cast<PointerType>(call_inst->getCalledOperand()->getType());
+            if (FPTy->getElementType() != call_inst->getFunctionType()) {
+              call_inst->setCalledFunction(call_inst->getCalledFunction());
+            }
+          }
+        }
+    }
+  }
+
   LLVM_DEBUG(llvm::dbgs() << "END " << __PRETTY_FUNCTION__ << "\n");
 }
 
@@ -414,6 +430,8 @@ SmallVector<llvm::CallSite *> fix_call(llvm::Function *function, llvm::DenseMap<
       }
     }
   }
+
+
   LLVM_DEBUG(llvm::dbgs() << "END " << __PRETTY_FUNCTION__ << "\n");
   return ret;
 }
@@ -600,26 +618,6 @@ void normalize_addrspace(llvm::Module &dev)
               cast_inst->removeFromParent();
               cast_inst->deleteValue();
             }
-          }
-        }
-    }
-  }
-
-  // AddrSpaceCast must be between different address spaces
-  {
-    for (auto &fnct : dev) {
-      for (auto &BB : fnct)
-        for (auto &I : make_early_inc_range(BB)) {
-          if (auto cast_inst = dyn_cast<CallSite>(&I)) {
-            PointerType *FPTy = cast<PointerType>(cast_inst->getCalledOperand()->getType());
-            if (FPTy->getElementType() != cast_inst->getFunctionType()) {
-              llvm::dbgs() << "\n\n*name" << *cast_inst << "\n";
-              llvm::dbgs() << "Func:" << *cast_inst->getFunctionType() << "\n";
-              auto  i = cast_inst->getFunctionType()->getParamType(0);
-              llvm::dbgs() << "type:" << *i << "\n";
-              llvm::dbgs() << "OP:" << *cast_inst->getCalledOperand()->getType() << "\n";
-            }
-
           }
         }
     }
