@@ -70,12 +70,12 @@ public:
 
   Type *remapType(Type *SrcTy) override
   {
-    //handle struct morph from i32 to i64 from host to target
+    // handle struct morph from i32 to i64 from host to target
     auto find = structed_map.find(SrcTy);
     if (find != structed_map.end()) {
       return find->second;
     }
-    //addresspace also for argment of functions
+    // addresspace also for argment of functions
     if (auto fnct = dyn_cast<FunctionType>(SrcTy)) {
       llvm::SmallVector<Type *, 8> args_type;
       for (const auto &param : fnct->params()) {
@@ -92,15 +92,15 @@ public:
 };
 
 
-//Clone all global but not the one that start with hero as they are target dependant (contains assembly code)
+// Clone all global but not the one that start with hero as they are target dependant (contains assembly code)
 void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToValueMapTy &GtoG)
 {
   LLVM_DEBUG(llvm::dbgs() << "START " << __PRETTY_FUNCTION__ << "\n");
 
   using namespace llvm;
-  //Loop over all of the global variables, making corresponding globals in the
-  // new module.  Here we add them to the VMap and to the new Module.  We
-  // don't worry about attributes or initializers, they will come later.
+  // Loop over all of the global variables, making corresponding globals in the
+  //  new module.  Here we add them to the VMap and to the new Module.  We
+  //  don't worry about attributes or initializers, they will come later.
   //
 
 
@@ -246,18 +246,18 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 }
 
 
-//openmp .offload_sizes express the dimension of the underlyng data in bytes
-// sometimes can be zero if it is alredy specified by previous call
-// prev_call_site is the call to the fixpoint version of the function without indirection
-// target_mapper is the call to one of the possible mapper function
+// openmp .offload_sizes express the dimension of the underlyng data in bytes
+//  sometimes can be zero if it is alredy specified by previous call
+//  prev_call_site is the call to the fixpoint version of the function without indirection
+//  target_mapper is the call to one of the possible mapper function
 void fix_size(CallSite *prev_call_site, llvm::CallSite *target_mapper_caller, const llvm::DenseMap<llvm::Function *, llvm::Function *> &functionPool)
 {
-  //retrive old global size
+  // retrive old global size
   auto size_global = cast<ConstantDataArray>(cast<GlobalVariable>(target_mapper_caller->getOperand(6)->stripPointerCastsAndAliases())->getInitializer());
   auto &cntx = prev_call_site->getContext();
   auto &M = *prev_call_site->getModule();
 
-  //retrive old type size
+  // retrive old type size
   Function *old_f = nullptr;
   for (const auto &fun : functionPool) {
     if (fun.getSecond() == prev_call_site->getCalledFunction()) {
@@ -274,7 +274,7 @@ void fix_size(CallSite *prev_call_site, llvm::CallSite *target_mapper_caller, co
     old_arg_types.push_back(arg.getType());
   }
 
-  //retrive new type size
+  // retrive new type size
   SmallVector<Type *> new_arg_types;
   for (const auto &arg : prev_call_site->getCalledFunction()->args()) {
     new_arg_types.push_back(arg.getType());
@@ -291,7 +291,7 @@ void fix_size(CallSite *prev_call_site, llvm::CallSite *target_mapper_caller, co
 
     if (const auto *pointed = dyn_cast<PointerType>(old_arg)) {
       if (pointed->getElementType()->isArrayTy()) {
-        //TODO handle recursion of array
+        // TODO handle recursion of array
         auto old_array_type = cast<ArrayType>(pointed->getElementType());
         auto new_array_type = cast<ArrayType>(cast<PointerType>(new_arg)->getElementType());
         old_size = old_array_type->getElementType()->getScalarSizeInBits();
@@ -306,7 +306,7 @@ void fix_size(CallSite *prev_call_site, llvm::CallSite *target_mapper_caller, co
       }
     } else {
       if (old_arg->isArrayTy()) {
-        //TODO handle recursion of array
+        // TODO handle recursion of array
         auto old_array_type = cast<ArrayType>(old_arg);
         auto new_array_type = cast<ArrayType>(new_arg);
         old_size = old_array_type->getElementType()->getScalarSizeInBits();
@@ -401,10 +401,10 @@ SmallVector<llvm::CallSite *> fix_call(llvm::Function *function, llvm::DenseMap<
   }
 
 
-  //Find all call place
+  // Find all call place
   for (const auto &caller : function->users()) {
     if (const auto &target_mapper_caller = llvm::dyn_cast<llvm::CallSite>(caller)) {
-      //search for a call site as previous instruction
+      // search for a call site as previous instruction
       if (const auto &prev_call_site = llvm::dyn_cast<llvm::CallSite>(target_mapper_caller->getPrevNode())) {
         if (prev_call_site->getCalledFunction()->getName().startswith("__omp_offloading_10303_4dc05d6_func_l99")) {
           fix_size(prev_call_site, target_mapper_caller, functionPool);
@@ -476,7 +476,7 @@ void clean_host(llvm::Module &M, const llvm::LLVMContext &cntx)
   }
 
 
-  //remove all instuction
+  // remove all instuction
 
   for (size_t i = 0; i < to_remove.size();) {
     auto *user = to_remove[i];
@@ -493,7 +493,7 @@ void clean_host(llvm::Module &M, const llvm::LLVMContext &cntx)
     i++;
   }
 
-  //remove all Global
+  // remove all Global
 
   for (size_t i = 0; i < to_remove.size();) {
     auto *user = to_remove[i];
@@ -513,11 +513,11 @@ void clean_host(llvm::Module &M, const llvm::LLVMContext &cntx)
 
 void normalize_addrspace(llvm::Module &dev)
 {
-  //go through all instructions until a fixed point is reached each time search for GEP with address space not aligned between source and dest and recreate a new GEP with the correct address space
-  // also we cannot use RAUW because address space is part of the type so we use remapinstruction that has the power to create invalid IR
-  //we continue to iterate until all GEP are correctly handled
-  // the fixed point iteration is due to possible dependency on future gep
-  //all this stuff is a hack because clonefunctioninto creates invalid GEP, and we cannot remap all pointers to pointer addrespace(1) as this will imply also local alloca will be transformed.
+  // go through all instructions until a fixed point is reached each time search for GEP with address space not aligned between source and dest and recreate a new GEP with the correct address space
+  //  also we cannot use RAUW because address space is part of the type so we use remapinstruction that has the power to create invalid IR
+  // we continue to iterate until all GEP are correctly handled
+  //  the fixed point iteration is due to possible dependency on future gep
+  // all this stuff is a hack because clonefunctioninto creates invalid GEP, and we cannot remap all pointers to pointer addrespace(1) as this will imply also local alloca will be transformed.
   {
     bool stop_looping = false;
     ValueToValueMapTy VM{};
@@ -552,7 +552,7 @@ void normalize_addrspace(llvm::Module &dev)
       rem->eraseFromParent();
     }
   }
-  //fix address space inside array of pointers
+  // fix address space inside array of pointers
   {
     for (auto &fnct : dev) {
       for (auto &BB : fnct)
@@ -589,17 +589,37 @@ void normalize_addrspace(llvm::Module &dev)
   }
 
 
-    // AddrSpaceCast must be between different address spaces
+  // AddrSpaceCast must be between different address spaces
   {
     for (auto &fnct : dev) {
       for (auto &BB : fnct)
         for (auto &I : make_early_inc_range(BB)) {
           if (auto cast_inst = dyn_cast<AddrSpaceCastInst>(&I)) {
-            if (cast_inst->getSrcAddressSpace() == cast_inst->getDestAddressSpace() ) {
+            if (cast_inst->getSrcAddressSpace() == cast_inst->getDestAddressSpace()) {
               cast_inst->replaceAllUsesWith(cast_inst->getOperand(0));
               cast_inst->removeFromParent();
               cast_inst->deleteValue();
             }
+          }
+        }
+    }
+  }
+
+  // AddrSpaceCast must be between different address spaces
+  {
+    for (auto &fnct : dev) {
+      for (auto &BB : fnct)
+        for (auto &I : make_early_inc_range(BB)) {
+          if (auto cast_inst = dyn_cast<CallSite>(&I)) {
+            PointerType *FPTy = cast<PointerType>(cast_inst->getCalledOperand()->getType());
+            if (FPTy->getElementType() != cast_inst->getFunctionType()) {
+              llvm::dbgs() << "\n\n*name" << *cast_inst << "\n";
+              llvm::dbgs() << "Func:" << *cast_inst->getFunctionType() << "\n";
+              auto  i = cast_inst->getFunctionType()->getParamType(0);
+              llvm::dbgs() << "type:" << *i << "\n";
+              llvm::dbgs() << "OP:" << *cast_inst->getCalledOperand()->getType() << "\n";
+            }
+
           }
         }
     }
@@ -636,6 +656,7 @@ void export_functions(llvm::Module &M, const SmallVectorImpl<llvm::CallSite *> &
   ValueToValueMapTy GtoG;
   cloneGlobalVariable(*dev_module, M, GtoG);
   normalize_addrspace(*dev_module);
+  write_module("crash_hero.ll", *dev_module);
   assert(!verifyModule(*dev_module, &llvm::dbgs()) && "Broken after normal Dev module");
 
 
