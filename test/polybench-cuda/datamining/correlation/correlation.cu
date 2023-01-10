@@ -12,11 +12,8 @@
 #include <polybench.h>
 #include <polybenchUtilFuncts.h>
 
-#define FLOAT_N 3214212.01f
 
-#define EPS 0.005f
-
-extern "C" __global__ void mean_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DATA_TYPE *data ANN_DATA)
+extern "C" __global__ void mean_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DATA_TYPE *data ANN_DATA,  DATA_TYPE float_n ANN_FLOAT_N)
 {
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -30,12 +27,12 @@ extern "C" __global__ void mean_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, D
 			mean[j] += data[i*M + j];
 		}
 	
-		mean[j] /= (DATA_TYPE)FLOAT_N;
+		mean[j] /= float_n;
 	}
 }
 
 
-extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DATA_TYPE *std ANN_STD, DATA_TYPE *data ANN_DATA)
+extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DATA_TYPE *std ANN_STD, DATA_TYPE *data ANN_DATA, DATA_TYPE float_n ANN_FLOAT_N, DATA_TYPE eps ANN_EPS)
 {
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	
@@ -51,8 +48,8 @@ extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DA
 			std[j] += tmp;
 		}
 		DATA_TYPE __attribute__((annotate("scalar(range(0,5000) final)"))) tmp = std[j];
-		std[j] = sqrt(tmp / FLOAT_N);
-		if(std[j] <= EPS) 
+		std[j] = sqrt(tmp / float_n);
+		if(std[j] <= eps) 
 		{
 			std[j] = 1.0;
 		}
@@ -60,15 +57,15 @@ extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DA
 }
 
 
-extern "C" __global__ void reduce_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DATA_TYPE *std ANN_STD, DATA_TYPE *data ANN_DATA)
+extern "C" __global__ void reduce_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DATA_TYPE *std ANN_STD, DATA_TYPE *data ANN_DATA, DATA_TYPE float_n ANN_FLOAT_N)
 {
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	
 	if ((i < _PB_N) && (j < _PB_M))
 	{
-		data[i*M + j] -= mean[j];
-		__attribute__((annotate("scalar(range(-100, 100) final)"))) DATA_TYPE tmp = sqrt(FLOAT_N) * std[j];
+		data[i*m + j] -= mean[j];
+		DATA_TYPE tmp = sqrt(float_n) * std[j];
 		data[i*m + j] /= tmp;
 	}
 }
