@@ -103,6 +103,7 @@ time_profile_file=
 temporary_dir=$(mktemp -d)
 del_temporary_dir=1
 help=0
+print_version=0
 for opt in $raw_opts; do
   case $parse_state in
     0)
@@ -220,8 +221,11 @@ for opt in $raw_opts; do
           printf '%s\n' ${llvmbin}
           exit 0
           ;;
-        -help | -h | -version | -v | --help | --version)
+        -help | -h | --help)
           help=1
+          ;;
+        -v | -version | --version)
+          print_version=1
           ;;
         -*)
           opts="$opts $opt";
@@ -300,6 +304,15 @@ for opt in $raw_opts; do
 done
 
 output_basename=$(basename ${output_file})
+
+if [[ $print_version -ne 0 ]]; then
+  printf 'clang info:\n-----------\n%s\n\n' "$($CLANG --version)"
+  printf 'clang++ info:\n-------------\n%s\n\n' "$($CLANGXX --version)"
+  printf 'opt info:\n---------\n%s\n\n' "$($OPT --version)"
+  printf 'llc info:\n---------\n%s\n\n' "$($LLC --version)"
+  printf 'llvm-link info:\n---------------\n%s\n' "$($LLVM_LINK --version)"
+  exit 0
+fi
 
 if [[ ( -z "$input_files" ) || ( $help -ne 0 ) ]]; then
   cat << HELP_END
