@@ -24,6 +24,13 @@ bool isFloatType(llvm::Type *srct);
  *  @returns The pointer element type. */
 llvm::Type *fullyUnwrapPointerOrArrayType(llvm::Type *srct);
 
+/** Checks if a value with the given LLVM type can have the specified InputInfo
+ *  metadata attached or not.
+ *  @param T An LLVM type.
+ *  @param II A TAFFO InputInfo object
+ *  @returns true if the two types are compatible, false otherwise. */
+bool typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II);
+
 enum class FixedPointTypeGenError {
   NoError = 0,
   InvalidRange,

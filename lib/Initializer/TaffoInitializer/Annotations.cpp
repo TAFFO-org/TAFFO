@@ -1,6 +1,7 @@
 #include "AnnotationParser.h"
 #include "Metadata.h"
 #include "TaffoInitializerPass.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -136,9 +137,20 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
   StringRef annstr = annoStr->getAsString();
   AnnotationParser parser;
   if (!parser.parseAnnotationString(annstr)) {
-    errs() << "TAFFO annnotation parser syntax error: \n";
+    errs() << "TAFFO annnotation parser syntax error:\n";
     errs() << "  In annotation: \"" << annstr << "\"\n";
     errs() << "  " << parser.lastError() << "\n";
+    return false;
+  }
+  Type *TyCheck = instr->getType();
+  if (Instruction *I = dyn_cast<Instruction>(instr))
+    TyCheck = I->getOperand(0)->getType();
+  else if (Function *F = dyn_cast<Function>(instr))
+    TyCheck = F->getReturnType();
+  if (!typecheckMetadata(TyCheck, parser.metadata.get())) {
+    errs() << "TAFFO typechecker error:\n";
+    errs() << "  In annotation: \"" << annstr << "\"\n";
+    errs() << "  Type does not look like LLVM type " << *TyCheck << "\n";
     return false;
   }
   vi.fixpTypeRootDistance = 0;

@@ -309,6 +309,8 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
      * correct type in the correct place, but is'a huge mess */
     Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
     Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
+    LLVM_DEBUG(dbgs() << "usedt = " << *usedt << ", vinfo metadata = " << (vinfo.metadata ? vinfo.metadata->toString() : "(null)") << "\n");
+    LLVM_DEBUG(dbgs() << "usert = " << *usert << ", uinfo metadata = " << (uinfo.metadata ? uinfo.metadata->toString() : "(null)") << "\n");
     bool copyok = (usedt == usert);
     copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
     if (isa<GetElementPtrInst>(user) && used != dyn_cast<GetElementPtrInst>(user)->getPointerOperand())
@@ -367,6 +369,7 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
   }
 
   LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] begin\n");
+  LLVM_DEBUG(dbgs() << "Initial GEP object metadata is " << used_mdi->toString() << "\n");
 
   Type *source_element_type = gepi->getSourceElementType();
   for (auto idx_it = gepi->idx_begin() + 1; // skip first index

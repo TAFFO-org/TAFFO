@@ -26,6 +26,44 @@ bool taffo::isFloatType(Type *srct)
 }
 
 
+bool taffo::typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II)
+{
+  assert(T);
+  assert(II);
+  LLVM_DEBUG(dbgs() << "[typecheckMetadata] Typechecking " << II->toString() << " against LLVM type " << *T << "\n");
+  llvm::Type *UT = fullyUnwrapPointerOrArrayType(T);
+
+  if (UT->isSingleValueType() && isa<mdutils::InputInfo>(II)) {
+    LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check OK\n");
+    return true;
+  }
+
+  if (UT->isStructTy() && isa<mdutils::StructInfo>(II)) {
+    auto *ST = dyn_cast<StructType>(UT);
+    auto *SI = dyn_cast<mdutils::StructInfo>(II);
+    if (UT->getStructNumElements() != SI->size()) {
+      LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed: struct member count mismatch\n");
+      return false;
+    }
+    for (unsigned i = 0; i < SI->size(); i++) {
+      mdutils::MDInfo *IIField = SI->getField(i).get();
+      auto *TyField = ST->elements()[i];
+      if (IIField != nullptr) {
+        if (!typecheckMetadata(TyField, IIField)) {
+          LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed for one of the struct fields\n");
+          return false;
+        }
+      }
+    }
+    LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check OK\n");
+    return true;
+  }
+  
+  LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed: struct/single value mismatch\n");
+  return false;
+}
+
+
 mdutils::FPType taffo::fixedPointTypeFromRange(
     const mdutils::Range &rng,
     FixedPointTypeGenError *outerr,
