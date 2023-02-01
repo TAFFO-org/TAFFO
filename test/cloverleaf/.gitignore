@@ -1,0 +1,11 @@
+build/
+fortran_src/
+*.o
+*.mod
+*.tmp
+*.out
+clover_leaf
+clover_leaf_taffo
+test
+*.txt
+*.a
