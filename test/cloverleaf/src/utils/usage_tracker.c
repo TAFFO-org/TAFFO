@@ -62,7 +62,7 @@ void print_usage_info() {
 }
 
 void print_annotations() {
-  const char *annotation_format = "%-12s | __attribute__((annotate(\"scalar(range(%4d,%4d) final)\")))\n";
+  const char *annotation_format = "%-12s | \"scalar(range(%4d,%4d))\"\n";
 
   fprintf(usage_tracker_file, "Ready-to-use annotations\n------------------------\n");
   for (int i = 0; i < USAGE_INFO_SIZE; i++) {

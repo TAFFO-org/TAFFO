@@ -22,6 +22,7 @@
  *  velocity field.
  */
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_accelerate(
@@ -30,20 +31,20 @@ void kernel_accelerate(
     int y_min,
     int y_max,
     double dt,
-    double *xarea,
-    double *yarea,
-    double *volume,
-    double *density0,
-    double *pressure,
-    double *viscosity,
-    double *xvel0,
-    double *yvel0,
-    double *xvel1,
-    double *yvel1
+    __attribute__((annotate(RANGE_xarea))) double *xarea,
+    __attribute__((annotate(RANGE_yarea))) double *yarea,
+    __attribute__((annotate(RANGE_volume))) double *volume,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_pressure))) double *pressure,
+    __attribute__((annotate(RANGE_viscosity))) double *viscosity,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
+    __attribute__((annotate(RANGE_xvel1))) double *xvel1,
+    __attribute__((annotate(RANGE_yvel1))) double *yvel1
 ) {
   int j, k, err;
-  double nodal_mass;
-  double stepby_mass_s;
+  __attribute__((annotate("scalar()"))) double nodal_mass;
+  __attribute__((annotate("scalar()"))) double stepby_mass_s;
 
   for (k = y_min; k <= y_max + 1; k++) {
 #pragma ivdep

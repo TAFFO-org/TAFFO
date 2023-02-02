@@ -27,6 +27,7 @@
 
 #include <math.h>
 
+#include "../types/definitions.h"
 #include "data.h"
 #include "ftocmacros.h"
 
@@ -35,27 +36,29 @@ void kernel_generate_chunk(
     int x_max,
     int y_min,
     int y_max,
-    double *vertexx,
-    double *vertexy,
-    double *cellx,
-    double *celly,
-    double *density0,
-    double *energy0,
-    double *xvel0,
-    double *yvel0,
+    __attribute__((annotate(RANGE_vertexx))) double *vertexx,
+    __attribute__((annotate(RANGE_vertexy))) double *vertexy,
+    __attribute__((annotate(RANGE_cellx))) double *cellx,
+    __attribute__((annotate(RANGE_celly))) double *celly,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_energy0))) double *energy0,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
     int number_of_states,
-    double *state_density,
-    double *state_energy,
-    double *state_xvel,
-    double *state_yvel,
-    double *state_xmin,
-    double *state_xmax,
-    double *state_ymin,
-    double *state_ymax,
-    double *state_radius,
+    __attribute__((annotate("scalar()"))) double *state_density,
+    __attribute__((annotate("scalar()"))) double *state_energy,
+    __attribute__((annotate("scalar()"))) double *state_xvel,
+    __attribute__((annotate("scalar()"))) double *state_yvel,
+    __attribute__((annotate("scalar()"))) double *state_xmin,
+    __attribute__((annotate("scalar()"))) double *state_xmax,
+    __attribute__((annotate("scalar()"))) double *state_ymin,
+    __attribute__((annotate("scalar()"))) double *state_ymax,
+    __attribute__((annotate("scalar()"))) double *state_radius,
     int *state_geometry
 ) {
-  double radius, x_cent, y_cent;
+  __attribute__((annotate("scalar()"))) double radius;
+  __attribute__((annotate("scalar()"))) double x_cent;
+  __attribute__((annotate("scalar()"))) double y_cent;
   int state;
 
   int j, k, jt, kt;

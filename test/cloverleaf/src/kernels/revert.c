@@ -24,10 +24,18 @@
  *  left in to remain relevant to the full method.
  */
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_revert(
-    int x_min, int x_max, int y_min, int y_max, double *density0, double *density1, double *energy0, double *energy1
+    int x_min,
+    int x_max,
+    int y_min,
+    int y_max,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_density1))) double *density1,
+    __attribute__((annotate(RANGE_energy0))) double *energy0,
+    __attribute__((annotate(RANGE_energy1))) double *energy1
 ) {
   int j, k;
 

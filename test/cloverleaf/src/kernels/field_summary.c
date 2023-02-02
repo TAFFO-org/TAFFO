@@ -22,6 +22,7 @@
  *  pressure for the chunk is calculated.
  */
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_field_summary(
@@ -29,29 +30,29 @@ void kernel_field_summary(
     int x_max,
     int y_min,
     int y_max,
-    double *volume,
-    double *density0,
-    double *energy0,
-    double *pressure,
-    double *xvel0,
-    double *yvel0,
-    double *p_vol,
-    double *p_mass,
-    double *p_ie,
-    double *p_ke,
-    double *p_press
+    __attribute__((annotate(RANGE_volume))) double *volume,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_energy0))) double *energy0,
+    __attribute__((annotate(RANGE_pressure))) double *pressure,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
+    __attribute__((annotate(RANGE_vol))) double *p_vol,
+    __attribute__((annotate(RANGE_mass))) double *p_mass,
+    __attribute__((annotate(RANGE_ie))) double *p_ie,
+    __attribute__((annotate(RANGE_ke))) double *p_ke,
+    __attribute__((annotate(RANGE_press))) double *p_press
 ) {
   int j, k, jv, kv;
 
-  double vol = *p_vol;
-  double mass = *p_mass;
-  double ie = *p_ie;
-  double ke = *p_ke;
-  double press = *p_press;
+  __attribute__((annotate(RANGE_vol))) double vol = *p_vol;
+  __attribute__((annotate(RANGE_mass))) double mass = *p_mass;
+  __attribute__((annotate(RANGE_ie))) double ie = *p_ie;
+  __attribute__((annotate(RANGE_ke))) double ke = *p_ke;
+  __attribute__((annotate(RANGE_press))) double press = *p_press;
 
-  double vsqrd;
-  double cell_vol;
-  double cell_mass;
+  __attribute__((annotate(RANGE_ke))) double vsqrd;
+  __attribute__((annotate(RANGE_vol))) double cell_vol;
+  __attribute__((annotate(RANGE_mass))) double cell_mass;
 
   vol = 0.0;
   mass = 0.0;

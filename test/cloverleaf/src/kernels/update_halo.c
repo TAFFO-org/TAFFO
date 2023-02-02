@@ -24,6 +24,7 @@
  *  reflective.
  */
 
+#include "../types/definitions.h"
 #include "data.h"
 #include "ftocmacros.h"
 
@@ -34,21 +35,21 @@ void kernel_update_halo(
     int y_max,
     int chunk_neighbours[static 4],
     int tile_neighbours[static 4],
-    double *density0,
-    double *energy0,
-    double *pressure,
-    double *viscosity,
-    double *soundspeed,
-    double *density1,
-    double *energy1,
-    double *xvel0,
-    double *yvel0,
-    double *xvel1,
-    double *yvel1,
-    double *vol_flux_x,
-    double *vol_flux_y,
-    double *mass_flux_x,
-    double *mass_flux_y,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_energy0))) double *energy0,
+    __attribute__((annotate(RANGE_pressure))) double *pressure,
+    __attribute__((annotate(RANGE_viscosity))) double *viscosity,
+    __attribute__((annotate(RANGE_soundspeed))) double *soundspeed,
+    __attribute__((annotate(RANGE_density1))) double *density1,
+    __attribute__((annotate(RANGE_energy1))) double *energy1,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
+    __attribute__((annotate(RANGE_xvel1))) double *xvel1,
+    __attribute__((annotate(RANGE_yvel1))) double *yvel1,
+    __attribute__((annotate(RANGE_vol_flux_x))) double *vol_flux_x,
+    __attribute__((annotate(RANGE_vol_flux_y))) double *vol_flux_y,
+    __attribute__((annotate(RANGE_mass_flux_x))) double *mass_flux_x,
+    __attribute__((annotate(RANGE_mass_flux_y))) double *mass_flux_y,
     int fields[static NUM_FIELDS],
     int depth
 ) {
