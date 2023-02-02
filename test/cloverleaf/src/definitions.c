@@ -28,21 +28,22 @@ double end_time;
 
 int end_step;
 
-double dtold;
-double dt;
-double time_val;
-double dtinit;
-double dtmin;
-double dtmax;
-double dtrise;
-double dtu_safe;
-double dtv_safe;
-double dtc_safe;
-double dtdiv_safe;
-double dtc;
-double dtu;
-double dtv;
-double dtdiv;
+double dt;  // This variable is used in contexts where values are too small to be represented correctly
+            // with fixed point notation, therefore it is not annotated
+__attribute__((annotate("scalar(range(0,1))"))) double dtold;
+__attribute__((annotate("scalar(range(0,1))"))) double time_val;
+__attribute__((annotate("scalar(range(0,1))"))) double dtinit;
+__attribute__((annotate("scalar(range(0,1))"))) double dtmin;
+__attribute__((annotate("scalar(range(0,1))"))) double dtmax;
+__attribute__((annotate("scalar(range(0,2))"))) double dtrise;
+__attribute__((annotate("scalar(range(0,1))"))) double dtu_safe;
+__attribute__((annotate("scalar(range(0,1))"))) double dtv_safe;
+__attribute__((annotate("scalar(range(0,1))"))) double dtc_safe;
+__attribute__((annotate("scalar(range(0,1))"))) double dtdiv_safe;
+__attribute__((annotate("scalar(range(0,1))"))) double dtc;
+__attribute__((annotate("scalar(range(0,1))"))) double dtu;
+__attribute__((annotate("scalar(range(0,1))"))) double dtv;
+__attribute__((annotate("scalar(range(0,1))"))) double dtdiv;
 
 int visit_frequency;
 int summary_frequency;
@@ -50,7 +51,7 @@ int summary_frequency;
 int jdt;
 int kdt;
 
-chunk_type chunk;
+chunk_type __attribute__((annotate(ANNOTATION_CHUNK_TYPE))) chunk;
 int number_of_chunks;
 
 grid_type grid;

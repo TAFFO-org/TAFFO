@@ -81,7 +81,7 @@ else
 endif
 
 ifdef DEBUG
-	CFLAGS = -Og -g -fbounds-check
+	CFLAGS = -O0 -g -fbounds-check
 endif
 
 ifdef IEEE

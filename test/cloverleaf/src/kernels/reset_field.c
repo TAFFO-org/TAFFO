@@ -22,6 +22,7 @@
  *  step data, ready for the next timestep.
  */
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_reset_field(
@@ -29,14 +30,14 @@ void kernel_reset_field(
     int x_max,
     int y_min,
     int y_max,
-    double *density0,
-    double *density1,
-    double *energy0,
-    double *energy1,
-    double *xvel0,
-    double *xvel1,
-    double *yvel0,
-    double *yvel1
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_density1))) double *density1,
+    __attribute__((annotate(RANGE_energy0))) double *energy0,
+    __attribute__((annotate(RANGE_energy1))) double *energy1,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_xvel1))) double *xvel1,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
+    __attribute__((annotate(RANGE_yvel1))) double *yvel1
 ) {
   int j, k;
 

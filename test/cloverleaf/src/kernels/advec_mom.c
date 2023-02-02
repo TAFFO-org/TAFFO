@@ -26,6 +26,7 @@
 
 #include <math.h>
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_advec_mom(
@@ -33,31 +34,31 @@ void kernel_advec_mom(
     int x_max,
     int y_min,
     int y_max,
-    double *vel1,
-    double *mass_flux_x,
-    double *vol_flux_x,
-    double *mass_flux_y,
-    double *vol_flux_y,
-    double *volume,
-    double *density1,
-    double *node_flux,
-    double *node_mass_post,
-    double *node_mass_pre,
-    double *mom_flux,
-    double *pre_vol,
-    double *post_vol,
-    double *celldx,
-    double *celldy,
+    __attribute__((annotate(RANGE_xvel1))) double *vel1,
+    __attribute__((annotate(RANGE_mass_flux_x))) double *mass_flux_x,
+    __attribute__((annotate(RANGE_vol_flux_x))) double *vol_flux_x,
+    __attribute__((annotate(RANGE_mass_flux_y))) double *mass_flux_y,
+    __attribute__((annotate(RANGE_vol_flux_y))) double *vol_flux_y,
+    __attribute__((annotate(RANGE_volume))) double *volume,
+    __attribute__((annotate(RANGE_density1))) double *density1,
+    __attribute__((annotate(RANGE_work_array1))) double *node_flux,
+    __attribute__((annotate(RANGE_work_array2))) double *node_mass_post,
+    __attribute__((annotate(RANGE_work_array3))) double *node_mass_pre,
+    __attribute__((annotate(RANGE_work_array4))) double *mom_flux,
+    __attribute__((annotate(RANGE_work_array5))) double *pre_vol,
+    __attribute__((annotate(RANGE_work_array6))) double *post_vol,
+    __attribute__((annotate(RANGE_celldx))) double *celldx,
+    __attribute__((annotate(RANGE_celldy))) double *celldy,
     int which_vel,
     int sweep_number,
     int direction
 ) {
   int j, k, mom_sweep;
   int upwind, donor, downwind, dif;
-  double sigma, wind, width;
-  double vdiffuw, vdiffdw, auw, adw, limiter;
+  __attribute__((annotate("scalar()"))) double sigma, wind, width;
+  __attribute__((annotate("scalar()"))) double vdiffuw, vdiffdw, auw, adw, limiter;
 
-  double advec_vel_s;
+  __attribute__((annotate("scalar()"))) double advec_vel_s;
 
   mom_sweep = direction + 2 * (sweep_number - 1);
 

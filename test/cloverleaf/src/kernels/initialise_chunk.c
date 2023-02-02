@@ -21,6 +21,7 @@
  *  @details Invokes the user specified chunk initialisation kernel.
  */
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_initialise_chunk(
@@ -28,21 +29,21 @@ void kernel_initialise_chunk(
     int x_max,
     int y_min,
     int y_max,
-    double min_x,
-    double min_y,
-    double d_x,
-    double d_y,
-    double *vertexx,
-    double *vertexdx,
-    double *vertexy,
-    double *vertexdy,
-    double *cellx,
-    double *celldx,
-    double *celly,
-    double *celldy,
-    double *volume,
-    double *xarea,
-    double *yarea
+    double __attribute__((annotate("scalar()"))) min_x,
+    double __attribute__((annotate("scalar()"))) min_y,
+    double __attribute__((annotate("scalar()"))) d_x,
+    double __attribute__((annotate("scalar()"))) d_y,
+    __attribute__((annotate(RANGE_vertexx))) double *vertexx,
+    __attribute__((annotate(RANGE_vertexdx))) double *vertexdx,
+    __attribute__((annotate(RANGE_vertexy))) double *vertexy,
+    __attribute__((annotate(RANGE_vertexdy))) double *vertexdy,
+    __attribute__((annotate(RANGE_cellx))) double *cellx,
+    __attribute__((annotate(RANGE_celldx))) double *celldx,
+    __attribute__((annotate(RANGE_celly))) double *celly,
+    __attribute__((annotate(RANGE_celldy))) double *celldy,
+    __attribute__((annotate(RANGE_volume))) double *volume,
+    __attribute__((annotate(RANGE_xarea))) double *xarea,
+    __attribute__((annotate(RANGE_yarea))) double *yarea
 ) {
   int j, k;
 

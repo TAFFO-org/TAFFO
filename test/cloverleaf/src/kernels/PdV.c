@@ -26,6 +26,7 @@
 
 #include <stdbool.h>
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_pdv(
@@ -35,23 +36,30 @@ void kernel_pdv(
     int y_min,
     int y_max,
     double dt,
-    double *xarea,
-    double *yarea,
-    double *volume,
-    double *density0,
-    double *density1,
-    double *energy0,
-    double *energy1,
-    double *pressure,
-    double *viscosity,
-    double *xvel0,
-    double *xvel1,
-    double *yvel0,
-    double *yvel1,
-    double *volume_change
+    __attribute__((annotate(RANGE_xarea))) double *xarea,
+    __attribute__((annotate(RANGE_yarea))) double *yarea,
+    __attribute__((annotate(RANGE_volume))) double *volume,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_density1))) double *density1,
+    __attribute__((annotate(RANGE_energy0))) double *energy0,
+    __attribute__((annotate(RANGE_energy1))) double *energy1,
+    __attribute__((annotate(RANGE_pressure))) double *pressure,
+    __attribute__((annotate(RANGE_viscosity))) double *viscosity,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_xvel1))) double *xvel1,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
+    __attribute__((annotate(RANGE_yvel1))) double *yvel1,
+    __attribute__((annotate(RANGE_work_array1))) double *volume_change
 ) {
   int j, k;
-  double recip_volume, energy_change, min_cell_volume, right_flux, left_flux, top_flux, bottom_flux, total_flux;
+  __attribute__((annotate("scalar()"))) double recip_volume;
+  __attribute__((annotate("scalar()"))) double energy_change;
+  __attribute__((annotate("scalar()"))) double min_cell_volume;
+  __attribute__((annotate("scalar()"))) double right_flux;
+  __attribute__((annotate("scalar()"))) double left_flux;
+  __attribute__((annotate("scalar()"))) double top_flux;
+  __attribute__((annotate("scalar()"))) double bottom_flux;
+  __attribute__((annotate("scalar()"))) double total_flux;
 
   if (predict) {
     for (k = y_min; k <= y_max; k++) {

@@ -24,7 +24,9 @@
  */
 
 #include <math.h>
+#include <stdio.h>
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_viscosity(
@@ -32,13 +34,13 @@ void kernel_viscosity(
     int x_max,
     int y_min,
     int y_max,
-    double *celldx,
-    double *celldy,
-    double *density0,
-    double *pressure,
-    double *viscosity,
-    double *xvel0,
-    double *yvel0
+    __attribute__((annotate(RANGE_celldx))) double *celldx,
+    __attribute__((annotate(RANGE_celldy))) double *celldy,
+    __attribute__((annotate(RANGE_density0))) double *density0,
+    __attribute__((annotate(RANGE_pressure))) double *pressure,
+    __attribute__((annotate(RANGE_viscosity))) double *viscosity,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0
 ) {
   int j, k;
   double ugrad, vgrad, grad2, pgradx, pgrady, pgradx2, pgrady2, grad, ygrad, pgrad, xgrad, div, strain2, limiter;

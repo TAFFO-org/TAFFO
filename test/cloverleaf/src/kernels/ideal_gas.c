@@ -24,13 +24,24 @@
 
 #include <math.h>
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_ideal_gas(
-    int x_min, int x_max, int y_min, int y_max, double *density, double *energy, double *pressure, double *soundspeed
+    int x_min,
+    int x_max,
+    int y_min,
+    int y_max,
+    __attribute__((annotate("scalar(range(0,5))"))) double *density,
+    __attribute__((annotate(RANGE_energy0))) double *energy,
+    __attribute__((annotate(RANGE_pressure))) double *pressure,
+    __attribute__((annotate(RANGE_soundspeed))) double *soundspeed
 ) {
   int j, k;
-  double sound_speed_squared, v, pressurebyenergy, pressurebyvolume;
+  __attribute__((annotate("scalar()"))) double sound_speed_squared;
+  __attribute__((annotate("scalar()"))) double v;
+  __attribute__((annotate("scalar()"))) double pressurebyenergy;
+  __attribute__((annotate("scalar()"))) double pressurebyvolume;
 
   for (k = y_min; k <= y_max; k++) {
 #pragma ivdep

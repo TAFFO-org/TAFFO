@@ -24,6 +24,7 @@
 
 #include <math.h>
 
+#include "../types/definitions.h"
 #include "data.h"
 #include "ftocmacros.h"
 
@@ -34,27 +35,27 @@ void kernel_advec_cell(
     int y_max,
     int dir,
     int sweep_number,
-    double *vertexdx,
-    double *vertexdy,
-    double *volume,
-    double *density1,
-    double *energy1,
-    double *mass_flux_x,
-    double *vol_flux_x,
-    double *mass_flux_y,
-    double *vol_flux_y,
-    double *pre_vol,
-    double *post_vol,
-    double *pre_mass,
-    double *post_mass,
-    double *advec_vol,
-    double *post_ener,
-    double *ener_flux
+    __attribute__((annotate(RANGE_vertexdx))) double *vertexdx,
+    __attribute__((annotate(RANGE_vertexdy))) double *vertexdy,
+    __attribute__((annotate(RANGE_volume))) double *volume,
+    __attribute__((annotate(RANGE_density1))) double *density1,
+    __attribute__((annotate(RANGE_energy1))) double *energy1,
+    __attribute__((annotate(RANGE_mass_flux_x))) double *mass_flux_x,
+    __attribute__((annotate(RANGE_vol_flux_x))) double *vol_flux_x,
+    __attribute__((annotate(RANGE_mass_flux_y))) double *mass_flux_y,
+    __attribute__((annotate(RANGE_vol_flux_y))) double *vol_flux_y,
+    __attribute__((annotate(RANGE_work_array1))) double *pre_vol,
+    __attribute__((annotate(RANGE_work_array2))) double *post_vol,
+    __attribute__((annotate(RANGE_work_array3))) double *pre_mass,
+    __attribute__((annotate(RANGE_work_array4))) double *post_mass,
+    __attribute__((annotate(RANGE_work_array5))) double *advec_vol,
+    __attribute__((annotate(RANGE_work_array6))) double *post_ener,
+    __attribute__((annotate(RANGE_work_array7))) double *ener_flux
 ) {
   int j, k, upwind, donor, downwind, dif;
 
-  double sigma, sigmat, sigmav, sigmam, sigma3, sigma4, diffuw, diffdw, limiter;
-  double one_by_six;
+  __attribute__((annotate("scalar()"))) double sigma, sigmat, sigmav, sigmam, sigma3, sigma4, diffuw, diffdw, limiter;
+  __attribute__((annotate("scalar()"))) double one_by_six;
 
   one_by_six = 1.0 / 6.0;
 

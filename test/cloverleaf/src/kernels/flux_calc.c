@@ -21,6 +21,7 @@
  *  @details The edge volume fluxes are calculated based on the velocity fields.
  */
 
+#include "../types/definitions.h"
 #include "ftocmacros.h"
 
 void kernel_flux_calc(
@@ -29,14 +30,14 @@ void kernel_flux_calc(
     int y_min,
     int y_max,
     double dt,
-    double *xarea,
-    double *yarea,
-    double *xvel0,
-    double *yvel0,
-    double *xvel1,
-    double *yvel1,
-    double *vol_flux_x,
-    double *vol_flux_y
+    __attribute__((annotate(RANGE_xarea))) double *xarea,
+    __attribute__((annotate(RANGE_yarea))) double *yarea,
+    __attribute__((annotate(RANGE_xvel0))) double *xvel0,
+    __attribute__((annotate(RANGE_yvel0))) double *yvel0,
+    __attribute__((annotate(RANGE_xvel1))) double *xvel1,
+    __attribute__((annotate(RANGE_yvel1))) double *yvel1,
+    __attribute__((annotate(RANGE_vol_flux_x))) double *vol_flux_x,
+    __attribute__((annotate(RANGE_vol_flux_y))) double *vol_flux_y
 ) {
   int j, k;
 

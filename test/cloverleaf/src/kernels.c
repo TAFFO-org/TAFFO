@@ -374,9 +374,17 @@ void update_halo(int fields[static NUM_FIELDS], int depth) {
 }
 
 void field_summary() {
-  double vol, mass, ie, ke, press;
-  double t_vol, t_mass, t_ie, t_ke, t_press;
-  double qa_diff;
+  __attribute__((annotate(RANGE_vol))) double vol;
+  __attribute__((annotate(RANGE_mass))) double mass;
+  __attribute__((annotate(RANGE_ie))) double ie;
+  __attribute__((annotate(RANGE_ke))) double ke;
+  __attribute__((annotate(RANGE_press))) double press;
+  __attribute__((annotate(RANGE_vol))) double t_vol;
+  __attribute__((annotate(RANGE_mass))) double t_mass;
+  __attribute__((annotate(RANGE_ie))) double t_ie;
+  __attribute__((annotate(RANGE_ke))) double t_ke;
+  __attribute__((annotate(RANGE_press))) double t_press;
+  __attribute__((annotate("scalar(range(0,100))"))) double qa_diff;
 
   double kernel_time;
 
