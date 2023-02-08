@@ -32,9 +32,9 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
   if (AllocaInst *alloca = dyn_cast<AllocaInst>(val)) {
     res = convertAlloca(alloca, fixpt);
   } else if (LoadInst *load = dyn_cast<LoadInst>(val)) {
-    res = convertLoad(load, fixpt);
+    res = convertLoad(load, fixpt, m);
   } else if (StoreInst *store = dyn_cast<StoreInst>(val)) {
-    res = convertStore(store);
+    res = convertStore(store, m);
   } else if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(val)) {
     res = convertGep(gep, fixpt);
   } else if (ExtractValueInst *ev = dyn_cast<ExtractValueInst>(val)) {
@@ -119,7 +119,7 @@ Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
 }
 
 
-Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
+Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt, Module &m)
 {
   Value *ptr = load->getPointerOperand();
   Value *newptr = operandPool[ptr];
@@ -131,7 +131,7 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
     fixpt = fixPType(newptr);
     Type *PELType = newptr->getType()->getPointerElementType();
     Align align;
-    if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL) {
+    if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, load->getFunction())) {
       align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8);
     } else {
       align = load->getAlign();
@@ -151,7 +151,7 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
 }
 
 
-Value *FloatToFixed::convertStore(StoreInst *store)
+Value *FloatToFixed::convertStore(StoreInst *store, Module &m)
 {
   Value *ptr = store->getPointerOperand();
   Value *val = store->getValueOperand();
@@ -215,7 +215,12 @@ Value *FloatToFixed::convertStore(StoreInst *store)
   }
   if (!newval)
     return nullptr;
-  Align align = store->getAlign();
+  Align align;
+  if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, store->getFunction())) {
+    align = Align(fullyUnwrapPointerOrArrayType(peltype)->getScalarSizeInBits() / 8);
+  } else {
+    align = store->getAlign();
+  }
   StoreInst *newinst =
       new StoreInst(newval, newptr, store->isVolatile(), align,
                     store->getOrdering(), store->getSyncScopeID());
@@ -372,7 +377,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   /* Special-case known OpenCL API calls */
   if (isSupportedOpenCLFunction(oldF))
     return convertOpenCLCall(call);
-  /* Special-case known OpenCL API calls */
+  /* Special-case known Cuda API calls */
   if (isSupportedCudaFunction(oldF))
     return convertCudaCall(call);  
   /* Special-case known math intrinsics */

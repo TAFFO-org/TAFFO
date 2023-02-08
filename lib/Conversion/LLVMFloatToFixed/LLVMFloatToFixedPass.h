@@ -173,8 +173,8 @@ struct FloatToFixed {
                                   FixedPointType &fixpt);
   llvm::Value *convertAlloca(llvm::AllocaInst *alloca,
                              const FixedPointType &fixpt);
-  llvm::Value *convertLoad(llvm::LoadInst *load, FixedPointType &fixpt);
-  llvm::Value *convertStore(llvm::StoreInst *load);
+  llvm::Value *convertLoad(llvm::LoadInst *load, FixedPointType &fixpt, llvm::Module &m);
+  llvm::Value *convertStore(llvm::StoreInst *load, llvm::Module &m);
   llvm::Value *convertGep(llvm::GetElementPtrInst *gep, FixedPointType &fixpt);
   llvm::Value *convertExtractValue(llvm::ExtractValueInst *exv,
                                    FixedPointType &fixpt);
