@@ -13,9 +13,8 @@ namespace taffo
 class VRAFunctionStore : protected VRAStore, public AnalysisStore
 {
 public:
-  VRAFunctionStore(CodeInterpreter &CI)
-      : VRAStore(VRASK_VRAFunctionStore,
-                 std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger())),
+  VRAFunctionStore(std::shared_ptr<VRALogger> VRAL)
+      : VRAStore(VRASK_VRAFunctionStore, VRAL),
         AnalysisStore(ASK_VRAFunctionStore),
         ReturnValue() {}
 

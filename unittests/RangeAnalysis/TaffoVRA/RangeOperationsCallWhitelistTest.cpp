@@ -1,6 +1,6 @@
 #include "TestUtils.h"
-
 #include "TaffoVRA/RangeOperationsCallWhitelist.hpp"
+#include <cmath>
 
 namespace
 {
@@ -60,8 +60,8 @@ TEST_F(RangeOperationsCallWhitelistTest, handleLog_negativeMax)
   // TODO: check if this behavior is to be expected also from log10 and log2f
   operands.push_back(make_range(0.5, -4));
   result = functionWhiteList.find("log")->second(operands);
-  EXPECT_TRUE(isnanf(result->min()));
-  EXPECT_TRUE(isnanf(result->max()));
+  EXPECT_TRUE(std::isnan(result->min()));
+  EXPECT_TRUE(std::isnan(result->max()));
 }
 
 TEST_F(RangeOperationsCallWhitelistTest, handleLog_negativeMin)

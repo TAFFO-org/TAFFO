@@ -39,7 +39,9 @@ class TaffoInitializer : public llvm::PassInfoMixin<TaffoInitializer> {
 public:
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 
+#ifndef UNITTESTS
 private:
+#endif
   using ConvQueueT = MultiValueMap<llvm::Value *, ValueInfo>;
 
   llvm::SmallPtrSet<llvm::Function *, 32> enabledFunctions;

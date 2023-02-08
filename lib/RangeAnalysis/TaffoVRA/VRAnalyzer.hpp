@@ -15,9 +15,8 @@ namespace taffo
 class VRAnalyzer : protected VRAStore, public CodeAnalyzer
 {
 public:
-  VRAnalyzer(CodeInterpreter &CI)
-      : VRAStore(VRASK_VRAnalyzer,
-                 std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger())),
+  VRAnalyzer(std::shared_ptr<VRALogger> VRAL, CodeInterpreter& CI)
+      : VRAStore(VRASK_VRAnalyzer, VRAL),
         CodeAnalyzer(ASK_VRAnalyzer),
         CodeInt(CI) {}
 

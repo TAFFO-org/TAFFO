@@ -27,9 +27,10 @@ protected:
  */
 TEST_F(VRAGlobalStoreTest, convexMerge_VRAnalyzer)
 {
-  Pass *Pass;
-  auto CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), std::make_shared<VRAGlobalStore>(VRAGlobalStore()));
-  VRAnalyzer Other(CI);
+  ModuleAnalysisManager MAM = ModuleAnalysisManager();
+  auto CI = CodeInterpreter(MAM, std::make_shared<VRAGlobalStore>(VRAGlobalStore()));
+  std::shared_ptr<VRALogger> VRAL = std::shared_ptr<VRALogger>(new VRALogger());
+  VRAnalyzer Other(VRAL, CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
@@ -71,9 +72,10 @@ TEST_F(VRAGlobalStoreTest, convexMerge_VRAGlobalStore)
 
 TEST_F(VRAGlobalStoreTest, convexMerge_VRAFunctionStore)
 {
-  Pass *Pass;
-  auto CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(Pass), std::make_shared<VRAGlobalStore>(VRAGlobalStore()));
-  VRAFunctionStore Other(CI);
+  ModuleAnalysisManager MAM = ModuleAnalysisManager();
+  auto CI = CodeInterpreter(MAM, std::make_shared<VRAGlobalStore>(VRAGlobalStore()));
+  std::shared_ptr<VRALogger> VRAL = std::shared_ptr<VRALogger>(new VRALogger());
+  VRAFunctionStore Other(VRAL);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));

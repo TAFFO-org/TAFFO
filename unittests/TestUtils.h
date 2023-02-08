@@ -1,4 +1,7 @@
-#include "InputInfo.h"
+#ifndef __TAFFO_TEST_UTILS_H__
+#define __TAFFO_TEST_UTILS_H__
+
+#include "TaffoUtils/InputInfo.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
@@ -25,20 +28,10 @@ protected:
 };
 
 /// Creates a llvm::Module object starting from a LLVM-IR string.
-static std::unique_ptr<llvm::Module> makeLLVMModule(llvm::LLVMContext &Context, const std::string &code)
-{
-  llvm::StringRef ModuleStr(code);
-  llvm::SMDiagnostic Err;
-  std::unique_ptr<llvm::Module> M = parseAssemblyString(ModuleStr, Err, Context);
-  assert(M && "Bad LLVM IR?");
-  return M;
-}
+std::unique_ptr<llvm::Module> makeLLVMModule(llvm::LLVMContext &Context, const std::string &code);
 
 /// Creates a FatalErrorHandler that throws an exception instead of exiting.
-static void FatalErrorHandler(void *user_data, const std::string &reason, bool gen_crash_diag)
-{
-  throw std::runtime_error(reason.c_str());
-}
+void FatalErrorHandler(void *user_data, const char *reason, bool gen_crash_diag);
 
 /**
  * Generates a InputInfo object
@@ -47,10 +40,7 @@ static void FatalErrorHandler(void *user_data, const std::string &reason, bool g
  * @param[in] isFinal
  * @return
  */
-static mdutils::InputInfo *genII(double min, double max, bool isFinal = false)
-{
-  return new mdutils::InputInfo(nullptr, std::make_shared<mdutils::Range>(min, max), nullptr, false, isFinal);
-}
+mdutils::InputInfo *genII(double min, double max, bool isFinal = false);
 
 /**
  * Generates a Function
@@ -59,12 +49,7 @@ static mdutils::InputInfo *genII(double min, double max, bool isFinal = false)
  * @param[in] params
  * @return
  */
-static llvm::Function *genFunction(llvm::Module &M, llvm::Type *retType, llvm::ArrayRef<llvm::Type *> params = {})
-{
-  llvm::FunctionType *FT = llvm::FunctionType::get(retType, params, false);
-  llvm::Function *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "fun", &M);
-  return F;
-}
+llvm::Function *genFunction(llvm::Module &M, llvm::Type *retType, llvm::ArrayRef<llvm::Type *> params = {});
 
 /**
  * Generates a Function
@@ -74,49 +59,15 @@ static llvm::Function *genFunction(llvm::Module &M, llvm::Type *retType, llvm::A
  * @param[in] params
  * @return
  */
-static llvm::Function *genFunction(llvm::Module &M, const std::string &name, llvm::Type *retType, llvm::ArrayRef<llvm::Type *> params = {})
-{
-  llvm::FunctionType *FT = llvm::FunctionType::get(retType, params, false);
-  llvm::Function *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, name, &M);
-  return F;
+llvm::Function *genFunction(llvm::Module &M, const std::string &name, llvm::Type *retType, llvm::ArrayRef<llvm::Type *> params = {});
+
+llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, llvm::Constant *init = nullptr, bool isConstant = false);
+
+llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, int init, bool isConstant = false);
+
+llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, double init, bool isConstant = false);
+
+llvm::LoadInst *genLoadInstr(llvm::LLVMContext &Context);
 }
 
-
-static llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, llvm::Constant *init = nullptr, bool isConstant = false)
-{
-  return new llvm::GlobalVariable(M, T, isConstant, llvm::GlobalValue::ExternalLinkage, init, "var");
-}
-
-static llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, int init, bool isConstant = false)
-{
-  if (T->isIntegerTy())
-    return genGlobalVariable(M, T, llvm::ConstantInt::get(T, init), isConstant);
-  llvm::dbgs() << "Type and initial value not compatible\n";
-  return nullptr;
-}
-
-static llvm::GlobalVariable *genGlobalVariable(llvm::Module &M, llvm::Type *T, double init, bool isConstant = false)
-{
-  if (T->isFloatTy() || T->isDoubleTy())
-    return genGlobalVariable(M, T, llvm::ConstantFP::get(T, init), isConstant);
-  llvm::dbgs() << "Type and initial value not compatible\n";
-  return nullptr;
-}
-
-static llvm::LoadInst *genLoadInstr(llvm::LLVMContext &Context)
-{
-  std::string code = R"(
-    define i32 @main() {
-      %a = alloca float, align 4
-      %b = load float, float* %a, align 4
-      ret i32 0
-    }
-  )";
-
-  auto M = makeLLVMModule(Context, code);
-  auto F = M->getFunction("main");
-  auto load = F->getEntryBlock().getFirstNonPHI()->getNextNode();
-  if (llvm::isa<llvm::LoadInst>(load))
-    return llvm::cast<llvm::LoadInst>(load);  
-}
-}
+#endif

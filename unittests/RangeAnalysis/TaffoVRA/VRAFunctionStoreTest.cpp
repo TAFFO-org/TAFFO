@@ -15,12 +15,14 @@ using namespace taffo_test;
 class VRAFunctionStoreTest : public taffo_test::Test
 {
 private:
-  VRAGlobalStore GlobalStore = VRAGlobalStore();
+  std::shared_ptr<VRAGlobalStore> GlobalStore = std::shared_ptr<VRAGlobalStore>(new VRAGlobalStore());
   Pass *P;
 
 protected:
-  CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(P), std::make_shared<VRAGlobalStore>(GlobalStore));
-  VRAFunctionStore VRAfs = VRAFunctionStore(CI);
+  ModuleAnalysisManager MAM = ModuleAnalysisManager();
+  CodeInterpreter CI = CodeInterpreter(MAM, GlobalStore);
+  std::shared_ptr<VRALogger> VRAL = std::shared_ptr<VRALogger>(new VRALogger());
+  VRAFunctionStore VRAfs = VRAFunctionStore(VRAL);
 
   Function *F;
   std::vector<Type *> args;
@@ -35,7 +37,7 @@ protected:
  */
 TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer)
 {
-  VRAnalyzer Other(CI);
+  VRAnalyzer Other(VRAL, CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
@@ -77,7 +79,7 @@ TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore)
 
 TEST_F(VRAFunctionStoreTest, convexMerge_VRAFunctionStore)
 {
-  VRAFunctionStore Other(CI);
+  VRAFunctionStore Other(VRAL);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));

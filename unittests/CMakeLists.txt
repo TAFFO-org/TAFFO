@@ -68,7 +68,7 @@ endfunction()
 
 ### END FUNCTION DEFINITIONS ###
 
-add_library(TestUtils STATIC TestUtils.h)
+add_library(TestUtils STATIC TestUtils.h TestUtils.cpp)
 set_target_properties(TestUtils PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(TestUtils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

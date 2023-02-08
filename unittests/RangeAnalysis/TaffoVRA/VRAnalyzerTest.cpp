@@ -15,13 +15,14 @@ using namespace taffo_test;
 class VRAnalyzerTest : public taffo_test::Test
 {
 private:
-  Pass *P;
   Function *F0; // acts like a main from which instructions are called
 
 protected:
+  ModuleAnalysisManager MAM = ModuleAnalysisManager();
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>(*new VRAGlobalStore());
-  CodeInterpreter CI = CodeInterpreter(reinterpret_cast<llvm::Pass &>(P), GlobalStore);
-  VRAnalyzer VRA = VRAnalyzer(CI);
+  CodeInterpreter CI = CodeInterpreter(MAM, GlobalStore);
+  std::shared_ptr<VRALogger> VRAL = std::shared_ptr<VRALogger>(new VRALogger());
+  VRAnalyzer VRA = VRAnalyzer(VRAL, CI);
 
   Function *F;
   BasicBlock *BB;
@@ -41,7 +42,7 @@ protected:
  */
 TEST_F(VRAnalyzerTest, convexMerge_VRAnalyzer)
 {
-  VRAnalyzer Other(CI);
+  VRAnalyzer Other(VRAL, CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
@@ -83,7 +84,7 @@ TEST_F(VRAnalyzerTest, convexMerge_VRAGlobalStore)
 
 TEST_F(VRAnalyzerTest, convexMerge_VRAFunctionStore)
 {
-  VRAFunctionStore Other(CI);
+  VRAFunctionStore Other(VRAL);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
