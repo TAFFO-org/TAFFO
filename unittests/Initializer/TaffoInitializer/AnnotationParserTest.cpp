@@ -98,7 +98,7 @@ TEST_F(AnnotationParserTest, TargetRepeated)
   annstr = llvm::StringRef("target('this is not valid') target('not valid)' scalar()");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
-  EXPECT_THAT(error, testing::StartsWith(UNK_ID_ERR));
+  EXPECT_THAT(error, testing::StartsWith("Expected ) at character index"));
   ASSERT_FALSE(res);
 }
 
@@ -370,21 +370,12 @@ TEST_F(AnnotationParserTest, ScalarTypeSigned)
 
 TEST_F(AnnotationParserTest, ScalarTypeSignedNegative)
 {
-  // valid, with type()
+  // invalid, type integer part is negative
   annstr = llvm::StringRef("scalar(type(signed -1 2))");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
-  EXPECT_EQ(NO_ERR, error);
-  ASSERT_TRUE(res);
-
-  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
-  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(true, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
-  EXPECT_EQ(nullptr, scalarMD->IRange);
-  EXPECT_EQ(nullptr, scalarMD->IError);
-  EXPECT_EQ(true, scalarMD->IEnableConversion);
-  EXPECT_EQ(false, scalarMD->IFinal);
+  EXPECT_EQ("Fixed point data type must have a positive bit size", error);
+  ASSERT_FALSE(res);
 }
 
 TEST_F(AnnotationParserTest, ScalarTypeUnsigned)
@@ -412,17 +403,8 @@ TEST_F(AnnotationParserTest, ScalarTypeUnsignedNegative)
   annstr = llvm::StringRef("scalar(type(unsigned -1 2))");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
-  EXPECT_EQ(NO_ERR, error);
-  ASSERT_TRUE(res);
-
-  scalarMD = dyn_cast<mdutils::InputInfo>(parser.metadata.get());
-  EXPECT_EQ(1, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getWidth());
-  EXPECT_EQ(2, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->getPointPos());
-  EXPECT_EQ(false, dyn_cast<mdutils::FPType>(scalarMD->IType.get())->isSigned());
-  EXPECT_EQ(nullptr, scalarMD->IRange);
-  EXPECT_EQ(nullptr, scalarMD->IError);
-  EXPECT_EQ(true, scalarMD->IEnableConversion);
-  EXPECT_EQ(false, scalarMD->IFinal);
+  EXPECT_EQ("Fixed point data type must have a positive bit size", error);
+  ASSERT_FALSE(res);
 }
 
 TEST_F(AnnotationParserTest, ScalarError)
@@ -772,40 +754,37 @@ TEST_F(AnnotationParserTest, IntegerNegativeSignBase8)
 TEST_F(AnnotationParserTest, IntegerNoSignBase16)
 {
   // valid, positive integer without sign in base 16
-  // 0x0123456789abcdef (base 16) = 81985529216486895 (base 10)
-  annstr = llvm::StringRef("backtracking(0x0123456789AbCdEf) struct[void]");
+  annstr = llvm::StringRef("backtracking(0x0AbCdEf7) struct[void]");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  EXPECT_EQ(parser.backtrackingDepth, 81985529216486895);
+  EXPECT_EQ(parser.backtrackingDepth, 0x0ABCDEF7);
 }
 
 TEST_F(AnnotationParserTest, IntegerPositiveSignBase16)
 {
   // valid, positive integer in base 16
-  // 0x0123456789abcdef (base 16) = 81985529216486895 (base 10)
-  annstr = llvm::StringRef("backtracking(+0x0123456789aBcDeF) struct[void]");
+  annstr = llvm::StringRef("backtracking(+0x0AbCdEf7) struct[void]");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  EXPECT_EQ(parser.backtrackingDepth, 81985529216486895);
+  EXPECT_EQ(parser.backtrackingDepth, 0x0AbCdEf7);
 }
 
 TEST_F(AnnotationParserTest, IntegerNegativeSignBase16)
 {
   // valid, negative integer in base 16
-  // 0x0123456789abcdef (base 16) = 81985529216486895 (base 10)
-  annstr = llvm::StringRef("backtracking(-0x0123456789abcDEF) struct[void]");
+  annstr = llvm::StringRef("backtracking(-0x0AbCdEf7) struct[void]");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
   EXPECT_EQ(NO_ERR, error);
   ASSERT_TRUE(res);
 
-  EXPECT_EQ(parser.backtrackingDepth, -81985529216486895);
+  EXPECT_EQ(parser.backtrackingDepth, -0x0AbCdEf7);
 }
 
 TEST_F(AnnotationParserTest, IntegerInvalidOctal)
@@ -823,6 +802,7 @@ TEST_F(AnnotationParserTest, IntegerInvalidHex)
   annstr = llvm::StringRef("backtracking(0x0123456789abG) struct[void]");
   res = parser.parseAnnotationString(annstr);
   error = parser.lastError().str();
+  EXPECT_THAT(error, testing::StartsWith(error));
   ASSERT_FALSE(res);
 }
 

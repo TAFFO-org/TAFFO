@@ -669,50 +669,86 @@ TEST_F(AnnotationsTest, ReadGlobalAnnotations_None)
 
 TEST_F(AnnotationsTest, ReadGlobalAnnotations_Variables)
 {
+  /* C source code of the following LLVM-IR code:
+    typedef struct {
+      int a;
+      int b;
+      float c;
+    } t_test;
+
+    __attribute__((annotate("scalar()"))) float floatvar;
+    __attribute__((annotate("scalar()"))) int intvar;
+    __attribute__((annotate("struct[void, void, void]"))) t_test structvar;
+
+    float floatfun(void)
+    {
+      return 0;
+    }
+
+    int intfun(void)
+    {
+      return 0;
+    }
+
+    float unusedfun(void)
+    {
+      return 0;
+    }
+
+    int main()
+    {
+      float f = floatfun();
+      int i = intfun();
+      return 0;
+    }
+  */
   code = R"(
-    @.str = private unnamed_addr constant [28 x i8] c"target('floatfun') scalar()\00", section "llvm.metadata"
-    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
-    @.str.2 = private unnamed_addr constant [26 x i8] c"target('intfun') scalar()\00", section "llvm.metadata"
-    @.str.3 = private unnamed_addr constant [29 x i8] c"target('unusedfun') scalar()\00", section "llvm.metadata"
-    @floatvar = dso_local global float 0.000000e+00, align 4
-    @.str.4 = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
-    @intvar = dso_local global i32 0, align 4
-    @.str.5 = private unnamed_addr constant [17 x i8] c"struct[scalar()]\00", section "llvm.metadata"
-    @llvm.global.annotations = appending global [5 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @floatfun to i8*), i8* getelementptr inbounds ([28 x i8], [28 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32 ()* @intfun to i8*), i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 18, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @unusedfun to i8*), i8* getelementptr inbounds ([29 x i8], [29 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 22, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float* @floatvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.4, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 1, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32* @intvar to i8*), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.5, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 2, i8* null }], section "llvm.metadata"
+    %struct.t_test = type { i32, i32, float }
 
-    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
-    define dso_local i32 @main() #0 {
-      %1 = alloca float, align 4
-      %2 = alloca i32, align 4
-      %3 = call float @floatfun()
-      store float %3, float* %1, align 4
-      %4 = call i32 @intfun()
-      store i32 %4, i32* %2, align 4
-      ret i32 0
-    }
+    @floatvar = global float 0.000000e+00, align 4
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [7 x i8] c"test.c\00", section "llvm.metadata"
+    @intvar = global i32 0, align 4
+    @structvar = global %struct.t_test zeroinitializer, align 4
+    @.str.2 = private unnamed_addr constant [25 x i8] c"struct[void, void, void]\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global [3 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (float* @floatvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 7, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32* @intvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 8, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (%struct.t_test* @structvar to i8*), i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 9, i8* null }], section "llvm.metadata"
 
-    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
-    define dso_local float @floatfun() #0 {
+    define float @floatfun() {
+    entry:
       ret float 0.000000e+00
     }
 
-    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
-    define dso_local i32 @intfun() #0 {
+    define i32 @intfun() {
+    entry:
       ret i32 0
     }
 
-    ; Function Attrs: noinline nounwind optnone sspstrong uwtable
-    define dso_local float @unusedfun() #0 {
+    define float @unusedfun() {
+    entry:
       ret float 0.000000e+00
+    }
+
+    define i32 @main() {
+    entry:
+      %retval = alloca i32, align 4
+      %f = alloca float, align 4
+      %i = alloca i32, align 4
+      store i32 0, i32* %retval, align 4
+      %call = call float @floatfun()
+      store float %call, float* %f, align 4
+      %call1 = call i32 @intfun()
+      store i32 %call1, i32* %i, align 4
+      ret i32 0
     }
     )";
   M = makeLLVMModule(Context, code);
   MultiValueMap<Value *, ValueInfo> queue;
 
   initializer.readGlobalAnnotations(*M, queue, false);
-  ASSERT_EQ(queue.size(), 2);
+  ASSERT_EQ(queue.size(), 3);
   EXPECT_EQ(queue.count(M->getGlobalVariable("intvar")), 1);
   EXPECT_EQ(queue.count(M->getGlobalVariable("floatvar")), 1);
+  EXPECT_EQ(queue.count(M->getGlobalVariable("structvar")), 1);
 
   // the check for the consistency of metadata is performed in the ParseAnnotatedVariable test case,
   // here we just check that the annotation is correct
@@ -721,42 +757,48 @@ TEST_F(AnnotationsTest, ReadGlobalAnnotations_Variables)
   EXPECT_EQ(globalVar->second.metadata->toString(), "scalar()");
   globalVar++;
   EXPECT_EQ(globalVar->first->getName(), "intvar");
-  EXPECT_EQ(globalVar->second.metadata->toString(), "struct(scalar())");
+  EXPECT_EQ(globalVar->second.metadata->toString(), "scalar()");
 }
 
 TEST_F(AnnotationsTest, ReadGlobalAnnotations_Functions)
 {
   code = R"(
-    @.str = private unnamed_addr constant [28 x i8] c"target('floatfun') scalar()\00", section "llvm.metadata"
-    @.str.1 = private unnamed_addr constant [10 x i8] c"testing.c\00", section "llvm.metadata"
-    @.str.2 = private unnamed_addr constant [26 x i8] c"target('intfun') scalar()\00", section "llvm.metadata"
-    @.str.3 = private unnamed_addr constant [29 x i8] c"target('unusedfun') scalar()\00", section "llvm.metadata"
-    @floatvar = dso_local global float 0.000000e+00, align 4
-    @.str.4 = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
-    @intvar = dso_local global i32 0, align 4
-    @.str.5 = private unnamed_addr constant [17 x i8] c"struct[scalar()]\00", section "llvm.metadata"
-    @llvm.global.annotations = appending global [5 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @floatfun to i8*), i8* getelementptr inbounds ([28 x i8], [28 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32 ()* @intfun to i8*), i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 18, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float ()* @unusedfun to i8*), i8* getelementptr inbounds ([29 x i8], [29 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 22, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (float* @floatvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.4, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 1, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32* @intvar to i8*), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.5, i32 0, i32 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i32 0, i32 0), i32 2, i8* null }], section "llvm.metadata"
+    %struct.t_test = type { i32, i32, float }
+    
+    @floatvar = global float 0.000000e+00, align 4
+    @.str = private unnamed_addr constant [9 x i8] c"scalar()\00", section "llvm.metadata"
+    @.str.1 = private unnamed_addr constant [7 x i8] c"test.c\00", section "llvm.metadata"
+    @intvar = global i32 0, align 4
+    @structvar = global %struct.t_test zeroinitializer, align 4
+    @.str.2 = private unnamed_addr constant [25 x i8] c"struct[void, void, void]\00", section "llvm.metadata"
+    @llvm.global.annotations = appending global [3 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (float* @floatvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 7, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (i32* @intvar to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 8, i8* null }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (%struct.t_test* @structvar to i8*), i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 9, i8* null }], section "llvm.metadata"
 
-    define dso_local i32 @main() #0 {
-      %1 = alloca float, align 4
-      %2 = alloca i32, align 4
-      %3 = call float @floatfun()
-      store float %3, float* %1, align 4
-      %4 = call i32 @intfun()
-      store i32 %4, i32* %2, align 4
-      ret i32 0
-    }
-
-    define dso_local float @floatfun() #0 {
+    define float @floatfun() {
+    entry:
       ret float 0.000000e+00
     }
 
-    define dso_local i32 @intfun() #0 {
+    define i32 @intfun() {
+    entry:
       ret i32 0
     }
 
-    define dso_local float @unusedfun() #0 {
+    define float @unusedfun() {
+    entry:
       ret float 0.000000e+00
+    }
+
+    define i32 @main() {
+    entry:
+      %retval = alloca i32, align 4
+      %f = alloca float, align 4
+      %i = alloca i32, align 4
+      store i32 0, i32* %retval, align 4
+      %call = call float @floatfun()
+      store float %call, float* %f, align 4
+      %call1 = call i32 @intfun()
+      store i32 %call1, i32* %i, align 4
+      ret i32 0
     }
     )";
   M = makeLLVMModule(Context, code);
