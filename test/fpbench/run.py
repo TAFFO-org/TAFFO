@@ -10,6 +10,7 @@ import pandas as pd
 import sys
 import gmpy2
 from gmpy2 import mpfr, trunc, log2
+import platform
 gmpy2.get_context().precision=100
 
 pd.set_option('display.max_columns', None)
@@ -64,7 +65,7 @@ def compiletaffo(path: Path):
 def compilefloat(path: Path):
     global debug, common_flags
     compile_flag = f"{common_flags}"
-    pipe_out = subprocess.DEVNULL
+    pipe_out = subprocess.PIPE
     if debug:
         compile_flag = f"{common_flags}"
         pipe_out = open(f"{path.as_posix()}/{path.name}_float.log", "w")
@@ -72,12 +73,17 @@ def compilefloat(path: Path):
     bench_exec = path.name + "-float"
     print("Compiling: {}\t".format(bench_exec), end="")
     flush()
-    s = subprocess.run("cd {}; clang-12 {}   {} -o {}  -lm &> /dev/null".format(path.as_posix(), compile_flag ,bench_name, bench_exec), shell=True,  stdout=pipe_out, stderr=pipe_out)
+    clang = 'clang-12'
+    if platform.system() == 'Darwin':
+        clang = 'clang -Wno-error=implicit-function-declaration'
+    s = subprocess.run("cd {}; {} {}   {} -o {}  -lm".format(path.as_posix(), clang, compile_flag ,bench_name, bench_exec), shell=True, stdout=pipe_out, stderr=pipe_out)
 
     if s.returncode == 0:
         print_okk()
     else:
         print_err()
+        if not debug:
+            print(s.stderr)
 
 
 def compile(path :Path):  
