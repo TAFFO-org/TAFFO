@@ -43,10 +43,9 @@ add_subdirectory(lib)
 add_subdirectory(utils)
 add_subdirectory(test-lit)
 add_subdirectory(test)
+add_subdirectory(tool)
 
 if (TAFFO_UNITTESTS)
   add_subdirectory(unittests)
-else()
-  add_subdirectory(tool)
-endif ()
+endif()
 
