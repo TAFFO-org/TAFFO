@@ -148,8 +148,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
         II->IEnableConversion = true;
 
       // FIXME: hack to propagate itofp metadata
-      if (isa<UIToFPInst>(v) ||
-          isa<SIToFPInst>(v)) {
+      if (MixedMode && (isa<UIToFPInst>(v) || isa<SIToFPInst>(v))) {
         LLVM_DEBUG(dbgs() << "FORCING CONVERSION OF A ITOFP!\n";);
         II->IEnableConversion = true;
       }
