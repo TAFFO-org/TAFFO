@@ -337,6 +337,8 @@ Apart from the TAFFO-specific options listed below, all CLANG options are
 also accepted.
 
 Options:
+  -h, --help            Display available options
+  -v, --version         Displays information about LLVM components and TAFFO
   -o <file>             Write compilation output to <file>
   -O<level>             Set the optimization level to the specified value.
                         The accepted optimization levels are the same as CLANG.
@@ -361,6 +363,8 @@ Options:
   -no-mem2reg           Disable scheduling of the mem2reg pass.
   -float-output <file>  Also compile the files without using TAFFO and store
                         the output to the specified location.
+  -time-profile-file <file> Outputs information about the execution time of
+                        the various TAFFO passes into the specified file
   -Xinit <option>       Pass the specified option to the Initializer pass of
                         TAFFO
   -Xvra <option>        Pass the specified option to the VRA pass of TAFFO
