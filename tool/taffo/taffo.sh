@@ -397,9 +397,11 @@ if [[ $LOG != /dev/null ]]; then
   set -x
 fi
 
-time_command () {
-  date +%s.%N
-}
+if [[ $( uname -s ) == 'Darwin' ]]; then
+  time_command='date +%s'
+else
+  time_command='date +%s.%N'
+fi
 time_string_header=
 time_string=
 append_time_string () {
@@ -409,9 +411,9 @@ append_time_string () {
     time_string_header+=",${1}"
   fi
   if [[ -z ${time_string} ]]; then
-    time_string+=$(time_command)
+    time_string+=$($time_command)
   else
-    time_string+=,$(time_command)
+    time_string+=,$($time_command)
   fi
 }
 output_time_string () {
