@@ -114,17 +114,21 @@ void read_cl_file()
 	fclose( fp );
 }
 
+double frand(void)
+{
+	return (double)rand() / (double)RAND_MAX;
+}
 
 void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n))
 {
-	int i __attribute__((annotate("scalar(range(0,10000000) final)")));
-	int j __attribute__((annotate("scalar(range(0,10000000) final)")));
-	
+    int i, j;
+
 	for (i=0; i < m; i++) 
 	{
     		for (j=0; j < n; j++) 
 		{
-       		data[i][j] = ((DATA_TYPE)(i*j)/M + i)/N;
+        DATA_TYPE d __attribute__((annotate("scalar(range(0,1) final)"))) = (DATA_TYPE)frand();
+       		data[i][j] = (DATA_TYPE)d;
 			//fprintf(stderr, "%f\n", data[i][j]);
        	}
     	}
@@ -425,7 +429,7 @@ int main(int argc, char *argv[])
   	ANN_STD POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE,M,m);
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE,M,N,m,n);
   	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat_outputFromGpu,DATA_TYPE,M,N,m,n);
-	//ANN_DATA POLYBENCH_2D_ARRAY_DECL(data_gpu,DATA_TYPE,M,N,m,n);
+	//ANN_STD POLYBENCH_1D_ARRAY_DECL(stddev_gpu,DATA_TYPE,M,m);
   	
 	init_arrays(m, n, POLYBENCH_ARRAY(data));
 
@@ -436,7 +440,7 @@ int main(int argc, char *argv[])
 
 	cl_launch_kernel(m, n);
 
-	//errcode = clEnqueueReadBuffer(clCommandQue, data_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(data_gpu), 0, NULL, NULL);
+	//errcode = clEnqueueReadBuffer(clCommandQue, stddev_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(stddev_gpu), 0, NULL, NULL);
 	//if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
 	errcode = clEnqueueReadBuffer(clCommandQue, symmat_mem_obj, CL_TRUE, 0, M * N * sizeof(DATA_TYPE), POLYBENCH_ARRAY(symmat_outputFromGpu), 0, NULL, NULL);
 	if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
@@ -454,8 +458,8 @@ int main(int argc, char *argv[])
 	 	polybench_print_instruments;
 
 		//for (int i=0; i<M; i++) {
-		//	for (int j=0; j<N; j++)
-		//		fprintf(stderr, "GPU=%f CPU=%f\n", data_gpu[i][j], data[i][j]);
+		//	//for (int j=0; j<N; j++)
+		//		fprintf(stderr, "GPU=%f CPU=%f\n", stddev_gpu[i], stddev[i]);
 		//}
     //fprintf(stderr, "-----\n");
 
