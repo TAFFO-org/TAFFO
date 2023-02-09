@@ -159,7 +159,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
       }
 
       // TODO: insert logic here to associate different types in a clever way
-      if (associateFixFormat(*II, elem.second->getTypeID())) {
+      if (associateFixFormat(*II, v)) {
         skippedAll = false;
       }
 
@@ -199,7 +199,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 }
 
 
-bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
+bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
 {
   if (!II.IEnableConversion) {
     LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", conversion disabled\n");
@@ -236,12 +236,42 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
     double greatest = abs(II.IRange->Min);
     double max = abs(II.IRange->Max);
     if (max > greatest) greatest = max;
+    Instruction *I = dyn_cast<Instruction>(V);
+    if (I) {
+      if (I->isBinaryOp() || I->isUnaryOp()) {
+        InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)));
+        if (II)
+          greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
+        else
+          LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on first arg of " << *I << "\n");
+      }
+      if (I->isBinaryOp()) {
+        InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)));
+        if (II)
+          greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
+        else
+          LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on second arg of " << *I << "\n");
+      }
+    }
+    LLVM_DEBUG(dbgs() << "[Info] Maximum value involved in " << *V << " = " << greatest << "\n");
 
-    FloatType res = FloatType(standard, greatest);
+    auto res = std::make_shared<FloatType>(FloatType(standard, greatest));
+    double maxRep = std::max(std::abs(res->getMaxValueBound().convertToDouble()), std::abs(res->getMinValueBound().convertToDouble()));
+    LLVM_DEBUG(dbgs() << "[Info] Maximum value representable in " << res->toString() << " = " << maxRep << "\n");
 
-    LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
-
-    II.IType.reset(res.clone());
+    if (greatest >= maxRep) {
+      LLVM_DEBUG(dbgs() << "[Info] CANNOT force conversion to float " << res->toString() << " because max value is not representable\n");
+      Type *Ty = fullyUnwrapPointerOrArrayType(V->getType());
+      if (Ty->isFloatingPointTy()) {
+        res = std::make_shared<FloatType>(FloatType(Ty->getTypeID(), greatest));
+        LLVM_DEBUG(dbgs() << "[Info] Keeping original type which was " << res->toString() << "\n");
+      } else {
+        LLVM_DEBUG(dbgs() << "[Info] The original type was not floating point, switching to float and hoping the ranges are wrong (fingers crossed!)\n");
+      }
+    } else {
+      LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res->toString() << "\n");
+    }
+    II.IType = res;
   } else {
     FixedPointTypeGenError fpgerr;
     FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);

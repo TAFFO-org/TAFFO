@@ -41,7 +41,7 @@ public:
 
   bool processMetadataOfValue(llvm::Value *v, mdutils::MDInfo *MDI);
 
-  bool associateFixFormat(mdutils::InputInfo &rng, llvm::Type::TypeID origType);
+  bool associateFixFormat(mdutils::InputInfo &rng, llvm::Value *V);
 
   void sortQueue(std::vector<llvm::Value *> &vals,
                  llvm::SmallPtrSetImpl<llvm::Value *> &valset);

@@ -160,6 +160,20 @@ public:
 
   FloatType(FloatStandard standard, double greatestNumber)
       : TType(K_FloatType), standard(standard), greatestNunber(greatestNumber) {}
+  FloatType(llvm::Type::TypeID TyId, double greatestNumber)
+      : TType(K_FloatType), greatestNunber(greatestNumber) {
+    switch (TyId) {
+      case llvm::Type::HalfTyID: standard = Float_half; break;
+      case llvm::Type::FloatTyID: standard = Float_float; break;
+      case llvm::Type::DoubleTyID: standard = Float_double; break;
+      case llvm::Type::FP128TyID: standard = Float_fp128; break;
+      case llvm::Type::X86_FP80TyID: standard = Float_x86_fp80; break;
+      case llvm::Type::PPC_FP128TyID: standard = Float_ppc_fp128; break;
+      case llvm::Type::BFloatTyID: standard = Float_bfloat; break;
+      default:
+        llvm_unreachable("invalid type id for FloatType's constructor");
+    }
+  }
 
   double getRoundingError() const override;
 
