@@ -6,7 +6,9 @@ llvm::cl::opt<int> FracThreshold("minfractbits", llvm::cl::value_desc("bits"),
                                  llvm::cl::desc("Threshold of fractional bits in fixed point numbers"),
                                  llvm::cl::init(3));
 llvm::cl::opt<int> TotalBits("totalbits", llvm::cl::value_desc("bits"),
-                             llvm::cl::desc("Total amount of bits in fixed point numbers"), llvm::cl::init(32));
+                             llvm::cl::desc("Minimum amount of bits in fixed point numbers. Can grow automatically in case there are not enough bits available for representing all values in range."), llvm::cl::init(32));
+llvm::cl::opt<int> MaxTotalBits("maxtotalbits", llvm::cl::value_desc("bits"),
+                             llvm::cl::desc("Maximum amount of bits in fixed point numbers."), llvm::cl::init(64));
 llvm::cl::opt<int> SimilarBits("similarbits", llvm::cl::value_desc("bits"),
                                llvm::cl::desc("Maximum number of difference bits that leads two fixp formats to merge"),
                                llvm::cl::init(2));

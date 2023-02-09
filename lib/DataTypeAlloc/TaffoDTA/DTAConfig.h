@@ -10,6 +10,7 @@
 
 extern llvm::cl::opt<int> FracThreshold;
 extern llvm::cl::opt<int> TotalBits;
+extern llvm::cl::opt<int> MaxTotalBits;
 extern llvm::cl::opt<int> SimilarBits;
 extern llvm::cl::opt<bool> DisableTypeMerging;
 extern llvm::cl::opt<bool> IterativeMerging;

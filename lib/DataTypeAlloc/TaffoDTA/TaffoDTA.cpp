@@ -80,6 +80,7 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
     if (processMetadataOfValue(&globObj, MDI))
       vals.push_back(&globObj);
   }
+  LLVM_DEBUG(dbgs() << "\n");
 
   for (Function &f : m.functions()) {
     if (f.isIntrinsic())
@@ -100,6 +101,7 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
       if (processMetadataOfValue(&(*iIt), MDI))
         vals.push_back(&*iIt);
     }
+    LLVM_DEBUG(dbgs() << "\n");
   }
 
   LLVM_DEBUG(dbgs() << "=============>>>>  SORTING QUEUE  <<<<===============\n");
@@ -117,10 +119,12 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
  */
 bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 {
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
+  LLVM_DEBUG(dbgs() << "\n" << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
                     << "\n");
-  if (!MDI)
+  if (!MDI) {
+    LLVM_DEBUG(dbgs() << "no metadata... bailing out!\n");
     return false;
+  }
   std::shared_ptr<MDInfo> newmdi(MDI->clone());
 
   if (v->getType()->isVoidTy()) {
@@ -217,6 +221,26 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
     return false;
   }
 
+  double greatest = std::max(std::abs(rng->Min), std::abs(rng->Max));
+  Instruction *I = dyn_cast<Instruction>(V);
+  if (I) {
+    if (I->isBinaryOp() || I->isUnaryOp()) {
+      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)));
+      if (II)
+        greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
+      else
+        LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on first arg of " << *I << "\n");
+    }
+    if (I->isBinaryOp()) {
+      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)));
+      if (II)
+        greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
+      else
+        LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on second arg of " << *I << "\n");
+    }
+  }
+  LLVM_DEBUG(dbgs() << "[Info] Maximum value involved in " << *V << " = " << greatest << "\n");
+
   if (UseFloat != "") {
     mdutils::FloatType::FloatStandard standard;
     if (UseFloat == "f16")
@@ -233,55 +257,61 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
     }
     //auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
 
-    double greatest = abs(II.IRange->Min);
-    double max = abs(II.IRange->Max);
-    if (max > greatest) greatest = max;
-    Instruction *I = dyn_cast<Instruction>(V);
-    if (I) {
-      if (I->isBinaryOp() || I->isUnaryOp()) {
-        InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)));
-        if (II)
-          greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
-        else
-          LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on first arg of " << *I << "\n");
-      }
-      if (I->isBinaryOp()) {
-        InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)));
-        if (II)
-          greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
-        else
-          LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on second arg of " << *I << "\n");
-      }
-    }
-    LLVM_DEBUG(dbgs() << "[Info] Maximum value involved in " << *V << " = " << greatest << "\n");
-
     auto res = std::make_shared<FloatType>(FloatType(standard, greatest));
     double maxRep = std::max(std::abs(res->getMaxValueBound().convertToDouble()), std::abs(res->getMinValueBound().convertToDouble()));
     LLVM_DEBUG(dbgs() << "[Info] Maximum value representable in " << res->toString() << " = " << maxRep << "\n");
 
     if (greatest >= maxRep) {
       LLVM_DEBUG(dbgs() << "[Info] CANNOT force conversion to float " << res->toString() << " because max value is not representable\n");
-      Type *Ty = fullyUnwrapPointerOrArrayType(V->getType());
-      if (Ty->isFloatingPointTy()) {
-        res = std::make_shared<FloatType>(FloatType(Ty->getTypeID(), greatest));
-        LLVM_DEBUG(dbgs() << "[Info] Keeping original type which was " << res->toString() << "\n");
-      } else {
-        LLVM_DEBUG(dbgs() << "[Info] The original type was not floating point, switching to float and hoping the ranges are wrong (fingers crossed!)\n");
-      }
     } else {
       LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res->toString() << "\n");
+      II.IType = res;
+      return true;
     }
-    II.IType = res;
   } else {
     FixedPointTypeGenError fpgerr;
-    FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
-    if (fpgerr == FixedPointTypeGenError::InvalidRange) {
-      LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
-      return false;
+
+    /* Testing maximum type for operands, not deciding type yet */
+    fixedPointTypeFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    if (fpgerr == FixedPointTypeGenError::NoError) {
+      FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+      if (fpgerr == FixedPointTypeGenError::NoError) {
+        LLVM_DEBUG(dbgs() << "[Info] Converting to " << res.toString() << "\n");
+        II.IType.reset(res.clone());
+        return true;
+      }
+
+      LLVM_DEBUG(dbgs() << "[Info] Error when generating fixed point type\n");
+      switch (fpgerr) {
+        case FixedPointTypeGenError::InvalidRange:
+          LLVM_DEBUG(dbgs() << "[Info] Invalid range\n");
+          break;
+        case FixedPointTypeGenError::UnboundedRange:
+          LLVM_DEBUG(dbgs() << "[Info] Unbounded range\n");
+          break;
+        case FixedPointTypeGenError::NotEnoughIntAndFracBits:
+        case FixedPointTypeGenError::NotEnoughFracBits:
+          LLVM_DEBUG(dbgs() << "[Info] Result not representable\n");
+          break;
+        default:
+          LLVM_DEBUG(dbgs() << "[Info] error code unknown\n");
+      }
+    } else {
+      LLVM_DEBUG(dbgs() << "[Info] The operands of " << *V << " are not representable as fixed point with specified constraints\n");
     }
-    II.IType.reset(res.clone());
   }
-  return true;
+
+  /* We failed, try to keep original type */
+  Type *Ty = fullyUnwrapPointerOrArrayType(V->getType());
+  if (Ty->isFloatingPointTy()) {
+    auto res = std::make_shared<FloatType>(FloatType(Ty->getTypeID(), greatest));
+    II.IType = res;
+    LLVM_DEBUG(dbgs() << "[Info] Keeping original type which was " << res->toString() << "\n");
+    return true;
+  }
+  
+  LLVM_DEBUG(dbgs() << "[Info] The original type was not floating point, skipping (fingers crossed!)\n");
+  return false;
 }
 
 
