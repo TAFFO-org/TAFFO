@@ -423,8 +423,6 @@ append_time_string () {
 output_time_string () {
   if [[ ! ( -z ${time_profile_file} ) ]]; then
     printf '%s\n%s\n' ${time_string_header} ${time_string} > ${time_profile_file}
-  else
-    printf 'taffo stages time: %s\n%s\n' ${time_string_header} ${time_string}
   fi
 }
 
