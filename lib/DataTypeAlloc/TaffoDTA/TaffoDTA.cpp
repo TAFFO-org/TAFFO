@@ -226,14 +226,14 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
   if (I) {
     if (I->isBinaryOp() || I->isUnaryOp()) {
       InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)));
-      if (II)
+      if (II && II->IRange.get())
         greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
       else
         LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on first arg of " << *I << "\n");
     }
     if (I->isBinaryOp()) {
       InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)));
-      if (II)
+      if (II && II->IRange.get())
         greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
       else
         LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on second arg of " << *I << "\n");
