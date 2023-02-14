@@ -19,7 +19,7 @@ ifeq ($(TAFFO_HOST_DTA),f32)
 TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta f32
 endif
 ifeq ($(TAFFO_HOST_DTA),mixed) #ilp
-TAFFO_EXEC_OPTS   += -mixedmode -costmodel i7-4 -instructionset fix
+TAFFO_EXEC_OPTS   += -mixedmode -costmodel 5600x -instructionset fix
 endif
 
 ifeq ($(TAFFO_KERN_ARGS),fixp)
@@ -66,11 +66,11 @@ ${EXECUTABLE}:  ${PTXFILE}
 
 ${EXECUTABLE_TAFFO}: ${PTXFILE_TAFFO}
 	mkdir -p taffo_drvr_logs
-	taffo -O3 -DPOLYBENCH_STACK_ARRAYS --cuda-host-only -S \
+	taffo -O3 -DPOLYBENCH_STACK_ARRAYS --cuda-host-only -S --rtlib=compiler-rt\
     -Xvra -max-unroll=0 $(TAFFO_EXEC_OPTS)\
     -I/usr/local/cuda/include -I${PATH_TO_UTILS} ${CFLAGS} ${CFILES} -o ${EXECUTABLE_TAFFO}.s -temp-dir taffo_drvr_logs -debug \
         2> taffo_drvr_logs/taffo.log
-	${CLANG} -O3 --cuda-host-only -L/usr/local/cuda/lib64 -lstdc++ -lm \
+	${CLANG} -O3 --cuda-host-only -L/usr/local/cuda/lib64 -lstdc++ -lm --rtlib=compiler-rt \
     -lcudart_static -ldl -lrt -pthread ${CFLAGS} ${EXECUTABLE_TAFFO}.s -o ${EXECUTABLE_TAFFO} -lcuda
 
 ${PTXFILE}:
@@ -101,3 +101,4 @@ validate:
 clean:
 	rm -f *~ *.exe *.txt *.ptx *.ll *.exe.s
 	rm -rf taffo_kern_logs taffo_drvr_logs
+	
