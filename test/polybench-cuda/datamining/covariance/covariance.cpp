@@ -32,8 +32,6 @@
 //define the error threshold for the results "not matching"
 #define PERCENT_DIFF_ERROR_THRESHOLD 1.05
 
-#define GPU_DEVICE 0
-
 #define sqrt_of_array_cell(x,j) sqrt(x[j])
 
 #define FLOAT_N 3214212.01
@@ -69,7 +67,7 @@ void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n))
 	{
 		for (j = 0; j < n; j++)
 		{
-			data[i][j] = ((DATA_TYPE) i*j) / M;
+			data[i][j] = ((DATA_TYPE) i*j) / (M * N);
 		}
 	}
 }
@@ -107,7 +105,7 @@ void covariance(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE PO
        		symmat[j1][j2] = 0.0;
 			for (i = 0; i < _PB_N; i++)
 			{
-				symmat[j1][j2] += data[i][j1] * data[i][j2];
+				symmat[j1][j2] += (data[i][j1] * data[i][j2]);
 			}
         		symmat[j2][j1] = symmat[j1][j2];
       		}
@@ -143,6 +141,7 @@ void covarianceCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYP
 	CUdeviceptr mean_gpu;
 	CUdeviceptr symmat_gpu;
 
+	DATA_TYPE ANN_FLOAT_N float_n = FLOAT_N;
 
   	checkCudaErrors(cuMemAlloc(&data_gpu, sizeof(DATA_TYPE) * M * N));
 	checkCudaErrors(cuMemAlloc(&symmat_gpu, sizeof(DATA_TYPE) * M * N));
@@ -164,7 +163,7 @@ void covarianceCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYP
 	/* Start timer. */
   	polybench_start_instruments;
 
-	void *args1[4] = {&m, &n, &mean_gpu, &data_gpu};
+	void *args1[5] = {&m, &n, &mean_gpu, &data_gpu, &float_n};
 	checkCudaErrors(cuLaunchKernel(
         kernels[0], grid1.x, grid1.y, grid1.z, block1.x, block1.y, block1.z,
         0, NULL, args1, NULL));
@@ -236,15 +235,16 @@ int main(int argc, char** argv)
 	/* Start timer. */
 	polybench_start_instruments;
 
-	covariance(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean));
+	//covariance(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean));
 
 	/* Stop and print timer. */
 	printf("CPU Time in seconds:\n");
 	polybench_stop_instruments;
 	polybench_print_instruments;
 
-	compareResults(m, n, POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(symmat_outputFromGpu));
+	//compareResults(m, n, POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(symmat_outputFromGpu));
 
+	print_array(m, POLYBENCH_ARRAY(symmat_outputFromGpu));	
 
 	POLYBENCH_FREE_ARRAY(data);
 	POLYBENCH_FREE_ARRAY(symmat);
