@@ -48,7 +48,7 @@ cmake --build . --target install
 ```
 
 If you want to modify TAFFO or see the debugging logs you need to also build LLVM in debug mode first.
-You are encouraged to follow our guide: [doc/BuildingLLVM.md](Building LLVM)
+You are encouraged to follow our guide: [Building LLVM](doc/BuildingLLVM.md)
 
 ### 2: Modify and test the application
 
