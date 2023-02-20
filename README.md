@@ -45,6 +45,9 @@ $ cmake .. -DTAFFO_BUILD_ORTOOLS=ON
 $ cmake --build .
 ```
 
+If you want to modify TAFFO or see the debugging logs you need to also build LLVM in debug mode first.
+You are encouraged to follow our guide: [doc/BuildingLLVM.md](Building LLVM)
+
 ### 2: Modify and test the application
 
 Modify the application to insert annotations on the appropriate variable declarations, then use `taffo` to compile your application.
