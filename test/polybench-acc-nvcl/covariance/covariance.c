@@ -70,7 +70,7 @@ FILE *fp;
 char *source_str;
 size_t source_size;
 
-#define RUN_ON_CPU
+//#define RUN_ON_CPU
 
 
 void compareResults(int m, int n, DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m), DATA_TYPE POLYBENCH_2D(symmat_outputFromGpu,M,M,m,m))
@@ -385,18 +385,13 @@ int main(int argc, char *argv[])
 	  	polybench_stop_instruments;
 	 	polybench_print_instruments;
 
-		//for (int i=0; i<M; i++) {
-			//for (int j=0; j<N; j++)
-		//		fprintf(stderr, "%f %f\n", mean_gpu[i], mean[i]);
-		//}
-
 		compareResults(m, n, POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(symmat_outputFromGpu));
 
-	#else //prevent dead code elimination
-
-		polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(symmat_outputFromGpu)));
-
 	#endif //RUN_ON_CPU
+  //for (int i=0; i<M; i++) {
+	//  for (int j=0; j<N; j++)
+	//		fprintf(stderr, "%f\n", data[i][j]);
+	//}
 	print_array(m, POLYBENCH_ARRAY(symmat_outputFromGpu));
 
 	cl_clean_up();

@@ -64,7 +64,7 @@ FILE *fp;
 char *source_str;
 size_t source_size;
 
-#define RUN_ON_CPU
+//#define RUN_ON_CPU
 
 
 void compareResults(int nx, int ny, DATA_TYPE POLYBENCH_2D(hz1,NX,NY,nx,ny), DATA_TYPE POLYBENCH_2D(hz2,NX,NY,nx,ny))
@@ -394,10 +394,6 @@ int main(int argc, char *argv[])
 	 	polybench_print_instruments;
 
 		compareResults(nx, ny, POLYBENCH_ARRAY(hz), POLYBENCH_ARRAY(hz_outputFromGpu));
-
-	#else //prevent dead code elimination
-
-		polybench_prevent_dce(print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu)));
 
 	#endif //RUN_ON_CPU
 	print_array(nx, ny, POLYBENCH_ARRAY(hz_outputFromGpu));

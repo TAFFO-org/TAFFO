@@ -58,7 +58,7 @@ FILE *fp;
 char *source_str;
 size_t source_size;
 
-#define RUN_ON_CPU
+//#define RUN_ON_CPU
 
 
 void compareResults(int n, DATA_TYPE POLYBENCH_2D(A_cpu,N,N,n,n), DATA_TYPE POLYBENCH_2D(A_outputFromGpu,N,N,n,n))
@@ -357,11 +357,8 @@ int main(int argc, char *argv[])
 
 		compareResults(n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(A_outputFromGpu));
 
-	#else //prevent dead code elimination
-
-		polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_outputFromGpu)));
-
 	#endif //RUN_ON_CPU
+
 	print_array(n, POLYBENCH_ARRAY(A_outputFromGpu));
 
 	cl_clean_up();
