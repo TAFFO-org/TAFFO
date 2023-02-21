@@ -111,12 +111,14 @@ void read_cl_file()
 
 void init_array(int n, DATA_TYPE POLYBENCH_1D(A,N,n), DATA_TYPE POLYBENCH_1D(B,N,n))
 {
-	__attribute__((annotate("scalar(range(0, 819200) final)"))) int i;
+  int i;
 
 	for (i = 0; i < n; i++)
     	{
-		A[i] = ((DATA_TYPE) 4 * i + 10) / N;
-		B[i] = ((DATA_TYPE) 7 * i + 11) / N;
+        DATA_TYPE a = ((DATA_TYPE) 4 * i + 10) / N;
+        DATA_TYPE b = ((DATA_TYPE) 7 * i + 11) / N;
+		A[i] = a;
+		B[i] = b;
     	}
 }
 
@@ -248,7 +250,7 @@ void runJacobi1DCpu(int tsteps, int n, DATA_TYPE POLYBENCH_1D(A,N,n), DATA_TYPE 
 	{
 		for (i = 1; i < _PB_N - 1; i++)
 		{
-			B[i] = 0.33333 * (A[i-1] + A[i] + A[i + 1]);
+			B[i] = (A[i-1] + A[i] + A[i + 1]) / 3.0f;
 		}
 		
 		for (j = 1; j < _PB_N - 1; j++)

@@ -30,8 +30,8 @@
 #  endif
 
 #  ifdef STANDARD_DATASET /* Default if unspecified. */
-#define TSTEPS 10000
-#define N 4096
+#define TSTEPS 10
+#define N 4096000
 #  endif
 
 #  ifdef LARGE_DATASET

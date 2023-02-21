@@ -5,8 +5,7 @@
 #define ANN_MEAN __attribute__((annotate("scalar(range(0,1) final) target('') bufferid('mean')")))
 #define ANN_STD __attribute__((annotate("scalar(range(-1000,1000) final) target('') bufferid('std')")))
 #define ANN_SYMMAT __attribute__((annotate("scalar(range(-2,2) final) target('') bufferid('symmat')")))
-//#define ANN_FLOAT_N __attribute__((annotate("scalar(range(3000000,4000000)) bufferid('float_n')")))
-#define ANN_FLOAT_N __attribute__((annotate("scalar(range(3000000,4000000) disabled) bufferid('float_n')")))
+#define ANN_FLOAT_N __attribute__((annotate("scalar(range(3000000,4000000)) bufferid('float_n')")))
 #define ANN_EPS __attribute__((annotate("scalar(range(0,1)) bufferid('eps')")))
 
 #endif

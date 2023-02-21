@@ -102,6 +102,10 @@ void read_cl_file()
 	fclose( fp );
 }
 
+double frand(void)
+{
+	return (double)rand() / (double)RAND_MAX;
+}
 
 void init_array(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
@@ -110,7 +114,7 @@ void init_array(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 
 	for (i = 0; i < n; i++) {
 		for (j = 0; j <= i; j++)
-			A[i][j] = (DATA_TYPE)(-j % n) / n + 1;
+			A[i][j] = (DATA_TYPE)(-j % n) / (n + 1);
 		for (j = i + 1; j < n; j++) {
 			A[i][j] = 0;
 		}

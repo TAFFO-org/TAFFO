@@ -127,7 +127,7 @@ void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n))
 	{
     		for (j=0; j < n; j++) 
 		{
-        DATA_TYPE d __attribute__((annotate("scalar(range(0,1) final)"))) = (DATA_TYPE)frand();
+        DATA_TYPE d = (DATA_TYPE)frand();
        		data[i][j] = (DATA_TYPE)d;
 			//fprintf(stderr, "%f\n", data[i][j]);
        	}

@@ -24,7 +24,7 @@ __kernel void runJacobi1D_kernel1(ANN_A __global DATA_TYPE* A, ANN_B __global DA
 	int i = get_global_id(0);
 	if ((i >= 1) && (i < (n-1)))
 	{
-		B[i] = 0.33333f * (A[i-1] + A[i] + A[i + 1]);
+		B[i] = (A[i-1] + A[i] + A[i + 1]) / 3.0f;
 	}
 }
 
