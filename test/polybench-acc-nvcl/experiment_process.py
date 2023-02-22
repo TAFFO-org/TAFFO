@@ -17,8 +17,8 @@ def read_run_file(file: Path):
   for benchmark in benchmarks[1:]:
     try:
       name, orig, taffo = benchmark.split('\nnumber of platforms')
-      gpu_orig = float(re.findall('GPU Time in seconds:\n([^\n]+)\n', orig, re.MULTILINE)[0])
-      gpu_taffo = float(re.findall('GPU Time in seconds:\n([^\n]+)\n', taffo, re.MULTILINE)[0])
+      gpu_orig = float(re.findall('GPU Time in seconds:\n([^\n]+)', orig, re.MULTILINE)[0])
+      gpu_taffo = float(re.findall('GPU Time in seconds:\n([^\n]+)', taffo, re.MULTILINE)[0])
       res[name] = (gpu_orig, gpu_taffo)
     except Exception:
       name = benchmark.split("\n")[0]
@@ -118,7 +118,7 @@ def pareto(df: pd.DataFrame):
   fig.supylabel('Percentage error [%]')
   fig.tight_layout()
   plt.show()
-  fig.savefig("out.pdf")
+  #fig.savefig("out.pdf")
 
 def compute_best_conf(df: pd.DataFrame):
   benchs = sorted(set(df['bench']))
@@ -135,7 +135,7 @@ def compute_best_conf(df: pd.DataFrame):
 def main():
   #print(read_run_file(Path('_experiment_2022-11-02_12-44-12/f32_f16_f16_run.txt')))
   #print(read_validate_file(Path('_experiment_2022-11-02_12-44-12/f32_f16_f16_validate.txt')))
-  df = read_experiment(Path('_experiment_2022-11-02_12-44-12'))
+  df = read_experiment(Path('_experiments/2023-02-21_20-09-32'))
   #print(df.to_csv())
   #print()
   #print(compute_best_conf(df).to_csv())
