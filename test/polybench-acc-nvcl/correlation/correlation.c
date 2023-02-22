@@ -214,7 +214,8 @@ void cl_load_prog()
 
 void cl_launch_kernel(int m, int n)
 {
-	DATA_TYPE ANN_FLOAT_N float_n = FLOAT_N;
+  // FIXME: float_n is an array to work around the fact that scalars are ignored by the buffer_id mechanism
+	DATA_TYPE ANN_FLOAT_N float_n[1] = {FLOAT_N};
 	DATA_TYPE ANN_EPS eps = EPS;
 
 	size_t localWorkSize_Kernel1[2], globalWorkSize_Kernel1[2];
@@ -429,7 +430,7 @@ int main(int argc, char *argv[])
   	ANN_STD POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE,M,m);
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE,M,N,m,n);
   	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat_outputFromGpu,DATA_TYPE,M,N,m,n);
-	//ANN_STD POLYBENCH_1D_ARRAY_DECL(stddev_gpu,DATA_TYPE,M,m);
+	//ANN_MEAN POLYBENCH_1D_ARRAY_DECL(mean_gpu,DATA_TYPE,M,m);
   	
 	init_arrays(m, n, POLYBENCH_ARRAY(data));
 
@@ -440,7 +441,7 @@ int main(int argc, char *argv[])
 
 	cl_launch_kernel(m, n);
 
-	//errcode = clEnqueueReadBuffer(clCommandQue, stddev_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(stddev_gpu), 0, NULL, NULL);
+	//errcode = clEnqueueReadBuffer(clCommandQue, mean_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(mean_gpu), 0, NULL, NULL);
 	//if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
 	errcode = clEnqueueReadBuffer(clCommandQue, symmat_mem_obj, CL_TRUE, 0, M * N * sizeof(DATA_TYPE), POLYBENCH_ARRAY(symmat_outputFromGpu), 0, NULL, NULL);
 	if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
@@ -457,16 +458,13 @@ int main(int argc, char *argv[])
 	  	polybench_stop_instruments;
 	 	polybench_print_instruments;
 
-		//for (int i=0; i<M; i++) {
-		//	//for (int j=0; j<N; j++)
-		//		fprintf(stderr, "GPU=%f CPU=%f\n", stddev_gpu[i], stddev[i]);
-		//}
-    //fprintf(stderr, "-----\n");
-
 		compareResults(m, n, POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(symmat_outputFromGpu));
 
 	#endif //RUN_ON_CPU
-
+  //for (int i=0; i<M; i++) {
+  //	//for (int j=0; j<N; j++)
+  //		fprintf(stderr, "%f\n", mean_gpu[i]);
+  //}
   print_array(m, POLYBENCH_ARRAY(symmat_outputFromGpu));
 
 	POLYBENCH_FREE_ARRAY(data);
