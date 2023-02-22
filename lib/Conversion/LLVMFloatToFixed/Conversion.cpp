@@ -250,6 +250,7 @@ bool FloatToFixed::associateFixFormat(mdutils::InputInfo *II, FixedPointType &io
 }
 
 
+// TODO: rewrite this mess!
 Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixpt, Instruction *ip)
 {
   assert(flt->getType()->isFloatingPointTy() && "genConvertFloatToFixed called on a non-float scalar");
@@ -276,7 +277,8 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
   FloatToFixWeight += std::pow(2, std::min((int)(sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(flt)));
 
   IRBuilder<NoFolder> builder(ip);
-  Type *destt = getLLVMFixedPointTypeForFloatType(flt->getType(), fixpt);
+  Type *SrcTy = flt->getType();
+  Type *destt = getLLVMFixedPointTypeForFloatType(SrcTy, fixpt);
 
   /* insert new instructions before ip */
   if (!destt->isFloatingPointTy()) {
@@ -294,14 +296,24 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
                         flt, ip);
     } else {
       double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
+      const fltSemantics &FltSema = SrcTy->getFltSemantics();
+      double MaxSrc = APFloat::getLargest(FltSema).convertToDouble();
+      double MaxDest = pow(2.0, fixpt.scalarBitsAmt());
+      Value *SanitizedFloat = flt;
+      if (MaxSrc < MaxDest || MaxSrc < twoebits) {
+        LLVM_DEBUG(dbgs() << "floatToFixed: Extending " << *SrcTy << " to float because dest integer is too large\n");
+        SanitizedFloat = builder.CreateFPCast(flt, Type::getFloatTy(flt->getContext()));
+        cpMetaData(SanitizedFloat, flt, ip);
+      }
+      Type *IntermType = SanitizedFloat->getType();
       Value *interm = cpMetaData(builder.CreateFMul(
-                                     cpMetaData(ConstantFP::get(flt->getType(), twoebits), flt, ip),
-                                     flt),
-                                 flt, ip);
+                                     cpMetaData(ConstantFP::get(IntermType, twoebits), SanitizedFloat, ip),
+                                     SanitizedFloat),
+                                 SanitizedFloat, ip);
       if (fixpt.scalarIsSigned()) {
-        return cpMetaData(builder.CreateFPToSI(interm, destt), flt, ip);
+        return cpMetaData(builder.CreateFPToSI(interm, destt), SanitizedFloat, ip);
       } else {
-        return cpMetaData(builder.CreateFPToUI(interm, destt), flt, ip);
+        return cpMetaData(builder.CreateFPToUI(interm, destt), SanitizedFloat, ip);
       }
     }
   } else {
@@ -325,6 +337,7 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
 }
 
 
+// TODO: rewrite this mess!
 Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &srct, const FixedPointType &destt,
                                             Instruction *ip)
 {
@@ -409,6 +422,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 }
 
 
+// TODO: rewrite this mess!
 Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixpt, Type *destt)
 {
   LLVM_DEBUG(dbgs() << "******** trace: genConvertFixToFloat ";
@@ -464,13 +478,18 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
         return ConstantExpr::getFPTrunc(cst, destt);
       }
 
-
-      Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, destt) : ConstantExpr::getUIToFP(cst, destt);
+      // Always convert to double then to the destination type
+      // No need to worry about efficiency, as everything will be constant folded
+      Type *TmpTy = Type::getDoubleTy(cst->getContext());
+      Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, TmpTy) : ConstantExpr::getUIToFP(cst, TmpTy);
       double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
-      Constant *res = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(destt, twoebits), *ModuleDL);
-      assert(res && "ConstantFoldBinaryOpOperands failed...");
-      LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *res << "\n");
-      return res;
+      Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
+      assert(DblRes && "Constant folding failed...");
+      LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
+      Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+      assert(Res && "Constant folding failed...");
+      LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
+      return Res;
     }
   }
 
@@ -494,30 +513,52 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
     }
     IRBuilder<NoFolder> builder(ip);
 
-    Value *floattmp = fixpt.scalarIsSigned() ? builder.CreateSIToFP(fix, destt) : builder.CreateUIToFP(fix, destt);
-    cpMetaData(floattmp, fix);
     double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
-
-    if (twoebits != 1.0) {
-
-      return cpMetaData(builder.CreateFDiv(floattmp,
-                                           cpMetaData(ConstantFP::get(destt, twoebits), fix)),
-                        fix);
-    } else {
-      LLVM_DEBUG(dbgs() << "Optimizing conversion removing division by one!\n";);
+    if (twoebits == 1.0) {
+      LLVM_DEBUG(dbgs() << "Optimizing conversion removing division by one!\n");
+      Value *floattmp = fixpt.scalarIsSigned() ? builder.CreateSIToFP(fix, destt) : builder.CreateUIToFP(fix, destt);
       return floattmp;
     }
 
+    const fltSemantics &FltSema = destt->getFltSemantics();
+    double MaxDest = APFloat::getLargest(FltSema).convertToDouble();
+    double MaxSrc = pow(2.0, fixpt.scalarBitsAmt());
+    if (MaxDest < MaxSrc || MaxDest < twoebits) {
+      LLVM_DEBUG(dbgs() << "fixToFloat: Extending " << *destt << " to float because source integer is too small\n");
+      Type *TmpTy = Type::getFloatTy(fix->getContext());
+      Value *floattmp = fixpt.scalarIsSigned() ? builder.CreateSIToFP(fix, TmpTy) : builder.CreateUIToFP(fix, TmpTy);
+      cpMetaData(floattmp, fix);
+      return cpMetaData(
+          builder.CreateFPTrunc(
+            builder.CreateFDiv(floattmp,
+              cpMetaData(ConstantFP::get(TmpTy, twoebits), fix)),
+          destt),
+        fix);
+    } else {
+      Value *floattmp = fixpt.scalarIsSigned() ? builder.CreateSIToFP(fix, destt) : builder.CreateUIToFP(fix, destt);
+      cpMetaData(floattmp, fix);
+      return cpMetaData(builder.CreateFDiv(floattmp,
+                                           cpMetaData(ConstantFP::get(destt, twoebits), fix)),
+                        fix);
+    }
+
   } else if (Constant *cst = dyn_cast<Constant>(fix)) {
-    Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, destt) : ConstantExpr::getUIToFP(cst, destt);
+    // Always convert to double then to the destination type
+    // No need to worry about efficiency, as everything will be constant folded
+    Type *TmpTy = Type::getDoubleTy(cst->getContext());
+    Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, TmpTy) : ConstantExpr::getUIToFP(cst, TmpTy);
     double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
-    Constant *res = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(destt, twoebits), *ModuleDL);
-    assert(res && "ConstantFoldBinaryOpOperands failed...");
-    LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *res << "\n");
-    return res;
+    Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
+    assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
+    LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
+    Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+    assert(Res && "Constant folding failed...");
+    LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
+    return Res;
   }
 
   llvm_unreachable("unrecognized value type passed to genConvertFixToFloat");
+  return nullptr;
 }
 
 
