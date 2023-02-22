@@ -32,8 +32,8 @@ def read_validate_file(file: Path):
   res = {}
   for bench, part in zip(benchs, parts):
     try:
-      e_perc = float(re.findall('^e_perc +([0-9.]+)$', text, re.MULTILINE)[0])
-      e_abs = float(re.findall('^e_abs +([0-9.]+)$', text, re.MULTILINE)[0])
+      e_perc = float(re.findall('^e_perc +([0-9.]+)$', part, re.MULTILINE)[0])
+      e_abs = float(re.findall('^e_abs +([0-9.]+)$', part, re.MULTILINE)[0])
       res[bench] = (e_perc, e_abs)
     except Exception:
       print(f'error: could not read run bench info of {bench} from {file}', file=sys.stderr)
@@ -94,8 +94,8 @@ def pareto_bench(df: pd.DataFrame, bench: str):
   for i, row in infrontier.iterrows():
     text += [plt.gca().text(row['speedup'], row['e_perc'], row['label'], fontsize='small', ha='left', va='bottom')]
   plt.autoscale()
-  plt.gca().set_xlim(tuple(map(sum, zip(plt.gca().get_xlim(), (-25, 25)))))
-  plt.gca().set_ylim(tuple(map(sum, zip(plt.gca().get_ylim(), (-25, 25)))))
+  #plt.gca().set_xlim(tuple(map(sum, zip(plt.gca().get_xlim(), (-25, 25)))))
+  #plt.gca().set_ylim(tuple(map(sum, zip(plt.gca().get_ylim(), (-25, 25)))))
   adjust_text(text, arrowprops=dict(arrowstyle="-", color='k'), autoalign=False)
   #plt.xlabel('Speedup [%]')
   #plt.ylabel('Percentage error [%]')
