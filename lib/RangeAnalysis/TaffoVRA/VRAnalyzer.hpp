@@ -50,7 +50,8 @@ public:
     return VS->getKind() == VRASK_VRAnalyzer;
   }
 
-  void handleHeroMemCpy(const llvm::CallBase *CB);
+  void handleHeroDev2HostMemCpy(const llvm::CallBase *CB);
+  void handleHeroHost2DevMemCpy(const llvm::CallBase *CB);
 
 private:
   // Instruction Handlers

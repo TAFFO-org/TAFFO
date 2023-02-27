@@ -4,6 +4,7 @@
 #include "TaffoInitializerPass.h"
 #include "WriteModule.h"
 #include "llvm/Analysis/MemorySSA.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Verifier.h"
@@ -16,6 +17,7 @@
 //Try to remove as much cast as possible from openmp region handoff
 llvm::Function *create_function_less_cast(llvm::Function *function_to_clone)
 {
+  auto& cntx = function_to_clone->getContext();
 
 
   //Find the "real" type of the openmp region
@@ -39,9 +41,13 @@ llvm::Function *create_function_less_cast(llvm::Function *function_to_clone)
 
       if (llvm::isa<llvm::CastInst>(user)) {
         auto cast_inst = llvm::cast<llvm::CastInst>(user);
-        new_types.push_back(cast_inst->getDestTy());
-        found = true;
-        break;
+        auto dest_type = cast_inst->getDestTy();
+        
+        if (!(dest_type->isPointerTy()  && llvm::cast<PointerType>(dest_type)->getElementType()->isIntegerTy(8))){
+          new_types.push_back(dest_type);
+          found = true;
+          break;
+        }
       }
     }
     if (found == false) {

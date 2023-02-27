@@ -270,9 +270,10 @@ void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
 }
 
 
-void VRAnalyzer::handleHeroMemCpy(const llvm::CallBase *CB)
+void VRAnalyzer::handleHeroHost2DevMemCpy(const llvm::CallBase *CB)
 {
-  LLVM_DEBUG(Logger->logInfo("handleHeroMemCpy"));
+  LLVM_DEBUG(Logger->logInfoln("handleHeroHost2DevMemCpy"));
+  LLVM_DEBUG(Logger->logInfoln(CB->getParent()->getParent()->getName()));
   const BitCastInst *dest_bitcast =
       dyn_cast<BitCastInst>(CB->getOperand(0U));
   const BitCastInst *src_bitcast =
@@ -281,25 +282,57 @@ void VRAnalyzer::handleHeroMemCpy(const llvm::CallBase *CB)
   //   LLVM_DEBUG(Logger->logInfo("operand is not bitcast, aborting\n"));
   //   return;
   // }
- const Value *dest = CB->getOperand(0U);
- const Value * src = CB->getOperand(1U);
+  const Value *dest = CB->getOperand(0U);
+  const Value *src = CB->getOperand(1U);
+
 
   if (dest_bitcast)
-  dest = dest_bitcast->getOperand(0U);
+    dest = dest_bitcast->getOperand(0U)->stripInBoundsOffsets();
 
-  if (src_bitcast) 
-    src = src_bitcast->getOperand(0U);
+  if (src_bitcast)
+    src = src_bitcast->getOperand(0U)->stripInBoundsOffsets();
 
   const NodePtrT src_node = loadNode(getNode(src));
   storeNode(getNode(dest), src_node);
   LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(src)));
+  if (auto *value = dyn_cast<VRAScalarNode>(&*fetchRangeNode(dest))) {
+    value->getRange()->setFinal(true);
+  }
+}
+
+void VRAnalyzer::handleHeroDev2HostMemCpy(const llvm::CallBase *CB)
+{
+  LLVM_DEBUG(Logger->logInfo("\nhandleHeroDev2HostMemCpy"));
+  const BitCastInst *dest_bitcast =
+      dyn_cast<BitCastInst>(CB->getOperand(0U));
+  const BitCastInst *src_bitcast =
+      dyn_cast<BitCastInst>(CB->getOperand(1U));
+
+
+  const Value *dest = CB->getOperand(0U);
+  const Value *src = CB->getOperand(1U);
+
+
+  if (dest_bitcast)
+    dest = dest_bitcast->getOperand(0U)->stripInBoundsOffsets();
+
+  if (src_bitcast)
+    src = src_bitcast->getOperand(0U)->stripInBoundsOffsets();
+
+
+  const NodePtrT dest_node = loadNode(getNode(dest));
+
+
+  storeNode(getNode(src), dest_node);
+
+  LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(dest)));
 }
 
 
 void VRAnalyzer::handleMemCpyIntrinsics(const llvm::Instruction *memcpy)
 {
   assert(isa<CallInst>(memcpy) || isa<InvokeInst>(memcpy));
-  LLVM_DEBUG(Logger->logInfo("llvm.memcpy"));
+  LLVM_DEBUG(Logger->logInfo("handle llvm.memcpy"));
   const BitCastInst *dest_bitcast =
       dyn_cast<BitCastInst>(memcpy->getOperand(0U));
   const BitCastInst *src_bitcast =

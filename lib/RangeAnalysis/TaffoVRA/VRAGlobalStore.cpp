@@ -1,7 +1,9 @@
 #include "VRAGlobalStore.hpp"
 
+#include "RangeAnalysis/TaffoVRA/RangeNode.hpp"
 #include "RangeOperations.hpp"
 #include "VRAnalyzer.hpp"
+#include "llvm/Support/Casting.h"
 #include <TypeUtils.h>
 
 using namespace llvm;
@@ -86,7 +88,7 @@ void VRAGlobalStore::harvestMetadata(Module &M)
       if (itII == argsII.end())
         break;
       if (itW != argsW.end()) {
-        if (*itW == 1U) {
+        if (*itW > 0) {
           if (auto UINode = harvestStructMD(*itII,
                                             fullyUnwrapPointerOrArrayType(formal_arg.getType()))) {
             UserInput[&formal_arg] = std::static_ptr_cast<VRARangeNode>(UINode);

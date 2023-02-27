@@ -18,7 +18,7 @@ llvm::cl::opt<unsigned> Unroll("unroll",
                                               "Setting this to 0 disables loop unrolling. "
                                               "(Default: 1)"),
                                llvm::cl::value_desc("count"),
-                               llvm::cl::init(1U));
+                               llvm::cl::init(0U));
 
 llvm::cl::opt<unsigned> MaxUnroll("max-unroll",
                                   llvm::cl::desc("Max loop unroll count. "
