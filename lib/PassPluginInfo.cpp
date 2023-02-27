@@ -1,12 +1,13 @@
+#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
+#include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
+#include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
+#include "Initializer/TaffoInitializer/TaffoInitializerPass.h"
+#include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
+#include "RangeExport/TaffoRangeExport/RangeExportPass.h"
+#include "TaffoMem2Reg/Mem2Reg.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "Initializer/TaffoInitializer/TaffoInitializerPass.h"
-#include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
-#include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
-#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
-#include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
-#include "TaffoMem2Reg/Mem2Reg.h"
 
 using namespace llvm;
 using namespace taffo;
@@ -34,6 +35,9 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
                 return true;
               } else if (Name == "taffoerr") {
                 PM.addPass(ErrorProp::ErrorPropagator());
+                return true;
+              } else if (Name == "tafforangeexport") {
+                PM.addPass(RangeExportPass());
                 return true;
               }
               return false;

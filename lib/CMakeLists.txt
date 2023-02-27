@@ -3,6 +3,7 @@ add_subdirectory(TaffoUtils)
 
 add_subdirectory(Initializer)
 add_subdirectory(RangeAnalysis)
+add_subdirectory(RangeExport)
 add_subdirectory(DataTypeAlloc)
 add_subdirectory(Conversion)
 add_subdirectory(ErrorAnalysis)
@@ -15,6 +16,7 @@ add_llvm_library(Taffo MODULE
   $<TARGET_OBJECTS:obj.LLVMFloatToFixed>
   $<TARGET_OBJECTS:obj.LLVMErrorPropagator>
   $<TARGET_OBJECTS:obj.TaffoMem2Reg>
+  $<TARGET_OBJECTS:obj.TaffoRangeExport>
   PassPluginInfo.cpp
   ../cmake/dummy.cpp
 
