@@ -4,7 +4,8 @@ BENCHS := \
 	lu \
 	fdtd-2d \
 	jacobi-1d-imper \
-	jacobi-2d-imper
+	jacobi-2d-imper \
+	gesummv
 
 .PHONY: all
 all:
