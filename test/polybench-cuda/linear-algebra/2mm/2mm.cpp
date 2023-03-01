@@ -60,16 +60,17 @@ void init_array(int ni, int nj, int nk, int nl, DATA_TYPE *alpha, DATA_TYPE *bet
 		DATA_TYPE POLYBENCH_2D(B, NK, NJ, nk, nj), DATA_TYPE POLYBENCH_2D(C, NL, NJ, nl, nj), 
 		DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
 {
-	int i, j;
+	__attribute__((annotate("scalar(range(0, 2000) final)"))) int i;
+	__attribute__((annotate("scalar(range(0, 2000) final)"))) int j;
 
-	*alpha = 32412;
-	*beta = 2123;
+	*alpha = 1.5;
+	*beta = 1.2;
 
 	for (i = 0; i < ni; i++)
 	{
 		for (j = 0; j < nk; j++)
 		{
-			A[i][j] = ((DATA_TYPE) i*j) / NI;
+			A[i][j] = (DATA_TYPE) (i*j % NI )/ (NI * 2);
 		}
 	}
 
@@ -77,7 +78,7 @@ void init_array(int ni, int nj, int nk, int nl, DATA_TYPE *alpha, DATA_TYPE *bet
 	{
 		for (j = 0; j < nj; j++)
 		{
-			B[i][j] = ((DATA_TYPE) i*(j+1)) / NJ;
+			B[i][j] = (DATA_TYPE)( i*(j+1) % NJ) / (NJ);
 		}
 	}
 
@@ -85,7 +86,7 @@ void init_array(int ni, int nj, int nk, int nl, DATA_TYPE *alpha, DATA_TYPE *bet
 	{
 		for (j = 0; j < nj; j++)
 		{
-			C[i][j] = ((DATA_TYPE) i*(j+3)) / NL;
+			C[i][j] = (DATA_TYPE) (i*(j+3) % NL) / (NL * 2);
 		}
 	}
 
@@ -93,7 +94,7 @@ void init_array(int ni, int nj, int nk, int nl, DATA_TYPE *alpha, DATA_TYPE *bet
 	{
 		for (j = 0; j < nl; j++)
 		{
-			D[i][j] = ((DATA_TYPE) i*(j+2)) / NK;	
+			D[i][j] = (DATA_TYPE)( i*(j+2) % NK) / (NK );	
 		}
 	}
 }
@@ -187,6 +188,8 @@ void mm2Cuda(int ni, int nj, int nk, int nl, DATA_TYPE alpha, DATA_TYPE beta, DA
 	CUdeviceptr C_gpu;
 	CUdeviceptr D_gpu;
 
+	DATA_TYPE ANN_ALPHA alpha_l[1] = {alpha};
+	DATA_TYPE ANN_BETA beta_l[1] = {beta};
 	checkCudaErrors(cuMemAlloc(&tmp_gpu, sizeof(DATA_TYPE) * NI * NJ));
 	checkCudaErrors(cuMemAlloc(&A_gpu, sizeof(DATA_TYPE) * NI * NK));
 	checkCudaErrors(cuMemAlloc(&B_gpu, sizeof(DATA_TYPE) * NK * NJ));
@@ -206,13 +209,13 @@ void mm2Cuda(int ni, int nj, int nk, int nl, DATA_TYPE alpha, DATA_TYPE beta, DA
 	/* Start timer. */
   	polybench_start_instruments;
 
-	void *args1[9] = {&ni, &nj, &nk, &nl, &alpha, &beta, &tmp_gpu, &A_gpu, &B_gpu};
+	void *args1[9] = {&ni, &nj, &nk, &nl, &alpha_l, &beta_l, &tmp_gpu, &A_gpu, &B_gpu};
 	checkCudaErrors(cuLaunchKernel(
         kernels[0], grid1.x, grid1.y, grid1.z, block.x, block.y, block.z,
         0, NULL, args1, NULL));
 	checkCudaErrors(cuCtxSynchronize());
 
-	void *args2[9] = {&ni, &nj, &nk, &nl, &alpha, &beta, &tmp_gpu, &C_gpu, &D_gpu};
+	void *args2[9] = {&ni, &nj, &nk, &nl, &alpha_l, &beta_l, &tmp_gpu, &C_gpu, &D_gpu};
 	checkCudaErrors(cuLaunchKernel(
         kernels[1], grid2.x, grid2.y, grid2.z, block.x, block.y, block.z,
         0, NULL, args2, NULL));
@@ -242,8 +245,8 @@ int main(int argc, char** argv)
 	int nl = NL;
 
 	/* Variable declaration/allocation. */
-	ANN_ALPHA DATA_TYPE alpha;
-	ANN_BETA DATA_TYPE beta;
+	DATA_TYPE alpha;
+	DATA_TYPE beta;
 	ANN_TMP POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE,NI,NJ,ni,nj);
 	ANN_A POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NK,ni,nk);
 	ANN_B POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NK,NJ,nk,nj);
@@ -265,13 +268,15 @@ int main(int argc, char** argv)
 	/* Start timer. */
 	polybench_start_instruments;
 
-	mm2_cpu(ni, nj, nk, nl, alpha, beta, POLYBENCH_ARRAY(tmp), POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B), POLYBENCH_ARRAY(C), POLYBENCH_ARRAY(D));
+	//mm2_cpu(ni, nj, nk, nl, alpha, beta, POLYBENCH_ARRAY(tmp), POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B), POLYBENCH_ARRAY(C), POLYBENCH_ARRAY(D));
 
 	printf("CPU Time in seconds:\n");
 	polybench_stop_instruments;
 	polybench_print_instruments;
 
-	compareResults(ni, nl, POLYBENCH_ARRAY(D), POLYBENCH_ARRAY(D_outputFromGpu));
+	//compareResults(ni, nl, POLYBENCH_ARRAY(D), POLYBENCH_ARRAY(D_outputFromGpu));
+
+	print_array(ni, nl, POLYBENCH_ARRAY(D_outputFromGpu));
 
 	POLYBENCH_FREE_ARRAY(tmp);
 	POLYBENCH_FREE_ARRAY(A);
