@@ -8,7 +8,8 @@ BENCHS := \
 	gesummv \
 	mvt \
 	syr2k \
-	syrk
+	syrk \
+	gramschmidt
 
 .PHONY: all
 all:
