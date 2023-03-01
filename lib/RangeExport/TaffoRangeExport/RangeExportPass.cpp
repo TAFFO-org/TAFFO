@@ -1,6 +1,5 @@
 
 #include <iostream>
-#include <fstream>
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -15,7 +14,7 @@ using namespace llvm;
 using namespace taffo;
 using namespace mdutils;
 
-cl::opt<std::string> OutputFilename("ranges_file", cl::desc("Output csv file for variable ranges"), cl::Required);
+cl::opt<std::string> OutputFilename("ranges_file", cl::desc("Output csv file for variable ranges"));
 
 namespace taffo
 {
