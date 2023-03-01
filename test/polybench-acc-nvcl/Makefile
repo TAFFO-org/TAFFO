@@ -7,7 +7,8 @@ BENCHS := \
 	jacobi-2d-imper \
 	gesummv \
 	mvt \
-	syr2k
+	syr2k \
+	syrk
 
 .PHONY: all
 all:
