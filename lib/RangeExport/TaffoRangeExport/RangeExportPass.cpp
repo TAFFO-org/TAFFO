@@ -26,7 +26,10 @@ void RangeExportPass::printMetadata(Function *F,Value *value, MDInfo *meta, std:
   }
   std::string varName = "";
   if (value) {
-    varName = value->getName().str();
+    varName = value->getNameOrAsOperand();
+    if (auto *store = dyn_cast<StoreInst>(value)) {
+      varName = store->getPointerOperand()->getName().str();
+    }
   }
   if (auto *ii = dyn_cast<InputInfo>(meta)) {
     if (ii->IRange) {
@@ -48,7 +51,7 @@ PreservedAnalyses RangeExportPass::run(Module &M, ModuleAnalysisManager &AM)
   MetadataManager &MDManager = MetadataManager::getMetadataManager();
 
   std::ofstream output_file(OutputFilename);
-  output_file << "function,variable,min,max" << "\n";
+  output_file << "function,variable,var_min,var_max" << "\n";
 
   for (llvm::GlobalVariable &v : M.globals()) {
     auto meta = MDManager.retrieveMDInfo(&v);
