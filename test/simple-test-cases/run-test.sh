@@ -84,6 +84,11 @@ recompile_one() {
       else
         printf '\033[1G[RANG ] [FAIL] %s\n' $(basename "$input")
         cat "$logf"
+        printf '-------------\n'
+        cat "$testout"
+        printf '-------------\n'
+        cat "$correctout"
+        printf '-------------\n'
       fi
     fi
   fi
