@@ -1,0 +1,12 @@
+function,variable,var_min,var_max
+,.str,0,115
+,.str.1,0,109
+,.str.2,0,115
+,.str.3,0,115
+,.str.4,0,116
+,.str.5,0,108
+main,call,1.23457e+06,1.23457e+06
+main,call3,72,72
+main,call5,1.11111e+07,1.11111e+07
+main,%0,1e+08,1e+08
+main,call7,1.23457e+06,1.23457e+06

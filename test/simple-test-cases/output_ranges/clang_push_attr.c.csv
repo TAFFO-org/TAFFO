@@ -1,0 +1,12 @@
+function,variable,var_min,var_max
+,.str,0,115
+,.str.1,0,117
+,.str.2,0,115
+,.str.3,0,102
+main,conv,-3000,3000
+main,mul,-630.72,630.72
+main,conv5,-630.72,630.72
+main,div,-3000,3000
+main,div6,-255,255
+main,add,-3000,3000
+main,conv7,-3000,3000

@@ -1,0 +1,15 @@
+function,variable,var_min,var_max
+,.str,0,115
+,.str.1,0,120
+,.str.2,0,102
+example,div,0.666667,0.666667
+example,mul,0.666667,0.666667
+example,mul2,0.666667,0.666667
+example,<badref>,-10,10
+main,call,0.666667,0.666667
+main,conv,0.666667,0.666667
+main,call1,-10,10
+example.1,div,0.666667,0.666667
+example.1,mul,0.666667,0.666667
+example.1,mul2,0.666667,0.666667
+example.1,<badref>,-10,10

@@ -41,7 +41,7 @@ recompile_one() {
   if [[ $FLOAT -eq 1 ]]; then
     args="$args -float-output ${1%.*}.float.out"
   fi
-  $TIMEOUT taffo "$args" -o "$out" "$input" $extraargs -debug -temp-dir ./build &> "$input".log
+  $TIMEOUT taffo "$args" -o "$out" "$input" $extraargs -debug -temp-dir ./build -ranges-export-file "$(basename $input).out.csv" &> "$input".log
   bpid_fc=$?
   if [[ $bpid_fc -ne 0 ]]; then
     cat "$input".log
@@ -72,6 +72,20 @@ recompile_one() {
         rm "$testout"
       done
     fi
+    if [[ $FLOAT -ne 1 ]]; then
+      printf '[RANG ] [....] %s' $(basename "$input")
+      testout=${SCRIPTPATH}/"$(basename $input).out.csv"
+      correctout=${SCRIPTPATH}/output_ranges/"$(basename $input).csv"
+      logf="$SCRIPTPATH"/$(basename "$input").ranges.log
+      diff ${correctout} ${testout} > "$logf"
+      if [[ $? -eq 0 ]]; then
+        printf '\033[1G[RANG ] [ ok ] %s\n' $(basename "$input")
+        rm "$logf"
+      else
+        printf '\033[1G[RANG ] [FAIL] %s\n' $(basename "$input")
+        cat "$logf"
+      fi
+    fi
   fi
   return 0
 }
@@ -79,6 +93,7 @@ recompile_one() {
 if [[ "$1" == "clean" ]]; then
   rm -f "$SCRIPTPATH"/build/*.taffotmp.*
   rm -f "$SCRIPTPATH"/*.out
+  rm -f "$SCRIPTPATH"/*.out.csv
   rm -f "$SCRIPTPATH"/*.log
   exit 0
 fi

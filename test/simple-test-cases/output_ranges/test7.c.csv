@@ -1,0 +1,9 @@
+function,variable,var_min,var_max
+,.str,0,116
+,.str.1,0,116
+test,conv,-32767,32767
+test,arrayidx,-32767,32767
+test,arrayidx,-32767,32767
+test,arrayidx2,-32767,32767
+test,%0,-32767,32767
+test,<badref>,-32767,32767

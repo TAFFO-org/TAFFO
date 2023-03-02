@@ -100,6 +100,7 @@ AUTO_CLANGXX=$CLANG
 feedback=0
 pe_model_file=
 time_profile_file=
+ranges_export_file=
 temporary_dir=$(mktemp -d)
 del_temporary_dir=1
 help=0
@@ -203,6 +204,9 @@ for opt in $raw_opts; do
           ;;
         -time-profile-file)
           parse_state=14
+          ;;
+        -ranges-export-file)
+          parse_state=15
           ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
@@ -311,6 +315,10 @@ for opt in $raw_opts; do
       ;;
     14)
       time_profile_file="$opt";
+      parse_state=0;
+      ;;
+    15)
+      ranges_export_file="$opt";
       parse_state=0;
       ;;
   esac;
@@ -487,6 +495,19 @@ if [[ $disable_vra -eq 0 ]]; then
     -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
 else
   cp "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll";
+fi
+
+###
+###  TAFFO Export ranges
+###
+append_time_string "ranges_export_start"
+if [[ ! ( -z ${ranges_export_file} ) ]]; then
+  ${OPT} \
+      -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+      --passes="no-op-module,tafforangeexport" \
+      $compat_flags_opt ${vra_flags} \
+      -ranges_file ${ranges_export_file} \
+      "${temporary_dir}/${output_basename}.3.taffotmp.ll" -o /dev/null
 fi
 
 feedback_stop=0

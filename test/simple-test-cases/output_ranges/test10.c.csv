@@ -1,0 +1,7 @@
+function,variable,var_min,var_max
+,.str,0,115
+,.str.1,0,116
+,.str.2,0,115
+,.str.3,0,102
+main,mul,12,12
+main,conv,12,12

@@ -1,0 +1,8 @@
+function,variable,var_min,var_max
+,.str,0,115
+,.str.1,0,116
+,global,0,0
+test,mul,-1e+09,1e+09
+test,add,-1e+09,1e+09
+test,conv2,-1e+09,1e+09
+test,conv3,-1e+09,1e+09

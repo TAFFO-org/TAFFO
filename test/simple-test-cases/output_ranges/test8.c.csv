@@ -1,0 +1,11 @@
+function,variable,var_min,var_max
+,.str,0,116
+,.str.1,0,116
+cast,%2,-32767,32767
+cast,%3,-32767,32767
+cast,sub4,-65534,65534
+cast,%4,-32767,32767
+cast,sub5,-98301,98301
+cast,hp,-32767,32767
+cast,%5,-32767,32767
+cast,<badref>,-32767,32767

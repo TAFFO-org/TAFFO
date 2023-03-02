@@ -1,0 +1,14 @@
+function,variable,var_min,var_max
+,.str,0,116
+,.str.1,0,115
+,.str.2,0,102
+,.str.3,0,116
+,.str.4,0,102
+main,a,-128,128
+main,a1,-128,128
+main,call,-128,128
+main,%0,-128,128
+main,mul,-256,256
+main,call3,-512,512
+main,conv,-512,512
+test.1,mul,-512,512
