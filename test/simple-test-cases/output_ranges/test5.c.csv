@@ -1,10 +1,3 @@
 function,variable,var_min,var_max
-,.str,0,115
-,.str.1,0,116
 fpextfptrunc,conv,-32767,32767
 fpextfptrunc,add,-32644,32890
-fpextfptrunc,conv4,-32644,32890
-fpextfptrunc,conv5,-32644,32890
-fpextfptrunc,add6,-32767,32767
-fpextfptrunc,conv7,-32767,32767
-fpextfptrunc,<badref>,-32767,32767

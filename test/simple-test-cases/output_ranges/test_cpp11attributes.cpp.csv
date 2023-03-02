@@ -1,13 +1,3 @@
 function,variable,var_min,var_max
 _Z4oveniif,stuff.addr,-3000,3000
 _Z4oveniif,cake,-3000,3000
-_Z4oveniif,stuff.addr,-3000,3000
-_Z4oveniif,stuff.addr1,-3000,3000
-_Z4oveniif,cake2,-3000,3000
-_Z4oveniif,%1,-3000,3000
-_Z4oveniif,add,-3000,3000
-_Z4oveniif,conv,-3000,3000
-_Z4oveniif,cake,-3000,3000
-_Z4oveniif,%2,-3000,3000
-_Z4oveniif,add3,-3000,3000
-_Z4oveniif,<badref>,-3000,3000

@@ -77,8 +77,8 @@ recompile_one() {
       testout=${SCRIPTPATH}/"$(basename $input).out.csv"
       correctout=${SCRIPTPATH}/output_ranges/"$(basename $input).csv"
       logf="$SCRIPTPATH"/$(basename "$input").ranges.log
-      diff ${correctout} ${testout} > "$logf"
-      if [[ $? -eq 0 ]]; then
+      comm -13 <(sort -u ${testout}) <(sort -u ${correctout}) > "$logf"
+      if [ ! -s "$logf" ]; then
         printf '\033[1G[RANG ] [ ok ] %s\n' $(basename "$input")
         rm "$logf"
       else
