@@ -9,7 +9,8 @@ BENCHS := \
 	mvt \
 	syr2k \
 	syrk \
-	gramschmidt
+	gramschmidt \
+	convolution-2d
 
 .PHONY: all
 all:
