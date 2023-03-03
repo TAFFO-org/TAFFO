@@ -11,7 +11,8 @@ BENCHS := \
 	syrk \
 	gramschmidt \
 	convolution-2d \
-	convolution-3d
+	convolution-3d \
+	2mm
 
 .PHONY: all
 all:
