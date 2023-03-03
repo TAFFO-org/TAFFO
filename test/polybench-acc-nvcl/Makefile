@@ -12,7 +12,8 @@ BENCHS := \
 	gramschmidt \
 	convolution-2d \
 	convolution-3d \
-	2mm
+	2mm \
+	atax
 
 .PHONY: all
 all:
