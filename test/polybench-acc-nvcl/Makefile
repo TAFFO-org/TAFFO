@@ -13,7 +13,8 @@ BENCHS := \
 	convolution-2d \
 	convolution-3d \
 	2mm \
-	atax
+	atax \
+	bicg
 
 .PHONY: all
 all:
