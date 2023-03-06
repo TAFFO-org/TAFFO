@@ -1,0 +1,5 @@
+---
+"a" : { Class: 1, FloatStandard: 1, GreatestNumber: 1 }
+"alpha" : { Class: 1, FloatStandard: 1, GreatestNumber: 32412 }
+"beta" : { Class: 1, FloatStandard: 1, GreatestNumber: 2123 }
+"c" : { Class: 1, FloatStandard: 1, GreatestNumber: 1.10276e+07 }
