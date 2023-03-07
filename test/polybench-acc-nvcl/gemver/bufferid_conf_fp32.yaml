@@ -1,0 +1,12 @@
+---
+"a" : { Class: 1, FloatStandard: 1, GreatestNumber: 1000 }
+"alpha" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"beta" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"u1" : { Class: 1, FloatStandard: 1, GreatestNumber: 5000 }
+"u2" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"v1" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"v2" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"w" : { Class: 1, FloatStandard: 1, GreatestNumber: 60000 }
+"x" : { Class: 1, FloatStandard: 1, GreatestNumber: 200 }
+"y" : { Class: 1, FloatStandard: 1, GreatestNumber: 200 }
+"z" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }

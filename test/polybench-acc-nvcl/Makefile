@@ -16,7 +16,8 @@ BENCHS := \
 	atax \
 	bicg \
 	doitgen \
-	gemm
+	gemm \
+	gemver
 
 .PHONY: all
 all:
