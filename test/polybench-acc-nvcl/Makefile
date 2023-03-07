@@ -15,7 +15,8 @@ BENCHS := \
 	2mm \
 	atax \
 	bicg \
-	doitgen
+	doitgen \
+	gemm
 
 .PHONY: all
 all:
