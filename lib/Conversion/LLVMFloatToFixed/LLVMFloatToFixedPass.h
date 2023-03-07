@@ -12,12 +12,14 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/ValueMap.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "taffo-conversion"
+extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
+extern llvm::cl::opt<unsigned int> MinQuotientFrac;
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "
@@ -71,7 +73,8 @@ struct PHIInfo {
 };
 
 
-class Conversion : public llvm::PassInfoMixin<Conversion> {
+class Conversion : public llvm::PassInfoMixin<Conversion>
+{
 public:
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 };
@@ -147,7 +150,7 @@ struct FloatToFixed {
            tmp == TypeMatchPolicy::HintOverRangeMaxFrac ||
            tmp == TypeMatchPolicy::ForceHint;
   }
-  
+
   /* convert* functions return nullptr if the conversion cannot be
    * recovered, and Unsupported to trigger the fallback behavior */
   llvm::Constant *convertConstant(llvm::Constant *flt, FixedPointType &fixpt,
@@ -328,7 +331,7 @@ struct FloatToFixed {
     return translateOrMatchAnyOperand(val, iofixpt, ip,
                                       TypeMatchPolicy::ForceHint);
   };
-  
+
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
                                   llvm::Instruction *ip = nullptr)
   {
@@ -483,7 +486,7 @@ struct FloatToFixed {
   {
     auto vi = info.find(val);
     if (vi == info.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "Requested info for " << *val <<" which doesn't have it!!! ABORT\n");
+      LLVM_DEBUG(llvm::dbgs() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
       llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
     }
     return vi->getSecond();
@@ -497,7 +500,7 @@ struct FloatToFixed {
   };
 
   bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); };
-  
+
   bool isConvertedFixedPoint(llvm::Value *val)
   {
     if (!hasInfo(val))
