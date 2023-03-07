@@ -11,11 +11,15 @@ import sys
 import gmpy2
 from gmpy2 import mpfr, trunc, log2
 import platform
+import scipy as sc
+import warnings
 gmpy2.get_context().precision=100
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', None)
+
+
 
 def bold( s : str):
     sys.stdout.buffer.write(b"\x1B\x5B1m")
@@ -158,6 +162,9 @@ def getData(file: str):
     rel_err = []
     max_abs = 0
     max_rel = 0
+    float_data = []
+    taffo_data = []
+
     for float_value,taffo_value in zip(float_values.split("\n"),taffo_values.split("\n")):
         float_value = float(float_value)
         taffo_value = float(taffo_value)
@@ -168,9 +175,17 @@ def getData(file: str):
         rel_err.append(tmp/abs(float_value))
         max_abs = max(max_abs, tmp)
         max_rel = max(max_rel, tmp/abs(float_value))
+        float_data.append(float_value)
+        taffo_data.append(taffo_value)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sc.stats.ks_2samp(float_data, taffo_data)
     abs_err = np.mean(abs_err)
     rel_err = np.mean(rel_err)
-    return {"rel_err" : rel_err,  "max_rel" : max_rel, "abs_err": abs_err, "max_abs" : max_abs }
+
+
+    return {"rel_err" : rel_err,  "max_rel" : max_rel, "abs_err": abs_err, "max_abs" : max_abs, "pvalue" : res.pvalue }
 
 
 def ordereddiff(path :Path):
@@ -308,7 +323,7 @@ def clean(path :Path, suffix : tuple):
     
 def print_tables(table):
     table = pd.DataFrame(table)
-    print(table.to_string(columns=["name", "speedup", "compile_time", "rel_err", "abs_err"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
+    print(table.to_string(columns=["name", "speedup", "compile_time", "rel_err", "abs_err", "pvalue"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
 
 
 def extract_first_n_bit( x : float, n : int, inte : int, frac : int):
@@ -373,7 +388,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     M = args.M
-    common_flags = f"-O3 -DAPP_MFUNC -DM={M} -fno-vectorize -fno-slp-vectorize"
+    common_flags = f"-O3 -DM={M} -fno-vectorize -fno-slp-vectorize"
     if args.only is None:
         only = [x for x in Path(".").glob("*/") if x.is_dir() and "data" not in x.name]
     else:
