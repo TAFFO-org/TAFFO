@@ -14,7 +14,8 @@ BENCHS := \
 	convolution-3d \
 	2mm \
 	atax \
-	bicg
+	bicg \
+	doitgen
 
 .PHONY: all
 all:
