@@ -26,6 +26,13 @@ using namespace flttofix;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
+llvm::cl::opt<unsigned int> MaxTotalBitsConv("maxtotalbitsconv", llvm::cl::value_desc("bits"),
+                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(128));
+
+
+llvm::cl::opt<unsigned int> MinQuotientFrac("minquotientfrac", llvm::cl::value_desc("bits"),
+                             llvm::cl::desc("minimum number of quotient fractional preserved"), llvm::cl::init(5));
+
 
 
 PreservedAnalyses Conversion::run(Module &M, ModuleAnalysisManager &AM)
