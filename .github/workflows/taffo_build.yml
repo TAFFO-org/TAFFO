@@ -32,7 +32,7 @@ jobs:
       uses: actions/setup-python@v4.3.1
       
     - name: Pip
-      run: pip install numpy pandas gmpy2 matplotlib
+      run: pip install numpy pandas gmpy2 matplotlib scipy
 
     
     - name: Dependencies
