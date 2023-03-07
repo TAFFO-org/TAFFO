@@ -14,7 +14,10 @@ import platform
 import scipy as sc
 import warnings
 gmpy2.get_context().precision=100
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', None)
@@ -24,8 +27,7 @@ pd.set_option('display.max_colwidth', None)
 ####### GLOBAL SETTINGS ####### 
 """
 
-KPATH = "path to miosix"
-SYSROOT = "/opt/arm-miosix-eabi/arm-miosix-eabi/"
+
 
 
 def bold( s : str):
@@ -59,16 +61,16 @@ def compiletaffo(path: Path):
     bench_exec = path.name + "-taffo"
     pipe_out = subprocess.DEVNULL
     compile_flag = f"{common_flags} -time-profile-file {path.absolute().as_posix()}/{path.name}_taffo_time.csv "
-    compile_flag += f"""-Xdta --maxtotalbits=64 -debug --target="arm-miosix-eabi" --sysroot={SYSROOT} """
+    compile_flag += f"""-Xdta --maxtotalbits=64 -debug --target="arm-miosix-eabi" --sysroot={os.getenv('SYSROOT')} """
     compile_flag += f"""-mfloat-abi=soft -fshort-enums """
     compile_flag += f"""-MMD -MP -D_MIOSIX_BOARDNAME=\"stm32f207zg_nucleo\" -D_DEFAULT_SOURCE=1 -std=c++14  """
     compile_flag += f"""-ffunction-sections -Wall -Werror=return-type -g -D_BOARD_STM32F207ZG_NUCLEO -D_ARCH_CORTEXM3_STM32F2 -DHSE_VALUE=8000000 """
     compile_flag += f"""-DSYSCLK_FREQ_120MHz=120000000   -mcpu=cortex-m3 -mthumb -O2 -c -I. -I./config/arch/cortexM3_stm32f2/stm32f207zg_nucleo -I. """
-    compile_flag += f"""-I{KPATH} -I{KPATH}/arch/common """
-    compile_flag += f"""-I{KPATH}/arch/cortexM3_stm32f2/common """
-    compile_flag += f"""-I{KPATH}/arch/cortexM3_stm32f2/stm32f207zg_nucleo """
-    compile_flag += f"""-I{SYSROOT}/include/c++/9.2.0/ """
-    compile_flag += f"""-I/{SYSROOT}/include/c++/9.2.0/arm-miosix-eabi/thumb/cm3/ """
+    compile_flag += f"""-I{os.getenv('KPATH')} -I{os.getenv('KPATH')}/arch/common """
+    compile_flag += f"""-I{os.getenv('KPATH')}/arch/cortexM3_stm32f2/common """
+    compile_flag += f"""-I{os.getenv('KPATH')}/arch/cortexM3_stm32f2/stm32f207zg_nucleo """
+    compile_flag += f"""-I{os.getenv('SYSROOT')}/include/c++/9.2.0/ """
+    compile_flag += f"""-I/{os.getenv('SYSROOT')}/include/c++/9.2.0/arm-miosix-eabi/thumb/cm3/ """
     compile_flag += f"""-D_MIOSIX -D_MIOSIX_GCC_PATCH_MAJOR=3 -O3"""
 
     if debug:

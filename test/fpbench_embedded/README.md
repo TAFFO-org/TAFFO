@@ -2,16 +2,11 @@
 
 ### Configuration
 
-Remove comment from Makefile and run.py  and set to the proper path
+Create a file named .env with this template
 ```  make
-#KPATH := path to miosix
+KPATH="path_to_miosix"
+SYSROOT="/opt/arm-miosix-eabi/arm-miosix-eabi/"
 ```
-Set run.py
-
-``` python
-SYSROOT = "/opt/arm-miosix-eabi/arm-miosix-eabi/"
-```
-to the correct toolchain
 
 
 ### Run 
