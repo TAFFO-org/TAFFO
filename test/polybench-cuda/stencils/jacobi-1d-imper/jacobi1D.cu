@@ -16,11 +16,11 @@ extern "C" __global__ void runJacobiCUDA_kernel1(int n, ANN_A DATA_TYPE* A, ANN_
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	
-	if ((i > 1) && (i < (_PB_N-1)))
+	if ((i >= 1) && (i < (n-1)))
 	{
-		B[i] = 0.33333f * (A[i-1] + A[i] + A[i + 1]);
+		B[i] = (A[i-1] + A[i] + A[i + 1]) / 3.0f;
 	}
-}
+}	
 
 
 extern "C" __global__ void runJacobiCUDA_kernel2(int n, ANN_A DATA_TYPE* A, ANN_B DATA_TYPE* B)

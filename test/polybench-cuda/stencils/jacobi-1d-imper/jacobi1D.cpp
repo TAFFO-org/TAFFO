@@ -56,12 +56,14 @@ const char *sSDKsample = "PolyBench jacobi1d (Driver API)";
 
 void init_array(int n, DATA_TYPE POLYBENCH_1D(A,N,n), DATA_TYPE POLYBENCH_1D(B,N,n))
 {
-	__attribute__((annotate("scalar(range(0, 819200) final)"))) int i;
+	  int i;
 
 	for (i = 0; i < n; i++)
     	{
-		A[i] = ((DATA_TYPE) 4 * i + 10) / N;
-		B[i] = ((DATA_TYPE) 7 * i + 11) / N;
+        DATA_TYPE a = ((DATA_TYPE) 4 * i + 10) / N;
+        DATA_TYPE b = ((DATA_TYPE) 7 * i + 11) / N;
+		A[i] = a;
+		B[i] = b;
     	}
 }
 
