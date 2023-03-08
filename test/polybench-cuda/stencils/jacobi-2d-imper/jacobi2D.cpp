@@ -55,8 +55,8 @@ const char *sSDKsample = "PolyBench jacobi2D (Driver API)";
 
 void init_array(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n), DATA_TYPE POLYBENCH_2D(B,N,N,n,n))
 {
-	__attribute__((annotate("scalar(range(0, 819200) final)"))) int i;
-	__attribute__((annotate("scalar(range(0, 819200) final)"))) int j;
+	__attribute__((annotate("scalar(range(-10000000, 10000000) final)"))) int i;
+	__attribute__((annotate("scalar(range(-10000000, 10000000) final)"))) int j;
 
 	for (i = 0; i < n; i++)
 	{
