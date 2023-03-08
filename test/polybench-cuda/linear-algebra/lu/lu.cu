@@ -15,9 +15,9 @@
 
 extern "C" __global__ void lu_kernel1(int n, ANN_A DATA_TYPE *A, int k)
 {
-	int j = blockIdx.x * blockDim.x + threadIdx.x;
+	int j = blockIdx.x * blockDim.x + threadIdx.x + (k + 1);
 	
-	if ((j > k) && (j < _PB_N))
+	if ((j < _PB_N))
 	{
 		A[k*N + j] = A[k*N + j] / A[k*N + k];
 	}
@@ -26,11 +26,12 @@ extern "C" __global__ void lu_kernel1(int n, ANN_A DATA_TYPE *A, int k)
 
 extern "C" __global__ void lu_kernel2(int n, ANN_A DATA_TYPE *A, int k)
 {
-	int j = blockIdx.x * blockDim.x + threadIdx.x;
-	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x + (k + 1);
+	int i = blockIdx.y * blockDim.y + threadIdx.y + (k + 1);
 	
-	if ((i > k) && (j > k) && (i < _PB_N) && (j < _PB_N))
+	if ((i < n) && (j < n))
 	{
-		A[i*N + j] = A[i*N + j] - A[i*N + k] * A[k*N + j];
+		__attribute__((annotate("scalar()"))) DATA_TYPE tmp = A[i*n + k] * A[k*n + j];
+		A[i*n + j] = A[i*n + j] - tmp;
 	}
 }

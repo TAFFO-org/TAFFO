@@ -76,27 +76,42 @@ void lu(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 }
 
 
+double frand(void)
+{
+	return (double)rand() / (double)RAND_MAX;
+}
+
 void init_array(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n))
 {
 	int __attribute__((annotate("scalar(range(-4000, 4000) final)"))) i;
 	int __attribute__((annotate("scalar(range(-4000, 4000) final)"))) j;
 
-/* 	for (i = 0; i < n; i++)
-	{
-		for (j = 0; j < n; j++)
-		{
-			A[i][j] = ((DATA_TYPE) i*j + 1) / N;
-		}
-	} */
-
 	for (i = 0; i < n; i++) {
 		for (j = 0; j <= i; j++)
-			A[i][j] = (DATA_TYPE)(-j % n) / n + 1;
+			A[i][j] = (DATA_TYPE)(-j % n) / (n + 1);
 		for (j = i + 1; j < n; j++) {
 			A[i][j] = 0;
 		}
 		A[i][i] = 1;
 	}
+
+	/* Make the matrix positive semi-definite. */
+	/* not necessary for LU, but using same code as cholesky */
+	int r, s, t;
+	__attribute__((annotate("scalar(range(-4000, 4000) final)"))) POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+	for (r = 0; r < n; ++r)
+		for (s = 0; s < n; ++s)
+			(POLYBENCH_ARRAY(B))[r][s] = 0;
+	for (t = 0; t < n; ++t)
+		for (r = 0; r < n; ++r)
+			for (s = 0; s < n; ++s) {
+				__attribute__((annotate("scalar()"))) DATA_TYPE tmp = A[r][t] * A[s][t];
+				(POLYBENCH_ARRAY(B))[r][s] += tmp;
+			}
+	for (r = 0; r < n; ++r)
+		for (s = 0; s < n; ++s)
+			A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
+	POLYBENCH_FREE_ARRAY(B);
 }
 
 
