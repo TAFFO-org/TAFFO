@@ -141,7 +141,7 @@ void covarianceCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYP
 	CUdeviceptr mean_gpu;
 	CUdeviceptr symmat_gpu;
 
-	DATA_TYPE ANN_FLOAT_N float_n = FLOAT_N;
+	DATA_TYPE ANN_FLOAT_N float_n[1] = {FLOAT_N};
 
   	checkCudaErrors(cuMemAlloc(&data_gpu, sizeof(DATA_TYPE) * M * N));
 	checkCudaErrors(cuMemAlloc(&symmat_gpu, sizeof(DATA_TYPE) * M * N));
