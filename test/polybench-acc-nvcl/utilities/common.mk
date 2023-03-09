@@ -110,6 +110,11 @@ run: ${EXECUTABLE} ${EXECUTABLE_TAFFO}
 	ulimit -s unlimited; ./${EXECUTABLE} 2> ${EXECUTABLE}.txt
 	ulimit -s unlimited; ./${EXECUTABLE_TAFFO} 2> ${EXECUTABLE_TAFFO}.txt
 
+.PHONY: run-taffo
+run: ${EXECUTABLE_TAFFO}
+	echo BENCHMARK = $$(basename $$(pwd))
+	ulimit -s unlimited; ./${EXECUTABLE_TAFFO} 2> ${EXECUTABLE_TAFFO}.txt
+
 .PHONY: validate
 validate:
 	@../utilities/validate.py --ref=${EXECUTABLE}.txt --check=${EXECUTABLE_TAFFO}.txt
