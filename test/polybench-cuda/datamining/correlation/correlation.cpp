@@ -59,16 +59,25 @@ size_t totalGlobalMem;
 
 const char *sSDKsample = "PolyBench correlation (Driver API)";
 
-void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n))
+double frand(void)
 {
-	int i __attribute__((annotate("scalar(range(0,10000000) final)")));
-	int j __attribute__((annotate("scalar(range(0,10000000) final)")));
-	
+	return (double)rand() / (double)RAND_MAX;
+}
+
+void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n), DATA_TYPE* float_n, DATA_TYPE* eps, DATA_TYPE POLYBENCH_2D(symmat, M, N, m, n))
+{
+    int i, j;
+	*float_n = 3214212.01;
+	*eps = 0.005;
+
 	for (i=0; i < m; i++) 
 	{
-    		for (j=0; j < n; j++) 
+    	for (j=0; j < n; j++) 
 		{
-       		data[i][j] = ((DATA_TYPE)(i*j)/M + i)/N;
+        	DATA_TYPE d = (DATA_TYPE)frand();
+       		data[i][j] = (DATA_TYPE)d;
+			symmat[i][j] = 0;
+			//fprintf(stderr, "%f\n", data[i][j]);
        	}
     	}
 }
@@ -166,20 +175,52 @@ void compareResults(int m, int n, DATA_TYPE POLYBENCH_2D(symmat, M, N, m, n), DA
 	printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
 }
 
+/* DCE code. Must scan the entire live-out data.
+   Can be used also to check the correctness of the output. */
+static
+void print_array(int m,
+		 DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m))
+
+{
+  int i, j;
+
+  for (i = 0; i < m; i++)
+    for (j = 0; j < m; j++) {
+      fprintf (stderr, DATA_PRINTF_MODIFIER, symmat[i][j]);
+      if ((i * m + j) % 20 == 0) fprintf (stderr, "\n");
+    }
+  fprintf (stderr, "\n");
+}
+
+/* DCE code. Must scan the entire live-out data.
+   Can be used also to check the correctness of the output. */
+static
+void print_array2(int m,
+		 DATA_TYPE POLYBENCH_1D(symmat,M,m))
+
+{
+  int i, j;
+
+
+    for (j = 0; j < m; j++) {
+      fprintf (stderr, DATA_PRINTF_MODIFIER, symmat[j]);
+      if (( j) % 20 == 0) fprintf (stderr, "\n");
+    }
+  fprintf (stderr, "\n");
+}
 
 void correlationCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n), DATA_TYPE POLYBENCH_1D(mean, M, m), 
 			DATA_TYPE POLYBENCH_1D(stddev, M, m), DATA_TYPE POLYBENCH_2D(symmat, M, N, m, n), 
-			DATA_TYPE POLYBENCH_2D(symmat_outputFromGpu, M, N, m, n))
+			DATA_TYPE POLYBENCH_2D(symmat_outputFromGpu, M, N, m, n), DATA_TYPE float_n, DATA_TYPE eps)
 {
 	CUdeviceptr data_gpu;
 	CUdeviceptr stddev_gpu;
 	CUdeviceptr mean_gpu;
 	CUdeviceptr symmat_gpu;
 
-	DATA_TYPE ANN_FLOAT_N float_n = FLOAT_N;
-	DATA_TYPE ANN_EPS eps = EPS;
+	ANN_FLOAT_N DATA_TYPE lfloat_n[1] = {float_n};
+	ANN_EPS DATA_TYPE leps[1] = {eps};
 
-	
   	checkCudaErrors(cuMemAlloc(&data_gpu, sizeof(DATA_TYPE) * M * N));
 	checkCudaErrors(cuMemAlloc(&symmat_gpu, sizeof(DATA_TYPE) * M * N));
 	checkCudaErrors(cuMemAlloc(&stddev_gpu, sizeof(DATA_TYPE) * M));
@@ -205,23 +246,29 @@ void correlationCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n), DAT
 	/* Start timer. */
   	polybench_start_instruments;
 
-	void *args1[5] = {&m, &n, &mean_gpu, &data_gpu, &float_n};
+	void *args1[5] = {&m, &n, &mean_gpu, &data_gpu, &lfloat_n};
 	checkCudaErrors(cuLaunchKernel(
         kernels[0], grid1.x, grid1.y, grid1.z, block1.x, block1.y, block1.z,
         0, NULL, args1, NULL));
 	checkCudaErrors(cuCtxSynchronize());
 
-	void *args2[7] = {&m, &n, &mean_gpu, &stddev_gpu, &data_gpu, &float_n, &eps};
+	void *args2[7] = {&m, &n, &mean_gpu, &stddev_gpu, &data_gpu, &lfloat_n, &leps};
 	checkCudaErrors(cuLaunchKernel(
         kernels[1], grid2.x, grid2.y, grid2.z, block2.x, block2.y, block2.z,
         0, NULL, args2, NULL));
 	checkCudaErrors(cuCtxSynchronize());
 
-	void *args3[6] = {&m, &n, &mean_gpu, &stddev_gpu, &data_gpu, &float_n};
+	/* checkCudaErrors(cuMemcpyDtoH(stddev, stddev_gpu, sizeof(DATA_TYPE) * M ));
+	print_array2(m, stddev); */
+
+	void *args3[6] = {&m, &n, &mean_gpu, &stddev_gpu, &data_gpu, &lfloat_n};
 	checkCudaErrors(cuLaunchKernel(
         kernels[2], grid3.x, grid3.y, grid3.z, block3.x, block3.y, block3.z,
         0, NULL, args3, NULL));
 	checkCudaErrors(cuCtxSynchronize());
+
+	//checkCudaErrors(cuMemcpyDtoH(data, data_gpu, sizeof(DATA_TYPE) * M * N));
+	//print_array(m, data);
 
 	void *args4[4] = {&m, &n, &symmat_gpu, &data_gpu};
 	checkCudaErrors(cuLaunchKernel(
@@ -247,28 +294,13 @@ void correlationCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n), DAT
 }
 
 
-/* DCE code. Must scan the entire live-out data.
-   Can be used also to check the correctness of the output. */
-static
-void print_array(int m,
-		 DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m))
-
-{
-  int i, j;
-
-  for (i = 0; i < m; i++)
-    for (j = 0; j < m; j++) {
-      fprintf (stderr, DATA_PRINTF_MODIFIER, symmat[i][j]);
-      if ((i * m + j) % 20 == 0) fprintf (stderr, "\n");
-    }
-  fprintf (stderr, "\n");
-}
-
-
 int main(int argc, char** argv)
 {
 	int m = M;
 	int n = N;
+
+	DATA_TYPE float_n;
+	DATA_TYPE eps;
 
 	POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE ANN_DATA,M,N,m,n);
   	POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE ANN_MEAN,M,m);
@@ -276,8 +308,7 @@ int main(int argc, char** argv)
 	POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE ANN_SYMMAT,M,N,m,n);
   	POLYBENCH_2D_ARRAY_DECL(symmat_outputFromGpu,DATA_TYPE ANN_SYMMAT,M,N,m,n);
   	
-	init_arrays(m, n, POLYBENCH_ARRAY(data));
-	//print_array(m, POLYBENCH_ARRAY(data));
+	init_arrays(m, n, POLYBENCH_ARRAY(data), &float_n, &eps, POLYBENCH_ARRAY(symmat));
     
 	initCUDA(argc, argv);
 
@@ -287,7 +318,7 @@ int main(int argc, char** argv)
 	checkCudaErrors(cuModuleGetFunction(&(kernels[3]), cuModule, "corr_kernel"));
 
 	correlationCuda(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(mean), POLYBENCH_ARRAY(stddev), POLYBENCH_ARRAY(symmat), 
-		POLYBENCH_ARRAY(symmat_outputFromGpu));
+		POLYBENCH_ARRAY(symmat_outputFromGpu), float_n, eps);
 
 
 	/* Start timer. */

@@ -17,16 +17,16 @@ extern "C" __global__ void mean_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, D
 {
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (j < _PB_M)
+	if (j < m)
 	{
 		mean[j] = 0.0;
 
 		int i;
-		for(i=0; i < _PB_N; i++)
+		for (i=0; i < n; i++)
 		{
-			mean[j] += data[i*M + j];
+			mean[j] += data[i*m + j];
 		}
-	
+		
 		mean[j] /= float_n;
 	}
 }
@@ -36,12 +36,12 @@ extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DA
 {
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	
-	if (j < _PB_M)
+	if (j < m)
 	{
 		std[j] = 0.0;
-
+		
 		int i;
-		for(i = 0; i < _PB_N; i++)
+		for (i = 0; i < n; i++)
 		{
 			DATA_TYPE __attribute__((annotate("scalar()"))) tmp = (data[i*m + j] - mean[j]);
 			tmp = tmp * tmp;
@@ -52,7 +52,7 @@ extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DA
 		if(std[j] <= eps) 
 		{
 			std[j] = 1.0;
-		}
+		} 
 	}
 }
 
@@ -62,10 +62,10 @@ extern "C" __global__ void reduce_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN,
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	
-	if ((i < _PB_N) && (j < _PB_M))
+	if ((i < n) && (j < m))
 	{
 		data[i*m + j] -= mean[j];
-		DATA_TYPE tmp = sqrt(float_n) * std[j];
+		__attribute__((annotate("scalar(range(-2000, 2000) final)"))) DATA_TYPE tmp = sqrt(float_n) * std[j];
 		data[i*m + j] /= tmp;
 	}
 }
@@ -82,7 +82,7 @@ extern "C" __global__ void corr_kernel(int m, int n, DATA_TYPE *symmat ANN_SYMMA
 
 		for (j2 = (j1 + 1); j2 < _PB_M; j2++)
 		{
-			symmat[j1*M + j2] = 0.0;
+			//symmat[j1*M + j2] = 0.0;
 
 			for(i = 0; i < _PB_N; i++)
 			{
