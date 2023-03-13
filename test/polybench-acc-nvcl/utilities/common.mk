@@ -111,7 +111,7 @@ run: ${EXECUTABLE} ${EXECUTABLE_TAFFO}
 	ulimit -s unlimited; ./${EXECUTABLE_TAFFO} 2> ${EXECUTABLE_TAFFO}.txt
 
 .PHONY: run-taffo
-run: ${EXECUTABLE_TAFFO}
+run-taffo: ${EXECUTABLE_TAFFO}
 	echo BENCHMARK = $$(basename $$(pwd))
 	ulimit -s unlimited; ./${EXECUTABLE_TAFFO} 2> ${EXECUTABLE_TAFFO}.txt
 
