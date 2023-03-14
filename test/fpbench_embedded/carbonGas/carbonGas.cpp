@@ -5,7 +5,7 @@
 #define FALSE 0
 #include "data.h"
 #ifndef M
-#define M 10
+#define M 10000
 #endif
 
 float ex0(float v)
