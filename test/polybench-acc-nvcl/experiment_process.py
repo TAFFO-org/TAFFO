@@ -32,8 +32,8 @@ def read_validate_file(file: Path):
   res = {}
   for bench, part in zip(benchs, parts):
     try:
-      e_perc = float(re.findall('^e_perc +([0-9.]+)$', part, re.MULTILINE)[0])
-      e_abs = float(re.findall('^e_abs +([0-9.]+)$', part, re.MULTILINE)[0])
+      e_perc = float(re.findall('^e_perc +([0-9E+\-.]+)$', part, re.MULTILINE)[0])
+      e_abs = float(re.findall('^e_abs +([0-9E+\-.]+)$', part, re.MULTILINE)[0])
       res[bench] = (e_perc, e_abs)
     except Exception:
       print(f'error: could not read run bench info of {bench} from {file}', file=sys.stderr)
@@ -105,10 +105,10 @@ def pareto_bench(df: pd.DataFrame, bench: str):
 
 def pareto(df: pd.DataFrame):
   benchs = sorted(set(df['bench']))
-  fig, ax = plt.subplots(2, 3)
+  fig, ax = plt.subplots(6, 4)
   fig.set_figwidth(15)
   fig.set_figheight(7)
-  axes_index = it.product(range(0,3), range(0,3))
+  axes_index = it.product(range(0,6), range(0,4))
   for bench, (i, j) in zip(benchs, axes_index):
     plt.sca(ax[i, j])
     #plt.gca().set_xlim(-150, 250)
@@ -118,7 +118,7 @@ def pareto(df: pd.DataFrame):
   fig.supylabel('Percentage error [%]')
   fig.tight_layout()
   plt.show()
-  #fig.savefig("out.pdf")
+  fig.savefig("out.pdf")
 
 def compute_best_conf(df: pd.DataFrame):
   benchs = sorted(set(df['bench']))
