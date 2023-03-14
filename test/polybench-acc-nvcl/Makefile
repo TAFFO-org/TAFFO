@@ -1,23 +1,6 @@
-BENCHS := \
-	correlation \
-	covariance \
-	lu \
-	fdtd-2d \
-	jacobi-1d-imper \
-	jacobi-2d-imper \
-	gesummv \
-	mvt \
-	syr2k \
-	syrk \
-	gramschmidt \
-	convolution-2d \
-	convolution-3d \
-	2mm \
-	atax \
-	bicg \
-	doitgen \
-	gemm \
-	gemver
+BENCHS := 2mm 3mm adi atax bicg convolution-2d convolution-3d correlation \
+	covariance doitgen fdtd-2d gemm gemver gesummv gramschmidt jacobi-1d-imper \
+	jacobi-2d-imper lu mvt syr2k syrk
 
 .PHONY: all
 all:
