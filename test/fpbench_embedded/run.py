@@ -61,7 +61,7 @@ def compiletaffo(path: Path):
     bench_exec = path.name + "-taffo"
     pipe_out = subprocess.DEVNULL
     compile_flag = f"{common_flags} -time-profile-file {path.absolute().as_posix()}/{path.name}_taffo_time.csv "
-    compile_flag += f"""-Xdta --maxtotalbits=64 -debug --target="arm-miosix-eabi" --sysroot={os.getenv('SYSROOT')} """
+    compile_flag += f"""-Xdta --maxtotalbits=64 -Xconversion --maxtotalbitsconv=64 -Xvra -max-unroll=30 --target="arm-miosix-eabi" --sysroot={os.getenv('SYSROOT')} """
     compile_flag += f"""-mfloat-abi=soft -fshort-enums """
     compile_flag += f"""-MMD -MP -D_MIOSIX_BOARDNAME=\"stm32f207zg_nucleo\" -D_DEFAULT_SOURCE=1 -std=c++14  """
     compile_flag += f"""-ffunction-sections -Wall -Werror=return-type -g -D_BOARD_STM32F207ZG_NUCLEO -D_ARCH_CORTEXM3_STM32F2 -DHSE_VALUE=8000000 """
@@ -71,21 +71,21 @@ def compiletaffo(path: Path):
     compile_flag += f"""-I{os.getenv('KPATH')}/arch/cortexM3_stm32f2/stm32f207zg_nucleo """
     compile_flag += f"""-I{os.getenv('SYSROOT')}/include/c++/9.2.0/ """
     compile_flag += f"""-I/{os.getenv('SYSROOT')}/include/c++/9.2.0/arm-miosix-eabi/thumb/cm3/ """
-    compile_flag += f"""-D_MIOSIX -D_MIOSIX_GCC_PATCH_MAJOR=3 -O3"""
-
+    compile_flag += f"""-D_MIOSIX -D_MIOSIX_GCC_PATCH_MAJOR=3 """
     if debug:
         (path / "./llvm-file").mkdir(parents=True, exist_ok=True)
-        compile_flag = f"{compile_flag} -debug -temp-dir ./llvm-file"
+        compile_flag = f"{compile_flag} -debug -temp-dir {path.as_posix()}/llvm-file"
         pipe_out = open(f"{path.as_posix()}/{path.name}_taffo.log", "w")
 
 
     print("Compiling: {}\t".format(bench_exec), end="")
     flush()
-    s = subprocess.run(" make clean; taffo {} main.cpp -o main.o -lm; ./run.sh {}/{}".format(compile_flag,path.as_posix(), bench_exec), shell=True , stdout=pipe_out, stderr=pipe_out)
-    if s.returncode == 0:
+    s = subprocess.run(" make clean; taffo {} main.cpp -o main.o -lm".format(compile_flag), shell=True , stdout=pipe_out, stderr=pipe_out)
+    s2 = subprocess.run("./run.sh {}/{}".format(path.as_posix(), bench_exec), shell=True , stdout=pipe_out, stderr=pipe_out)
+    if s2.returncode == 0:
         print_okk()
     else:
-        with open(f"./{path.as_posix()}/{path.name}_taffo.log", "w") as file:
+        with open(f"{path.as_posix()}/{path.name}_taffo.log", "w") as file:
             print(file.read())
         print_err()
     if pipe_out == subprocess.DEVNULL and debug:
@@ -143,6 +143,7 @@ def run(path :Path):
 
 
 def retriveFiles(path: Path):
+    print(path)
     bench_name = path.name
     if not ((path / "taffo-res").exists() and (path / "float-res").exists()):
         print_err()
@@ -341,7 +342,7 @@ def clean(path :Path, suffix : tuple):
 def print_tables(table):
     table = pd.DataFrame(table)
     table = table.sort_values(by=["name"])
-    print(table.to_string(columns=["name", "speedup", "compile_time", "rel_err", "abs_err", "pvalue"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
+    print(table.to_string(columns=["name", "speedup", "rel_err", "abs_err"], formatters={"rel_err": '{:,.8%}'.format, "max_rel": '{:,.2f}'.format }))
 
 
 def extract_first_n_bit( x : float, n : int, inte : int, frac : int):
