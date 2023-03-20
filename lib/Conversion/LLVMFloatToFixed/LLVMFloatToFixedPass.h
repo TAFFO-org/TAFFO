@@ -31,6 +31,7 @@
 
 #define DEBUG_TYPE "taffo-conversion"
 #define DEBUG_ANNOTATION "annotation"
+extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "
