@@ -13,7 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Metadata.h"
-//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+// #include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
 
 #include <sstream>
 
@@ -473,6 +476,22 @@ bool MetadataManager::isStartingPoint(const Function &F)
 {
   return F.getMetadata(START_FUN_METADATA) != nullptr;
 }
+
+void MetadataManager::defaultStartingPoint(Module &M)
+{
+  auto main = llvm::find_if(M.functions(), [](const Function &F) { return F.getName().equals("main"); } );
+  if (main != M.end()) {
+    setStartingPoint(*main);
+  }
+}
+
+bool MetadataManager::hasStartingPoint(const Module &M)
+{
+  bool hasStartingPoint = false;
+  hasStartingPoint = llvm::any_of(M.functions(), [](const auto &F) { return isStartingPoint(F); });
+  return hasStartingPoint;
+}
+
 
 void MetadataManager::setTargetMetadata(Instruction &I, StringRef Name)
 {

@@ -27,7 +27,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
 #include <memory>
-//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
+// #include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
 
 #define INPUT_INFO_METADATA "taffo.info"
 #define FUNCTION_ARGS_METADATA "taffo.funinfo"
@@ -168,11 +168,18 @@ public:
   /// Get the computed comparison error info from metadata attached to I.
   static std::unique_ptr<CmpErrorInfo> retrieveCmpError(const llvm::Instruction &I);
 
-  /// Set this function as a starting point for error analysis.
+  /// Set this function as a starting point for analysis.
   static void setStartingPoint(llvm::Function &F);
 
-  /// Returns true if F has been marked as a starting point for error analysis.
+  /// Returns true if F has been marked as a starting point for analysis.
   static bool isStartingPoint(const llvm::Function &F);
+
+  /// Returns true if M contains at least one function F marked as a starting point
+  static bool hasStartingPoint(const llvm::Module &M);
+
+  /// Set main function as a starting point for analysis.
+  static void defaultStartingPoint(llvm::Module &M);
+
 
   /// Mark instruction/global variable I/V as a target with name `Name'.
   static void setTargetMetadata(llvm::Instruction &I, llvm::StringRef Name);

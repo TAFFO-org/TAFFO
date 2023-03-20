@@ -155,6 +155,10 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
      * (removed also where it's not required) */
     f.removeFnAttr(Attribute::OptimizeNone);
   }
+
+  if (!mdutils::MetadataManager::hasStartingPoint(m)) {
+    mdutils::MetadataManager::defaultStartingPoint(m);
+  }
 }
 
 
