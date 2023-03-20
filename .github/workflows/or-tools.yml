@@ -39,7 +39,7 @@ jobs:
         run: cmake --version
       - name: Configure
         if: steps.or-cache.outputs.cache-hit != 'true'
-        run: cmake -S. -Bbuild -G "Ninja" -DCMAKE_BUILD_TYPE="release" -DBUILD_DEPS=ON -DCMAKE_INSTALL_PREFIX="$HOME/ortools"
+        run: cmake -S. -Bbuild -G "Ninja" -DCMAKE_BUILD_TYPE="Release" -DBUILD_DEPS=ON -DCMAKE_INSTALL_PREFIX="$HOME/ortools"
       - name: Build
         if: steps.or-cache.outputs.cache-hit != 'true'
         run: cmake --build build --config "Release" --target all -v
