@@ -43,6 +43,8 @@ def read_experiment(dir: Path):
   columns = ['bench', 'host_dta', 'kern_arg_dta', 'kern_dta', 't_gpu_orig', 't_gpu_taffo', 'e_perc', 'e_abs']
   table = pd.DataFrame(columns=columns)
   dtas = ['f32', 'f16', 'fixp', 'mixed']
+  run_f32 = dir / 'f32_f32_f32_run.txt'
+  data_run_f32 = read_run_file(run_f32)
   for host_dta in dtas:
     for kern_arg_dta in dtas:
       for kern_dta in dtas:
@@ -55,7 +57,7 @@ def read_experiment(dir: Path):
         benchs = sorted(list(set(data_run.keys()) | set(data_valid.keys())))
         for bench in benchs:
           try:
-            t_gpu_orig, t_gpu_taffo = data_run[bench]
+            t_gpu_orig, t_gpu_taffo = data_run_f32[bench][1], data_run[bench][1]
             e_perc, e_abs = data_valid[bench]
             row = [bench, host_dta, kern_arg_dta, kern_dta, t_gpu_orig, t_gpu_taffo, e_perc, e_abs]
             table = pd.concat([table, pd.Series(row, columns).to_frame().T], ignore_index=True)
