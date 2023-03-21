@@ -1,0 +1,8 @@
+---
+"a" : { Class: 0, SWidth: 16, PointPos: 15 }
+"alpha" : { Class: 0, SWidth: 32, PointPos: 16 }
+"b" : { Class: 0, SWidth: 16, PointPos: 15 }
+"beta" : { Class: 0, SWidth: 32, PointPos: 16 }
+"tmp" : { Class: 0, SWidth: 16, PointPos: 5 }
+"x" : { Class: 0, SWidth: 16, PointPos: 15 }
+"y" : { Class: 0, SWidth: 32, PointPos: 5 }
