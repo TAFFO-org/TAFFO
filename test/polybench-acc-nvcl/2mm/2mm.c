@@ -243,15 +243,23 @@ void cl_launch_kernel(int ni, int nj, int nk, int nl, DATA_TYPE *alpha, DATA_TYP
 	
 	// Set the arguments of the kernel
 	errcode =  clSetKernelArg(clKernel1, 0, sizeof(cl_mem), (void *)&tmp_mem_obj);
-	errcode |= clSetKernelArg(clKernel1, 1, sizeof(cl_mem), (void *)&a_mem_obj);
-	errcode |= clSetKernelArg(clKernel1, 2, sizeof(cl_mem), (void *)&b_mem_obj);
-	errcode |= clSetKernelArg(clKernel1, 3, sizeof(int), (void *)&ni);
-	errcode |= clSetKernelArg(clKernel1, 4, sizeof(int), (void *)&nj);
-	errcode |= clSetKernelArg(clKernel1, 5, sizeof(int), (void *)&nk);
-	errcode |= clSetKernelArg(clKernel1, 6, sizeof(int), (void *)&nl);
-	errcode |= clSetKernelArg(clKernel1, 7, sizeof(DATA_TYPE), (void *)alpha);
-	errcode |= clSetKernelArg(clKernel1, 8, sizeof(DATA_TYPE), (void *)beta);
-	if(errcode != CL_SUCCESS) printf("Error in seting arguments\n");
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 1\n");
+	errcode = clSetKernelArg(clKernel1, 1, sizeof(cl_mem), (void *)&a_mem_obj);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 2\n");
+	errcode = clSetKernelArg(clKernel1, 2, sizeof(cl_mem), (void *)&b_mem_obj);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 3\n");
+	errcode = clSetKernelArg(clKernel1, 3, sizeof(int), (void *)&ni);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 4\n");
+	errcode = clSetKernelArg(clKernel1, 4, sizeof(int), (void *)&nj);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 5\n");
+	errcode = clSetKernelArg(clKernel1, 5, sizeof(int), (void *)&nk);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 6\n");
+	errcode = clSetKernelArg(clKernel1, 6, sizeof(int), (void *)&nl);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 7\n");
+	errcode = clSetKernelArg(clKernel1, 7, sizeof(DATA_TYPE), (void *)alpha);
+  if(errcode != CL_SUCCESS) printf("Error in setting arguments 8\n");
+	errcode = clSetKernelArg(clKernel1, 8, sizeof(DATA_TYPE), (void *)beta);
+	if(errcode != CL_SUCCESS) printf("Error in setting arguments 9\n");
 	// Execute the OpenCL kernel
 	errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 	if(errcode != CL_SUCCESS) printf("Error in launching kernel\n");
@@ -269,7 +277,7 @@ void cl_launch_kernel(int ni, int nj, int nk, int nl, DATA_TYPE *alpha, DATA_TYP
 	errcode |= clSetKernelArg(clKernel2, 6, sizeof(int), (void *)&nl);
 	errcode |= clSetKernelArg(clKernel2, 7, sizeof(DATA_TYPE), (void *)alpha);
 	errcode |= clSetKernelArg(clKernel2, 8, sizeof(DATA_TYPE), (void *)beta);
-	if(errcode != CL_SUCCESS) printf("Error in seting arguments\n");
+	if(errcode != CL_SUCCESS) printf("Error in setting arguments\n");
 
 	// Execute the OpenCL kernel
 	errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
