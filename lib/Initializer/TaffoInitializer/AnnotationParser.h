@@ -24,7 +24,6 @@ class AnnotationParser
   bool parseOldSyntax();
 
   bool parseNewSyntax();
-  bool initializeInputInfo(std::shared_ptr<mdutils::MDInfo> &thisMd);
   bool parseScalar(std::shared_ptr<mdutils::MDInfo> &thisMd);
   bool parseStruct(std::shared_ptr<mdutils::MDInfo> &thisMd);
   char skipWhitespace();
