@@ -47,7 +47,8 @@
 
 char str_temp[1024];
 
-#define FLOAT_N 3214212.01
+//#define FLOAT_N 3214212.01
+#define FLOAT_N N
 #define EPS 0.005
 
 cl_platform_id platform_id;
@@ -215,8 +216,10 @@ void cl_load_prog()
 void cl_launch_kernel(int m, int n)
 {
   // FIXME: float_n is an array to work around the fact that scalars are ignored by the buffer_id mechanism
-	DATA_TYPE ANN_FLOAT_N float_n[1] = {FLOAT_N};
-	DATA_TYPE ANN_EPS eps = EPS;
+	DATA_TYPE ANN_FLOAT_N float_n[1];
+	DATA_TYPE ANN_EPS eps[1];
+  float_n[0] = FLOAT_N;
+  eps[0] = EPS;
 
 	size_t localWorkSize_Kernel1[2], globalWorkSize_Kernel1[2];
 	size_t localWorkSize_Kernel2[2], globalWorkSize_Kernel2[2];
@@ -249,7 +252,7 @@ void cl_launch_kernel(int m, int n)
 	// Set the arguments of the kernel
 	errcode =  clSetKernelArg(clKernel_mean, 0, sizeof(cl_mem), (void *)&mean_mem_obj);
 	errcode |= clSetKernelArg(clKernel_mean, 1, sizeof(cl_mem), (void *)&data_mem_obj);
-	errcode |= clSetKernelArg(clKernel_mean, 2, sizeof(DATA_TYPE), (void *)&float_n);
+	errcode |= clSetKernelArg(clKernel_mean, 2, sizeof(DATA_TYPE), (void *)float_n);
 	errcode |= clSetKernelArg(clKernel_mean, 3, sizeof(int), (void *)&m);
 	errcode |= clSetKernelArg(clKernel_mean, 4, sizeof(int), (void *)&n);
 	if(errcode != CL_SUCCESS) printf("Error in seting arguments1\n");
@@ -263,8 +266,8 @@ void cl_launch_kernel(int m, int n)
 	errcode =  clSetKernelArg(clKernel_std, 0, sizeof(cl_mem), (void *)&mean_mem_obj);
 	errcode =  clSetKernelArg(clKernel_std, 1, sizeof(cl_mem), (void *)&stddev_mem_obj);
 	errcode |= clSetKernelArg(clKernel_std, 2, sizeof(cl_mem), (void *)&data_mem_obj);
-	errcode |= clSetKernelArg(clKernel_std, 3, sizeof(DATA_TYPE), (void *)&float_n);
-	errcode |= clSetKernelArg(clKernel_std, 4, sizeof(DATA_TYPE), (void *)&eps);
+	errcode |= clSetKernelArg(clKernel_std, 3, sizeof(DATA_TYPE), (void *)float_n);
+	errcode |= clSetKernelArg(clKernel_std, 4, sizeof(DATA_TYPE), (void *)eps);
 	errcode |= clSetKernelArg(clKernel_std, 5, sizeof(int), (void *)&m);
 	errcode |= clSetKernelArg(clKernel_std, 6, sizeof(int), (void *)&n);
 	if(errcode != CL_SUCCESS) printf("Error in seting arguments2\n");
@@ -278,7 +281,7 @@ void cl_launch_kernel(int m, int n)
 	errcode =  clSetKernelArg(clKernel_reduce, 0, sizeof(cl_mem), (void *)&mean_mem_obj);
 	errcode =  clSetKernelArg(clKernel_reduce, 1, sizeof(cl_mem), (void *)&stddev_mem_obj);
 	errcode |= clSetKernelArg(clKernel_reduce, 2, sizeof(cl_mem), (void *)&data_mem_obj);
-	errcode |= clSetKernelArg(clKernel_reduce, 3, sizeof(DATA_TYPE), (void *)&float_n);
+	errcode |= clSetKernelArg(clKernel_reduce, 3, sizeof(DATA_TYPE), (void *)float_n);
 	errcode |= clSetKernelArg(clKernel_reduce, 4, sizeof(int), (void *)&m);
 	errcode |= clSetKernelArg(clKernel_reduce, 5, sizeof(int), (void *)&n);
 	if(errcode != CL_SUCCESS) printf("Error in seting arguments3\n");
@@ -300,8 +303,10 @@ void cl_launch_kernel(int m, int n)
 	if(errcode != CL_SUCCESS) printf("Error in launching kernel4\n");
 	clEnqueueBarrier(clCommandQue);
 
-	DATA_TYPE val = 1.0;
-	clEnqueueWriteBuffer(clCommandQue, symmat_mem_obj, CL_TRUE, ((M-1)*M + (M-1))*sizeof(DATA_TYPE), sizeof(DATA_TYPE), &val, 0, NULL, NULL);
+  // How to fix an uninitialized value, polybench version...
+	ANN_SYMMAT DATA_TYPE val[1];
+  val[0] = 1.0;
+	clEnqueueWriteBuffer(clCommandQue, symmat_mem_obj, CL_TRUE, ((M-1)*M + (M-1))*sizeof(DATA_TYPE), sizeof(DATA_TYPE), val, 0, NULL, NULL);
 
 	clFinish(clCommandQue);
 
@@ -431,6 +436,8 @@ int main(int argc, char *argv[])
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE,M,N,m,n);
   	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat_outputFromGpu,DATA_TYPE,M,N,m,n);
 	//ANN_MEAN POLYBENCH_1D_ARRAY_DECL(mean_gpu,DATA_TYPE,M,m);
+  //ANN_STD POLYBENCH_1D_ARRAY_DECL(stddev_gpu,DATA_TYPE,M,m);
+  //ANN_DATA POLYBENCH_2D_ARRAY_DECL(data_gpu,DATA_TYPE,M,N,m,n);
   	
 	init_arrays(m, n, POLYBENCH_ARRAY(data));
 
@@ -441,7 +448,7 @@ int main(int argc, char *argv[])
 
 	cl_launch_kernel(m, n);
 
-	//errcode = clEnqueueReadBuffer(clCommandQue, mean_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(mean_gpu), 0, NULL, NULL);
+	//errcode = clEnqueueReadBuffer(clCommandQue, data_mem_obj, CL_TRUE, 0, M * N * sizeof(DATA_TYPE), POLYBENCH_ARRAY(data_gpu), 0, NULL, NULL);
 	//if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
 	errcode = clEnqueueReadBuffer(clCommandQue, symmat_mem_obj, CL_TRUE, 0, M * N * sizeof(DATA_TYPE), POLYBENCH_ARRAY(symmat_outputFromGpu), 0, NULL, NULL);
 	if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
@@ -462,8 +469,8 @@ int main(int argc, char *argv[])
 
 	#endif //RUN_ON_CPU
   //for (int i=0; i<M; i++) {
-  //	//for (int j=0; j<N; j++)
-  //		fprintf(stderr, "%f\n", mean_gpu[i]);
+  //	for (int j=0; j<N; j++)
+  //		fprintf(stderr, "%e\n", data_gpu[i][j]);
   //}
   print_array(m, POLYBENCH_ARRAY(symmat_outputFromGpu));
 

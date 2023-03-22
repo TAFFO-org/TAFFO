@@ -1,6 +1,7 @@
 ---
-"data" : { Class: 1, FloatStandard: 1, GreatestNumber: 0 }
-"eps" : { Class: 1, FloatStandard: 1, GreatestNumber: 0 }
-"mean" : { Class: 1, FloatStandard: 1, GreatestNumber: 0 }
-"std" : { Class: 1, FloatStandard: 1, GreatestNumber: 0 }
-"symmat" : { Class: 1, FloatStandard: 1, GreatestNumber: 0 }
+"data" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"eps" : { Class: 1, FloatStandard: 1, GreatestNumber: 1 }
+"float_n" : { Class: 1, FloatStandard: 1, GreatestNumber: 3000 }
+"mean" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"std" : { Class: 1, FloatStandard: 1, GreatestNumber: 2 }
+"symmat" : { Class: 1, FloatStandard: 1, GreatestNumber: 1 }

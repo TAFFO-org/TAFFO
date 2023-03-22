@@ -24,15 +24,16 @@ __kernel void mean_kernel(__global DATA_TYPE *mean ANN_MEAN, __global DATA_TYPE 
 	
 	if (j < m)
 	{
-		mean[j] = 0.0;
+    DATA_TYPE __attribute__((annotate("scalar(range(0, 3000))"))) accum = 0.0;
+		accum = 0.0;
 
 		int i;
 		for (i=0; i < n; i++)
 		{
-			mean[j] += data[i*m + j];
+			accum += data[i*m + j];
 		}
 		
-		mean[j] /= float_n;
+		mean[j] = accum / float_n;
 	}
 }
 
@@ -43,17 +44,14 @@ __kernel void std_kernel(__global DATA_TYPE *mean ANN_MEAN, __global DATA_TYPE *
 
 	if (j < m)
 	{
-		std[j] = 0.0;
+    DATA_TYPE __attribute__((annotate("scalar(range(0, 3000))"))) accum = 0.0;
 		
 		int i;
 		for (i = 0; i < n; i++)
 		{
-			DATA_TYPE __attribute__((annotate("scalar()"))) tmp = (data[i*m + j] - mean[j]);
-			tmp = tmp * tmp;
-			std[j] += tmp;
+      accum += (data[i*m + j] - mean[j]) * (data[i*m + j] - mean[j]);
 		}
-		DATA_TYPE __attribute__((annotate("scalar(range(0,5000) final)"))) tmp = std[j];
-		std[j] = sqrt(tmp / float_n);
+    std[j] = sqrt(accum / float_n);
 		if(std[j] <= eps) 
 		{
 			std[j] = 1.0;
@@ -70,8 +68,7 @@ __kernel void reduce_kernel(__global DATA_TYPE *mean ANN_MEAN, __global DATA_TYP
 	if ((i < n) && (j < m))
 	{
 		data[i*m + j] -= mean[j];
-		__attribute__((annotate("scalar(range(-100, 100) final)"))) DATA_TYPE tmp = sqrt(float_n) * std[j];
-		data[i*m + j] /= tmp;
+    data[i*m + j] /= sqrt(float_n) * std[j];
 	}
 }
 
