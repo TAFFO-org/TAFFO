@@ -218,16 +218,22 @@ void cl_launch_kernel(int ni, int nj, int nk, DATA_TYPE *alpha, DATA_TYPE *beta)
   	polybench_start_instruments;
 	
 	// Set the arguments of the kernel
-	errcode =  clSetKernelArg(clKernel, 0, sizeof(cl_mem), (void *)&a_mem_obj);
-	errcode |= clSetKernelArg(clKernel, 1, sizeof(cl_mem), (void *)&b_mem_obj);
-	errcode |= clSetKernelArg(clKernel, 2, sizeof(cl_mem), (void *)&c_mem_obj);
-	errcode |= clSetKernelArg(clKernel, 3, sizeof(DATA_TYPE), (void *)alpha);
-	errcode |= clSetKernelArg(clKernel, 4, sizeof(DATA_TYPE), (void *)beta);
-	errcode |= clSetKernelArg(clKernel, 5, sizeof(int), (void *)&ni);
-	errcode |= clSetKernelArg(clKernel, 6, sizeof(int), (void *)&nj);
-	errcode |= clSetKernelArg(clKernel, 7, sizeof(int), (void *)&nk);
-	
-	if(errcode != CL_SUCCESS) printf("Error in seting arguments\n");
+	errcode = clSetKernelArg(clKernel, 0, sizeof(cl_mem), (void *)&a_mem_obj);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument a_mem_obj\n");
+	errcode = clSetKernelArg(clKernel, 1, sizeof(cl_mem), (void *)&b_mem_obj);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument b_mem_obj\n");
+	errcode = clSetKernelArg(clKernel, 2, sizeof(cl_mem), (void *)&c_mem_obj);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument c_mem_obj\n");
+	errcode = clSetKernelArg(clKernel, 3, sizeof(DATA_TYPE), (void *)alpha);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument alpha\n");
+	errcode = clSetKernelArg(clKernel, 4, sizeof(DATA_TYPE), (void *)beta);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument beta\n");
+	errcode = clSetKernelArg(clKernel, 5, sizeof(int), (void *)&ni);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument ni\n");
+	errcode = clSetKernelArg(clKernel, 6, sizeof(int), (void *)&nj);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument nj\n");
+	errcode = clSetKernelArg(clKernel, 7, sizeof(int), (void *)&nk);
+  if(errcode != CL_SUCCESS) printf("Error in setting argument nk\n");
 
 	// Execute the OpenCL kernel
 	errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
