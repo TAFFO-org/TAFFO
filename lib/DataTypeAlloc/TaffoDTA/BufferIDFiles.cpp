@@ -55,14 +55,14 @@ static std::unique_ptr<TType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *No
   return std::unique_ptr<TType>(nullptr);
 }
 
-void tuner::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap)
+static bool ReadBufferIDFileImpl(std::string Fn, BufferIDTypeMap& OutMap)
 {
   SourceMgr SM;
 
   auto MBOrErr = MemoryBuffer::getFile(Twine(Fn));
   if (!MBOrErr) {
     SM.PrintMessage(errs(), SMDiagnostic(Fn, SourceMgr::DiagKind::DK_Error, "Error reading file"));
-    return;
+    return false;
   }
   yaml::Stream YamlStm(MemoryBufferRef(*(MBOrErr->get())), SM);
   yaml::Document& Doc = *(YamlStm.begin());
@@ -71,14 +71,14 @@ void tuner::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap)
   yaml::MappingNode *RootMap = dyn_cast<yaml::MappingNode>(RootN);
   if (!RootMap) {
     SM.PrintMessage(RootN->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected mapping, one for buffer ID tag");
-    return;
+    return false;
   }
 
   for (auto& Item: *RootMap) {
     yaml::ScalarNode *Key = dyn_cast<yaml::ScalarNode>(Item.getKey());
     if (!Key) {
       SM.PrintMessage(Key->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected bufferID tag string");
-      return;
+      return false;
     }
     SmallVector<char> KeyStorage;
     StringRef KeyStr = Key->getValue(KeyStorage);
@@ -87,9 +87,20 @@ void tuner::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap)
     if (T.get()) {
       OutMap[KeyStr.str()] = std::move(T);
     } else {
-      return;
+      return false;
     }
   }
+
+  return true;
+}
+
+void tuner::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap)
+{
+  // TODO: "replace most of report_fatal_error with llvm::Error and propagate them correctly"
+  // Not my todo, it's a quote from a comment to Phabricator patchset D67847 :)
+  // Is llvm::Error used anywhere btw?
+  if (!ReadBufferIDFileImpl(Fn, OutMap))
+    report_fatal_error("Error reading bufferID file!");
 }
 
 
