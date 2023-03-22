@@ -176,16 +176,20 @@ void cl_initialization()
 }
 
 
-void cl_mem_init(DATA_TYPE POLYBENCH_2D(A,NI,NJ,ni,nj))
+void cl_mem_init(DATA_TYPE POLYBENCH_2D(A,NI,NJ,ni,nj), DATA_TYPE POLYBENCH_2D(R,NJ,NJ,nj,nj), DATA_TYPE POLYBENCH_2D(Q,NI,NJ,ni,nj))
 {
 	a_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * NI * NJ, NULL, &errcode);
-	r_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * NI * NJ, NULL, &errcode);
+	r_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * NJ * NJ, NULL, &errcode);
 	q_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * NI * NJ, NULL, &errcode);
 	
 	if(errcode != CL_SUCCESS) printf("Error in creating buffers\n");
 
 	errcode = clEnqueueWriteBuffer(clCommandQue, a_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * NI * NJ, A, 0, NULL, NULL);
 	if(errcode != CL_SUCCESS)printf("Error in writing buffers\n");
+  //errcode = clEnqueueWriteBuffer(clCommandQue, r_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * NJ * NJ, R, 0, NULL, NULL);
+	//if(errcode != CL_SUCCESS)printf("Error in writing buffers\n");
+  //errcode = clEnqueueWriteBuffer(clCommandQue, q_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * NI * NJ, Q, 0, NULL, NULL);
+	//if(errcode != CL_SUCCESS)printf("Error in writing buffers\n");
 }
 
 
@@ -376,7 +380,7 @@ int main(int argc, char *argv[])
 	
 	read_cl_file();
 	cl_initialization();
-	cl_mem_init(POLYBENCH_ARRAY(A));
+	cl_mem_init(POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(R), POLYBENCH_ARRAY(Q));
 	cl_load_prog();
 
 	cl_launch_kernel(ni, nj);

@@ -29,7 +29,7 @@ ifeq ($(TAFFO_KERN_ARGS),fixp)
 TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp32.yaml
 TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp32.yaml
 endif
-ifeq ($(TAFFO_KERN_ARGS),fixp)
+ifeq ($(TAFFO_KERN_ARGS),fixp16)
 TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp16.yaml
 TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp16.yaml
 endif
