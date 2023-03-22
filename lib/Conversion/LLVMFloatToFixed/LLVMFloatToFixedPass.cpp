@@ -347,8 +347,7 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals)
     if (fixPType(v).isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v)) && !isKnownConvertibleWithIncompleteMetadata(v)) {
       LLVM_DEBUG(dbgs() << "[WARNING] Value " << *v
                         << " will not be converted because its metadata is incomplete\n");
-      dbgs() << fixPType(v).toString();
-      dbgs() << "\n";
+      LLVM_DEBUG(dbgs() << " (Apparent type of the value: " << fixPType(v).toString() << ")\n");
       valueInfo(v)->noTypeConversion = true;
     }
 
