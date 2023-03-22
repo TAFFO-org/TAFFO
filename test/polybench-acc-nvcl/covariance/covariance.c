@@ -47,9 +47,6 @@
 
 char str_temp[1024];
 
-DATA_TYPE ANN_FLOAT_N float_n= 3214212.01;
-DATA_TYPE eps = 0.005;
-
 cl_platform_id platform_id;
 cl_device_id device_id;   
 cl_uint num_devices;
@@ -112,19 +109,22 @@ void read_cl_file()
 }
 
 
-void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n))
+void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE *float_n)
 {
-	__attribute__((annotate("scalar(range(0, 4000) final)"))) int i;
-	__attribute__((annotate("scalar(range(0, 4000) final)"))) int j;
+	int i;
+	int j;
 
 	for (i = 0; i < m; i++)
 	{
 		for (j = 0; j < n; j++)
 		{
-			data[i][j] = ((DATA_TYPE) i*j) / (M * N);
+      DATA_TYPE tmp = ((DATA_TYPE) i*j) / (M * N);
+			data[i][j] = tmp;
 			//fprintf(stderr, "%f\n", data[i][j]);
 		}
 	}
+
+  *float_n = 3214212.01;
 }
 
 
@@ -200,7 +200,7 @@ void cl_load_prog()
 }
 
 
-void cl_launch_kernel(int m, int n)
+void cl_launch_kernel(int m, int n, DATA_TYPE *float_n)
 {
 	size_t localWorkSize_Kernel1[2], globalWorkSize_Kernel1[2];
 	size_t localWorkSize_Kernel2[2], globalWorkSize_Kernel2[2];
@@ -227,7 +227,7 @@ void cl_launch_kernel(int m, int n)
 	// Set the arguments of the kernel
 	errcode =  clSetKernelArg(clKernel_mean, 0, sizeof(cl_mem), (void *)&mean_mem_obj);
 	errcode |= clSetKernelArg(clKernel_mean, 1, sizeof(cl_mem), (void *)&data_mem_obj);
-	errcode |= clSetKernelArg(clKernel_mean, 2, sizeof(DATA_TYPE), (void *)&float_n);
+	errcode |= clSetKernelArg(clKernel_mean, 2, sizeof(DATA_TYPE), (void *)float_n);
 	errcode |= clSetKernelArg(clKernel_mean, 3, sizeof(int), (void *)&m);
 	errcode |= clSetKernelArg(clKernel_mean, 4, sizeof(int), (void *)&n);
 	if(errcode != CL_SUCCESS) printf("Error in seting arguments1\n");
@@ -292,7 +292,7 @@ void cl_clean_up()
 }
 
 
-void covariance(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m), DATA_TYPE POLYBENCH_1D(mean,M,m))
+void covariance(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m), DATA_TYPE POLYBENCH_1D(mean,M,m), DATA_TYPE *float_n)
 {
 	int i, j, j1,j2;
 
@@ -304,7 +304,7 @@ void covariance(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE PO
 		{
         		mean[j] += data[i][j];
 		}
-		mean[j] /= float_n;
+		mean[j] /= *float_n;
 	}
 
   	/* Center the column vectors. */
@@ -353,20 +353,21 @@ int main(int argc, char *argv[])
 	int m = M;
 	int n = N;
 
+  ANN_FLOAT_N DATA_TYPE float_n[1];
 	ANN_DATA POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE,M,N,m,n);
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE,M,M,m,m);
 	ANN_MEAN POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE,M,m);
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat_outputFromGpu,DATA_TYPE,M,M,m,m);	
 	ANN_MEAN POLYBENCH_1D_ARRAY_DECL(mean_gpu,DATA_TYPE,M,m);
 
-	init_arrays(m, n, POLYBENCH_ARRAY(data));
+	init_arrays(m, n, POLYBENCH_ARRAY(data), float_n);
     
 	read_cl_file();
 	cl_initialization();
 	cl_mem_init(POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean));
 	cl_load_prog();
 
-	cl_launch_kernel(m, n);
+	cl_launch_kernel(m, n, float_n);
 
 	errcode = clEnqueueReadBuffer(clCommandQue, mean_mem_obj, CL_TRUE, 0, M * sizeof(DATA_TYPE), POLYBENCH_ARRAY(mean_gpu), 0, NULL, NULL);
 	if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
@@ -378,7 +379,7 @@ int main(int argc, char *argv[])
 		/* Start timer. */
 	  	polybench_start_instruments;
 
-		covariance(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean));
+		covariance(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean), float_n);
 	
 		/* Stop and print timer. */
 		printf("CPU Time in seconds:\n");

@@ -31,8 +31,8 @@ __kernel void mean_kernel(ANN_MEAN __global DATA_TYPE *mean, ANN_DATA __global D
 		{
 			mean[j] += data[i * m + j];
 		}
-		//mean[j] /= (DATA_TYPE)float_n;
-		mean[j] /= 3214212.01;
+		mean[j] /= (DATA_TYPE)float_n;
+		//mean[j] /= 3214212.01;
 	}
 }
 
