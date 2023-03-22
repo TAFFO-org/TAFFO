@@ -18,12 +18,16 @@ def file_reader(filename):
 def compute_difference(fix_data, flt_data):
   vmax = -float("inf")
   vmin = float("inf")
+  emax = -float("inf")
   for svfix, svflo in zip(fix_data, flt_data):
-    print(abs(float(svfix) - float(svflo)))
+    e = abs(float(svfix) - float(svflo))
+    print(e)
     vmax = max(vmax, float(svflo))
     vmin = min(vmin, float(svflo))
+    emax = max(emax, e)
   print("float max =", vmax)
   print("float min =", vmin)
+  print("diff max  =", emax)
 
 
 def main():
