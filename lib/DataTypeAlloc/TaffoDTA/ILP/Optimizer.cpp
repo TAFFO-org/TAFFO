@@ -1,11 +1,12 @@
-#include "Optimizer.h"
-#include "LoopAnalyzerUtil.h"
-#include "MetricBase.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include <llvm/Analysis/ScalarEvolution.h>
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "Optimizer.h"
+#include "LoopAnalyzerUtil.h"
+#include "MetricBase.h"
 
+#define DEBUG_TYPE "taffo-dta"
 
 using namespace tuner;
 using namespace mdutils;
@@ -13,10 +14,10 @@ using namespace mdutils;
 
 Optimizer::Optimizer(Module &mm, TaffoTuner *tuner, MetricBase *met, string modelFile, CPUCosts::CostType cType) : metric(met), model(Model::MIN), module(mm), tuner(tuner), DisabledSkipped(0)
 {
-  auto &TTI = tuner->getAnalysis<llvm::TargetTransformInfoWrapperPass>().getTTI(*(mm.begin()));
   if (cType == CPUCosts::CostType::Performance) {
     cpuCosts = CPUCosts(modelFile);
   } else if (cType == CPUCosts::CostType::Size) {
+    auto &TTI = tuner->getFunctionAnalysisResult<llvm::TargetIRAnalysis>(*(mm.begin()));
     cpuCosts = CPUCosts(mm, TTI);
   }
 
@@ -253,8 +254,48 @@ void Optimizer::handleCallFromRoot(Function *f)
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
   LLVM_DEBUG(dbgs() << ("Arguments:\n"););
   for (auto arg_i = f->arg_begin(); arg_i != f->arg_end(); arg_i++) {
-    // Even if is a null value, we push it!
-    arg_errors.push_back(nullptr);
+    Value *value = &(*arg_i);
+    LLVM_DEBUG(dbgs() << "**** ARG " << *value << "\n");
+
+    if (!tuner->hasInfo(value)) {
+      LLVM_DEBUG(dbgs() << "Arg " << *value << " has no TUNER INFO, not creating variable\n");
+      // Even if is a null value, we push it!
+      arg_errors.push_back(nullptr);
+      continue;
+    }
+    auto valueInfo = tuner->valueInfo(value);
+
+    /* FIXME: this is basically a copy-paste from handleAlloca. Similar instances should be de-duplicated */
+    if (valueInfo->metadata->getKind() == MDInfo::K_Field) {
+      LLVM_DEBUG(dbgs() << "Arg " << *value << " This is a real field\n";);
+      auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
+      if (!fieldInfo) {
+        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+        return;
+      }
+
+      auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
+      if (!fptype) {
+        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+        return;
+      }
+      auto info = metric->allocateNewVariableForValue(value, fptype, fieldInfo->IRange, fieldInfo->IError,
+                                              false);
+      arg_errors.push_back(info);
+    } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {
+      LLVM_DEBUG(dbgs() << "Arg " << *value << " This is a real structure\n";);
+
+      auto fieldInfo = dynamic_ptr_cast_or_null<StructInfo>(valueInfo->metadata);
+      if (!fieldInfo) {
+        LLVM_DEBUG(dbgs() << "No struct info. Bailing out.\n";);
+        return;
+      }
+
+      auto optInfo = metric->loadStructInfo(value, fieldInfo, "");
+      arg_errors.push_back(optInfo);
+    } else {
+      llvm_unreachable("Unknown metadata!");
+    }
   }
 
   LLVM_DEBUG(dbgs() << ("Processing function...\n"););
@@ -284,7 +325,7 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
     auto info = getInfoOfValue(*arg_it);
     if (!info) {
       // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-      LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
+      LLVM_DEBUG(dbgs() << "No tuner information for the argument!\n";);
     } else {
       LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
     }
@@ -316,15 +357,17 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
     llvm_unreachable("Sizes should be equal!");
   }
 
+  LLVM_DEBUG(dbgs() << "Processing arguments...\n");
   auto argInfoIt = argInfo.begin();
   for (auto arg = f.arg_begin(); arg != f.arg_end(); arg++, argInfoIt++) {
     if (*argInfoIt) {
-      LLVM_DEBUG(dbgs() << "Copying info of this value.\n";);
+      LLVM_DEBUG(dbgs() << "Copying info of argument " << *arg << ", coming from caller\n");
       metric->saveInfoForValue(&(*arg), *argInfoIt);
     } else {
-      LLVM_DEBUG(dbgs() << "No info for this value.\n";);
+      LLVM_DEBUG(dbgs() << "Argument " << *arg << " has no info, ignoring\n");
     }
   }
+  LLVM_DEBUG(dbgs() << "Finished processing arguments.\n\n");
 
   // Even if null, we push this on the stack. The return will handle it hopefully
   retStack.push(retInfo);
@@ -335,7 +378,7 @@ void Optimizer::processFunction(Function &f, list<shared_ptr<OptimizerInfo>> arg
     Instruction *I = &(*iIt);
     LLVM_DEBUG(dbgs() << *I << "     -having-     ");
     if (!tuner->hasInfo(I) || !tuner->valueInfo(I)->metadata) {
-      LLVM_DEBUG(dbgs() << "No info available.\n";);
+      LLVM_DEBUG(dbgs() << "No TUNER INFO available.\n";);
     } else {
       LLVM_DEBUG(dbgs() << tuner->valueInfo(I)->metadata->toString() << "\n";);
 
@@ -380,7 +423,7 @@ shared_ptr<OptimizerInfo> Optimizer::getInfoOfValue(Value *value)
     return metric->processConstant(constant);
   }
 
-  LLVM_DEBUG(dbgs() << "Could not find any info for ");
+  LLVM_DEBUG(dbgs() << "Could not find any OPTIMIZER INFO for ");
   LLVM_DEBUG(value->print(dbgs()););
   LLVM_DEBUG(dbgs() << "     :( \n");
 
@@ -438,7 +481,8 @@ void Optimizer::handleInstruction(Instruction *instruction, shared_ptr<ValueInfo
   // This will be a mess. God bless you.
   LLVM_DEBUG(llvm::dbgs() << "Handling instruction " << (instruction->dump(), "\n"));
   currentInstruction = instruction;
-  unsigned int info = LoopAnalyzerUtil::computeFullTripCount(tuner, instruction);
+  llvm::Module& M = *(instruction->getFunction()->getParent());
+  unsigned int info = computeFullTripCount(tuner->getFAM(M), instruction);
   LLVM_DEBUG(dbgs() << "Optimizer: got trip count " << info << "\n");
   unsigned int prevInstrTripCount = currentInstructionTripCount;
   currentInstructionTripCount *= info;
@@ -676,6 +720,7 @@ shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
 {
   auto res = getInfoOfValue(pValue);
   if (res == nullptr) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << " failed because getInfoOfValue returned nullptr.\n");
     return nullptr;
   }
 

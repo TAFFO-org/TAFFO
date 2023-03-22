@@ -3,6 +3,7 @@ set(SELF TaffoDTA)
 set(DTA_SRC
   TaffoDTA.cpp
   TaffoDTA.h
+  DTAConfig.cpp
   DTAConfig.h
   )
 

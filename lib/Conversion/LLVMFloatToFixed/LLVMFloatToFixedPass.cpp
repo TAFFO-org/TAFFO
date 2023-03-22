@@ -30,7 +30,7 @@ using namespace flttofix;
 using namespace taffo;
 
 llvm::cl::opt<unsigned int> MaxTotalBitsConv("maxtotalbitsconv", llvm::cl::value_desc("bits"),
-                                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(64));
+                                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(32));
 
 extern bool Hero;
 char FloatToFixed::ID = 0;

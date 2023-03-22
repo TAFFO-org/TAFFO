@@ -5,6 +5,8 @@
 #include "llvm/IR/Instructions.h"
 #include <vector>
 
+#define DEBUG_TYPE "taffo-dta"
+
 namespace tuner {
   
   class MemWatcher
@@ -24,3 +26,5 @@ namespace tuner {
   };
 
 }
+
+#undef DEBUG_TYPE

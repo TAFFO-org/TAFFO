@@ -2,8 +2,8 @@
 #include "Optimizer.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
-
 
 extern llvm::cl::opt<int> TotalBits;
 extern llvm::cl::opt<int> FracThreshold;
@@ -13,6 +13,7 @@ using namespace mdutils;
 using namespace std;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-dta"
 
 bool MetricBase::valueHasInfo(llvm::Value *value) { return opt->valueHasInfo(value); }
 
@@ -109,7 +110,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
   }
 
   if (auto constantExpr = dyn_cast_or_null<ConstantExpr>(constant)) {
-    if (constantExpr->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(constantExpr)) {
       return handleGEPConstant(constantExpr);
     }
     LLVM_DEBUG(dbgs() << "Unknown constant expr!\n";);
@@ -381,9 +382,8 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
   shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result =
-    allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                inputInfo->IError, false);
+  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
+                                                                       inputInfo->IError);
 
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
 
@@ -421,9 +421,8 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
 
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result =
-    allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                inputInfo->IError, false);
+  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
+                                                                       inputInfo->IError);
 
   opt->insertTypeEqualityConstraint(varCast1, varCast2, forceFixEquality);
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);

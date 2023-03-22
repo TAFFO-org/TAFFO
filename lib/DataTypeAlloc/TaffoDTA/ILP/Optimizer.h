@@ -1,15 +1,10 @@
 #ifndef __TAFFO_DTA_OPTIMIZER_H__
 #define __TAFFO_DTA_OPTIMIZER_H__
 
-#include "CPUCosts.h"
-#include "InputInfo.h"
-#include "Metadata.h"
-#include "Model.h"
-#include "OptimizerInfo.h"
-#include "TaffoDTA.h"
-#include "TypeUtils.h"
-#include "PhiWatcher.h"
-#include "MemWatcher.h"
+#include <fstream>
+#include <set>
+#include <stack>
+#include <unordered_map>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -19,11 +14,17 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include <PtrCasts.h>
-#include <fstream>
-#include <set>
-#include <stack>
-#include <unordered_map>
+#include "CPUCosts.h"
+#include "InputInfo.h"
+#include "Metadata.h"
+#include "Model.h"
+#include "OptimizerInfo.h"
+#include "TaffoDTA.h"
+#include "TypeUtils.h"
+#include "PhiWatcher.h"
+#include "MemWatcher.h"
+
+#define DEBUG_TYPE "taffo-dta"
 
 extern bool hasDouble;
 extern bool hasHalf;
@@ -54,6 +55,15 @@ class MetricPerf;
 
 namespace tuner
 {
+template <class T, class U>
+std::shared_ptr<T> dynamic_ptr_cast_or_null(const std::shared_ptr<U> &r) noexcept
+{
+  if (auto p = llvm::dyn_cast_or_null<typename std::shared_ptr<T>::element_type>(r.get())) {
+    return std::shared_ptr<T>(r, p);
+  } else {
+    return std::shared_ptr<T>();
+  }
+}
 
 class Optimizer
 {
@@ -162,5 +172,6 @@ public:
 
 } // namespace tuner
 
+#undef DEBUG_TYPE
 
 #endif

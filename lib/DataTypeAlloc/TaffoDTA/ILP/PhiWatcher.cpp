@@ -6,6 +6,8 @@ using namespace tuner;
 using namespace llvm;
 using namespace std;
 
+#define DEBUG_TYPE "taffo-dta"
+
 void PhiWatcher::openPhiLoop(PHINode *phiNode, Value *requestedValue)
 {
   if (pairsToClose.find(requestedValue) == pairsToClose.end()) {

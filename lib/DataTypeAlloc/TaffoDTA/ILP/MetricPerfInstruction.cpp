@@ -7,6 +7,7 @@ using namespace llvm;
 using namespace mdutils;
 using namespace tuner;
 
+#define DEBUG_TYPE "taffo-dta"
 
 static void emitError(const string &stringhina)
 {
@@ -135,21 +136,21 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
         MODEL_OBJ_MATHCOST, 0);
   }
 
-  // Precision cost handled when allocating variable
+  // enob constraint
   auto constraint = vector<pair<string, double>>();
   // Enob constraints
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -1 /*, "Enob propagation in sum first addend"*/);
+  model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sum first addend"*/);
 
   // Enob constraints
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -1 /*, "Enob propagation in sum second addend"*/);
-
-  saveInfoForValue(instr, res);
+  model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sum second addend"*/);
+  // Precision cost
+  // Handloed in allocating variable
 }
 
 
@@ -211,16 +212,15 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
         make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
+  // Precision cost
+  // Handloed in allocating variable
 
-  // Precision cost handled when allocating variable
   auto constraint = vector<pair<string, double>>();
   // Enob constraints
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
   model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub first addend"*/);
-
-  saveInfoForValue(instr, res);
 }
 
 
@@ -283,22 +283,22 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
         make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
-  
-  // Precision cost handled when allocating variable
+  // Precision cost
+  // Handloed in allocating variable
+
+
   auto constraint = vector<pair<string, double>>();
   // Enob constraints
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -1 /*, "Enob propagation in sub first addend"*/);
+  model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub first addend"*/);
 
   // Enob constraints
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -1 /*, "Enob propagation in sub second addend"*/);
-
-  saveInfoForValue(instr, res);
+  model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub second addend"*/);
 }
 
 void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
@@ -360,27 +360,49 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
         MODEL_OBJ_MATHCOST, 0);
   }
 
-  // Precision cost handled when allocating variable
-  int intbit_1 = getMaxIntBitOfValue(op1);
-  int intbit_2 = getMaxIntBitOfValue(op2);
+  // Precision cost
+  // Handloed in allocating variable
 
   auto constraint = vector<pair<string, double>>();
-  // Enob constraint
-  // c <= a + b - intbit_a - a
+  // Enob constraints
+  /*constraint.clear();
+  constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
+  constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
+  constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
+  model.insertLinearConstraint(constraint, Model::LE, 0, "Enob propagation in product");*/
+
+  string enob_selection_1 = getEnobActivationVariable(instr, 1);
+  model.createVariable(enob_selection_1, 0, 1);
+  string enob_selection_2 = getEnobActivationVariable(instr, 2);
+  model.createVariable(enob_selection_2, 0, 1);
+
+
+  int intbit_1 = getMinIntBitOfValue(op1);
+  int intbit_2 = getMinIntBitOfValue(op2);
+
+
+  constraint.clear();
+  constraint.push_back(make_pair(enob_selection_1, 1.0));
+  constraint.push_back(make_pair(enob_selection_2, 1.0));
+  model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
+
+
+  // New enob constraint (tighter)
+  // c <= a+b-intbit_a-a+My
   // That is
-  // c <= b - intbit_a
+  // c<=b-intbit_a+my
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_1);
+  constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
+  model.insertLinearConstraint(constraint, Model::LE, -intbit_1 /*, "Enob: propagation in product 1"*/);
 
-  // c <= a - intbit_b
+
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_2);
-
-  saveInfoForValue(instr, res);
+  constraint.push_back(make_pair(enob_selection_2, -BIG_NUMBER));
+  model.insertLinearConstraint(constraint, Model::LE, -intbit_2 /*, "Enob: propagation in product 2"*/);
 }
 
 void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
@@ -444,30 +466,46 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
         make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
+  // Precision cost
+  // Handled in allocating variable
 
-  // Precision cost handled when allocating variable
+
   auto constraint = vector<pair<string, double>>();
+  // Enob propagation
+  string enob_selection_1 = getEnobActivationVariable(instr, 1);
+  model.createVariable(enob_selection_1, 0, 1);
+  string enob_selection_2 = getEnobActivationVariable(instr, 2);
+  model.createVariable(enob_selection_2, 0, 1);
 
-  int intbit_1 = getMaxIntBitOfValue(op1);
-  int intbit_2 = getMaxIntBitOfValue(op2);
-  int minbits2 = getMinIntBitOfValue(op2);
 
-  // Enob constraint
-  // c <= a + b - intbit_a - a - 2 * minbits_a
+  int intbit_1 = getMinIntBitOfValue(op1);
+  int intbit_2 = getMinIntBitOfValue(op2);
+
+  int maxbits2 = getMaxIntBitOfValue(op2);
+
+
+  constraint.clear();
+  constraint.push_back(make_pair(enob_selection_1, 1.0));
+  constraint.push_back(make_pair(enob_selection_2, 1.0));
+  model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
+
+
+  // New enob constraint (tighter)
+  // c <= a+b-intbit_a-a+My
   // That is
-  // c <= b - intbit_a - 2 * minbits_a
+  // c<=b-intbit_a+my
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_1 + 2 * minbits2);
+  constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
+  model.insertLinearConstraint(constraint, Model::LE, -intbit_1 + 2 * maxbits2 /*, "Enob: propagation in division 1"*/);
 
-  // c <= a - intbit_b - 2 * minbits_a
+
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
-  model.insertLinearConstraint(constraint, Model::LE, -intbit_2 + 2 * minbits2);
-
-  saveInfoForValue(instr, res);
+  constraint.push_back(make_pair(enob_selection_2, -BIG_NUMBER));
+  model.insertLinearConstraint(constraint, Model::LE, -intbit_2 + 2 * maxbits2 /*, "Enob: propagation in division 2"*/);
 }
 
 void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
@@ -479,6 +517,7 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
+
 
   auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
 
@@ -528,7 +567,8 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
         MODEL_OBJ_MATHCOST, 0);
   }
 
-  saveInfoForValue(instr, res);
+  // Precision cost
+  // Handloed in allocating variable
 
   // FIXME: insert enob propagation
   assert(false && "Enob propagation in frem not handled!");
@@ -537,29 +577,32 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
 
 void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
 {
-  LLVM_DEBUG(dbgs() << "Handling casting instruction...\n");
+  LLVM_DEBUG(dbgs() << "Handling casting instruction...\n";);
+
 
   if (isa<BitCastInst>(instruction)) {
     // FIXME: hack for jmeint to give info after the malloc
-    auto bitcast = cast<BitCastInst>(instruction);
+    auto bitcast = dyn_cast_or_null<BitCastInst>(instruction);
+    assert(bitcast && "Not a bitcast???");
+
 
     if (bitcast->getType()->isPointerTy() && bitcast->getType()->getPointerElementType()->isFloatingPointTy()) {
       // When bitcasting to a floating point and having info, maybe we are dealing with a floating point array!
       auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n");
+        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
 
         if (valueInfo->metadata) {
-          LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n");
+          LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n";);
         } else {
-          LLVM_DEBUG(dbgs() << "Metadata is really null.\n");
+          LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
         }
         return;
       }
 
       auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
       if (!fptype) {
-        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
+        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;
       }
 
@@ -571,11 +614,12 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
       saveInfoForValue(instruction, met);
 
-      LLVM_DEBUG(dbgs() << "Associated metadata " << met->toString() << " to the bitcast!\n");
+      LLVM_DEBUG(dbgs() << "Associated metadata " << met->toString() << " to the bitcast!\n";);
       return;
     }
 
-    LLVM_DEBUG(dbgs() << "[Warning] Bitcasting not supported for model generation.");
+
+    LLVM_DEBUG(dbgs() << "[Warning] Bitcasting not supported for model generation.";);
     return;
   }
 
@@ -588,7 +632,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
   if (isa<TruncInst>(instruction) ||
       isa<ZExtInst>(instruction) ||
       isa<SExtInst>(instruction)) {
-    LLVM_DEBUG(dbgs() << "Cast between integers, skipping...\n");
+    LLVM_DEBUG(dbgs() << "Cast between integers, skipping...\n";);
     return;
   }
 
@@ -597,21 +641,22 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
     auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
     if (!fieldInfo) {
-      LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n");
+      LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
 
       if (valueInfo->metadata) {
-        LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n");
+        LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n";);
       } else {
-        LLVM_DEBUG(dbgs() << "Metadata is really null.\n");
+        LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
       }
       return;
     }
 
     auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
     if (!fptype) {
-      LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
+      LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
       return;
     }
+
 
     shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
                                                                            fieldInfo->IError);
@@ -627,15 +672,16 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
   if (isa<FPToSIInst>(instruction) ||
       isa<FPToUIInst>(instruction)) {
-    LLVM_DEBUG(dbgs() << "Casting Floating point to integer, no costs introduced.\n");
+    LLVM_DEBUG(dbgs() << "Casting Floating point to integer, no costs introduced.\n";);
     return;
   }
 
   if (isa<IntToPtrInst>(instruction) ||
       isa<PtrToIntInst>(instruction)) {
-    LLVM_DEBUG(dbgs() << "Black magic with pointers is happening. We do not want to awake the dragon, rigth?\n");
+    LLVM_DEBUG(dbgs() << "Black magic with pointers is happening. We do not want to awake the dragon, rigth?\n";);
     return;
   }
+
 
   llvm_unreachable("Did I really forgot something?");
 }
@@ -643,7 +689,11 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
 void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInfo> &valueInfo)
 {
-  auto *store = cast<StoreInst>(instruction);
+  auto *store = dyn_cast<StoreInst>(instruction);
+
+  if (!store) {
+    llvm_unreachable("Instruction mismatch!");
+  }
 
   auto opWhereToStore = store->getPointerOperand();
   auto opRegister = store->getValueOperand();
@@ -668,7 +718,8 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       return;
     }
 
-    LLVM_DEBUG(dbgs() << "Storing " << info2->toString() << " into " << info1->toString() << "\n");
+    LLVM_DEBUG(dbgs() << "Storing " << info2->toString() << " into " << info1->toString() << "\n";);
+
 
     auto info_pointer = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info_pointer_t->getOptInfo());
 
@@ -685,19 +736,77 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       // getModel().insertComment("Restriction for new enob [STORE]", 2);
       string newEnobVariable = info_pointer->getRealEnobVariable();
       newEnobVariable.append("_storeENOB");
+      getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
       info_pointer->overrideEnob(newEnobVariable);
-      // We force the enob back to the variable type, just in case!
-      initRealEnobVariable(info_pointer);
 
+      // We force the enob back to the variable type, just in case!
       auto constraint = vector<pair<string, double>>();
+      int ENOBfloat = getENOBFromRange(info_pointer->getRange(), FloatType::Float_float);
+      int ENOBdouble = getENOBFromRange(info_pointer->getRange(), FloatType::Float_double);
+      int ENOBhalf = getENOBFromRange(info_pointer->getRange(), FloatType::Float_half);
+      int ENOBquad = getENOBFromRange(info_pointer->getRange(), FloatType::Float_fp128);
+      int ENOBfp80 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_x86_fp80);
+      int ENOBppc128 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_ppc_fp128);
+      int ENOBbf16 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_bfloat);
+
+
+      constraint.clear();
+      constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
+      constraint.push_back(make_pair(info_pointer->getFractBitsVariable(), -1.0));
+      constraint.push_back(make_pair(info_pointer->getFixedSelectedVariable(), BIG_NUMBER));
+      getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
+
+
+      auto enoblambda = [&](int ENOB, const std::string (tuner::OptimizerScalarInfo::*getvariable)(), const char *desc) mutable {
+        constraint.clear();
+        constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
+        constraint.push_back(make_pair(((*info_pointer).*getvariable)(), BIG_NUMBER));
+        getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER + ENOB /*, desc*/);
+      };
+
+      // Enob constraints float
+      enoblambda(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
+
+      // Enob constraints Double
+      if (hasDouble) {
+        enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+      }
+
+      // Enob constraints half
+      if (hasHalf) {
+        enoblambda(ENOBhalf, &tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
+      }
+
+      // Enob constraints quad
+      if (hasQuad) {
+        enoblambda(ENOBquad, &tuner::OptimizerScalarInfo::getQuadSelectedVariable, "Enob constraint for quad");
+      }
+
+      // Enob constraints fp80
+      if (hasFP80) {
+        enoblambda(ENOBfp80, &tuner::OptimizerScalarInfo::getFP80SelectedVariable, "Enob constraint for fp80");
+      }
+
+      // Enob constraints ppc128
+      if (hasPPC128) {
+        enoblambda(ENOBppc128, &tuner::OptimizerScalarInfo::getPPC128SelectedVariable, "Enob constraint for ppc128");
+      }
+
+      // Enob constraints bf16
+      if (hasBF16) {
+        enoblambda(ENOBbf16, &tuner::OptimizerScalarInfo::getBF16SelectedVariable, "Enob constraint for bf16");
+      }
+
       constraint.clear();
       constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
       constraint.push_back(make_pair(info_variable_oeig_t->getRealEnobVariable(), -1.0));
       getModel().insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob constraint ENOB propagation in load/store"*/);
     } else {
-      LLVM_DEBUG(dbgs() << "[INFO] The value to store is a constant, not inserting it as may cause problems...\n");
+      LLVM_DEBUG(dbgs() << "[INFO] The value to store is a constant, not inserting it as may cause problems...\n";);
+      // getModel().insertComment("Storing constant, no new enob.", 1);
       isConstant = true;
     }
+
 
     // We save the infos so we should retrieve them more quickly when using MemSSA
     // We save the ENOB of the stored variable that is the correct one to use
@@ -741,12 +850,13 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
 
 void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
 {
+
   auto operand = instruction->getOperand(0); // The argument to be casted
 
   auto info = getInfoOfValue(operand);
   auto sinfos = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
   if (!sinfos) {
-    LLVM_DEBUG(dbgs() << "No info for the operand, ignoring...\n");
+    LLVM_DEBUG(dbgs() << "No info for the operand, ignoring...\n";);
     return;
   }
 
@@ -757,20 +867,20 @@ void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<Val
                                                                  sinfos->isSigned, *sinfos->getRange(),
                                                                  sinfos->getOverridedEnob()));
 
-  LLVM_DEBUG(dbgs() << "For this fpext/fptrunc, reusing variable" << sinfos->getBaseName() << "\n");
+  LLVM_DEBUG(dbgs() << "For this fpext/fptrunc, reusing variable" << sinfos->getBaseName() << "\n";);
 }
 
 void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
 {
-  auto *phi_n = cast<PHINode>(instruction);
+  auto *phi = dyn_cast<PHINode>(instruction);
 
-  if (!phi_n->getType()->isFloatingPointTy()) {
-    LLVM_DEBUG(dbgs() << "Phi node with non float value, skipping...\n");
+  if (!phi->getType()->isFloatingPointTy()) {
+    LLVM_DEBUG(dbgs() << "Phi node with non float value, skipping...\n";);
     return;
   }
 
-  // We can have two scenarios here: we can have value that came from a previous basic block, and therefore we have
-  // already infos on it, or from a successor basic block, in this case we cannot have info about the value (e.g. loops)
+  // We can have two scenarios here: we can have value that came from a precedent basic block, and therefore we have
+  // already infos on it, or from a successor basic block, in this case we cannot have info about the value (ex. loops)
 
   // In the former case we proceed as usual, in the latter case, we need to insert the value in a special set that will
   // be monitored in case of insertions. In that case, the phi loop can be closed.
@@ -778,60 +888,95 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
   // We treat phi as normal assignment, without looking at the real "backend" implementation. This may be quite different
   // from the real execution, but the overall meaning is the same.
 
-  assert(phi_n->getNumIncomingValues() >= 1
-         && "Why on earth is there a Phi instruction with no incoming values?");
+
+  auto *phi_n = dyn_cast<llvm::PHINode>(phi);
+  if (!phi_n) {
+    llvm_unreachable("Could not convert Phi instruction to PHINode");
+  }
+  if (phi_n->getNumIncomingValues() < 1) {
+    // This phi node has no value, really?
+    llvm_unreachable("Why on earth there is a Phi instruction with no incoming values?");
+  }
 
   auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
   if (!fieldInfo) {
-    LLVM_DEBUG(dbgs() << "Not metadata. Bailing out.\n\n");
+    LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
     return;
   }
 
   if (!fieldInfo->IRange) {
-    LLVM_DEBUG(dbgs() << "Not range information. Bailing out.\n\n");
+    LLVM_DEBUG(dbgs() << "Not Range information. Bailing out.\n\n";);
     return;
   }
 
   auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
   if (!fptype) {
-    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n\n");
+    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return;
   }
 
   // Allocating variable for result
-  shared_ptr<OptimizerScalarInfo> variable =
-    allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange, fieldInfo->IError);
-
-  auto &model = getModel();
+  shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
+                                                                         fieldInfo->IError);
   auto constraint = vector<pair<string, double>>();
-  int missing = 0;
+  constraint.clear();
+
+
   for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
-    LLVM_DEBUG(dbgs() << "[Phi] Handling operand " << index << "...\n");
+    Value *op = phi_n->getIncomingValue(index);
+    if (auto info = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op))) {
+      if (info->doesReferToConstant()) {
+        // We skip the variable if it is a constant
+        LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
+        LLVM_DEBUG(op->print(dbgs()););
+        LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+        continue;
+      }
+    }
+
+    string enob_selection = getEnobActivationVariable(phi_n, index);
+    getModel().createVariable(enob_selection, 0, 1);
+    constraint.push_back(make_pair(enob_selection, 1.0));
+  }
+
+  if (constraint.size() > 0) {
+    getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
+  } else {
+    LLVM_DEBUG(dbgs() << "[INFO] All constants phi node, nothing to do!!!\n";);
+    return;
+  }
+
+
+  int missing = 0;
+
+  for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
+    LLVM_DEBUG(dbgs() << "[Phi] Handlign operator " << index << "...\n";);
     Value *op = phi_n->getIncomingValue(index);
 
     if (auto info = getInfoOfValue(op)) {
       if (auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
-          LLVM_DEBUG(dbgs() << "[INFO] Skipping " << *op << " as it is a constant!\n");
+          // We skip the variable if it is a constant
+          LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
+          LLVM_DEBUG(op->print(dbgs()););
+          LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
           continue;
         }
-
-        LLVM_DEBUG(dbgs() << "[Phi] We have infos, treating as usual.\n");
-        constraint.clear();
-        constraint.push_back(make_pair(variable->getRealEnobVariable(), 1.0));
-        constraint.push_back(make_pair(info2->getRealEnobVariable(), -1.0));
-        model.insertLinearConstraint(constraint, Model::LE, 0);
-      } else {
-        llvm_unreachable("Should be a scalar!");
       }
+
+
+      LLVM_DEBUG(dbgs() << "[Phi] We have infos, treating as usual.\n";);
+      // because yes, integrity checks....
+      openPhiLoop(phi_n, op);
+      closePhiLoop(phi_n, op);
     } else {
-      LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n");
+      LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n";);
       openPhiLoop(phi_n, op);
       missing++;
     }
   }
 
-  LLVM_DEBUG(dbgs() << "[Phi] Elaboration concluded. Missing " << missing << " values.\n");
+  LLVM_DEBUG(dbgs() << "[Phi] Elaboration concluded. Missing " << missing << " values.\n";);
 
   getPhiWatcher().dumpState();
 }
@@ -841,11 +986,11 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
 {
   LLVM_DEBUG(llvm::dbgs() << "Handle Load\n");
   if (!valueInfo) {
-    LLVM_DEBUG(dbgs() << "No value info, skipping...\n");
+    LLVM_DEBUG(dbgs() << "No value info, skipping...\n";);
     return;
   }
 
-  auto *load = cast<LoadInst>(instruction);
+  auto *load = dyn_cast<LoadInst>(instruction);
   auto loaded = load->getPointerOperand();
   shared_ptr<OptimizerInfo> infos = getInfoOfValue(loaded);
 
@@ -854,6 +999,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     emitError("Loaded a variable with no information attached, or attached info not a Pointer type!");
     return;
   }
+
 
   if (load->getType()->isFloatingPointTy()) {
     auto sinfos = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(pinfos->getOptInfo());
@@ -892,7 +1038,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     // As we cannot cast anything during a load, the register will use the very same variable
 
     // Running MemorySSA to find Values from which the load can actually load
-    MemorySSA &memssa = getTuner()->getAnalysis<MemorySSAWrapperPass>(*load->getFunction()).getMSSA();
+    MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<MemorySSAAnalysis>(*load->getFunction()).getMSSA();
     taffo::MemSSAUtils memssa_utils(memssa);
     SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
     def_vals.push_back(load->getPointerOperand());

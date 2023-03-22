@@ -1,6 +1,4 @@
 #include "CPUCosts.h"
-#include "LLVMVersions.h"
-#include "algorithm"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -8,14 +6,17 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
 
-#define HUGE 10110
+#define MODEL_HUGE 10110
+
 #define DEBUG_TYPE "taffo-dta"
+
 using namespace tuner;
 using namespace std;
 
@@ -43,8 +44,9 @@ const std::vector<std::string> CPUCosts::CostsIdValues = {"ADD_FIX", "ADD_FLOAT"
                                                           "CAST_BF16_FIX", "CAST_BF16_FLOAT", "CAST_BF16_DOUBLE", "CAST_BF16_HALF", "CAST_BF16_QUAD", "CAST_BF16_FP80", "CAST_BF16_PPC128",
                                                           "CAST_FIX_FIX"};
 
-
 constexpr int N = 4;
+
+const int DefaultInstrCost = 1;
 
 
 std::string &trim(std::string &tmp)
@@ -216,8 +218,8 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       type = getType(N, tmpString, context, module);
       auto *first_alloca = builder.CreateAlloca(type);
       auto *second_alloca = builder.CreateAlloca(type);
-      auto *first_load = builder.CreateLoad(first_alloca);
-      auto *second_load = builder.CreateLoad(second_alloca);
+      auto *first_load = builder.CreateLoad(first_alloca->getType()->getPointerElementType(), first_alloca);
+      auto *second_load = builder.CreateLoad(second_alloca->getType()->getPointerElementType(), second_alloca);
       if (tmpString.find("ADD") == 0) {
         if (type->isIntegerTy())
           inst = llvm::cast<llvm::Instruction>(builder.CreateAdd(first_load, second_load));
@@ -245,7 +247,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
         else
           inst = llvm::cast<llvm::Instruction>(builder.CreateFRem(first_load, second_load));
       }
-      cost_inst = getInstructionCost(TTI, inst, costKind);
+      cost_inst = TTI.getInstructionCost(inst, costKind).getValue().getValueOr(DefaultInstrCost);
       LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
       inst->eraseFromParent();
       second_load->eraseFromParent();
@@ -258,7 +260,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       llvm::Type *first_type = getType(first_start, tmpString, context, module);
       llvm::Type *second_type = getType(second_start, tmpString, context, module);
       auto *first_alloca = builder.CreateAlloca(first_type);
-      auto *first_load = builder.CreateLoad(first_alloca);
+      auto *first_load = builder.CreateLoad(first_alloca->getType()->getPointerElementType(), first_alloca);
       if (first_type->isIntegerTy() && second_type->isIntegerTy()) {
         inst = llvm::cast<llvm::Instruction>(builder.CreateIntCast(first_load, second_type, false));
       } else if (first_type->isIntegerTy() && !second_type->isIntegerTy()) {
@@ -268,7 +270,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       } else if (!first_type->isIntegerTy() && !second_type->isIntegerTy()) {
         inst = llvm::cast<llvm::Instruction>(builder.CreateFPCast(first_load, second_type));
       }
-      cost_inst = getInstructionCost(TTI, inst, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput);
+      cost_inst = TTI.getInstructionCost(inst, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput).getValue().getValueOr(DefaultInstrCost);
       LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
       if (inst != first_load)
         inst->eraseFromParent();
@@ -293,7 +295,7 @@ void CPUCosts::ApplyAttribute(string &attr)
     attr.erase(0, 1);
     auto dec = decodeId(attr);
     disableMap[dec] = true;
-    costsMap.at(dec) = HUGE;
+    costsMap.at(dec) = MODEL_HUGE;
     if (attr.find("CAST") != 0) {
       disableNum.at(attr.substr(N, string::npos))++;
     } else {
@@ -309,7 +311,7 @@ void CPUCosts::ApplyAttribute(string &attr)
           disableNum.at(attr)++;
           auto dec = decodeId(tmp);
           disableMap[dec] = true;
-          costsMap.at(dec) = HUGE;
+          costsMap.at(dec) = MODEL_HUGE;
           LLVM_DEBUG(llvm::dbgs() << attr << ": " << disableNum.at(attr)
                                   << " cost " << costsMap.at(dec) << "\n");
         }

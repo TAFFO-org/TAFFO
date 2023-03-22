@@ -43,8 +43,8 @@ mdutils::FPType fixedPointTypeFromRange(
     FixedPointTypeGenError *outerr = nullptr,
     int totalBits = 32,
     int fracThreshold = 3,
-    int maxTotalBits = 64,
-    int totalBitsIncrement = 64);
+    int maxTotalBits = 32,
+    int totalBitsIncrement = 32);
 
 } // namespace taffo
 

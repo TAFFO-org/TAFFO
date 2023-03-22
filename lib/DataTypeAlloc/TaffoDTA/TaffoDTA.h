@@ -50,7 +50,7 @@ struct TaffoTuner : public llvm::ModulePass {
 
   bool processMetadataOfValue(llvm::Value *v, mdutils::MDInfo *MDI);
 
-  bool associateFixFormat(mdutils::InputInfo &rng, llvm::Type::TypeID origType);
+  bool associateFixFormat(mdutils::InputInfo &rng, llvm::Value *V);
 
   void sortQueue(std::vector<llvm::Value *> &vals,
                  llvm::SmallPtrSetImpl<llvm::Value *> &valset);
@@ -141,9 +141,32 @@ struct TaffoTuner : public llvm::ModulePass {
 #ifdef TAFFO_BUILD_ILP_DTA
   bool overwriteType(std::shared_ptr<mdutils::MDInfo> old, std::shared_ptr<mdutils::MDInfo> model);
 #endif // TAFFO_BUILD_ILP_DTA
+
+  template <typename AnalysisT>
+  typename AnalysisT::Result &getFunctionAnalysisResult(llvm::Function &F)
+  {
+    auto &FAM = MAM->getResult<llvm::FunctionAnalysisManagerModuleProxy>(*(F.getParent())).getManager();
+    return FAM.getResult<AnalysisT>(F);
+  }
+
+  llvm::ModuleAnalysisManager &getMAM()
+  {
+    assert(MAM);
+    return *MAM;
+  }
+
+  llvm::FunctionAnalysisManager &getFAM(llvm::Module &M)
+  {
+    assert(MAM);
+    return MAM->getResult<llvm::FunctionAnalysisManagerModuleProxy>(M).getManager();
+  }
+
+private:
+  llvm::ModuleAnalysisManager *MAM = nullptr;
 };
 
 } // namespace tuner
 
+#undef DEBUG_TYPE
 
 #endif

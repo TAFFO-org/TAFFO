@@ -8,7 +8,10 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Support/Casting.h"
 #include <cstdio>
+#include <stack>
 #include <unordered_map>
+
+#define DEBUG_TYPE "taffo-dta"
 
 namespace tuner
 {
@@ -192,7 +195,6 @@ protected:
   void handleSelect(llvm::Instruction *instruction,
                     shared_ptr<tuner::ValueInfo> valueInfo) override;
   std::string getEnobActivationVariable(llvm::Value *value, int cardinal) override;
-  int initRealEnobVariable(shared_ptr<tuner::OptimizerScalarInfo> optimizerInfo);
 };
 
 /*
@@ -257,3 +259,5 @@ protected:
 
 };
 */
+
+#undef DEBUG_TYPE

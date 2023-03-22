@@ -1,6 +1,8 @@
 #include "TaffoDTA.h"
 #include "DTAConfig.h"
 #include "Metadata.h"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
@@ -17,11 +19,12 @@
 #include "ILP/Optimizer.h"
 #endif // TAFFO_BUILD_ILP_DTA
 
-
 using namespace llvm;
 using namespace tuner;
 using namespace mdutils;
 using namespace taffo;
+#define DEBUG_TYPE "taffo-dta"
+
 
 
 char TaffoTuner::ID = 0;
@@ -63,6 +66,7 @@ bool TaffoTuner::runOnModule(Module &m)
   std::vector<Function *> toDel;
   toDel = collapseFunction(m);
 
+  LLVM_DEBUG(dbgs() << "attaching metadata\n");
   attachFPMetaData(vals);
   attachFunctionMetaData(m);
 
@@ -73,20 +77,31 @@ bool TaffoTuner::runOnModule(Module &m)
 }
 
 
+/**
+ * Reads metadata for the program and DOES THE ACTUAL DATA TYPE ALLOCATION.
+ * Yes you read that right.
+ */
 void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals,
                                      llvm::SmallPtrSetImpl<llvm::Value *> &valset)
 {
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
+  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " BEGIN\n");
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
+
   mdutils::MetadataManager &MDManager = mdutils::MetadataManager::getMetadataManager();
 
+  LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
   for (GlobalObject &globObj : m.globals()) {
     MDInfo *MDI = MDManager.retrieveMDInfo(&globObj);
     if (processMetadataOfValue(&globObj, MDI))
       vals.push_back(&globObj);
   }
+  LLVM_DEBUG(dbgs() << "\n");
 
   for (Function &f : m.functions()) {
     if (f.isIntrinsic())
       continue;
+    LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand() << "  <<<<===============\n");
 
     SmallVector<mdutils::MDInfo *, 5> argsII;
     MDManager.retrieveArgumentInputInfo(f, argsII);
@@ -102,18 +117,31 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
       if (processMetadataOfValue(&(*iIt), MDI))
         vals.push_back(&*iIt);
     }
+    LLVM_DEBUG(dbgs() << "\n");
   }
 
+  LLVM_DEBUG(dbgs() << "=============>>>>  SORTING QUEUE  <<<<===============\n");
   sortQueue(vals, valset);
+
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
+  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " END\n");
+  LLVM_DEBUG(dbgs() << "**********************************************************\n");
 }
 
 
+/**
+ * Reads metadata for a value and DOES THE ACTUAL DATA TYPE ALLOCATION.
+ * Yes you read that right.
+ */
 bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 {
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
+  LLVM_DEBUG(dbgs() << "\n"
+                    << __FUNCTION__ << " v=" << *v << " MDI=" << (MDI ? MDI->toString() : std::string("(null)"))
                     << "\n");
-  if (!MDI)
+  if (!MDI) {
+    LLVM_DEBUG(dbgs() << "no metadata... bailing out!\n");
     return false;
+  }
   std::shared_ptr<MDInfo> newmdi(MDI->clone());
 
   if (v->getType()->isVoidTy()) {
@@ -141,8 +169,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
         II->IEnableConversion = true;
 
       // FIXME: hack to propagate itofp metadata
-      if (isa<UIToFPInst>(v) ||
-          isa<SIToFPInst>(v)) {
+      if (MixedMode && (isa<UIToFPInst>(v) || isa<SIToFPInst>(v))) {
         LLVM_DEBUG(dbgs() << "FORCING CONVERSION OF A ITOFP!\n";);
         II->IEnableConversion = true;
       }
@@ -153,7 +180,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
       }
 
       // TODO: insert logic here to associate different types in a clever way
-      if (associateFixFormat(*II, elem.second->getTypeID())) {
+      if (associateFixFormat(*II, v)) {
         skippedAll = false;
       }
 
@@ -193,7 +220,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
 }
 
 
-bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
+bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
 {
   if (!II.IEnableConversion) {
     LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", conversion disabled\n");
@@ -211,34 +238,97 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Type::TypeID origType)
     return false;
   }
 
-
-  // New super performing algorithm to compute a lot of things
-  // Preserving this code just in case, shold be not necessary
-  /*if (ForceFloat >= 0) {
-      auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
-
-      double greatest = abs(II.IRange->Min);
-      double max = abs(II.IRange->Max);
-      if (max > greatest) greatest = max;
-
-      FloatType res = FloatType(standard, greatest);
-
-      LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res.toString() << "\n");
-
-      II.IType.reset(res.clone());
-      return true;
-
-
-  } else {*/
-  FixedPointTypeGenError fpgerr;
-  FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
-  if (fpgerr == FixedPointTypeGenError::InvalidRange) {
-    LLVM_DEBUG(dbgs() << "[Info] Skipping " << II.toString() << ", FixedPointTypeGenError::InvalidRange\n");
-    return false;
+  double greatest = std::max(std::abs(rng->Min), std::abs(rng->Max));
+  Instruction *I = dyn_cast<Instruction>(V);
+  if (I) {
+    if (I->isBinaryOp() || I->isUnaryOp()) {
+      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)));
+      if (II && II->IRange.get())
+        greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
+      else
+        LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on first arg of " << *I << "\n");
+    }
+    if (I->isBinaryOp()) {
+      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)));
+      if (II && II->IRange.get())
+        greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
+      else
+        LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on second arg of " << *I << "\n");
+    }
   }
-  II.IType.reset(res.clone());
-  return true;
-  //}
+  LLVM_DEBUG(dbgs() << "[Info] Maximum value involved in " << *V << " = " << greatest << "\n");
+
+  if (UseFloat != "") {
+    mdutils::FloatType::FloatStandard standard;
+    if (UseFloat == "f16")
+      standard = mdutils::FloatType::Float_half;
+    else if (UseFloat == "f32")
+      standard = mdutils::FloatType::Float_float;
+    else if (UseFloat == "f64")
+      standard = mdutils::FloatType::Float_double;
+    else if (UseFloat == "bf16")
+      standard = mdutils::FloatType::Float_bfloat;
+    else {
+      errs() << "[DTA] Invalid format " << UseFloat << " specified to the -usefloat argument.\n";
+      abort();
+    }
+    // auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
+
+    auto res = std::make_shared<FloatType>(FloatType(standard, greatest));
+    double maxRep = std::max(std::abs(res->getMaxValueBound().convertToDouble()), std::abs(res->getMinValueBound().convertToDouble()));
+    LLVM_DEBUG(dbgs() << "[Info] Maximum value representable in " << res->toString() << " = " << maxRep << "\n");
+
+    if (greatest >= maxRep) {
+      LLVM_DEBUG(dbgs() << "[Info] CANNOT force conversion to float " << res->toString() << " because max value is not representable\n");
+    } else {
+      LLVM_DEBUG(dbgs() << "[Info] Forcing conversion to float " << res->toString() << "\n");
+      II.IType = res;
+      return true;
+    }
+  } else {
+    FixedPointTypeGenError fpgerr;
+
+    /* Testing maximum type for operands, not deciding type yet */
+    fixedPointTypeFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    if (fpgerr == FixedPointTypeGenError::NoError) {
+      FPType res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+      if (fpgerr == FixedPointTypeGenError::NoError) {
+        LLVM_DEBUG(dbgs() << "[Info] Converting to " << res.toString() << "\n");
+        II.IType.reset(res.clone());
+        return true;
+      }
+
+      LLVM_DEBUG(dbgs() << "[Info] Error when generating fixed point type\n");
+      switch (fpgerr) {
+      case FixedPointTypeGenError::InvalidRange:
+        LLVM_DEBUG(dbgs() << "[Info] Invalid range\n");
+        break;
+      case FixedPointTypeGenError::UnboundedRange:
+        LLVM_DEBUG(dbgs() << "[Info] Unbounded range\n");
+        break;
+      case FixedPointTypeGenError::NotEnoughIntAndFracBits:
+      case FixedPointTypeGenError::NotEnoughFracBits:
+        LLVM_DEBUG(dbgs() << "[Info] Result not representable\n");
+        break;
+      default:
+        LLVM_DEBUG(dbgs() << "[Info] error code unknown\n");
+      }
+    } else {
+      LLVM_DEBUG(dbgs() << "[Info] The operands of " << *V << " are not representable as fixed point with specified constraints\n");
+    }
+  }
+
+  /* We failed, try to keep original type */
+  Type *Ty = fullyUnwrapPointerOrArrayType(V->getType());
+  if (Ty->isFloatingPointTy()) {
+    auto res = std::make_shared<FloatType>(FloatType(Ty->getTypeID(), greatest));
+    II.IType = res;
+    LLVM_DEBUG(dbgs() << "[Info] Keeping original type which was " << res->toString() << "\n");
+    return true;
+  }
+
+  LLVM_DEBUG(dbgs() << "[Info] The original type was not floating point, skipping (fingers crossed!)\n");
+  return false;
 }
 
 
@@ -314,6 +404,10 @@ void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
   for (auto i = revQueue.rbegin(); i != revQueue.rend(); ++i) {
     vals.push_back(*i);
     valset.insert(*i);
+    if (Argument *Arg = dyn_cast<Argument>(*i)) {
+      LLVM_DEBUG(dbgs() << "Restoring consistency of argument " << *Arg << " of function " << Arg->getParent()->getNameOrAsOperand() << "\n");
+      restoreTypesAcrossFunctionCall(Arg);
+    }
   }
 }
 
@@ -382,9 +476,7 @@ bool TaffoTuner::mergeFixFormat(llvm::Value *v, llvm::Value *u)
       iiv->IType.reset(fp->clone());
       iiu->IType.reset(fp->clone());
       return true;
-    } else {
-      FixCast++;
-    }
+    } 
   }
   return false;
 }
@@ -408,8 +500,12 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
     LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because at least one is a pointer\n");
     return false;
   }
-  FPType *fpv = cast<FPType>(iiv->IType.get());
-  FPType *fpu = cast<FPType>(iiu->IType.get());
+  FPType *fpv = dyn_cast<FPType>(iiv->IType.get());
+  FPType *fpu = dyn_cast<FPType>(iiu->IType.get());
+  if (!fpv || !fpu) {
+    LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because one is not a FPType\n");
+    return false;
+  }
   if (!(*fpv == *fpu)) {
     if (isMergeable(fpv, fpu)) {
       std::shared_ptr<mdutils::FPType> fp = merge(fpv, fpu);
@@ -426,8 +522,6 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
       iiv->IType.reset(fp->clone());
       iiu->IType.reset(fp->clone());
       return true;
-    } else {
-      FixCast++;
     }
   }
   return false;
@@ -473,7 +567,7 @@ void TaffoTuner::restoreTypesAcrossFunctionCall(Value *v)
     LLVM_DEBUG(dbgs() << "Not a function argument, propagating to function arguments\n");
     setTypesOnFunctionArgumentFromCallArgument(v, finalMd);
   }
-  
+
   LLVM_DEBUG(dbgs() << "restoreTypesAcrossFunctionCall ended\n");
 }
 
@@ -522,11 +616,20 @@ void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::
   for (auto it = fun->user_begin(); it != fun->user_end(); it++) {
     if (isa<CallInst>(*it) || isa<InvokeInst>(*it)) {
       Value *callarg = it->getOperand(n);
-      LLVM_DEBUG(dbgs() << " --> target " << *callarg << ", callsite " << **it << "\n");
+      LLVM_DEBUG(dbgs() << " --> target " << *callarg << ", CallBase " << **it << "\n");
+
       if (!hasInfo(callarg)) {
-        LLVM_DEBUG(dbgs() << " --> argument doesn't get converted; skipping\n");
-      } else {
-        valueInfo(callarg)->metadata.reset(finalMd->clone());
+        if (!isa<Argument>(callarg)) {
+          LLVM_DEBUG(dbgs() << " --> actual argument doesn't get converted; skipping\n");
+          continue;
+        } else {
+          LLVM_DEBUG(dbgs() << " --> actual argument IS AN ARGUMENT ITSELF! not skipping even if it doesn't get converted\n");
+        }
+      }
+      valueInfo(callarg)->metadata.reset(finalMd->clone());
+      if (Argument *Arg = dyn_cast<Argument>(callarg)) {
+        LLVM_DEBUG(dbgs() << " --> actual argument IS AN ARGUMENT ITSELF, recursing\n");
+        setTypesOnCallArgumentFromFunctionArgument(Arg, finalMd);
       }
     }
   }
@@ -540,19 +643,19 @@ std::vector<Function *> TaffoTuner::collapseFunction(Module &m)
     if (MDNode *mdNode = f.getMetadata(CLONED_FUN_METADATA)) {
       if (std::find(toDel.begin(), toDel.end(), &f) != toDel.end())
         continue;
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "Analyzing original function " << f.getName() << "\n";);
+      LLVM_DEBUG(dbgs() << "Analyzing original function " << f.getName() << "\n";);
 
       for (auto mdIt = mdNode->op_begin(); mdIt != mdNode->op_end(); mdIt++) {
-        DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Clone : " << **mdIt << "\n";);
+        LLVM_DEBUG(dbgs() << "\t Clone : " << **mdIt << "\n";);
 
         ValueAsMetadata *md = dyn_cast<ValueAsMetadata>(*mdIt);
         Function *fClone = dyn_cast<Function>(md->getValue());
         if (fClone->user_begin() == fClone->user_end()) {
-          DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Ignoring " << fClone->getName()
-                                            << " because it's not used anywhere\n");
+          LLVM_DEBUG(dbgs() << "\t Ignoring " << fClone->getName()
+                            << " because it's not used anywhere\n");
         } else if (Function *eqFun = findEqFunction(fClone, &f)) {
-          DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Replace function " << fClone->getName()
-                                            << " with " << eqFun->getName() << "\n";);
+          LLVM_DEBUG(dbgs() << "\t Replace function " << fClone->getName()
+                            << " with " << eqFun->getName() << "\n";);
           fClone->replaceAllUsesWith(eqFun);
           toDel.push_back(fClone);
         }
@@ -606,15 +709,15 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
 {
   std::vector<std::pair<int, std::shared_ptr<MDInfo>>> fixSign;
 
-  DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Search eq function for " << fun->getName()
-                                    << " in " << origin->getName() << " pool\n";);
+  LLVM_DEBUG(dbgs() << "\t\t Search eq function for " << fun->getName()
+                    << " in " << origin->getName() << " pool\n";);
 
   if (isFloatType(fun->getReturnType()) && hasInfo(*fun->user_begin())) {
     std::shared_ptr<MDInfo> retval = valueInfo(*fun->user_begin())->metadata;
     if (retval) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(-1, retval)); // ret value in signature
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Return type : "
-                                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "\t\t Return type : "
+                        << valueInfo(*fun->user_begin())->metadata->toString() << "\n";);
     }
   }
 
@@ -622,8 +725,8 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   for (Argument &arg : fun->args()) {
     if (hasInfo(&arg) && valueInfo(&arg)->metadata) {
       fixSign.push_back(std::pair<int, std::shared_ptr<MDInfo>>(i, valueInfo(&arg)->metadata));
-      DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t\t Arg " << i << " type : "
-                                        << valueInfo(&arg)->metadata->toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "\t\t Arg " << i << " type : "
+                        << valueInfo(&arg)->metadata->toString() << "\n";);
     }
     i++;
   }
@@ -648,7 +751,7 @@ Function *TaffoTuner::findEqFunction(Function *fun, Function *origin)
   funInfo.newFun = fun;
   funInfo.fixArgs = fixSign;
   functionPool[origin].push_back(funInfo);
-  DEBUG_WITH_TYPE(DEBUG_FUN, dbgs() << "\t Function " << fun->getName() << " used\n";);
+  LLVM_DEBUG(dbgs() << "\t Function " << fun->getName() << " used\n";);
   return nullptr;
 }
 
