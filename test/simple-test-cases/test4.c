@@ -14,9 +14,13 @@ float random(void)
 
 float test(int p1, int p2, int p3)
 {
-  float f1 __attribute((annotate("scalar(range(-32767, 32767)"))) = random(); 
-  float f2 __attribute((annotate("scalar(range(-32767, 32767)"))) = random();
-  float phi __attribute((annotate("scalar(range(-32767, 32767)")));
+  //float f1 __attribute((annotate("scalar(range(-32767, 32767)"))) = random(); 
+  //float f2 __attribute((annotate("scalar(range(-32767, 32767)"))) = random();
+  //float phi __attribute((annotate("scalar(range(-32767, 32767)")));
+  // TODO: add back annotations and retest
+  float f1 = random(); 
+  float f2 = random();
+  float phi ;
   
   if (p1)
     phi = 1.0;

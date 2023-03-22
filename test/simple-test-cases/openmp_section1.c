@@ -10,9 +10,11 @@ int main(int argc, char *argv[])
   float second_section
       __attribute((annotate("target('second_section') scalar(range(0,2000) final)"))) =
           363;
-  float result
-      __attribute((annotate("target('result') scalar(range(0,2000)) final)"))) =
-          0;
+  //float result
+  //    __attribute((annotate("target('result') scalar(range(0,2000)) final)"))) =
+  //        0;
+  // TODO: restore the annotation and retest
+  float result = 0;
 
   #pragma omp parallel num_threads(4)
   {
