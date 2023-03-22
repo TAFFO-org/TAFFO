@@ -201,7 +201,9 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
     errs() << "TAFFO annotation parser syntax error: \n";
     errs() << "  In annotation: \"" << annstr << "\"\n";
     errs() << "  " << parser.lastError() << "\n";
-    return false;
+    report_fatal_error("Annotation syntax incorrect!");
+    // TODO: use llvm::Error and propagate it (as soon as it is possible...)
+    // return false;
   }
   Type *TyCheck = instr->getType();
   if (Instruction *I = dyn_cast<Instruction>(instr))
@@ -212,7 +214,9 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
     errs() << "TAFFO typechecker error:\n";
     errs() << "  In annotation: \"" << annstr << "\"\n";
     errs() << "  Type does not look like LLVM type " << *TyCheck << "\n";
-    return false;
+    report_fatal_error("Annotation typecheck failed!");
+    // TODO: use llvm::Error and propagate it (as soon as it is possible...)
+    // return false;
   }
   vi.fixpTypeRootDistance = 0;
   if (!parser.backtracking)
