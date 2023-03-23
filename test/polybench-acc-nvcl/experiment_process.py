@@ -42,12 +42,14 @@ def read_validate_file(file: Path):
 def read_experiment(dir: Path):
   columns = ['bench', 'host_dta', 'kern_arg_dta', 'kern_dta', 't_gpu_orig', 't_gpu_taffo', 'e_perc', 'e_abs']
   table = pd.DataFrame(columns=columns)
-  dtas = ['f32', 'f16', 'fixp', 'mixed']
+  host_dtas = ['f32']
+  kern_arg_dtas = ['f32', 'f16', 'fixp', 'fixp16', 'mixed']
+  kern_dtas = ['f32', 'f16', 'fixp', 'fixp16', 'mixed']
   run_f32 = dir / 'f32_f32_f32_run.txt'
   data_run_f32 = read_run_file(run_f32)
-  for host_dta in dtas:
-    for kern_arg_dta in dtas:
-      for kern_dta in dtas:
+  for host_dta in host_dtas:
+    for kern_arg_dta in kern_arg_dtas:
+      for kern_dta in kern_dtas:
         run = dir / (host_dta + '_' + kern_arg_dta + '_' + kern_dta + '_run.txt')
         valid = dir / (host_dta + '_' + kern_arg_dta + '_' + kern_dta + '_validate.txt')
         if not (run.exists() and valid.exists()):
@@ -108,8 +110,8 @@ def pareto_bench(df: pd.DataFrame, bench: str):
 def pareto(df: pd.DataFrame):
   benchs = sorted(set(df['bench']))
   fig, ax = plt.subplots(6, 4)
-  fig.set_figwidth(15)
-  fig.set_figheight(7)
+  fig.set_figwidth(20)
+  fig.set_figheight(20/4*5)
   axes_index = it.product(range(0,6), range(0,4))
   for bench, (i, j) in zip(benchs, axes_index):
     plt.sca(ax[i, j])
@@ -119,7 +121,7 @@ def pareto(df: pd.DataFrame):
   fig.supxlabel('Speedup [%]')
   fig.supylabel('Percentage error [%]')
   fig.tight_layout()
-  plt.show()
+  #plt.show()
   fig.savefig("out.pdf")
 
 def compute_best_conf(df: pd.DataFrame):
@@ -137,10 +139,10 @@ def compute_best_conf(df: pd.DataFrame):
 def main():
   #print(read_run_file(Path('_experiment_2022-11-02_12-44-12/f32_f16_f16_run.txt')))
   #print(read_validate_file(Path('_experiment_2022-11-02_12-44-12/f32_f16_f16_validate.txt')))
-  df = read_experiment(Path('_experiments/2023-02-21_20-09-32'))
-  #print(df.to_csv())
-  #print()
-  #print(compute_best_conf(df).to_csv())
+  df = read_experiment(Path('_experiments/2023-03-23_01-43-34'))
+  print(df.to_csv())
+  print()
+  print(compute_best_conf(df).to_csv())
   pareto(df)
 
 if __name__ == '__main__':
