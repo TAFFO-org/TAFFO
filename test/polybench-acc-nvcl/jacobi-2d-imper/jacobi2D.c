@@ -119,15 +119,18 @@ void read_cl_file()
 
 void init_array(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n), DATA_TYPE POLYBENCH_2D(B,N,N,n,n))
 {
-	__attribute__((annotate("scalar(range(-10000000, 10000000) final)"))) int i;
-	__attribute__((annotate("scalar(range(-10000000, 10000000) final)"))) int j;
+	int i;
+	int j;
+  DATA_TYPE tmp;
 
 	for (i = 0; i < n; i++)
 	{
 		for (j = 0; j < n; j++)
 		{
-			A[i][j] = ((DATA_TYPE) i*(j+2) + 10) / N;
-			B[i][j] = ((DATA_TYPE) (i-4)*(j-1) + 11) / N;
+      tmp = ((DATA_TYPE) i*(j+2) + 10) / N;
+			A[i][j] = tmp;
+      tmp = ((DATA_TYPE) (i-4)*(j-1) + 11) / N;
+			B[i][j] = tmp;
 		}
 	}
 }
