@@ -33,7 +33,7 @@ __kernel void fdtd_kernel1(ANN_FICT __global DATA_TYPE *_fict_, ANN_EX __global 
 		}
 		else
 		{ 
-			ey[i * ny + j] = ey[i * ny + j] - 0.5*(hz[i * ny + j] - hz[(i-1) * ny + j]);
+			ey[i * ny + j] = ey[i * ny + j] - 0.5f*(hz[i * ny + j] - hz[(i-1) * ny + j]);
 		}
 	}
 }
@@ -46,7 +46,7 @@ __kernel void fdtd_kernel2(ANN_EX __global DATA_TYPE *ex, ANN_EY __global DATA_T
 	
 	if ((i < nx) && (j < ny) && (j > 0))
 	{
-		ex[i * ny + j] = ex[i * ny + j] - 0.5*(hz[i * ny + j] - hz[i * ny + (j-1)]);
+		ex[i * ny + j] = ex[i * ny + j] - 0.5f*(hz[i * ny + j] - hz[i * ny + (j-1)]);
 	}
 }
 
@@ -58,7 +58,7 @@ __kernel void fdtd_kernel3(ANN_EX __global DATA_TYPE *ex, ANN_EY __global DATA_T
 	
 	if ((i < (nx-1)) && (j < (ny-1)))
 	{
-		hz[i * ny + j] = hz[i * ny + j] - 0.7*(ex[i * ny + (j+1)] - ex[i * ny + j] + ey[(i + 1) * ny + j] - ey[i * ny + j]);
+		hz[i * ny + j] = hz[i * ny + j] - 0.7f*(ex[i * ny + (j+1)] - ex[i * ny + j] + ey[(i + 1) * ny + j] - ey[i * ny + j]);
 	}
 }
 

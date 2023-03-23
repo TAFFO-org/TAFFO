@@ -111,12 +111,12 @@ void read_cl_file()
 void init_arrays(int tmax, int nx, int ny, DATA_TYPE POLYBENCH_1D(_fict_, TMAX, TMAX), DATA_TYPE POLYBENCH_2D(ex,NX,NY,nx,ny), 
 		DATA_TYPE POLYBENCH_2D(ey,NX,NY,nx,ny), DATA_TYPE POLYBENCH_2D(hz,NX,NY,nx,ny))
 {
-	__attribute__((annotate("scalar(range(0, 4194304) final)"))) int i;
-  	__attribute__((annotate("scalar(range(0, 4194304) final)"))) int j;
+  int i;
+  int j;
 
   	for (i = 0; i < tmax; i++)
 	{
-		__attribute__((annotate("scalar(range(0, 500) final)"))) DATA_TYPE tmp = i;
+		DATA_TYPE tmp = i;
 		_fict_[i] = tmp;
 	}
 	
@@ -127,12 +127,12 @@ void init_arrays(int tmax, int nx, int ny, DATA_TYPE POLYBENCH_1D(_fict_, TMAX, 
 			int a = i*(j+1) + 1;
 			int b = (i-1)*(j+2) + 2;
 			int c = (i-9)*(j+4) + 3;
-			__attribute__((annotate("scalar(range(0, 4194304) final)"))) DATA_TYPE d = a;
-			__attribute__((annotate("scalar(range(0, 4194304) final)"))) DATA_TYPE e = b;
-			__attribute__((annotate("scalar(range(0, 4194304) final)"))) DATA_TYPE f = c;
-			ex[i][j] = d / (NX * NY);
-			ey[i][j] = e / (NX * NY);
-			hz[i][j] = f / (NX * NY);
+			DATA_TYPE d = a / (NX * NY);
+			DATA_TYPE e = b / (NX * NY);
+			DATA_TYPE f = c / (NX * NY);
+			ex[i][j] = d;
+			ey[i][j] = e;
+			hz[i][j] = f;
 		}
 	}
 }
