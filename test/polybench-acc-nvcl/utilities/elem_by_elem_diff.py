@@ -21,7 +21,7 @@ def compute_difference(fix_data, flt_data):
   emax = -float("inf")
   for svfix, svflo in zip(fix_data, flt_data):
     e = abs(float(svfix) - float(svflo))
-    print(e)
+    print(e, svflo, svfix)
     vmax = max(vmax, float(svflo))
     vmin = min(vmin, float(svflo))
     emax = max(emax, e)
