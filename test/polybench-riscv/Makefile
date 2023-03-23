@@ -2,7 +2,7 @@ LLVM_BIN := $(LLVM_DIR)/bin/
 OPT := $(LLVM_BIN)opt
 CLANG := $(LLVM_BIN)clang
 CLANGXX := $(CLANG)++
-LAMP_SIMULATOR_DIR := /home/denisovlev/Projects/LAMPSimulator/build/
+#LAMP_SIMULATOR_DIR := /home/denisovlev/Projects/LAMPSimulator/build/
 LAMP_SIMULATOR := $(LAMP_SIMULATOR_DIR)/LAMPSimulator/LAMPSimulator.so
 TAFFO := $(shell eval which taffo)
 TAFFO_PREFIX := $(dir $(TAFFO))/..
@@ -18,7 +18,8 @@ BUILD_DIR := ./build
 SRC_DIR := ./sources
 HEADERS_DIR := ./sources/.
 
-CFLAGS := -g -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize -ffp-contract=off
+CFLAGS := -g0 -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize -ffp-contract=off -m32 -march=i386
+CFLAGS_DOUBLE := -g0 -Xclang -disable-O0-optnone -fno-unroll-loops -fno-slp-vectorize -fno-vectorize -ffp-contract=off
 POLYBENCH_PRINT_FLAGS := -D_PRINT_OUTPUT -DPOLYBENCH_DUMP_ARRAYS
 POLYBENCH_DATA_FLAGS := -DDATA_TYPE_IS_FLOAT
 POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
@@ -33,6 +34,7 @@ castweight := 10
 
 modes := float fixed mixed
 benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
 #benchmarks := 2mm
 mantissa_sizes := 8 11 16 24
 input_sizes := standard
@@ -124,7 +126,7 @@ define double_build
         -lm \
         $(bench_src) \
         -I$(HEADERS_DIR) \
-        $(CFLAGS) \
+        $(CFLAGS_DOUBLE) \
         $(POLYBENCH_PRINT_FLAGS) \
         $(POLYBENCH_DOUBLE_DATA_FLAGS) \
         -DSCALING_FACTOR=$(scaling) \
@@ -133,7 +135,7 @@ endef
 
 define build_float
     @echo float $(bench) $(mantissa)
-    export VAR_RANGES=$$($(call read_stats)); \
+    export VAR_RANGES="$$($(call read_stats))"; \
     $(CLANG) \
         -o $(job_file_base).out.ll \
         -S \
@@ -151,7 +153,7 @@ endef
 
 define build_fixed
     @echo fixed $(bench) $(mantissa)
-    export VAR_RANGES=$$($(call read_stats)); \
+    export VAR_RANGES="$$($(call read_stats))"; \
     $(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
@@ -170,7 +172,7 @@ endef
 
 define build_mixed
     @echo mixed $(bench) $(mantissa)
-    export VAR_RANGES=$$($(call read_stats)); \
+    export VAR_RANGES="$$($(call read_stats))"; \
 	$(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \

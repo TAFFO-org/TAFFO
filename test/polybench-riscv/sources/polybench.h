@@ -255,6 +255,7 @@ float sqrtf_PB(float val)
 #define SCALING_FACTOR 1
 #endif
 
+#if SCALING_FACTOR!=1
 void scale_scalar(DATA_TYPE* val, int factor) {
   *val = *val * factor;
 }
@@ -282,6 +283,7 @@ void scale_3d(int n, int m, int p, DATA_TYPE val[n][m][p], int factor) {
     }
   }
 }
+#endif
 
 #ifdef COLLECT_STATS
 
