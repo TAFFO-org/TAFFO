@@ -12,6 +12,9 @@ TAFFO_KERN_DTA    ?=fixp
 
 ifeq ($(TAFFO_HOST_DTA),fixp)
 endif
+ifeq ($(TAFFO_HOST_DTA),fixp16)
+TAFFO_EXEC_OPTS   += -Xdta -totalbits -Xdta 16
+endif
 ifeq ($(TAFFO_HOST_DTA),f16)
 TAFFO_EXEC_OPTS   += -Xdta -usefloat -Xdta f16
 endif
@@ -25,6 +28,10 @@ endif
 ifeq ($(TAFFO_KERN_ARGS),fixp)
 TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp32.yaml
 TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp32.yaml
+endif
+ifeq ($(TAFFO_KERN_ARGS),fixp16)
+TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp16.yaml
+TAFFO_KERN_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fixp16.yaml
 endif
 ifeq ($(TAFFO_KERN_ARGS),f16)
 TAFFO_EXEC_OPTS   += -Xdta -bufferid-import -Xdta bufferid_conf_fp16.yaml
@@ -40,6 +47,9 @@ TAFFO_KERN_OPTS   += -Xdta -bufferid-export -Xdta taffo_kern_logs/bufferid.yaml
 endif
 
 ifeq ($(TAFFO_KERN_DTA),fixp)
+endif
+ifeq ($(TAFFO_KERN_DTA),fixp16)
+TAFFO_KERN_OPTS   += -Xdta -totalbits -Xdta 16
 endif
 ifeq ($(TAFFO_KERN_DTA),f16)
 TAFFO_KERN_OPTS   += -Xdta -usefloat -Xdta f16
@@ -95,6 +105,7 @@ run: ${EXECUTABLE} ${EXECUTABLE_TAFFO}
 
 .PHONY: validate
 validate:
+	echo $$(basename $$(pwd))
 	@../../utilities/validate.py --ref=${EXECUTABLE}.txt --check=${EXECUTABLE_TAFFO}.txt	
 
 .PHONY: clean

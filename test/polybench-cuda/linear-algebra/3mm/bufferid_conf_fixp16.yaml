@@ -1,0 +1,8 @@
+---
+"a" : { Class: 0, SWidth: 16, PointPos: 15 }
+"b" : { Class: 0, SWidth: 16, PointPos: 15 }
+"c" : { Class: 0, SWidth: 16, PointPos: 15 }
+"d" : { Class: 0, SWidth: 16, PointPos: 15 }
+"e" : { Class: 0, SWidth: 16, PointPos: 8 }
+"f" : { Class: 0, SWidth: 16, PointPos: 8 }
+"g" : { Class: 0, SWidth: 32, PointPos: 16 }
