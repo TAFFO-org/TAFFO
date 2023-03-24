@@ -95,12 +95,14 @@ void init_array(int nr, int nq, int np,
 
 	for (i = 0; i < nr; i++)
 		for (j = 0; j < nq; j++)
-			for (k = 0; k < np; k++)
-				A[i][j][k] = ((DATA_TYPE) i*j + k) / (np * 5);
-
+			for (k = 0; k < np; k++){
+				float tmp = ((DATA_TYPE) i*j + k) / np;
+				A[i][j][k] = tmp;
+			}
 	for (i = 0; i < np; i++){
 		for (j = 0; j < np; j++){
-			C4[i][j] = ((DATA_TYPE) i*j) / (np * 5);
+			float tmp = ((DATA_TYPE) i*j) / np;
+			C4[i][j] = tmp;
 		}		
 	}					
 }
@@ -186,7 +188,8 @@ static
 void print_array(int nr, int nq, int np,
 		 DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np))
 {
-	int i, j, k;
+	int i, j, k, c;
+	c=0;
 
 	for (i = 0; i < nr; i++)
 	{
@@ -195,7 +198,8 @@ void print_array(int nr, int nq, int np,
 			for (k = 0; k < np; k++) 
 			{
 				fprintf (stderr, DATA_PRINTF_MODIFIER, A[i][j][k]);
-				if (i % 20 == 0) fprintf (stderr, "\n");
+				 c++;
+				if (c % 20 == 0) fprintf (stderr, "\n");
 			}
 		}
 	}
