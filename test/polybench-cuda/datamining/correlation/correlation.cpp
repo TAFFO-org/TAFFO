@@ -35,7 +35,7 @@
 
 #define sqrt_of_array_cell(x,j) sqrt(x[j])
 
-#define FLOAT_N 3214212.01f
+#define FLOAT_N N
 #define EPS 0.005f
 
 #define RUN_ON_CPU

@@ -50,7 +50,7 @@
 
 # ifndef DATA_TYPE
 #  define DATA_TYPE float
-#  define DATA_PRINTF_MODIFIER "%0.2lf "
+#  define DATA_PRINTF_MODIFIER "%e "
 # endif
 
 /* Thread block dimensions for kernel 1*/
