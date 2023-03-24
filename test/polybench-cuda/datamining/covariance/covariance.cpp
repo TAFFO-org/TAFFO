@@ -58,18 +58,20 @@ size_t totalGlobalMem;
 
 const char *sSDKsample = "PolyBench correlation (Driver API)";
 
-void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n))
+void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE *float_n)
 {
-	__attribute__((annotate("scalar(range(0, 4000) final)"))) int i;
-	__attribute__((annotate("scalar(range(0, 4000) final)"))) int j;
+	int i;
+	int j;
 
 	for (i = 0; i < m; i++)
 	{
 		for (j = 0; j < n; j++)
 		{
-			data[i][j] = ((DATA_TYPE) i*j) / (M * N);
+    		DATA_TYPE tmp = ((DATA_TYPE) i*j) / (M * N);
+			data[i][j] = tmp;
 		}
 	}
+	*float_n = 3214212.01;
 }
 
 
@@ -135,13 +137,13 @@ void compareResults(int m, int n, DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m), DATA_T
 
 
 void covarianceCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYPE POLYBENCH_2D(symmat,M,M,m,m), DATA_TYPE POLYBENCH_1D(mean,M,m), 
-		DATA_TYPE POLYBENCH_2D(symmat_outputFromGpu,M,M,m,m))
+		DATA_TYPE POLYBENCH_2D(symmat_outputFromGpu,M,M,m,m), DATA_TYPE float_n)
 {
 	CUdeviceptr data_gpu;
 	CUdeviceptr mean_gpu;
 	CUdeviceptr symmat_gpu;
 
-	DATA_TYPE ANN_FLOAT_N float_n[1] = {FLOAT_N};
+	DATA_TYPE ANN_FLOAT_N float_n_l[1] = {float_n};
 
   	checkCudaErrors(cuMemAlloc(&data_gpu, sizeof(DATA_TYPE) * M * N));
 	checkCudaErrors(cuMemAlloc(&symmat_gpu, sizeof(DATA_TYPE) * M * N));
@@ -163,7 +165,7 @@ void covarianceCuda(int m, int n, DATA_TYPE POLYBENCH_2D(data,M,N,m,n), DATA_TYP
 	/* Start timer. */
   	polybench_start_instruments;
 
-	void *args1[5] = {&m, &n, &mean_gpu, &data_gpu, &float_n};
+	void *args1[5] = {&m, &n, &mean_gpu, &data_gpu, &float_n_l};
 	checkCudaErrors(cuLaunchKernel(
         kernels[0], grid1.x, grid1.y, grid1.z, block1.x, block1.y, block1.z,
         0, NULL, args1, NULL));
@@ -216,12 +218,13 @@ int main(int argc, char** argv)
 	int m = M;
 	int n = N;
 
+	DATA_TYPE float_n;
 	ANN_DATA POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE,M,N,m,n);
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat,DATA_TYPE,M,M,m,m);
 	ANN_MEAN POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE,M,m);
 	ANN_SYMMAT POLYBENCH_2D_ARRAY_DECL(symmat_outputFromGpu,DATA_TYPE,M,M,m,m);	
 
-	init_arrays(m, n, POLYBENCH_ARRAY(data));
+	init_arrays(m, n, POLYBENCH_ARRAY(data), &float_n);
     
 	initCUDA(argc, argv);
 
@@ -229,7 +232,7 @@ int main(int argc, char** argv)
 	checkCudaErrors(cuModuleGetFunction(&(kernels[1]), cuModule, "reduce_kernel"));
 	checkCudaErrors(cuModuleGetFunction(&(kernels[2]), cuModule, "covar_kernel"));
 
-	covarianceCuda(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean), POLYBENCH_ARRAY(symmat_outputFromGpu));
+	covarianceCuda(m, n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(symmat), POLYBENCH_ARRAY(mean), POLYBENCH_ARRAY(symmat_outputFromGpu), float_n);
 	
 
 	/* Start timer. */

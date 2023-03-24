@@ -25,8 +25,8 @@ extern "C" __global__ void mean_kernel(int m, int n, ANN_MEAN DATA_TYPE *mean, A
 		{
 			mean[j] += data[i * M + j];
 		}
-		//mean[j] /= (DATA_TYPE)float_n;
-		mean[j] /= 3214212.01;
+		mean[j] /= (DATA_TYPE)float_n;
+		//mean[j] /= 3214212.01;
 	}
 }
 

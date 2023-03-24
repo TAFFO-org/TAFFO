@@ -1,5 +1,5 @@
 ---
 "data" : { Class: 1, FloatStandard: 0, GreatestNumber: 2 }
-"float_n" : { Class: 1, FloatStandard: 1, GreatestNumber: 3.21421e+06 }
+"float_n" : { Class: 1, FloatStandard: 1, GreatestNumber: 4e+06 }
 "mean" : { Class: 1, FloatStandard: 0, GreatestNumber: 1000 }
 "symmat" : { Class: 1, FloatStandard: 0, GreatestNumber: 32768 }
