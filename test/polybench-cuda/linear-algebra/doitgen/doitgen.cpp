@@ -89,22 +89,20 @@ void init_array(int nr, int nq, int np,
 		DATA_TYPE POLYBENCH_3D(A,NR,NQ,NP,nr,nq,np),
 		DATA_TYPE POLYBENCH_2D(C4,NP,NP,np,np))
 {
-	__attribute__((annotate("scalar(range(0, 1000) final)"))) int i;
-	__attribute__((annotate("scalar(range(0, 1000) final)"))) int j;
-	__attribute__((annotate("scalar(range(0, 1000) final)"))) int k;
+	int i, j, k;
 
 	for (i = 0; i < nr; i++)
 		for (j = 0; j < nq; j++)
-			for (k = 0; k < np; k++){
-				float tmp = ((DATA_TYPE) i*j + k) / np;
+			for (k = 0; k < np; k++) {
+        float tmp = ((DATA_TYPE) i*j + k) / np;
 				A[i][j][k] = tmp;
-			}
-	for (i = 0; i < np; i++){
-		for (j = 0; j < np; j++){
-			float tmp = ((DATA_TYPE) i*j) / np;
+      }
+
+	for (i = 0; i < np; i++)
+		for (j = 0; j < np; j++) {
+      float tmp = ((DATA_TYPE) i*j) / np;
 			C4[i][j] = tmp;
-		}		
-	}					
+    }				
 }
 
 

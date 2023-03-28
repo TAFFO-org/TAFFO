@@ -23,8 +23,7 @@ extern "C" __global__ void doitgen_kernel1(int nr, int nq, int np, ANN_SUM DATA_
 	
 		for (int s = 0; s < np; s++)
 		{
-			ANN_SUM DATA_TYPE tmp = A[r * (nq * np) + q * np + s] * C4[s * np + p];
-			sum[r * (nq * np) + q * np + p] = sum[r * (nq * np) + q * np + p] + tmp;
+			sum[r * (nq * np) + q * np + p] = sum[r * (nq * np) + q * np + p] + A[r * (nq * np) + q * np + s] * C4[s * np + p];
 		}
 	}
 }
