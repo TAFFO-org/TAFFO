@@ -19,8 +19,7 @@ extern "C" __global__ void mean_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, D
 
 	if (j < m)
 	{
-		mean[j] = 0.0;
-		DATA_TYPE __attribute__((annotate("scalar(range(0, 3000))"))) accum = 0.0;
+    	DATA_TYPE __attribute__((annotate("scalar(range(0, 3000))"))) accum = 0.0;
 		accum = 0.0;
 
 		int i;
@@ -40,18 +39,18 @@ extern "C" __global__ void std_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN, DA
 	
 	if (j < m)
 	{
-		DATA_TYPE __attribute__((annotate("scalar(range(0, 3000))"))) accum = 0.0;
+    DATA_TYPE __attribute__((annotate("scalar(range(0, 3000))"))) accum = 0.0;
 		
 		int i;
 		for (i = 0; i < n; i++)
 		{
-			accum += (data[i*m + j] - mean[j]) * (data[i*m + j] - mean[j]);
+      accum += (data[i*m + j] - mean[j]) * (data[i*m + j] - mean[j]);
 		}
-		std[j] = sqrt(accum / float_n);
+    std[j] = sqrt(accum / float_n);
 		if(std[j] <= eps) 
 		{
 			std[j] = 1.0;
-		} 
+		}
 	}
 }
 
@@ -64,9 +63,9 @@ extern "C" __global__ void reduce_kernel(int m, int n, DATA_TYPE *mean ANN_MEAN,
 	if ((i < n) && (j < m))
 	{
 		data[i*m + j] -= mean[j];
-		data[i*m + j] /= sqrt(float_n) * std[j];
+    data[i*m + j] /= sqrt(float_n) * std[j];
 	}
-}
+}	
 
 
 extern "C" __global__ void corr_kernel(int m, int n, DATA_TYPE *symmat ANN_SYMMAT, DATA_TYPE *data ANN_DATA)

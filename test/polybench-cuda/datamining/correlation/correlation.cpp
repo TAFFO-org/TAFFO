@@ -67,8 +67,8 @@ double frand(void)
 void init_arrays(int m, int n, DATA_TYPE POLYBENCH_2D(data, M, N, m, n), DATA_TYPE* float_n, DATA_TYPE* eps, DATA_TYPE POLYBENCH_2D(symmat, M, N, m, n))
 {
     int i, j;
-	*float_n = 3214212.01;
-	*eps = 0.005;
+	*float_n = FLOAT_N;
+	*eps = EPS;
 
 	for (i=0; i < m; i++) 
 	{

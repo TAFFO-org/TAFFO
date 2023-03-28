@@ -4,9 +4,9 @@ exp_dir=_experiment_$(date +%Y-%m-%d_%H-%M-%S)
 mkdir ${exp_dir}
 raw_data_dir=${exp_dir}/raw_data
 
-host_dta_set='fixp f32 mixed'
-kern_args_set='fixp f32 f16 mixed'
-kern_dta_set='fixp f32 f16 mixed'
+host_dta_set='f32'
+kern_args_set='fixp fixp16 f32 f16'
+kern_dta_set='fixp fixp16 f32 f16'
 #host_dta_set='fixp'
 #kern_args_set='f16'
 #kern_dta_set='f32'
