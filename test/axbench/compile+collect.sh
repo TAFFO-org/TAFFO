@@ -2,7 +2,7 @@
 
 if [[ $# -lt 2 ]]; then
   cat <<HELP_END
-Usage: $0 BENCHNAME BENCHSRC [STATS_DIR]
+Usage: $0 BENCHNAME BENCHSRC [STATS_DIR] [TRAINING_DATA_FILE]
 If STATS_DIR is specified, instmix and mlfeat stats are copied there.
 Set DONT_REBUILD to only copy stats without rebuilding.
 Set ENABLE_ERROR to enable error propagation.
@@ -19,6 +19,8 @@ fi
 
 bench=$1
 benchsrc=$2
+ARGS=( "$@" )
+training_data_files=("${ARGS[@]:3}")
 
 errorprop=
 if [[ -n $ENABLE_ERROR ]]; then
@@ -80,15 +82,30 @@ if [[ -z $DONT_REBUILD ]]; then
       -lm \
       2> stats/taffo1.log
 
-    "bin/${bench}.out.dynamic_instrumented" \
-    /home/denisovlev/Projects/TAFFO/test/axbench/blackscholes/data/input/blackscholesTrain_100K.data \
-    /dev/null \
-     > "obj/${bench}.out.instrumented.trace"
+    printf "${training_data_files[*]}"
+    trace_files=()
+    if [ ${#training_data_files[@]} -eq 0 ]; then
+        trace_filename="obj/${bench}.out.instrumented.trace"
+        "bin/${bench}.out.dynamic_instrumented" \
+            /dev/null \
+             > ${trace_filename}
+        trace_files+=("-dynamic-trace" ${trace_filename})
+    else
+        for (( i=0; i<${#training_data_files[@]}; i++ ));
+        do
+          trace_filename="obj/${bench}.${i}.out.instrumented.trace"
+          "bin/${bench}.out.dynamic_instrumented" \
+              ${training_data_files[$i]} \
+              /dev/null \
+               > ${trace_filename}
+          trace_files+=("-dynamic-trace" ${trace_filename})
+        done
+    fi
 
     taffo -temp-dir obj \
       -o bin/${bench}.out.dynamic_final \
       -O3 \
-      -dynamic-trace "obj/${bench}.out.instrumented.trace" \
+      ${trace_files[@]} \
       -I../common/src \
       ${files} \
       ${debug} \
@@ -116,6 +133,6 @@ if [[ $# -ge 3 ]]; then
   cp stats/${benchsrc}.mix.txt $3/${bench}.float.imix.txt
   cp stats/${benchsrc}.fixp.mlfeat.txt $3/${bench}.mlfeat.txt
   cp stats/${benchsrc}.mlfeat.txt $3/${bench}.float.mlfeat.txt
-  cp stats/${benchsrc}.llvm.txt $3/${bench}.llstat.txt
+#  cp stats/${benchsrc}.llvm.txt $3/${bench}.llstat.txt
   # cat stats/errorprop.log | grep 'Computed error for target' > $3/${bench}.errprop.txt
 fi
