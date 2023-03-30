@@ -107,7 +107,7 @@ if [[ -z $DONT_REBUILD ]]; then
   taffo-mlfeat obj/${bench}.out.fixp.1.taffotmp.ll > stats/${benchsrc}.mlfeat.txt
   taffo-instmix obj/${bench}.out.dynamic_final.5.taffotmp.ll > stats/${benchsrc}.dynamic_final.mix.txt
   taffo-mlfeat obj/${bench}.out.dynamic_final.5.taffotmp.ll > stats/${benchsrc}.dynamic_final.mlfeat.txt
-  ${OPT} -load=${TAFFOLIB} -S -flttofix -dce -stats obj/${bench}.out.fixp.4.taffotmp.ll -o /dev/null 2> stats/${benchsrc}.llvm.txt
+#  ${OPT} -load=${TAFFOLIB} -S -flttofix -dce -stats obj/${bench}.out.fixp.4.taffotmp.ll -o /dev/null 2> stats/${benchsrc}.llvm.txt
 fi
 
 # $3 stats directory

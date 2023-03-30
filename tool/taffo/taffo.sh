@@ -564,46 +564,56 @@ done
 else
 #  Dynamic tuning
   ${OPT} \
-    -load "$TAFFOLIB" -S \
-    --taffo-strip-annotations \
+     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+     --passes='no-op-module,taffo-strip-annotations' \
+     $compat_flags_opt  \
     "${temporary_dir}/${output_basename}.1.taffotmp.ll" \
-    -o "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" || exit $?
+    -S -o "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" || exit $?
 
   ${OPT} \
-    -load=${TAFFOLIB} -S \
-    --taffoinit \
+    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+    --passes='no-op-module,taffoinit' \
     ${init_flags} \
+    $compat_flags_opt  \
     "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" \
-    -o "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" || exit $?
+    -S -o "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" || exit $?
 
-  ${OPT} -load=${TAFFOLIB} -S \
-    --taffo-name-variables \
+  ${OPT} \
+    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+    --passes='no-op-module,taffo-name-variables' \
+    $compat_flags_opt  \
     "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" \
-    -o "${temporary_dir}/${output_basename}.named.taffotmp.ll" || exit $?
+    -S -o "${temporary_dir}/${output_basename}.named.taffotmp.ll" || exit $?
 
   if [[ $dynamic_instrument -ne 0 ]]; then
-    ${OPT} -load=${TAFFOLIB} -S \
-      --taffo-inject-func-call \
+    ${OPT} \
+      -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+      --passes='no-op-module,taffo-inject-func-call' \
+      $compat_flags_opt  \
       "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
-      -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
+      -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
   elif [ ! -z "$dynamic_trace" ]; then
-    ${OPT} -load=${TAFFOLIB} -S \
-      --taffo-read-trace \
+    ${OPT} \
+      -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+      --passes='no-op-module,taffo-read-trace' \
       -trace_file "$dynamic_trace" \
+      $compat_flags_opt  \
       "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
-      -o "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" || exit $?
+      -S -o "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" || exit $?
 
-    ${OPT} -load=${TAFFOLIB} -S \
-      --taffodta \
-      ${dta_flags} \
+    ${OPT} \
+      -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+      --passes="no-op-module,taffodta,globaldce" \
+      $compat_flags_opt ${dta_flags} ${dta_inst_set} \
       "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" \
-      -o "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" || exit $?
+      -S -o "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" || exit $?
 
-    ${OPT} -load=${TAFFOLIB} -S \
-      --flttofix --dce --globaldce \
-      ${conversion_flags} \
+    ${OPT} \
+      -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+      --passes='no-op-module,taffoconv,globaldce,dce' \
+      $compat_flags_opt ${conversion_flags} \
       "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" \
-      -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
+      -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
   fi
 fi
 
