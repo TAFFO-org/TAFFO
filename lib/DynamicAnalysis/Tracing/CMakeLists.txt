@@ -1,7 +1,6 @@
 set(SELF DynamicTracing)
 
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
-    Tracing.cpp
     InjectFuncCall.cpp
     ReadTrace.cpp
     NameVariables.cpp
