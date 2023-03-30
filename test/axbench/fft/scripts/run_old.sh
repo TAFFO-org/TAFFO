@@ -16,7 +16,14 @@ do
 	
 	echo -e "\e[96m*** Fix Version ***\e[0m"
 	time ./bin/${benchmark}.out.fixp ${f} data/output/${f}_${benchmark}_out.data.fixp
+
+	echo -e "\e[96m*** Dynamic Tuned Fix Version ***\e[0m"
+  time ./bin/${benchmark}.out.dynamic_final ${f} data/output/${f}_${benchmark}_out.data.dynamic_final
 	
 	echo -e "\e[32m### QoS ###\e[0m"
-	./scripts/qos.py data/output/${f}_${benchmark}_out.data data/output/${f}_${benchmark}_out.data.fixp
+	python ./scripts/qos.py data/output/${f}_${benchmark}_out.data data/output/${f}_${benchmark}_out.data.fixp
+
+  echo -e "\e[32m### QoS Dynamic ###\e[0m"
+  python ./scripts/qos.py data/output/${f}_${benchmark}_out.data data/output/${f}_${benchmark}_out.data.dynamic_final
+
 done
