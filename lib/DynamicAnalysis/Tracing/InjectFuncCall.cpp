@@ -52,7 +52,7 @@ bool InjectFuncCall::runOnModule(Module &M) {
 
   // STEP 2: Inject a global variable that will hold the printf format string
   // ------------------------------------------------------------------------
-  llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "\nTAFFO_TRACE %s %A %s\n");
+  llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "\nTAFFO_TRACE %s %A %s %s\n");
 
   Constant *PrintfFormatStrVar =
       M.getOrInsertGlobal("PrintfFormatStr", PrintfFormatStr->getType());
@@ -62,6 +62,7 @@ bool InjectFuncCall::runOnModule(Module &M) {
   // ----------------------------------------------------------------
   IRBuilder<> Builder(CTX);
   std::unordered_map<Type::TypeID, Constant*> floatTypeNameConstants;
+  std::unordered_map<unsigned int, Constant*> opcodes;
 
   for (auto type: mdutils::FloatType::llvmFloatTypes) {
     auto typeName = mdutils::FloatType::getFloatStandardName(type);
@@ -88,12 +89,19 @@ bool InjectFuncCall::runOnModule(Module &M) {
           // Printf requires i8*, but PrintfFormatStrVar is an array: [n x i8]. Add a cast: [n x i8] -> i8*
           llvm::Value *FormatStrPtr = Builder.CreatePointerCast(PrintfFormatStrVar, PrintfArgTy, "formatStr");
           llvm::Value *Cast = Builder.CreateFPCast(&Inst, Type::getDoubleTy(CTX));
+          auto opcode = Inst.getOpcode();
+
+          if (opcodes.find(opcode) == opcodes.end()) {
+            opcodes[opcode] = Builder.CreateGlobalStringPtr(Inst.getOpcodeName(), "", 0, &M);
+          }
+          auto opName = opcodes.at(opcode);
 
           Builder.CreateCall(Printf, {
             FormatStrPtr,
             InstName,
             Cast,
-            floatTypeNameConstants[Inst.getType()->getTypeID()]
+            floatTypeNameConstants[Inst.getType()->getTypeID()],
+            opName
           });
           InsertedAtLeastOnePrintf = true;
         }

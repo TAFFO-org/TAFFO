@@ -6,6 +6,10 @@
 #include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
 #include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
 #include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
+#include "DynamicAnalysis/Tracing/InjectFuncCall.h"
+#include "DynamicAnalysis/Tracing/ReadTrace.h"
+#include "DynamicAnalysis/Tracing/NameVariables.h"
+#include "DynamicAnalysis/Tracing/StripAnnotations.h"
 #include "TaffoMem2Reg/Mem2Reg.h"
 
 using namespace llvm;
@@ -34,6 +38,18 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
                 return true;
               } else if (Name == "taffoerr") {
                 PM.addPass(ErrorProp::ErrorPropagator());
+                return true;
+              } if (Name == "taffo-inject-func-call") {
+                PM.addPass(InjectFuncCall());
+                return true;
+              } else if (Name == "taffo-read-trace") {
+                PM.addPass(ReadTrace());
+                return true;
+              } else if (Name == "taffo-name-variables") {
+                PM.addPass(NameVariables());
+                return true;
+              } else if (Name == "taffo-strip-annotations") {
+                PM.addPass(StripAnnotations());
                 return true;
               }
               return false;
