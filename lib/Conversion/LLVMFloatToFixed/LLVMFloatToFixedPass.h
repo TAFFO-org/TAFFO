@@ -10,6 +10,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -364,8 +365,12 @@ struct FloatToFixed {
 
     if (!ip) {
       ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval);
-      if (ip)
-        ip = ip->getNextNode();
+      // argument is not an instruction, insert it's convertion in the first basic block
+      if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)){
+        auto arg = llvm::cast<llvm::Argument>(cvtfallval);
+        ip = &*(arg->getParent()->begin()->getFirstInsertionPt());
+      }
+
       assert(ip && "ip mandatory for non-instruction values");
     }
     /*Nel caso in cui la chiave (valore rimosso in precedenze) è un float
@@ -376,7 +381,7 @@ struct FloatToFixed {
         cvtfallval->getType() != origType) {
       llvm::BitCastInst *bc = new llvm::BitCastInst(cvtfallval, origType);
       cpMetaData(bc, cvtfallval);
-      bc->insertBefore(ip);
+      bc->insertAfter(ip);
       return bc;
     }
     if (origType->isFloatingPointTy())
