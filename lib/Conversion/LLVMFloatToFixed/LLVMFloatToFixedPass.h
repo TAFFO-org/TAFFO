@@ -17,6 +17,7 @@
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "WriteModule.h"
 
 #define DEBUG_TYPE "taffo-conversion"
 extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
@@ -354,13 +355,15 @@ struct FloatToFixed {
       return cvtfallval;
 
     if (!ip) {
-      ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval);
+      if ((ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval))){
+        ip->getNextNode();
+      }
       // argument is not an instruction, insert it's convertion in the first basic block
       if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)){
         auto arg = llvm::cast<llvm::Argument>(cvtfallval);
-        ip = &*(arg->getParent()->begin()->getFirstInsertionPt());
+        ip = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
       }
-
+      
       assert(ip && "ip mandatory for non-instruction values");
     }
     /*Nel caso in cui la chiave (valore rimosso in precedenze) è un float
@@ -371,7 +374,7 @@ struct FloatToFixed {
         cvtfallval->getType() != origType) {
       llvm::BitCastInst *bc = new llvm::BitCastInst(cvtfallval, origType);
       cpMetaData(bc, cvtfallval);
-      bc->insertAfter(ip);
+      bc->insertBefore(ip);
       return bc;
     }
     if (origType->isFloatingPointTy())
