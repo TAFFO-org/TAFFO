@@ -378,7 +378,7 @@ TEST_F(VRAGlobalStoreTest, updateMDInfo_StructPartialMD)
 {
   auto *structInner = new VRAStructNode();
   range_t r_inner = {0, 1, true};
-  auto *scalarInner = new VRAScalarNode(std::make_shared<range_t>(r_inner));
+  // auto *scalarInner = new VRAScalarNode(std::make_shared<range_t>(r_inner));
   // structInner->setNodeAt(0, std::shared_ptr<VRAScalarNode>(scalarInner));
   auto *structOuter = new VRAStructNode();
   range_t r_outer = {2, 3, false};

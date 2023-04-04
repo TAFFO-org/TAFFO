@@ -1098,11 +1098,10 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
       // return;
     }
 
-
     int missing = 0;
 
     for (unsigned index = 0; index < def_vals.size(); index++) {
-      LLVM_DEBUG(dbgs() << "[memPhi] Handlign operator " << index << "...\n";);
+      LLVM_DEBUG(dbgs() << "[memPhi] Handling operator " << index << "...\n";);
       Value *op = def_vals[index];
 
       if (toSkip[index]) {
@@ -1122,8 +1121,8 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
       }
     }
 
-
-    LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n";);
+    LLVM_DEBUG(dbgs() << "missing no. = " << missing << "\n");
+    LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n");
 
   } else if (load->getType()->isPointerTy()) {
     LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n";);

@@ -772,15 +772,15 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       if (Size > MaxTotalBitsConv) {
         Ext1Exp = intype1.scalarFracBitsAmt();
         Size = fixpt.scalarBitsAmt();
-        auto target = fixpt.scalarFracBitsAmt();
+        unsigned target = fixpt.scalarFracBitsAmt();
 
         //  we want fixpt fixpt.scalarFracBitsAmt() = Ext1Exp - Ext2Exp        
         if (Ext1Exp < Ext2Exp) {
           Ext2Exp = Ext1Exp;
         }
         if (Ext1Exp - Ext2Exp < target){
-           auto diff = (int) fixpt.scalarFracBitsAmt() - target;
-           Ext2Exp = diff > MinQuotientFrac ? diff : MinQuotientFrac; // HOW prevent division by 0?
+           int diff = fixpt.scalarFracBitsAmt() - (int)target;
+           Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
         }
 
       }

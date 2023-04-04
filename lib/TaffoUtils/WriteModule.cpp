@@ -10,6 +10,7 @@ int write_module(llvm::Twine filename, const llvm::Module &M)
   llvm::raw_fd_ostream stream{file, false};
   M.print(stream, nullptr);
   llvm::sys::fs::closeFile(file);
+  return 0;
 }
 
 int write_module(const char * filename, const llvm::Module &M)
@@ -20,4 +21,5 @@ int write_module(const char * filename, const llvm::Module &M)
   llvm::raw_fd_ostream stream{file, false};
   M.print(stream, nullptr);
   llvm::sys::fs::closeFile(file);
+  return 0;
 }

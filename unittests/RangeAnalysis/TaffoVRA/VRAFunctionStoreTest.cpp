@@ -16,7 +16,6 @@ class VRAFunctionStoreTest : public taffo_test::Test
 {
 private:
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::shared_ptr<VRAGlobalStore>(new VRAGlobalStore());
-  Pass *P;
 
 protected:
   ModuleAnalysisManager MAM = ModuleAnalysisManager();

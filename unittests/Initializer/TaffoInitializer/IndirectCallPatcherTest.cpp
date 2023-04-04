@@ -28,14 +28,14 @@ TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_lastFunction)
 {
   for (auto prefix : prefixBlocklist) {
     auto F1 = genFunction(*M, prefix, Type::getVoidTy(Context), {});
-    auto CI1 = CallInst::Create(F1, {}, "", BB0);
+    CallInst::Create(F1, {}, "", BB0);
     ASSERT_TRUE(containsUnsupportedFunctions(F0, {}));
   }
 }
 
 TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_traversed)
 {
-  /*
+  /*x
    * F0: entry
    * F1: supportedFunction
    * F2: unsupported function
@@ -46,8 +46,8 @@ TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_traversed)
     auto F1 = genFunction(*M, "supportedFunction", Type::getVoidTy(Context), {});
     auto F2 = genFunction(*M, prefix, Type::getVoidTy(Context), {});
     auto BB1 = BasicBlock::Create(Context, "entry", F1);
-    auto CI1 = CallInst::Create(F1, {}, "", BB0);
-    auto CI2 = CallInst::Create(F2, {}, "", BB1);
+    CallInst::Create(F1, {}, "", BB0);
+    CallInst::Create(F2, {}, "", BB1);
     ASSERT_TRUE(containsUnsupportedFunctions(F0, {}));
     ASSERT_TRUE(containsUnsupportedFunctions(F1, {}));
   }
@@ -55,7 +55,7 @@ TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_traversed)
 
 TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_no)
 {
-  auto CI = CallInst::Create(F0, {}, "", BB0);
+  CallInst::Create(F0, {}, "", BB0);
   ASSERT_FALSE(containsUnsupportedFunctions(F0, {}));
 }
 

@@ -176,7 +176,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_struct)
   auto ST = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   F = genFunction(*M, "malloc", PointerType::get(ST, 0), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
-  auto BC = BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
+  BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
   auto *SI = new mdutils::StructInfo(2);
   SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
   SI->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
@@ -205,7 +205,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_structNoAnno)
   auto ST = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   F = genFunction(*M, "malloc", PointerType::get(ST, 0), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
-  auto BC = BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
+  BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
 
   VRA.analyzeInstruction(I);
 
@@ -220,7 +220,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_pointer)
 {
   F = genFunction(*M, "malloc", PointerType::get(Type::getInt32Ty(Context), 0), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
-  auto BC = BitCastInst::Create(Instruction::BitCast, I, PointerType::get(PointerType::get(Type::getInt32Ty(Context), 0), 0), "", BB);
+  BitCastInst::Create(Instruction::BitCast, I, PointerType::get(PointerType::get(Type::getInt32Ty(Context), 0), 0), "", BB);
   mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
   GlobalStore->harvestMetadata(*M);
 

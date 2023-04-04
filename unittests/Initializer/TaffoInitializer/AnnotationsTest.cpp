@@ -110,7 +110,7 @@ TEST_F(AnnotationsTest, StartingPoint_Unset)
     )";
   M = makeLLVMModule(Context, code);
   try {
-    llvm::Function *F = initializer.findStartingPointFunctionGlobal(*M);
+    initializer.findStartingPointFunctionGlobal(*M);
   } catch (const std::exception &e) {
     EXPECT_STREQ(e.what(), STARTP_NOT_INIT_ERR.c_str());
   }
@@ -127,7 +127,7 @@ TEST_F(AnnotationsTest, StartingPoint_NotAFunction)
     )";
   M = makeLLVMModule(Context, code);
   try {
-    llvm::Function *F = initializer.findStartingPointFunctionGlobal(*M);
+    initializer.findStartingPointFunctionGlobal(*M);
   } catch (const std::exception &e) {
     EXPECT_STREQ(e.what(), STARTP_NOT_INIT_ERR.c_str());
   }
