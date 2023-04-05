@@ -38,7 +38,8 @@ run_one()
   benchname=$(basename $benchdir)
   fix_out=build/"$benchname".out
   flt_out=build/"$benchname".float.out
-  
+  dynamic_out=build/"$benchname"_dynamic.out
+
   $TASKSET $flt_out 2> $datadir/$benchname.float.csv > $datadir/$benchname.float.time.txt || return $?
   for ((i=1; i<$times; i++)); do
     $TASKSET $flt_out 2> /dev/null >> $datadir/$benchname.float.time.txt || return $?
@@ -46,6 +47,10 @@ run_one()
   $TASKSET $fix_out 2> $datadir/$benchname.csv > $datadir/$benchname.time.txt || return $?
   for ((i=1; i<$times; i++)); do
     $TASKSET $fix_out 2> /dev/null >> $datadir/$benchname.time.txt || return $?
+  done
+  $TASKSET $dynamic_out 2> $datadir/$benchname.dynamic.csv > $datadir/$benchname.dynamic.time.txt || return $?
+  for ((i=1; i<$times; i++)); do
+    $TASKSET $dynamic_out 2> /dev/null >> $datadir/$benchname.dynamic.time.txt || return $?
   done
 }
 

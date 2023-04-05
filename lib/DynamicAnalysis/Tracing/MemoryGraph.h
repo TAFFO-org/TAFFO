@@ -40,18 +40,20 @@ private:
                      std::equal_to<std::shared_ptr<taffo::ValueWrapper>>> instToIndex;
   std::unordered_map<int, std::shared_ptr<ValueWrapper>> indexToInst;
   std::list<std::pair<int, int>> edges;
-  std::list<llvm::Value*> queue;
-  std::unordered_map<llvm::Value*, bool> visited;
+  std::list<std::shared_ptr<ValueWrapper>> queue;
+  std::unordered_map<std::shared_ptr<ValueWrapper>, bool,
+                     std::hash<std::shared_ptr<taffo::ValueWrapper>>,
+                     std::equal_to<std::shared_ptr<taffo::ValueWrapper>>> visited;
   int index = -1;
 
   int assignOrGetIndex(std::shared_ptr<ValueWrapper> Inst);
   void seedRoots();
   void makeGraph();
   void addToGraph(std::shared_ptr<ValueWrapper> src, std::shared_ptr<ValueWrapper> dst);
-  void queuePush(llvm::Value* V);
-  llvm::Value* queuePop();
-  void markVisited(llvm::Value* V);
-  bool isVisited(llvm::Value* V);
+  void queuePush(std::shared_ptr<ValueWrapper> V);
+  std::shared_ptr<ValueWrapper> queuePop();
+  void markVisited(std::shared_ptr<ValueWrapper> V);
+  bool isVisited(std::shared_ptr<ValueWrapper> V);
   void handleAllocaInst(llvm::AllocaInst* allocaInst);
   void handleStoreInst(llvm::StoreInst* storeInst);
   void handleLoadInst(llvm::LoadInst* loadInst);

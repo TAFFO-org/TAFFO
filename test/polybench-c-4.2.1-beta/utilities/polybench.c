@@ -19,6 +19,7 @@
 #include <sys/resource.h>
 #include <sched.h>
 #include <math.h>
+#include <stdbool.h>
 #ifdef _OPENMP
 # include <omp.h>
 #endif
@@ -567,3 +568,79 @@ void* polybench_alloc_data(unsigned long long int n, int elt_size)
 
   return ret;
 }
+
+#ifdef COLLECT_STATS
+
+void stats_header() {
+  fprintf (POLYBENCH_DUMP_TARGET, "var_scaling_factor,var_name,var_min,var_max,var_isnan,var_isinf\n");
+}
+
+void stats_scalar(char* name, DATA_TYPE val) {
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, val, val, isnan(val), isinf(val));
+}
+
+void stats_1d(char* name, int n, DATA_TYPE val[n]) {
+  float min = val[0];
+  float max = val[0];
+  bool is_nan = false;
+  bool is_inf = false;
+  for (int i = 0; i < n; i++) {
+      float elem = val[i];
+      if (!isfinite(elem)) {
+            is_nan |= isnan(elem);
+            is_inf |= isinf(elem);
+            continue;
+      }
+      if (min > elem) min = elem;
+      if (max < elem) max = elem;
+  }
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, min, max, is_nan, is_inf);
+}
+
+void stats_2d(char* name, int n, int m, DATA_TYPE val[n][m]) {
+  float min = val[0][0];
+  float max = val[0][0];
+  bool is_nan = false;
+  bool is_inf = false;
+  for (int i = 0; i < n; i++) {
+      for (int j = 0; j < m; j++) {
+            float elem = val[i][j];
+            if (!isfinite(elem)) {
+              is_nan |= isnan(elem);
+              is_inf |= isinf(elem);
+              continue;
+            }
+            if (min > elem) min = elem;
+            if (max < elem) max = elem;
+      }
+  }
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, min, max, is_nan, is_inf);
+}
+
+void stats_3d(char* name, int n, int m, int p, DATA_TYPE val[n][m][p]) {
+  float min = val[0][0][0];
+  float max = val[0][0][0];
+  bool is_nan = false;
+  bool is_inf = false;
+  for (int i = 0; i < n; i++) {
+      for (int j = 0; j < m; j++) {
+            for (int k = 0; k < p; k++) {
+              float elem = val[i][j][k];
+              if (!isfinite(elem)) {
+              is_nan |= isnan(elem);
+              is_inf |= isinf(elem);
+              continue;
+              }
+              if (min > elem) min = elem;
+              if (max < elem) max = elem;
+            }
+      }
+  }
+  fprintf (POLYBENCH_DUMP_TARGET, "%d,%s,%f,%f,%d,%d\n",
+          SCALING_FACTOR, name, min, max, is_nan, is_inf);
+}
+
+#endif
