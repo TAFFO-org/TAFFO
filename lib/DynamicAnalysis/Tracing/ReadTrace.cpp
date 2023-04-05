@@ -2,6 +2,7 @@
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 
 #include <iostream>
 #include <fstream>
@@ -40,7 +41,7 @@ bool ReadTrace::runOnModule(Module &M) {
   taffo::MemoryGraph graph{M};
   const std::list<std::pair<int, int>> &edges = graph.getEdges();
   int instCount = graph.getNodeCount();
-  errs() << "Nodes in memory graph: " << instCount << "\n";
+  llvm::dbgs() << "Nodes in memory graph: " << instCount << "\n";
   taffo::ConnectedComponents ccAlg{instCount, edges};
   const std::unordered_map<int, std::list<int>> &cc = ccAlg.getResult();
   std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
@@ -50,14 +51,15 @@ bool ReadTrace::runOnModule(Module &M) {
     std::list<int> l = it.second;
     for (auto x : l) {
       ccValues[it.first].emplace_back(graph.getNode(x));
-//      errs() << typeName(*indexToInst[x]) << ": ";
-//      errs() << *indexToInst[x] << "\n";
+//      llvm::dbgs() << typeName(*indexToInst[x]) << ": ";
+//      llvm::dbgs() << *indexToInst[x] << "\n";
     }
-//    errs() << "-----\n";
+//    llvm::dbgs() << "-----\n";
   }
 
   taffo::ExpandEqualValue expand{ccValues};
-  auto &expandedCCValues = expand.getResult();
+//  auto &expandedCCValues = expand.getResult();
+  auto &expandedCCValues = ccValues;
 
   // read the trace file
   parseTraceFiles(minVals, maxVals, valTypes);
@@ -69,18 +71,18 @@ bool ReadTrace::runOnModule(Module &M) {
     const auto range = it.second;
     const auto l = expandedCCValues[it.first];
     for (auto &x : l) {
-      errs() << typeName(*(x->value)) << ": ";
-      errs() << "[" << range.first << ", " << range.second << "]: ";
+      llvm::dbgs() << typeName(*(x->value)) << ": ";
+      llvm::dbgs() << "[" << range.first << ", " << range.second << "]: ";
       if(x->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCall = static_cast<taffo::FunCallArgWrapper *>(&(*x));
         if (funCall->isExternalFunc) {
-          errs() << "[disabled]: ";
+          llvm::dbgs() << "[disabled]: ";
         }
-        errs() << "[arg: " << funCall->argPos << "]: ";
+        llvm::dbgs() << "[arg: " << funCall->argPos << "]: ";
       }
-      errs() << *(x->value) << "\n";
+      llvm::dbgs() << *(x->value) << "\n";
     }
-    errs() << "-----\n";
+    llvm::dbgs() << "-----\n";
   }
 
   // assign calculated intervals to the metadata
@@ -149,7 +151,7 @@ bool ReadTrace::runOnModule(Module &M) {
       auto instError = std::shared_ptr<double>{};
       mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
       mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
-//      errs() << "annotate inst:\n " << *Inst
+//      llvm::dbgs() << "annotate inst:\n " << *Inst
 //             << ", metadata:\n " << ii.toString()
 //             << "\n";
       Changed = true;
@@ -171,7 +173,7 @@ bool ReadTrace::runOnModule(Module &M) {
           *ArgII = ii;
           FunMD[Arg->getArgNo()] = ArgII;
         }
-        errs() << "annotate arg:\n " << *Arg
+        llvm::dbgs() << "annotate arg:\n " << *Arg
                << ", metadata:\n " << dyn_cast<mdutils::InputInfo>(FunMD[Arg->getArgNo()])->toString()
                << "\n";
         mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
@@ -185,7 +187,7 @@ bool ReadTrace::runOnModule(Module &M) {
       auto instError = std::shared_ptr<double>{};
       mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
       mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
-      errs() << "annotate global:\n " << *GlobalVal
+      llvm::dbgs() << "annotate global:\n " << *GlobalVal
              << ", metadata:\n " << ii.toString()
              << "\n";
       Changed = true;
@@ -296,7 +298,7 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
                                 std::unordered_map<std::string, double>& maxVals,
                                 std::unordered_map<std::string, mdutils::FloatType::FloatStandard>& valTypes) const {
   for (auto &filename: Filenames) {
-    errs() << "training data file: " << filename << "\n";
+    llvm::dbgs() << "training data file: " << filename << "\n";
     std::string myText;
     std::ifstream MyReadFile(filename);
     while (getline (MyReadFile, myText)) {
@@ -307,7 +309,7 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
       getline(ss, parsed, ' ');
       std::string varName = parsed;
       getline(ss, parsed, ' ');
-      double varValue = std::stod(parsed);
+      double varValue = ceil(std::stod(parsed));
       getline(ss, parsed, ' ');
       std::string varType = parsed;
 

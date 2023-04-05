@@ -10,7 +10,7 @@ if [[ -z $(which $TIMEOUT) ]]; then
   TIMEOUT='gtimeout'
 fi
 if [[ ! ( -z $(which $TIMEOUT) ) ]]; then
-  TIMEOUT="$TIMEOUT 120"
+  TIMEOUT="$TIMEOUT 1200"
 else
   printf 'warning: timeout command not found\n'
   TIMEOUT=''
@@ -56,6 +56,51 @@ compile_one()
     $OPT -S -O3 -o build/"$benchname".float.out.ll build/"$benchname".out.1.taffotmp.ll
     taffo-instmix build/"$benchname".float.out.ll > results-out/${benchname}.float.imix.txt
     taffo-mlfeat build/"$benchname".float.out.ll > results-out/${benchname}.float.mlfeat.txt
+  fi
+}
+
+compile_one_dynamic()
+{
+  benchpath=$1
+  xparams=$2
+  benchdir=$(dirname $benchpath)
+  benchname=$(basename $benchdir)
+  $TIMEOUT taffo \
+    -o build/"$benchname"_dynamic_instrumented.out \
+    -dynamic-instrument \
+    -temp-dir build \
+    "$benchpath" \
+    ./utilities/polybench.c \
+    -I"$benchdir" \
+    -I./utilities \
+    -I./ \
+    $xparams \
+    $MIXIMI  \
+    -debug-taffo \
+    -lm \
+    2> build/${benchname}_dynamic_instrumented.log || return $?
+
+  build/"$benchname"_dynamic_instrumented.out > build/"$benchname"_dynamic_instrumented.trace 2> build/"$benchname"_dynamic_instrumented.out_log
+
+  $TIMEOUT taffo \
+      -o build/"$benchname"_dynamic.out \
+      -dynamic-trace build/"$benchname"_dynamic_instrumented.trace \
+      -temp-dir build \
+      "$benchpath" \
+      ./utilities/polybench.c \
+      -I"$benchdir" \
+      -I./utilities \
+      -I./ \
+      $xparams \
+      $MIXIMI  \
+      -debug-taffo \
+      -lm \
+      2> build/${benchname}_dynamic.log > build/${benchname}_dynamic_stdout.log || return $?
+
+  if [[ $RUN_METRICS -ne 0 ]]; then
+    mkdir -p results-out
+    taffo-instmix build/"$benchname"_dynamic.out.5.taffotmp.ll > results-out/${benchname}_dynamic.imix.txt
+    taffo-mlfeat build/"$benchname"_dynamic.out.5.taffotmp.ll > results-out/${benchname}_dynamic.mlfeat.txt
   fi
 }
 
@@ -171,6 +216,20 @@ for bench in $all_benchs; do
       bpid_fc=' ok '
     fi
     printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"
+
+    printf '[....] %s' "$bench"_dynamic
+    opts=$(read_opts ${bench})
+    compile_one_dynamic "$bench" \
+      "-O3 \
+      -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
+      -D$D_CONF -D$D_STANDARD_DATASET $MIXIMODE \
+      -Xdta -totalbits -Xdta $TOT \
+      $ERRORPROP $opts"
+    bpid_fc=$?
+    if [[ $bpid_fc == 0 ]]; then
+      bpid_fc=' ok '
+    fi
+    printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"_dynamic
   fi
 done
 

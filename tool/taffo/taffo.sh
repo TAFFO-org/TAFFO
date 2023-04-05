@@ -484,7 +484,7 @@ append_time_string "init_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
-  ${init_flags} \
+  $compat_flags_opt ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
 
 ###
@@ -603,7 +603,7 @@ else
 
     ${OPT} \
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
-      --passes="no-op-module,taffodta,globaldce" \
+      --passes="no-op-module,taffodta" \
       $compat_flags_opt ${dta_flags} ${dta_inst_set} \
       "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" \
       -S -o "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" || exit $?
