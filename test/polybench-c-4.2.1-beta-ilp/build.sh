@@ -116,7 +116,7 @@ fi
 
 TAFFO_PREFIX=$(dirname $(which taffo))/..
 
-if [[ -z $costmodel ]];  then export costmodel=stm32; fi
+if [[ -z $costmodel ]];  then export costmodel=core2; fi
 if [[ -z $instrset ]];   then export instrset=fix; fi
 if [[ -z $enobweight ]]; then export enobweight=1; fi
 if [[ -z $timeweight ]]; then export timeweight=100; fi
