@@ -10,22 +10,21 @@ if [[ -z $(which $TIMEOUT) ]]; then
   TIMEOUT='gtimeout'
 fi
 if [[ ! ( -z $(which $TIMEOUT) ) ]]; then
-  TIMEOUT="$TIMEOUT 120"
+  TIMEOUT="$TIMEOUT 600"
 else
   printf 'warning: timeout command not found\n'
   TIMEOUT=''
 fi
 
+if [[ -z $(which taffo) ]]; then
+  echo -e '\031[33m'"Error"'\033[39m'" taffo command not found. Install taffo and make sure the place where you installed it is in your PATH!";
+fi
 if [[ -z $LLVM_DIR ]]; then
-  echo -e '\033[33m'"Warning"'\033[39m'" using default llvm/clang";
+  llvmbin=$(taffo -print-llvm-bin-dir)
 else
   llvmbin="$LLVM_DIR/bin/";
 fi
 if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
-
-if [[ -z $(which taffo) ]]; then
-  echo -e '\031[33m'"Error"'\033[39m'" taffo command not found. Install taffo and make sure the place where you installed it is in your PATH!";
-fi
 
 
 compile_one()
