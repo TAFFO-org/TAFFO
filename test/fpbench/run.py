@@ -19,7 +19,7 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', None)
 
-
+CLANG=subprocess.check_output('taffo -print-clang', shell=True, encoding='utf8').strip()
 
 def bold( s : str):
     sys.stdout.buffer.write(b"\x1B\x5B1m")
@@ -77,9 +77,11 @@ def compilefloat(path: Path):
     bench_exec = path.name + "-float"
     print("Compiling: {}\t".format(bench_exec), end="")
     flush()
-    clang = 'clang-12'
+    #clang = 'clang-12'
     if platform.system() == 'Darwin':
         clang = 'clang -Wno-error=implicit-function-declaration'
+    else:
+        clang = CLANG
     s = subprocess.run("cd {}; {} {}   {} -o {}  -lm".format(path.as_posix(), clang, compile_flag ,bench_name, bench_exec), shell=True, stdout=pipe_out, stderr=pipe_out)
 
     if s.returncode == 0:
