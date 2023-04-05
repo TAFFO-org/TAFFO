@@ -2,6 +2,7 @@
 
 #include <list>
 #include <unordered_set>
+#include "llvm/Support/Debug.h"
 
 #include "TracingUtils.h"
 

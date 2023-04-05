@@ -60,7 +60,7 @@ def ComputeDifference(fix_data, flt_data):
       n += 1
       accerr += (vflo - vfix).copy_abs()
       accval += vflo
-      
+
   e_perc = (accerr / accval * 100) if accval != 0 and n > 0 else -1
   e_abs = (accerr / n) if n > 0 else -1
       
@@ -104,10 +104,23 @@ if __name__ == "__main__":
     fixp_data = ReadValues(str(fixp_dataf))
     fixp_timesf = PolybenchRootDir() / 'results-out' / (name+'.time.txt')
     fixp_times = ReadValues(str(fixp_timesf))
+
+    float_dataf2 = PolybenchRootDir() / 'results-out' / (name+'.float.csv')
+    float_data2 = ReadValues(str(float_dataf2))
+    float_timesf2 = PolybenchRootDir() / 'results-out' / (name+'.float.time.txt')
+    float_times2 = ReadValues(str(float_timesf2))
+    dynamic_dataf = PolybenchRootDir() / 'results-out' / (name+'.dynamic.csv')
+    dynamic_data = ReadValues(str(dynamic_dataf))
+    dynamic_timesf = PolybenchRootDir() / 'results-out' / (name+'.dynamic.time.txt')
+    dynamic_times = ReadValues(str(dynamic_timesf))
     try:
       res = ComputeDifference(fixp_data, float_data)
       res.update(ComputeSpeedups(float_times, fixp_times))
       g_res[BenchmarkName(bench)] = res
+
+      res2 = ComputeDifference(dynamic_data, float_data2)
+      res2.update(ComputeSpeedups(float_times2, dynamic_times))
+      g_res[BenchmarkName(bench) + '-dynamic'] = res2
     except Exception as inst:
       print("Problem With " + name + ": " + str(inst))
 

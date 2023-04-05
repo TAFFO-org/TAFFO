@@ -5,6 +5,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/Debug.h"
 
 #include "TaffoUtils/TypeUtils.h"
 
@@ -41,13 +42,13 @@ bool NameVariables::runOnModule(Module &M) {
       continue;
     }
 
-    errs() << F.getName() << "\n";
+    llvm::dbgs() << F.getName() << "\n";
 
     while (!F.users().empty()) {
       auto *user = *F.users().begin();
       if (isa<CallInst>(user) || isa<InvokeInst>(user)) {
         auto *call = dyn_cast<CallBase>(user);
-        errs() << *call << "\n";
+        llvm::dbgs() << *call << "\n";
 
         Function *newF = createFunctionCopy(call);
         call->setCalledFunction(newF);

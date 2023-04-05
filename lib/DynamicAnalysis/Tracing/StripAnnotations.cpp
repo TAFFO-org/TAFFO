@@ -2,6 +2,7 @@
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 
@@ -26,7 +27,7 @@ bool StripAnnotations::runOnModule(llvm::Module &M)
         if (!Inst.isDebugOrPseudoInst()) {
           if (auto *call = dyn_cast<CallInst>(current)) {
             if (call->getCalledFunction() && call->getCalledFunction()->getName() == "llvm.var.annotation") {
-              errs() << "removing: " << *call << "\n";
+              llvm::dbgs() << "removing: " << *call << "\n";
               call->eraseFromParent();
               Changed = true;
             }
@@ -39,7 +40,7 @@ bool StripAnnotations::runOnModule(llvm::Module &M)
 
   GlobalVariable *globAnnos = M.getGlobalVariable("llvm.global.annotations");
   if (globAnnos != nullptr) {
-    errs() << "removing: " << *globAnnos << "\n";
+    llvm::dbgs() << "removing: " << *globAnnos << "\n";
     globAnnos->eraseFromParent();
     Changed = true;
   }

@@ -29,6 +29,29 @@
 
 # include <stdlib.h>
 
+#ifdef DATA_TYPE_IS_INT
+#  define DATA_TYPE int
+#  define DATA_PRINTF_MODIFIER "%d "
+#endif
+
+#ifdef DATA_TYPE_IS_FLOAT
+#  define DATA_TYPE  float
+#  define DATA_PRINTF_MODIFIER "%0.16f "
+#  define SCALAR_VAL(x) x##f
+#  define SQRT_FUN(x) sqrtf_PB(x)
+#  define EXP_FUN(x) expf(x)
+#  define POW_FUN(x,y) powf(x,y)
+# endif
+
+#ifdef DATA_TYPE_IS_DOUBLE
+#  define DATA_TYPE double
+#  define DATA_PRINTF_MODIFIER "%0.16lf "
+#  define SCALAR_VAL(x) x
+#  define SQRT_FUN(x) sqrt(x)
+#  define EXP_FUN(x) exp(x)
+#  define POW_FUN(x,y) pow(x,y)
+# endif
+
 #define PB_STR(x) #x
 #define PB_XSTR(x) PB_STR(x)
 
@@ -243,6 +266,10 @@ extern void polybench_free_data(void* ptr);
 /* approaches. */
 extern void polybench_flush_cache();
 extern void polybench_prepare_instruments();
+
+#ifndef SCALING_FACTOR
+#define SCALING_FACTOR 1
+#endif
 
 
 #endif /* !POLYBENCH_H */
