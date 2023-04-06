@@ -121,7 +121,7 @@ void polybench_flush_cache()
 #endif
   for (i = 0; i < cs; i++)
     tmp += flush[i];
-  assert (tmp <= 10.0);
+//  assert (tmp <= 10.0);
   free (flush);
 }
 

@@ -97,6 +97,8 @@ compile_one_dynamic()
       -lm \
       2> build/${benchname}_dynamic.log > build/${benchname}_dynamic_stdout.log || return $?
 
+  rm -r build/"$benchname"_dynamic_instrumented.trace
+
   if [[ $RUN_METRICS -ne 0 ]]; then
     mkdir -p results-out
     taffo-instmix build/"$benchname"_dynamic.out.5.taffotmp.ll > results-out/${benchname}_dynamic.imix.txt
