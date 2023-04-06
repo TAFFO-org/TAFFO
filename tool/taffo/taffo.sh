@@ -20,6 +20,9 @@ taffo_setenv_find()
   fi
 
   PATH="$BASEDIR/$2/$FN"
+  if [[ ! -e $PATH ]] && [[ $2 == 'lib' ]]; then
+    PATH="$BASEDIR/${2}64/$FN"
+  fi
 
   if [[ ! -e "$PATH" ]]; then
     echo "Cannot find $FN" >> $LOG
