@@ -309,7 +309,12 @@ void ReadTrace::parseTraceFiles(std::unordered_map<std::string, double>& minVals
       getline(ss, parsed, ' ');
       std::string varName = parsed;
       getline(ss, parsed, ' ');
-      double varValue = ceil(std::stod(parsed));
+      double varValue = std::stod(parsed);
+      if (varValue < 0) {
+        varValue = floor(varValue);
+      } else {
+        varValue = ceil(varValue);
+      }
       getline(ss, parsed, ' ');
       std::string varType = parsed;
 

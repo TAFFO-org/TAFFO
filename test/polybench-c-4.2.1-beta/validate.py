@@ -83,6 +83,11 @@ def PrettyPrint(table):
   df = pd.DataFrame.from_dict(table)
   df = df.transpose()
   return df.to_string()
+
+def CsvPrint(table):
+  df = pd.DataFrame.from_dict(table)
+  df = df.transpose()
+  return df
           
 
 if __name__ == "__main__":

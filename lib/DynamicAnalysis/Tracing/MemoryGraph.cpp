@@ -68,6 +68,16 @@ void MemoryGraph::seedRoots()
     if (!F.hasName() || F.isDeclaration()) {
       continue;
     }
+    auto funName = F.getName().str();
+    if (funName == "polybench_flush_cache" ||
+        funName == "polybench_prepare_instruments" ||
+        funName == "polybench_timer_start" ||
+        funName == "rtclock" ||
+        funName == "polybench_timer_stop" ||
+        funName == "polybench_timer_print"
+    ) {
+      continue ;
+    }
     for (auto &BB : F.getBasicBlockList()) {
       for (auto &Inst : BB.getInstList()) {
         if (Inst.isDebugOrPseudoInst()) {
