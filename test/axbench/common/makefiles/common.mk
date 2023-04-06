@@ -2,7 +2,7 @@ EXECUTABLE_TAFFO  =${EXECUTABLE}-taffo
 CLANG             :=$(shell taffo -print-llvm-bin-dir)/clang
 CLANGXX           :=$(shell taffo -print-llvm-bin-dir)/clang++
 LLVM_LINK         :=$(shell taffo -print-llvm-bin-dir)/llvm-link
-LIB               =-lOpenCL -lm
+LIB               =-lm
 
 TAFFO_DTA    ?=fixp
 
