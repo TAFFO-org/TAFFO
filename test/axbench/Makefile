@@ -1,4 +1,4 @@
-BENCHS := blackscholes fft inversek2j jmeint kmeans
+BENCHS := blackscholes fft inversek2j jmeint kmeans sobel
 
 VALIDATE_FMT :='%40s %12s %12s%14s%20s\n'
 
