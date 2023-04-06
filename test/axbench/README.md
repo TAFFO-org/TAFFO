@@ -2,26 +2,34 @@
 
 http://axbench.org/
 
-TAFFO must have been compiled and installed, and its binaries must be in the current `$PATH`.
+TAFFO must have been compiled and installed, and its binaries must be in the
+current `$PATH`.
 
-First, do
-```bash
-$ export LLVM_DIR=/path/to/LLVM/install
-$ source ./setenv.sh /path/to/TAFFO/install
-```
+Additional dependencies to install for computing the error correctly:
 
-Then, you may enter each one of the app directories, and compile it with
-```bash
-$ ./compile+collect.sh
-```
-Export `ENABLE_ERROR=1` to enable error propagation.
+ - Python3, pypng
+ - Python2
+ - ImageMagick
 
-Run the benchmarks with
+To try out the benchmarks you can use both the top-level Makefile and the single
+makefiles in each benchmark's directory. All targets are valid for both kinds
+of makefiles.
+
+The available targets are:
+
+ - `all`: builds the benchmark(s) with and without TAFFO
+ - `run`: runs the benchmark(s)
+ - `validate`: prints a table comparing the execution time of the unmodified 
+   version and the TAFFO version, and the error of the outputs of the TAFFO
+   version compared with the unmodified version.
+ - `clean`: cleans up intermediate files (executables, data output, logs)
+
+In order to run all the benchmarks, execute the following commands in this
+directory:
+
 ```bash
-$ ./run.sh
+$ make clean
+$ make
+$ make run
+$ make validate
 ```
-or
-```bash
-$ ./run2.sh
-```
-for a more machine-readable output.
