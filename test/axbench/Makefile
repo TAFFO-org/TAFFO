@@ -1,4 +1,4 @@
-BENCHS := blackscholes fft
+BENCHS := blackscholes fft inversek2j
 
 VALIDATE_FMT :='%40s %12s %12s%14s%20s\n'
 
