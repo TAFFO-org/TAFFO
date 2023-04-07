@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <math.h> 
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
