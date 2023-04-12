@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 export SCRIPTPATH=$(cd $(dirname "$BASH_SOURCE") && pwd)
+export TARGET='stm32l101'
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM
 
 build_one()
@@ -41,7 +42,7 @@ build_one_embedded()
   main=${main/-/_}
   out="../../embedded_src/bench_obj/${main}.o"
   taffo \
-    *.c -I../../embedded_src -I../../embedded_src/stm32f207 -c -o "$out" $CFLAGS -D$pb_dataset \
+    *.c -I../../embedded_src -I../../embedded_src/"${TARGET}" -c -o "$out" $CFLAGS -D$pb_dataset \
     -DBENCH_MAIN="$main" \
     -mixedmode \
     -costmodel "$costmodel" \
@@ -64,7 +65,7 @@ build_one_embedded()
     echo 'FLOAT VERSION' >> "$out.log"
     cp "${main}.o.taffotmp.s" "../../embedded_src/bench_obj/${main}.s"
     ${CLANG} \
-      *.c -I../../embedded_src -I../../embedded_src/stm32f207 -S -o "$asm_flt" $CFLAGS -D$pb_dataset \
+      *.c -I../../embedded_src -I../../embedded_src/"${TARGET}" -S -o "$asm_flt" $CFLAGS -D$pb_dataset \
       -DBENCH_MAIN="$main_flt" \
       --target="$embedded_triple" -mcpu="$embedded_cpu" --sysroot="$embedded_sysroot" -fshort-enums \
         &>> "$out.log"
@@ -150,9 +151,9 @@ if [[ ( $# -gt 0 ) && ( $1 == build_embedded ) ]]; then
   echo > "$SCRIPTPATH"/embedded_src/bench_main.c.in
   echo > "$SCRIPTPATH"/embedded_src/bench_main.h
   rm -rf "$SCRIPTPATH"/embedded_src/bench_obj
-  if [[ -z $embedded_sysroot ]]; then export embedded_sysroot=/usr/local/arm-none-eabi; fi
+  if [[ -z $embedded_sysroot ]]; then export embedded_sysroot=/lib/arm-none-eabi; fi
   if [[ -z $embedded_triple ]];  then export embedded_triple=arm-none-eabi; fi
-  if [[ -z $embedded_cpu ]];     then export embedded_cpu=cortex-m3; fi
+  if [[ -z $embedded_cpu ]];     then export embedded_cpu=cortex-m0plus+nofp; fi
   printf '  embedded_sysroot = %s\n' "$embedded_sysroot"
   printf '  embedded_triple  = %s\n' "$embedded_triple"
   printf '  embedded_cpu     = %s\n' "$embedded_cpu"

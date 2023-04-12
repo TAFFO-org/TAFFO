@@ -51,6 +51,7 @@ def plot_error(results_path, stats_summary_full):
     sns.heatmap(fixed_err, annot=True, linewidths=.5, ax=axd['speedup'], cmap='coolwarm_r', vmin=-1, vmax=+1, fmt='.2%')
     axd['speedup'].title.set_text('speedup')
     fig.savefig(f'{file_base}.png', dpi=fig.dpi)
+    fig.savefig(f'{file_base}.pdf', dpi=fig.dpi)
 
 
 if __name__ == "__main__":
