@@ -97,7 +97,7 @@ void kernel_bicg(int m, int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -110,26 +110,28 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar()"))), M, m);
   POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
 
-  /* Initialize array(s). */
-  init_array (m, n,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(r),
-	      POLYBENCH_ARRAY(p));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+        /* Initialize array(s). */
+        init_array(m, n,
+                   POLYBENCH_ARRAY(A),
+                   POLYBENCH_ARRAY(r),
+                   POLYBENCH_ARRAY(p));
 
-  /* Start timer. */
-  polybench_start_instruments;
+        /* Start timer. */
+        polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_bicg (m, n,
-	       POLYBENCH_ARRAY(A),
-	       POLYBENCH_ARRAY(s),
-	       POLYBENCH_ARRAY(q),
-	       POLYBENCH_ARRAY(p),
-	       POLYBENCH_ARRAY(r));
+        /* Run kernel. */
+        kernel_bicg(m, n,
+                    POLYBENCH_ARRAY(A),
+                    POLYBENCH_ARRAY(s),
+                    POLYBENCH_ARRAY(q),
+                    POLYBENCH_ARRAY(p),
+                    POLYBENCH_ARRAY(r));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+        /* Stop and print timer. */
+        polybench_stop_instruments;
+        polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

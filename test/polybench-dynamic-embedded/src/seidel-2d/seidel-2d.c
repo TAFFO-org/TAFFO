@@ -82,7 +82,7 @@ void kernel_seidel_2d(int tsteps,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -92,18 +92,20 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), N, N, n, n);
 
 
-  /* Initialize array(s). */
-  init_array (n, POLYBENCH_ARRAY(A));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+    /* Initialize array(s). */
+    init_array(n, POLYBENCH_ARRAY(A));
 
-  /* Start timer. */
-  polybench_start_instruments;
+    /* Start timer. */
+    polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_seidel_2d (tsteps, n, POLYBENCH_ARRAY(A));
+    /* Run kernel. */
+    kernel_seidel_2d(tsteps, n, POLYBENCH_ARRAY(A));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

@@ -96,7 +96,9 @@ int application_init(void)
     printf("Boot in %d s...\n", i);
     HAL_Delay(1000);
   }
+  printf("\nBEGIN BENCHMARK\n");
   main();
+  printf("\nEND BENCHMARK\n");
   while (1)
   {
     /* USER CODE END WHILE */

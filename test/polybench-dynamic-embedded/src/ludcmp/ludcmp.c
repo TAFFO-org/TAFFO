@@ -140,7 +140,7 @@ void kernel_ludcmp(int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -152,26 +152,28 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
 
 
-  /* Initialize array(s). */
-  init_array (n,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(b),
-	      POLYBENCH_ARRAY(x),
-	      POLYBENCH_ARRAY(y));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+     /* Initialize array(s). */
+     init_array(n,
+                POLYBENCH_ARRAY(A),
+                POLYBENCH_ARRAY(b),
+                POLYBENCH_ARRAY(x),
+                POLYBENCH_ARRAY(y));
 
-  /* Start timer. */
-  polybench_start_instruments;
+     /* Start timer. */
+     polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_ludcmp (n,
-		 POLYBENCH_ARRAY(A),
-		 POLYBENCH_ARRAY(b),
-		 POLYBENCH_ARRAY(x),
-		 POLYBENCH_ARRAY(y));
+     /* Run kernel. */
+     kernel_ludcmp(n,
+                   POLYBENCH_ARRAY(A),
+                   POLYBENCH_ARRAY(b),
+                   POLYBENCH_ARRAY(x),
+                   POLYBENCH_ARRAY(y));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+     /* Stop and print timer. */
+     polybench_stop_instruments;
+     polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

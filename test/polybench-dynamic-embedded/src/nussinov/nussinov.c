@@ -112,7 +112,7 @@ void kernel_nussinov(int n, base POLYBENCH_1D(seq,N,n),
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -121,18 +121,20 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(seq, base, N, n);
   POLYBENCH_2D_ARRAY_DECL(table, DATA_TYPE __attribute__((annotate("target('table') scalar()"))), N, N, n, n);
 
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
   /* Initialize array(s). */
-  init_array (n, POLYBENCH_ARRAY(seq), POLYBENCH_ARRAY(table));
+  init_array(n, POLYBENCH_ARRAY(seq), POLYBENCH_ARRAY(table));
 
   /* Start timer. */
   polybench_start_instruments;
 
   /* Run kernel. */
-  kernel_nussinov (n, POLYBENCH_ARRAY(seq), POLYBENCH_ARRAY(table));
+  kernel_nussinov(n, POLYBENCH_ARRAY(seq), POLYBENCH_ARRAY(table));
 
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

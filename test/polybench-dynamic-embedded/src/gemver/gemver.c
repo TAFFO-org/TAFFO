@@ -118,7 +118,7 @@ void kernel_gemver(int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -137,36 +137,38 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(z, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
 
 
-  /* Initialize array(s). */
-  init_array (n, &alpha, &beta,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(u1),
-	      POLYBENCH_ARRAY(v1),
-	      POLYBENCH_ARRAY(u2),
-	      POLYBENCH_ARRAY(v2),
-	      POLYBENCH_ARRAY(w),
-	      POLYBENCH_ARRAY(x),
-	      POLYBENCH_ARRAY(y),
-	      POLYBENCH_ARRAY(z));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+    /* Initialize array(s). */
+    init_array(n, &alpha, &beta,
+               POLYBENCH_ARRAY(A),
+               POLYBENCH_ARRAY(u1),
+               POLYBENCH_ARRAY(v1),
+               POLYBENCH_ARRAY(u2),
+               POLYBENCH_ARRAY(v2),
+               POLYBENCH_ARRAY(w),
+               POLYBENCH_ARRAY(x),
+               POLYBENCH_ARRAY(y),
+               POLYBENCH_ARRAY(z));
 
-  /* Start timer. */
-  polybench_start_instruments;
+    /* Start timer. */
+    polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_gemver (n, alpha, beta,
-		 POLYBENCH_ARRAY(A),
-		 POLYBENCH_ARRAY(u1),
-		 POLYBENCH_ARRAY(v1),
-		 POLYBENCH_ARRAY(u2),
-		 POLYBENCH_ARRAY(v2),
-		 POLYBENCH_ARRAY(w),
-		 POLYBENCH_ARRAY(x),
-		 POLYBENCH_ARRAY(y),
-		 POLYBENCH_ARRAY(z));
+    /* Run kernel. */
+    kernel_gemver(n, alpha, beta,
+                  POLYBENCH_ARRAY(A),
+                  POLYBENCH_ARRAY(u1),
+                  POLYBENCH_ARRAY(v1),
+                  POLYBENCH_ARRAY(u2),
+                  POLYBENCH_ARRAY(v2),
+                  POLYBENCH_ARRAY(w),
+                  POLYBENCH_ARRAY(x),
+                  POLYBENCH_ARRAY(y),
+                  POLYBENCH_ARRAY(z));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
