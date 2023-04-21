@@ -5,7 +5,7 @@ LDFLAGS +=$(CPUFLAGS) -T$(TARGET)/STM32L010RBTx_FLASH.ld -Wl,--gc-sections --spe
 C_SRC   +=$(wildcard $(TARGET)/*.c)
 ASM_SRC +=$(wildcard $(TARGET)/*.s)
 
-SERIAL_DEVICE?=$(wildcard /dev/cu.usbmodem*)
+SERIAL_DEVICE?=$(wildcard /dev/ttyACM*)
 
 .PHONY: flash monitor cpuflags costmodel
 
@@ -18,5 +18,3 @@ monitor:
 cpuflags:
 	@echo '$(CPUFLAGS)'
 
-costmodel:
-	@echo stm32f4-float

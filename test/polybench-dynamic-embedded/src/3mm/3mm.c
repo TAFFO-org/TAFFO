@@ -111,7 +111,7 @@ void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int ni = NI;
@@ -129,29 +129,31 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE __attribute__((annotate("scalar()"))), NM, NL, nm, nl);
   POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE __attribute__((annotate("target('G') scalar(range(-16384, 16384) final)"))), NI, NL, ni, nl);
 
-  /* Initialize array(s). */
-  init_array (ni, nj, nk, nl, nm,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B),
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(D));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+      /* Initialize array(s). */
+      init_array(ni, nj, nk, nl, nm,
+                 POLYBENCH_ARRAY(A),
+                 POLYBENCH_ARRAY(B),
+                 POLYBENCH_ARRAY(C),
+                 POLYBENCH_ARRAY(D));
 
-  /* Start timer. */
-  polybench_start_instruments;
+      /* Start timer. */
+      polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_3mm (ni, nj, nk, nl, nm,
-	      POLYBENCH_ARRAY(E),
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B),
-	      POLYBENCH_ARRAY(F),
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(D),
-	      POLYBENCH_ARRAY(G));
+      /* Run kernel. */
+      kernel_3mm(ni, nj, nk, nl, nm,
+                 POLYBENCH_ARRAY(E),
+                 POLYBENCH_ARRAY(A),
+                 POLYBENCH_ARRAY(B),
+                 POLYBENCH_ARRAY(F),
+                 POLYBENCH_ARRAY(C),
+                 POLYBENCH_ARRAY(D),
+                 POLYBENCH_ARRAY(G));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+      /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

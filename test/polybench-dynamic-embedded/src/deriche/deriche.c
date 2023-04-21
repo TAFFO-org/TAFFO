@@ -156,7 +156,7 @@ void kernel_deriche(int w, int h, DATA_TYPE alpha,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int w = W;
@@ -170,18 +170,20 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(y2, DATA_TYPE __attribute__((annotate("scalar()"))), W, H, w, h);
 
 
-  /* Initialize array(s). */
-  init_array (w, h, &alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+        /* Initialize array(s). */
+        init_array(w, h, &alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut));
 
-  /* Start timer. */
-  polybench_start_instruments;
+        /* Start timer. */
+        polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_deriche (w, h, alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut), POLYBENCH_ARRAY(y1), POLYBENCH_ARRAY(y2));
+        /* Run kernel. */
+        kernel_deriche(w, h, alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut), POLYBENCH_ARRAY(y1), POLYBENCH_ARRAY(y2));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+        /* Stop and print timer. */
+        polybench_stop_instruments;
+        polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

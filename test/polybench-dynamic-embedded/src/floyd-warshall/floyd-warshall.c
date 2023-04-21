@@ -87,7 +87,7 @@ void kernel_floyd_warshall(int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -96,18 +96,20 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(path, DATA_TYPE __attribute__((annotate("target('path') scalar()"))), N, N, n, n);
 
 
-  /* Initialize array(s). */
-  init_array (n, POLYBENCH_ARRAY(path));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+      /* Initialize array(s). */
+      init_array(n, POLYBENCH_ARRAY(path));
 
-  /* Start timer. */
-  polybench_start_instruments;
+      /* Start timer. */
+      polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_floyd_warshall (n, POLYBENCH_ARRAY(path));
+      /* Run kernel. */
+      kernel_floyd_warshall(n, POLYBENCH_ARRAY(path));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+      /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

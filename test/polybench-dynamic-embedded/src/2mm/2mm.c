@@ -106,7 +106,7 @@ void kernel_2mm(int ni, int nj, int nk, int nl,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int ni = NI;
@@ -121,30 +121,32 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),NI,NK,ni,nk);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),NK,NJ,nk,nj);
   POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar()"))),NJ,NL,nj,nl);
-  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final)"))),NI,NL,ni,nl);
+  POLYBENCH_2D_ARRAY_DECL(D,volatile DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final)"))),NI,NL,ni,nl);
 
-  /* Initialize array(s). */
-  init_array (ni, nj, nk, nl, &alpha, &beta,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B),
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(D));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+    /* Initialize array(s). */
+    init_array (ni, nj, nk, nl, &alpha, &beta,
+                POLYBENCH_ARRAY(A),
+                POLYBENCH_ARRAY(B),
+                POLYBENCH_ARRAY(C),
+                POLYBENCH_ARRAY(D));
 
-  /* Start timer. */
-  polybench_start_instruments;
+    /* Start timer. */
+    polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_2mm (ni, nj, nk, nl,
-	      alpha, beta,
-	      POLYBENCH_ARRAY(tmp),
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B),
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(D));
+    /* Run kernel. */
+    kernel_2mm(ni, nj, nk, nl,
+               alpha, beta,
+               POLYBENCH_ARRAY(tmp),
+               POLYBENCH_ARRAY(A),
+               POLYBENCH_ARRAY(B),
+               POLYBENCH_ARRAY(C),
+               POLYBENCH_ARRAY(D));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

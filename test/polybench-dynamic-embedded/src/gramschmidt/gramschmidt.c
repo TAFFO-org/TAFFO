@@ -112,7 +112,7 @@ void kernel_gramschmidt(int m, int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int m = M;
@@ -123,24 +123,26 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) final)"))),N,N,n,n);
   POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) final)"))),M,N,m,n);
 
-  /* Initialize array(s). */
-  init_array (m, n,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(R),
-	      POLYBENCH_ARRAY(Q));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+        /* Initialize array(s). */
+        init_array(m, n,
+                   POLYBENCH_ARRAY(A),
+                   POLYBENCH_ARRAY(R),
+                   POLYBENCH_ARRAY(Q));
 
-  /* Start timer. */
-  polybench_start_instruments;
+        /* Start timer. */
+        polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_gramschmidt (m, n,
-		      POLYBENCH_ARRAY(A),
-		      POLYBENCH_ARRAY(R),
-		      POLYBENCH_ARRAY(Q));
+        /* Run kernel. */
+        kernel_gramschmidt(m, n,
+                           POLYBENCH_ARRAY(A),
+                           POLYBENCH_ARRAY(R),
+                           POLYBENCH_ARRAY(Q));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+        /* Stop and print timer. */
+        polybench_stop_instruments;
+        polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

@@ -87,7 +87,7 @@ void kernel_doitgen(int nr, int nq, int np,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int nr = NR;
@@ -99,23 +99,25 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))),NP,np);
   POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar()"))),NP,NP,np,np);
 
-  /* Initialize array(s). */
-  init_array (nr, nq, np,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(C4));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+    /* Initialize array(s). */
+    init_array(nr, nq, np,
+               POLYBENCH_ARRAY(A),
+               POLYBENCH_ARRAY(C4));
 
-  /* Start timer. */
-  polybench_start_instruments;
+    /* Start timer. */
+    polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_doitgen (nr, nq, np,
-		  POLYBENCH_ARRAY(A),
-		  POLYBENCH_ARRAY(C4),
-		  POLYBENCH_ARRAY(sum));
+    /* Run kernel. */
+    kernel_doitgen(nr, nq, np,
+                   POLYBENCH_ARRAY(A),
+                   POLYBENCH_ARRAY(C4),
+                   POLYBENCH_ARRAY(sum));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
