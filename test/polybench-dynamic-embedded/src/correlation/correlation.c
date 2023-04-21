@@ -125,7 +125,7 @@ void kernel_correlation(int m, int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -138,22 +138,24 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("scalar()"))),M,m);
   POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(1,4096) final)"))),M,m);
 
-  /* Initialize array(s). */
-  init_array (m, n, &float_n, POLYBENCH_ARRAY(data));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+        /* Initialize array(s). */
+        init_array(m, n, &float_n, POLYBENCH_ARRAY(data));
 
-  /* Start timer. */
-  polybench_start_instruments;
+        /* Start timer. */
+        polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_correlation (m, n, float_n,
-		      POLYBENCH_ARRAY(data),
-		      POLYBENCH_ARRAY(corr),
-		      POLYBENCH_ARRAY(mean),
-		      POLYBENCH_ARRAY(stddev));
+        /* Run kernel. */
+        kernel_correlation(m, n, float_n,
+                           POLYBENCH_ARRAY(data),
+                           POLYBENCH_ARRAY(corr),
+                           POLYBENCH_ARRAY(mean),
+                           POLYBENCH_ARRAY(stddev));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+        /* Stop and print timer. */
+        polybench_stop_instruments;
+        polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

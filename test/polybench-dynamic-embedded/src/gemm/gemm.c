@@ -100,7 +100,7 @@ void kernel_gemm(int ni, int nj, int nk,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int ni = NI;
@@ -114,25 +114,27 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute((annotate("scalar(range(-64, 64))"))),NI,NK,ni,nk);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute((annotate("scalar()"))),NK,NJ,nk,nj);
 
-  /* Initialize array(s). */
-  init_array (ni, nj, nk, &alpha, &beta,
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+    /* Initialize array(s). */
+    init_array(ni, nj, nk, &alpha, &beta,
+               POLYBENCH_ARRAY(C),
+               POLYBENCH_ARRAY(A),
+               POLYBENCH_ARRAY(B));
 
-  /* Start timer. */
-  polybench_start_instruments;
+    /* Start timer. */
+    polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_gemm (ni, nj, nk,
-	       alpha, beta,
-	       POLYBENCH_ARRAY(C),
-	       POLYBENCH_ARRAY(A),
-	       POLYBENCH_ARRAY(B));
+    /* Run kernel. */
+    kernel_gemm(ni, nj, nk,
+                alpha, beta,
+                POLYBENCH_ARRAY(C),
+                POLYBENCH_ARRAY(A),
+                POLYBENCH_ARRAY(B));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

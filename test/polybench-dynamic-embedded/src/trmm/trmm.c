@@ -95,7 +95,7 @@ void kernel_trmm(int m, int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int m = M;
@@ -106,18 +106,20 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),M,M,m,m);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar(range(-256, 255) final)"))),M,N,m,n);
 
-  /* Initialize array(s). */
-  init_array (m, n, &alpha, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+     /* Initialize array(s). */
+     init_array(m, n, &alpha, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
 
-  /* Start timer. */
-  polybench_start_instruments;
+     /* Start timer. */
+     polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_trmm (m, n, alpha, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
+     /* Run kernel. */
+     kernel_trmm(m, n, alpha, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+     /* Stop and print timer. */
+     polybench_stop_instruments;
+     polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

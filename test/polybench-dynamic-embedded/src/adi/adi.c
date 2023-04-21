@@ -131,7 +131,7 @@ void kernel_adi(int tsteps, int n,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int n = N;
@@ -143,19 +143,20 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar(range(-1,1) final)"))), N, N, n, n);
   POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar(range(-500,500) final)"))), N, N, n, n);
 
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+    /* Initialize array(s). */
+    init_array(n, POLYBENCH_ARRAY(u));
 
-  /* Initialize array(s). */
-  init_array (n, POLYBENCH_ARRAY(u));
+    /* Start timer. */
+    polybench_start_instruments;
 
-  /* Start timer. */
-  polybench_start_instruments;
+    /* Run kernel. */
+    kernel_adi(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
 
-  /* Run kernel. */
-  kernel_adi (tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
-
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

@@ -120,7 +120,7 @@ void kernel_fdtd_2d(int tmax,
 }
 
 
-int main(int argc, char** argv)
+int BENCH_MAIN()
 {
   /* Retrieve problem size. */
   int tmax = TMAX;
@@ -133,27 +133,29 @@ int main(int argc, char** argv)
   POLYBENCH_2D_ARRAY_DECL(hz,DATA_TYPE __attribute__((annotate("target('hz') scalar()"))),NX,NY,nx,ny);
   POLYBENCH_1D_ARRAY_DECL(_fict_,DATA_TYPE __attribute__((annotate("scalar()"))),TMAX,tmax);
 
-  /* Initialize array(s). */
-  init_array (tmax, nx, ny,
-	      POLYBENCH_ARRAY(ex),
-	      POLYBENCH_ARRAY(ey),
-	      POLYBENCH_ARRAY(hz),
-	      POLYBENCH_ARRAY(_fict_));
+  for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
+      /* Initialize array(s). */
+      init_array(tmax, nx, ny,
+                 POLYBENCH_ARRAY(ex),
+                 POLYBENCH_ARRAY(ey),
+                 POLYBENCH_ARRAY(hz),
+                 POLYBENCH_ARRAY(_fict_));
 
-  /* Start timer. */
-  polybench_start_instruments;
+      /* Start timer. */
+      polybench_start_instruments;
 
-  /* Run kernel. */
-  kernel_fdtd_2d (tmax, nx, ny,
-		  POLYBENCH_ARRAY(ex),
-		  POLYBENCH_ARRAY(ey),
-		  POLYBENCH_ARRAY(hz),
-		  POLYBENCH_ARRAY(_fict_));
+      /* Run kernel. */
+      kernel_fdtd_2d(tmax, nx, ny,
+                     POLYBENCH_ARRAY(ex),
+                     POLYBENCH_ARRAY(ey),
+                     POLYBENCH_ARRAY(hz),
+                     POLYBENCH_ARRAY(_fict_));
 
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+      /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
+  }
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
