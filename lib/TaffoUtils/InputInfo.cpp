@@ -31,6 +31,9 @@ std::unique_ptr<TType> TType::createFromMetadata(MDNode *MDN)
   if (FloatType::isFloatTypeMetadata(MDN))
     return FloatType::createFromMetadata(MDN);
 
+  if (PositType::isPositTypeMetadata(MDN))
+    return PositType::createFromMetadata(MDN);
+
   llvm_unreachable("Unsupported data type.");
 }
 
@@ -38,7 +41,7 @@ bool TType::isTTypeMetadata(Metadata *MD)
 {
   if (MDNode *MDN = dyn_cast_or_null<MDNode>(MD))
     // Keep in mind that here you should concatenate all the type
-    return FPType::isFPTypeMetadata(MDN) || FloatType::isFloatTypeMetadata(MDN);
+    return FPType::isFPTypeMetadata(MDN) || FloatType::isFloatTypeMetadata(MDN) || PositType::isPositTypeMetadata(MDN);
   else
     return false;
 }
@@ -59,6 +62,15 @@ bool FloatType::isFloatTypeMetadata(MDNode *MDN)
 
   MDString *Flag = dyn_cast<MDString>(MDN->getOperand(0U).get());
   return Flag && Flag->getString().equals(FLOAT_TYPE_FLAG);
+}
+
+bool PositType::isPositTypeMetadata(MDNode *MDN)
+{
+  if (MDN->getNumOperands() < 1)
+    return false;
+
+  MDString *Flag = dyn_cast<MDString>(MDN->getOperand(0U).get());
+  return Flag && Flag->getString().equals(POSIT_TYPE_FLAG);
 }
 
 std::unique_ptr<FPType> FPType::createFromMetadata(MDNode *MDN)
@@ -444,5 +456,47 @@ MDNode *FloatType::toMetadata(LLVMContext &C) const
   return MDNode::get(C, MDs);
 }
 
+llvm::APFloat PositType::getMinValueBound() const
+{
+  // Posits are symmetric
+  return this->getMaxValueBound();
+}
+
+llvm::APFloat PositType::getMaxValueBound() const
+{
+  return llvm::APFloat(exp2(4 * this->getWidth() - 8));
+}
+
+// TODO: rounding error depends on the regime, which is dynamic
+double PositType::getRoundingError() const
+{
+  return 0;
+}
+
+std::unique_ptr<PositType> PositType::createFromMetadata(MDNode *MDN)
+{
+  assert(isPositTypeMetadata(MDN) && "Must be of posit type.");
+  assert(MDN->getNumOperands() >= 2U && "Must have flag, width.");
+
+  int Width;
+  Metadata *WMD = MDN->getOperand(1U).get();
+  ConstantAsMetadata *WCMD = cast<ConstantAsMetadata>(WMD);
+  ConstantInt *WCI = cast<ConstantInt>(WCMD->getValue());
+  Width = WCI->getSExtValue();
+
+  return std::unique_ptr<PositType>(new PositType(Width));
+}
+
+MDNode *PositType::toMetadata(LLVMContext &C) const
+{
+  Metadata *TypeFlag = MDString::get(C, POSIT_TYPE_FLAG);
+
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
+  ConstantInt *WCI = ConstantInt::get(Int32Ty, this->getWidth());
+  Metadata *WidthMD = ConstantAsMetadata::get(WCI);
+
+  Metadata *MDs[] = {TypeFlag, WidthMD};
+  return MDNode::get(C, MDs);
+}
 
 } // end namespace mdutils

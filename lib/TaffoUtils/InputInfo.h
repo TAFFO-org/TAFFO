@@ -31,6 +31,7 @@ namespace mdutils
 
 #define FIXP_TYPE_FLAG "fixp"
 #define FLOAT_TYPE_FLAG "float"
+#define POSIT_TYPE_FLAG "posit"
 
 /// Info about a data type for numerical computations.
 class TType
@@ -38,7 +39,8 @@ class TType
 public:
   enum TTypeKind {
     K_FPType,
-    K_FloatType
+    K_FloatType,
+    K_PositType
   };
 
   TType(TTypeKind K) : Kind(K) {}
@@ -230,6 +232,54 @@ protected:
   // This is only used to understand the maximum error that this type can generate
   // As during the DTA pass we assign each Type looking at its range, it is "free" (as in free beer)
   double greatestNunber;
+};
+
+// March 2022 Spec
+class PositType : public TType
+{
+public:
+  PositType(int Width)
+      : TType(K_PositType), Width(Width) {}
+
+  double getRoundingError() const override;
+
+  llvm::APFloat getMinValueBound() const override;
+
+  llvm::APFloat getMaxValueBound() const override;
+
+  llvm::MDNode *toMetadata(llvm::LLVMContext &C) const override;
+
+  unsigned getWidth() const { return Width; }
+
+  std::string toString() const override
+  {
+    std::stringstream stm;
+    stm << "posit";
+    stm << Width;
+    return stm.str();
+  };
+
+  virtual TType *clone() const override
+  {
+    return new PositType(Width);
+  };
+
+  static bool isPositTypeMetadata(llvm::MDNode *MDN);
+
+  static std::unique_ptr<PositType> createFromMetadata(llvm::MDNode *MDN);
+
+  virtual bool operator==(const TType &b) const override
+  {
+    if (!TType::operator==(b))
+      return false;
+    const PositType *b2 = llvm::cast<PositType>(&b);
+    return Width == b2->Width;
+  }
+
+  static bool classof(const TType *T) { return T->getKind() == K_PositType; }
+
+private:
+  int Width;
 };
 
 struct Range {
