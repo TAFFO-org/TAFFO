@@ -7,6 +7,6 @@ configure_lit_site_cfg(
 set(TAFFO_TEST_DEPENDS
     Taffo)
 
-add_lit_testsuite(check "Running the regression tests"
+add_lit_testsuite(taffo-check-lit "Running the regression tests"
     ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${TAFFO_TEST_DEPENDS})
