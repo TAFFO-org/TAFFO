@@ -205,8 +205,8 @@
 # endif
 
 #define POLYBENCH_DUMP_TARGET stderr
-#define POLYBENCH_DUMP_START    fprintf(POLYBENCH_DUMP_TARGET, "\n==BEGIN DUMP_ARRAYS==\n")
-#define POLYBENCH_DUMP_FINISH   fprintf(POLYBENCH_DUMP_TARGET, "\n==END DUMP_ARRAYS==\n")
+#define POLYBENCH_DUMP_START    fprintf(POLYBENCH_DUMP_TARGET, "\n==BEGIN_DUMP_ARRAYS==\n")
+#define POLYBENCH_DUMP_FINISH   fprintf(POLYBENCH_DUMP_TARGET, "\n==END_DUMP_ARRAYS==\n")
 //#define POLYBENCH_DUMP_BEGIN(s) fprintf(POLYBENCH_DUMP_TARGET, "begin dump: %s", s)
 //#define POLYBENCH_DUMP_END(s)   fprintf(POLYBENCH_DUMP_TARGET, "\nend   dump: %s\n", s)
 //#define POLYBENCH_DUMP_START
