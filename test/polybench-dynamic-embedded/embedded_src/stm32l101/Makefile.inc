@@ -5,15 +5,19 @@ LDFLAGS +=$(CPUFLAGS) -T$(TARGET)/STM32L010RBTx_FLASH.ld -Wl,--gc-sections --spe
 C_SRC   +=$(wildcard $(TARGET)/*.c)
 ASM_SRC +=$(wildcard $(TARGET)/*.s)
 
+STM32_Programmer_CLI ?= STM32_Programmer_CLI
 SERIAL_DEVICE?=$(wildcard /dev/ttyACM*)
+EMBEDDED_OUTPUT?=monitor.txt
+TIMEOUT_SECONDS=300
 
 .PHONY: flash monitor cpuflags costmodel
 
 flash:
-	st-flash --reset write $(OUTPUT_BIN) 0x08000000
+	$(STM32_Programmer_CLI) -c port=SWD -w $(OUTPUT_BIN) 0x08000000 -v
 
 monitor:
-	cat < $(SERIAL_DEVICE) | tee monitor.log
+	$(STM32_Programmer_CLI) -c port=SWD --start 0x08000000
+	grabserial -d $(SERIAL_DEVICE) -e $(TIMEOUT_SECONDS) -q "^END BENCHMARK" -o $(EMBEDDED_OUTPUT)
 
 cpuflags:
 	@echo '$(CPUFLAGS)'

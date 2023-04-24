@@ -104,7 +104,7 @@ void polybench_timer_print()
                1000000000);
 #else
 #ifndef POLYBENCH_CYCLE_ACCURATE_TIMER
-  printf("%0.6f\n", polybench_t_end - polybench_t_start);
+  printf("EXECUTION TIME: %0.6f ms\n", (polybench_t_end - polybench_t_start) * 1000);
 #else
   printf("%Ld\n", polybench_c_end - polybench_c_start);
 #endif

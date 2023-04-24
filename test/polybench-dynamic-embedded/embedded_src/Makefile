@@ -2,6 +2,7 @@
 CC = arm-none-eabi-gcc
 AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
+STM32_Programmer_CLI ?= STM32_Programmer_CLI
 
 OBJ_DIR ?= ./obj
 BENCH_OBJ ?=
