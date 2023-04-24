@@ -17,6 +17,7 @@ llvm::cl::opt<bool> DisableTypeMerging("notypemerge",
 llvm::cl::opt<bool> IterativeMerging("iterative",
                                      llvm::cl::desc("Enables old iterative merging"), llvm::cl::init(false));
 llvm::cl::opt<std::string> UseFloat("usefloat", llvm::cl::desc("Uses the specified floating point type instead of fixed point. Options are f16, bf16, f32, f64."), llvm::cl::init(""));
+llvm::cl::opt<bool> UsePosit("useposit", llvm::cl::desc("Use the best posit type instead of fixed point."), llvm::cl::init(false));
 
 llvm::cl::opt<std::string> BufferIDExport("bufferid-export", llvm::cl::desc("File where to export buffer ID types"), llvm::cl::init(""));
 llvm::cl::opt<std::string> BufferIDImport("bufferid-import", llvm::cl::desc("File from where to import buffer ID types"), llvm::cl::init(""));
