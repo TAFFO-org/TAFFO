@@ -19,17 +19,18 @@ SRC_DIR := $(abspath ./src)
 EMBEDDED_SRC_DIR := $(abspath ./embedded_src)
 HEADERS_DIR := $(abspath ./utilities/.)
 
-TARGET='stm32l101'
-embedded_sysroot=/lib/arm-none-eabi
-embedded_triple=arm-none-eabi
-embedded_cpu=cortex-m0plus+nofp
+TARGET := 'stm32l101'
+embedded_sysroot := /lib/arm-none-eabi
+embedded_triple := arm-none-eabi
+embedded_cpu := cortex-m0plus+nofp
+STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI
 
 CFLAGS := -g0 -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
 CFLAGS_DOUBLE := -g0 -O3 -lm
 POLYBENCH_SHARED_FLAGS :=  -DPOLYBENCH_STACK_ARRAYS
-POLYBENCH_PC_FLAGS :=
-POLYBENCH_EMBEDDED_FLAGS :=
-POLYBENCH_BENCH_FLAGS := -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_TIME -DBENCH_NUM_ITERATIONS=10
+POLYBENCH_PC_FLAGS := -DBENCH_NUM_ITERATIONS=1000
+POLYBENCH_EMBEDDED_FLAGS := -DBENCH_NUM_ITERATIONS=10
+POLYBENCH_BENCH_FLAGS := -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_TIME
 POLYBENCH_DATASET_FLAGS := -DMINI_DATASET
 #POLYBENCH_DATASET_FLAGS := -DSMALL_DATASET
 POLYBENCH_DATA_FLAGS :=  -DDATA_TYPE_IS_FLOAT
@@ -44,9 +45,9 @@ EMBEDDED_OPT_FLAGS := -m32 \
 
 modes := float fixed dynamic
 archs := PC EMBEDDED
-benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-#benchmarks := 2mm
+benchmarks := 2mm
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -58,6 +59,8 @@ jobs := $(foreach bench, $(benchmarks), \
 			$(foreach mode, $(modes), \
 				$(foreach arch, $(archs), \
 					job-$(bench)-$(mode)-$(arch) )))
+
+jobs_run := $(patsubst %, run-%, $(jobs))
 
 bench = $(word 1, $(subst -, ,$*))
 mode = $(word 2, $(subst -, ,$*))
@@ -81,6 +84,8 @@ double_configurations_file = $(BUILD_DIR)/double_configurations.csv
 .PHONY: all
 #all: $(clean_configurations) ${double_jobs} ${stats_jobs} ${jobs} summary ; echo $@ Success
 all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ; echo $@ Success
+.PHONY: run
+run: ${jobs_run}
 
 .PHONY: clean
 clean:
@@ -101,6 +106,7 @@ build_deps:
 .PHONY: ${double_jobs}
 ${double_jobs}: double-job-%:
 	@mkdir -p $(double_job_dir)
+	@echo $(bench),$(double_job_file_base)
 	@echo $(bench),$(double_job_file_base) \
 			>> $(double_configurations_file)
 	$(call double_build)
@@ -115,14 +121,19 @@ ${stats_jobs}: stats-job-%:
 
 .PHONY: ${jobs}
 ${jobs}: job-%:
+	@echo $(bench),$(arch),$(mode),$(job_file_base),$(stats_job_file_base)
 	@echo $(bench),$(arch),$(mode),$(job_file_base),$(stats_job_file_base) \
  		>> $(configurations_file)
 	@mkdir -p $(job_dir)
 	$(call build_$(mode))
 	$(call build_object)
 	$(call compile_binary_$(arch))
-	$(call call_binary_$(arch))
 	$(call run_instmix)
+
+.PHONY: ${jobs_run}
+${jobs_run}: run-job-%:
+	@echo $(bench),$(arch),$(mode),$(job_file_base),$(stats_job_file_base)
+	$(call call_binary_$(arch))
 
 .PHONY: summary
 summary:
@@ -267,6 +278,7 @@ define compile_binary_EMBEDDED
 		OBJ_DIR=$(deps_embedded_dir) \
 		BENCH_OBJ=$(job_file_base).o \
 		OUTPUT=$(job_file_base).out \
+		STM32_Programmer_CLI=$(STM32_Programmer_CLI) \
 		TARGET=$(TARGET)
 endef
 
@@ -285,7 +297,22 @@ define call_binary_PC
 endef
 
 define call_binary_EMBEDDED
-#	-$(job_file_base).out.bin > $(job_file_base).time.txt 2> $(job_file_base).csv
+	cd $(EMBEDDED_SRC_DIR) && \
+    	$(MAKE) flash \
+    		OBJ_DIR=$(deps_embedded_dir) \
+    		BENCH_OBJ=$(job_file_base).o \
+    		OUTPUT=$(job_file_base).out \
+    		STM32_Programmer_CLI=$(STM32_Programmer_CLI) \
+    		TARGET=$(TARGET) \
+
+	cd $(EMBEDDED_SRC_DIR) && \
+		$(MAKE) monitor \
+		SERIAL_DEVICE=/dev/ttyACM0 \
+		STM32_Programmer_CLI=$(STM32_Programmer_CLI) \
+		EMBEDDED_OUTPUT=$(job_file_base).output.txt
+
+	awk '/==BEGIN DUMP_ARRAYS==/,/==END DUMP_ARRAYS==/' $(job_file_base).output.txt > $(job_file_base).csv
+	awk '/EXECUTION TIME:/' $(job_file_base).output.txt > $(job_file_base).time.txt
 endef
 
 define read_stats
