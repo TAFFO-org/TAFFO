@@ -45,9 +45,9 @@ EMBEDDED_OPT_FLAGS := -m32 \
 
 modes := float fixed dynamic
 archs := PC EMBEDDED
-#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-benchmarks := 2mm
+#benchmarks := 2mm
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -83,7 +83,7 @@ double_configurations_file = $(BUILD_DIR)/double_configurations.csv
 
 .PHONY: all
 #all: $(clean_configurations) ${double_jobs} ${stats_jobs} ${jobs} summary ; echo $@ Success
-all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ; echo $@ Success
+all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ${jobs_run} summary ; echo $@ Success
 .PHONY: run
 run: ${jobs_run}
 
@@ -165,6 +165,7 @@ define double_build
         -I$(bench_src_h) \
         $(CFLAGS_DOUBLE) \
         $(POLYBENCH_SHARED_FLAGS) \
+        $(POLYBENCH_PC_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
         $(POLYBENCH_DOUBLE_DATA_FLAGS) \
@@ -311,10 +312,6 @@ define call_binary_EMBEDDED
 		STM32_Programmer_CLI=$(STM32_Programmer_CLI) \
 		EMBEDDED_OUTPUT=$(job_file_base).output.txt
 
-	awk '/==BEGIN DUMP_ARRAYS==/,/==END DUMP_ARRAYS==/' $(job_file_base).output.txt > $(job_file_base).csv
-	awk '/EXECUTION TIME:/' $(job_file_base).output.txt > $(job_file_base).time.txt
-endef
-
-define read_stats
-  python3 ./stats_to_opts.py $(stats_job_file_base).csv
+	awk '/==BEGIN_DUMP_ARRAYS==/,/==END_DUMP_ARRAYS==/' $(job_file_base).output.txt > $(job_file_base).csv
+	awk '/EXECUTION_TIME:/' $(job_file_base).output.txt > $(job_file_base).time.txt
 endef

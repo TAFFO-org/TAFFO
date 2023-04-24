@@ -26,5 +26,5 @@ __attribute__((always_inline)) __attribute__((__visibility__("default"))) void p
 
 __attribute__((always_inline)) __attribute__((__visibility__("default"))) void polybench_timer_print()
 {
-  printf("EXECUTION TIME: %ld ms\n", dt);
+  printf("EXECUTION_TIME: %ld ms\n", dt);
 }
