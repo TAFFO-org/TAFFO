@@ -147,3 +147,16 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
 
   return mdutils::FPType(bitsAmt, fracBitsAmt, isSigned);
 }
+
+mdutils::PositType taffo::positTypeFromRange(const mdutils::Range &range)
+{
+  // TODO: Add more sizes
+  for (int size : {32}) {
+    mdutils::PositType t(size);
+    if (std::abs(t.getMinValueBound().convertToDouble()) >= std::abs(range.Min) &&
+        std::abs(t.getMaxValueBound().convertToDouble()) >= std::abs(range.Max))
+      return t;
+  }
+  // error
+  return mdutils::PositType(0);
+}

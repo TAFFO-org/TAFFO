@@ -294,6 +294,14 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
       II.IType = res;
       return true;
     }
+  } else if (UsePosit) {
+    PositType res = positTypeFromRange(*rng);
+    if (res.getWidth() == 0) {
+      LLVM_DEBUG(dbgs() << "[Info] Error when generating posit type\n");
+    } else {
+      II.IType.reset(res.clone());
+      return true;
+    }
   } else {
     FixedPointTypeGenError fpgerr;
 
