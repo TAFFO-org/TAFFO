@@ -521,8 +521,7 @@ bool TaffoTuner::mergeFixFormatIterative(llvm::Value *v, llvm::Value *u)
     if (isMergeable(fpv, fpu)) {
       std::shared_ptr<mdutils::FPType> fp = merge(fpv, fpu);
       if (!fp) {
-        LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because resulting type "
-                          << fp->toString() << " is invalid\n");
+        LLVM_DEBUG(dbgs() << "not attempting merge of " << *v << ", " << *u << " because resulting type is invalid\n");
         return false;
       }
       LLVM_DEBUG(dbgs() << "Merged fixp : \n"
