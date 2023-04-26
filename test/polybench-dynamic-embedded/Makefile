@@ -259,15 +259,19 @@ define stats_build_tracing_compress
 endef
 
 define build_object
-	$(LLC) \
+	$(CLANG) \
 		$(job_file_base).out.ll \
-		-filetype=obj \
+		-O3 \
+		$($(arch)_OPT_FLAGS) \
+		-c \
 		-o $(job_file_base).o
 endef
 
 define compile_binary_PC
 	$(CLANG) \
 		-no-pie -lm \
+		-O3 \
+		$($(arch)_OPT_FLAGS) \
 		$(job_file_base).o \
 		$(deps_pc_dir)/timer.so \
 		-o $(job_file_base).out.bin
