@@ -134,24 +134,42 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 
 
   // Loop over the functions in the module, making external functions as before
-  for (const Function &I : host) {
-    if (!(I.getName().startswith("__dev-") || I.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99") || I.getName().startswith("llvm.")) || I.getName().contains("_trampoline"))
+  for (const Function &F : host) {
+    if (!(F.getName().startswith("__dev-") || F.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99") || F.getName().startswith("llvm.")) || F.getName().contains("_trampoline"))
       continue;
-    auto old_name = I.getName();
-    if (I.getName().startswith("__dev-")) {
+    auto old_name = F.getName();
+    if (F.getName().startswith("__dev-")) {
       old_name = old_name.substr(substring_size, std::string::npos);
     }
-    LLVM_DEBUG(llvm::dbgs() << "Search function: " << I.getName() << " as " << old_name << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "Search function: " << F.getName() << " as " << old_name << "\n");
     if (auto old = dev.getFunction(old_name)) {
       LLVM_DEBUG(llvm::dbgs() << "Founded\n");
-      GtoG[&I] = old;
+      GtoG[&F] = old;
       alredy_present_function.insert(old);
     } else {
-      Function *NF = Function::Create(cast<FunctionType>(remapper->remapType(I.getValueType())), I.getLinkage(),
-                                      I.getAddressSpace(), old_name, &dev);
-      NF->copyAttributesFrom(&I);
+      auto function_type = cast<FunctionType>(remapper->remapType(F.getValueType()));
+
+      if (old_name.contains("omp_outlined")) {
+        llvm::SmallVector<Type *, 8> types;
+        auto param = function_type->params();
+        types.push_back(PointerType::get(llvm::cast<PointerType>(param[0])->getElementType(), 0));
+        types.push_back(PointerType::get(llvm::cast<PointerType>(param[1])->getElementType(), 0));
+
+        
+        for (size_t i = 2; i < param.size(); ++i) {
+          types.push_back(param[i]);
+        }
+        function_type = FunctionType::get(function_type->getReturnType(), types, false) ;
+      }
+
+
+      Function *NF = Function::Create(function_type, F.getLinkage(),
+                                      F.getAddressSpace(), old_name, &dev);
+
+      NF->copyAttributesFrom(&F);
       LLVM_DEBUG(llvm::dbgs() << "Created function: " << NF->getName() << "\n");
-      GtoG[&I] = NF;
+      LLVM_DEBUG(llvm::dbgs() << *NF);
+      GtoG[&F] = NF;
     }
   }
 
