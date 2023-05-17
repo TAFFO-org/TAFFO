@@ -1,9 +1,10 @@
 #include "TaffoInitializerPass.h"
+#include "CudaKernelPatcher.h"
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
-#include "TypeUtils.h"
 #include "OpenCLKernelPatcher.h"
-#include "CudaKernelPatcher.h"
+#include "TaffoMathUtil.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -31,24 +32,23 @@ using namespace llvm;
 using namespace taffo;
 
 cl::opt<bool> ManualFunctionCloning("manualclone",
-    cl::desc("Enables function cloning only for annotated functions"),
-    cl::init(false));
+                                    cl::desc("Enables function cloning only for annotated functions"),
+                                    cl::init(false));
 
 cl::opt<bool> OpenCLKernelMode("oclkern",
-    cl::desc("Allows cloning of OpenCL kernel functions"),
-    cl::init(false));
+                               cl::desc("Allows cloning of OpenCL kernel functions"),
+                               cl::init(false));
 
 cl::opt<bool> CudaKernelMode("cudakern",
-    cl::desc("Allows cloning of Cuda kernel functions"),
-    cl::init(false));
+                             cl::desc("Allows cloning of Cuda kernel functions"),
+                             cl::init(false));
 
 PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
 {
   if (OpenCLKernelMode) {
     LLVM_DEBUG(dbgs() << "OpenCLKernelMode == true!\n");
     createOpenCLKernelTrampolines(m);
-  }
-  else if (CudaKernelMode) {
+  } else if (CudaKernelMode) {
     LLVM_DEBUG(dbgs() << "CudaKernelMode == true!\n");
     createCudaKernelTrampolines(m);
   }
@@ -451,7 +451,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
       LLVM_DEBUG(dbgs() << "found bitcasted funcptr in " << *v << ", skipping\n");
       continue;
     }
-    if (isSpecialFunction(oldF))
+    if (isSpecialFunction(oldF) && !TaffoMath::isSupportedLibmFunction(oldF))
       continue;
     if (ManualFunctionCloning) {
       if (enabledFunctions.count(oldF) == 0) {
@@ -519,10 +519,35 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
    * convQueue: output conversion queue of this function */
 
   Function *oldF = call->getCalledFunction();
-  Function *newF = Function::Create(
-      oldF->getFunctionType(), oldF->getLinkage(),
-      oldF->getName(), oldF->getParent());
+  Function *newF = nullptr;
+  ConvQueueT roots;
+  if (TaffoMath::isSupportedLibmFunction(oldF)) {
+    newF = Function::Create(oldF->getFunctionType(), llvm::GlobalValue::ExternalWeakLinkage, oldF->getName(), oldF->getParent());
+    Function::arg_iterator newArgumentI = newF->arg_begin();
+    Function::arg_iterator oldArgumentI = oldF->arg_begin();
+    for (int i = 0; oldArgumentI != oldF->arg_end(); oldArgumentI++, newArgumentI++, i++) {
+      Value *callOperand = call->getOperand(i);
 
+      if (!vals.count(callOperand)) {
+        LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
+        continue;
+      }
+
+      ValueInfo &callVi = vals[callOperand];
+
+      ValueInfo &argumentVi = vals.insert(vals.end(), newArgumentI, ValueInfo()).first->second;
+      // Mark the argument itself (set it as a new root as well in VRA-less mode)
+      argumentVi.metadata.reset(callVi.metadata->clone());
+      argumentVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance + 1);
+      // Propagate BufferID
+      argumentVi.bufferID = callVi.bufferID;
+      roots.push_back(newArgumentI, argumentVi);
+    }
+
+
+  } else {
+    newF = Function::Create(oldF->getFunctionType(), oldF->getLinkage(), oldF->getName(), oldF->getParent());
+  }
   ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
   Function::arg_iterator newArgumentI = newF->arg_begin();
   Function::arg_iterator oldArgumentI = oldF->arg_begin();
@@ -532,11 +557,11 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
   }
   SmallVector<ReturnInst *, 100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
-  if (!OpenCLKernelMode && !CudaKernelMode)
+  if (!OpenCLKernelMode && !CudaKernelMode && !TaffoMath::isSupportedLibmFunction(oldF))
     newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 
-  ConvQueueT roots;
+
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
@@ -547,7 +572,6 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
       LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
       continue;
     }
-
 
 
     Value *callOperand = call->getOperand(i);

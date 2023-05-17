@@ -11,10 +11,17 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   OpenCLConversion.cpp
   CudaConversion.cpp
   MathIntrinsicConversion.cpp
+  SinCos.cpp
+  TAFFOMath.cpp
+  ArcSinCos.cpp
+
 
   ADDITIONAL_HEADERS
   FixedPointType.h
   LLVMFloatToFixedPass.h
+  SinCos.h
+  TAFFOMath.h
+
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
