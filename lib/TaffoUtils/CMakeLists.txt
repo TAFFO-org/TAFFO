@@ -12,6 +12,7 @@ add_library(${SELF} STATIC
   MemSSAUtils.cpp
   MemSSAUtils.hpp
   WriteModule.cpp
+  TaffoMathUtil.h
   WriteModule.h
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

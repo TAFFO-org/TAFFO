@@ -386,7 +386,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   if (isSupportedMathIntrinsicFunction(oldF))
     return convertMathIntrinsicFunction(call, fixpt);
   /* Special case function prototypes and all other intrinsics */
-  if (isSpecialFunction(oldF))
+  if (isSpecialFunction(oldF) && !isSupportedLibmFunction(oldF))
     return Unsupported;
   Function *newF = functionPool[oldF];
   if (!newF) {

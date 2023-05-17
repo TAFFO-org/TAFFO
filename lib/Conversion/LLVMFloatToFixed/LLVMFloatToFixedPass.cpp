@@ -1,6 +1,6 @@
 #include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
 #include "Metadata.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
@@ -27,13 +27,22 @@ using namespace flttofix;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
+
+llvm::cl::opt<int> MathZ("sLUT",
+                         llvm::cl::desc("Enable Lut table"), llvm::cl::init(2048));
+
+llvm::cl::opt<bool> MathZFlag("LUT",
+                              llvm::cl::desc("Lut table Size"), llvm::cl::init(false));
+
+llvm::cl::opt<bool> Fixm("fixm",
+                              llvm::cl::desc("Enable Fixm (handling of libm functions)"), llvm::cl::init(false));
+
 llvm::cl::opt<unsigned int> MaxTotalBitsConv("maxtotalbitsconv", llvm::cl::value_desc("bits"),
-                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(128));
+                                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(128));
 
 
 llvm::cl::opt<unsigned int> MinQuotientFrac("minquotientfrac", llvm::cl::value_desc("bits"),
-                             llvm::cl::desc("minimum number of quotient fractional preserved"), llvm::cl::init(5));
-
+                                            llvm::cl::desc("minimum number of quotient fractional preserved"), llvm::cl::init(5));
 
 
 PreservedAnalyses Conversion::run(Module &M, ModuleAnalysisManager &AM)
@@ -136,10 +145,10 @@ Value *flttofix::adjustBufferSize(Value *OrigSize, Type *OldTy, Type *NewTy, Ins
   if (int_const == nullptr) {
     IRBuilder<> builder(IP);
     Res = builder.CreateMul(OrigSize, ConstantInt::get(OrigSize->getType(), Num));
-    Res = builder.CreateAdd(Res, ConstantInt::get(OrigSize->getType(), Den-1));
+    Res = builder.CreateAdd(Res, ConstantInt::get(OrigSize->getType(), Den - 1));
     Res = builder.CreateUDiv(Res, ConstantInt::get(OrigSize->getType(), Den));
   } else {
-    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den-1)).udiv(Den));
+    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den - 1)).udiv(Den));
   }
 
   LLVM_DEBUG(dbgs() << "Buffer size adjusted to " << *Res << "\n");
@@ -291,7 +300,7 @@ bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
     if (isSupportedOpenCLFunction(F))
       return true;
     if (isSupportedCudaFunction(F))
-      return true;  
+      return true;
   }
   return false;
 }
@@ -508,6 +517,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     LLVM_DEBUG(dbgs() << "Converting function " << oldF->getName() << " : " << *oldF->getType()
                       << " into " << newF->getName() << " : " << *newF->getType() << "\n");
 
+
     ValueToValueMapTy origValToCloned; // Create Val2Val mapping and clone function
     Function::arg_iterator newIt = newF->arg_begin();
     Function::arg_iterator oldIt = oldF->arg_begin();
@@ -518,7 +528,11 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     SmallVector<ReturnInst *, 100> returns;
     CloneFunctionInto(newF, oldF, origValToCloned, CloneFunctionChangeType::GlobalChanges, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
-
+    if (isSupportedLibmFunction(oldF)) {
+      LLVM_DEBUG(dbgs() << "Handling Libm function " << oldF->getName() << "\n");
+      convertLibmFunction(oldF, newF);
+      LLVM_DEBUG(dbgs() << "Finish handling of Libm function " << oldF->getName() << "\n");
+    }else{
     /* CloneFunctionInto also fixes the attributes of the arguments.
      * This is not exactly what we want for OpenCL kernels because the alignment
      * after the conversion is not defined by us but by the OpenCL runtime.
@@ -541,7 +555,8 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
       newF->setAttributes(AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
       LLVM_DEBUG(dbgs() << "Set new attributes, hopefully without breaking anything\n");
     }
-    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF << "\n");
+    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n"
+                      << *newF << "\n");
 
     SmallVector<mdutils::MDInfo *, 4> ArgsII;
     MM.retrieveArgumentInputInfo(*oldF, ArgsII);
@@ -616,7 +631,6 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     LLVM_DEBUG(dbgs() << "Sorting queue of new function " << newF->getName() << "\n");
     sortQueue(newVals);
 
-    oldFuncs.insert(oldF);
 
     /* Put the instructions from the new function in */
     for (Value *val : newVals) {
@@ -627,6 +641,10 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
       }
     }
   }
+  oldFuncs.insert(oldF);
+
+  }
+
 
   /* Remove instructions of the old functions from the queue */
   size_t removei, removej;
@@ -657,7 +675,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
   LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
   Function *oldF = call->getCalledFunction();
   assert(oldF && "bitcasted function pointers and such not handled atm");
-  if (isSpecialFunction(oldF))
+  if (isSpecialFunction(oldF) && !isSupportedLibmFunction(oldF))
     return nullptr;
 
   if (!oldF->getMetadata(SOURCE_FUN_METADATA)) {
@@ -719,7 +737,8 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
   });
 
   newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
-  LLVM_DEBUG(dbgs() << "created function\n" << *newF << "\n");
+  LLVM_DEBUG(dbgs() << "created function\n"
+                    << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;
   return newF;
