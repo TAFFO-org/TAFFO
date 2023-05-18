@@ -1,0 +1,21 @@
+gemver
+- u1[i] = i;
++ u1[i] = i / fn;
+
+durbin
+-      r[i] = (n+1-i);
++      r[i] = (DATA_TYPE)(n+1-i) / (n*100.0) + 1.5;
+
+correlation
+-      data[i][j] = (DATA_TYPE)(i*j)/M + i;
++      data[i][j] = ((DATA_TYPE)(i*j)/M + i)/N;
+
+deriche
+- #  ifdef MINI_DATASET
+- #   define W 64
+- #   define H 64
+- #  endif
++ #  ifdef MINI_DATASET
++ #   define W 32
++ #   define H 32
++ #  endif

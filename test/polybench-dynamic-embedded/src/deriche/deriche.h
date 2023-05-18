@@ -18,8 +18,8 @@
 # if !defined(W) && !defined(H)
 /* Define sample dataset sizes. */
 #  ifdef MINI_DATASET
-#   define W 64
-#   define H 64
+#   define W 32
+#   define H 32
 #  endif
 
 #  ifdef SMALL_DATASET
