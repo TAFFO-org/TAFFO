@@ -545,7 +545,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       valueInfo(instr)->noTypeConversion)
     return Unsupported;
 
-  int opc = instr->getOpcode();
+  int opc = (int)instr->getOpcode();
   if (opc == Instruction::FAdd || opc == Instruction::FSub ||
       opc == Instruction::FRem) {
     LLVM_DEBUG(instr->getOperand(0)->print(dbgs()););

@@ -18,8 +18,8 @@ void print_fixp( Module* M, IRBuilder<> &builder, const char * c_str, Value *to_
   generic = builder.CreateFDiv(
       generic, ConstantFP::get(Type::getDoubleTy(cont), pow(2, comma)));
   Value *str = builder.CreateGlobalStringPtr(c_str);
-  Function *fun;
-  if ((fun = M->getFunction("printf")) == 0) {
+  Function *fun = M->getFunction("printf");
+  if (fun == 0) {
     std::vector<Type *> fun_arguments;
     fun_arguments.push_back(Type::getInt8PtrTy(cont)); // depends on your type
     FunctionType *fun_type =
@@ -46,11 +46,10 @@ bool createACos(FloatToFixed* ref, llvm::Function *newfs, llvm::Function *oldf) 
   flttofix::FixedPointType fxparg;
   bool foundRet = false;
   bool foundArg = false;
-  int arg_size = newfs->getArg(0)->getType()->getPrimitiveSizeInBits();
+  int arg_size = (int)newfs->getArg(0)->getType()->getPrimitiveSizeInBits();
   Type *arg_type = newfs->getArg(0)->getType();
   Type *ret_type = newfs->getReturnType();
   assert(arg_type->getTypeID() == ret_type->getTypeID() && "mismatch type");
-  int ret_size = newfs->getReturnType()->getPrimitiveSizeInBits();
   TaffoMath::getFixedFromRet(ref, oldf, fxpret, foundRet);
   // get argument fixed point
   TaffoMath::getFixedFromArg(ref, oldf, fxparg, 0, foundArg);
@@ -233,6 +232,7 @@ TaffoMath::createFixedPointFromConst(
     }
     builder.CreateRet(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value));
 
+    return true;
 
   }
 
@@ -254,11 +254,10 @@ TaffoMath::createFixedPointFromConst(
   flttofix::FixedPointType fxparg;
   bool foundRet = false;
   bool foundArg = false;
-  int arg_size = newfs->getArg(0)->getType()->getPrimitiveSizeInBits();
+  int arg_size = (int)newfs->getArg(0)->getType()->getPrimitiveSizeInBits();
   Type *arg_type = newfs->getArg(0)->getType();
   Type *ret_type = newfs->getReturnType();
   assert(arg_type->getTypeID() == ret_type->getTypeID() && "mismatch type");
-  int ret_size = newfs->getReturnType()->getPrimitiveSizeInBits();
   TaffoMath::getFixedFromRet(ref, oldf, fxpret, foundRet);
   // get argument fixed point
   TaffoMath::getFixedFromArg(ref, oldf, fxparg, 0, foundArg);
@@ -441,5 +440,5 @@ TaffoMath::createFixedPointFromConst(
     }
     builder.CreateRet(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value));
 
-
+    return true;
   }
