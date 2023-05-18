@@ -134,7 +134,11 @@ for opt in $raw_opts; do
         -cudakern)
           cuda_kern=1
           init_flags="$init_flags -cudakern"
-          ;;  
+          ;;
+        -fixm)
+          init_flags="$init_flags -fixm"
+          conversion_flags="$conversion_flags -fixm"
+          ;; 
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
             parse_state=1;
