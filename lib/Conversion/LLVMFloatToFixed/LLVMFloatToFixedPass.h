@@ -217,19 +217,8 @@ struct FloatToFixed {
   llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);
 
   /* libm support */
-  bool isSupportedLibmFunction(llvm::Function *F);
   bool convertLibmFunction(llvm::Function *oldf, llvm::Function* newfs);
-  //TODO: change below to take a ref to FloatToFixed
-  bool createASin(llvm::Function *newfs, llvm::Function *oldf);
-  bool createACos(llvm::Function *newfs, llvm::Function *oldf);
-  // generate sin and cos function based on the name of oldf
-  bool createSinCos(llvm::Function *newfs, llvm::Function *oldf);
-  bool getFunctionInto(llvm::Function *newfs, llvm::Function *oldf, llvm::SmallVector<std::pair<llvm::BasicBlock *, llvm::SmallVector<llvm::Value *, 10>>, 3> &to_change);
-  bool createAbs(llvm::Function *newfs, llvm::Function *oldf);
-  void populateFunction(llvm::Function *NewFunc, llvm::Function *OldFunc, llvm::ValueToValueMapTy &VMap,
-                        bool ModuleLevelChanges, llvm::SmallVectorImpl<llvm::ReturnInst *> &Returns,
-                        const char *NameSuffix, llvm::ClonedCodeInfo *CodeInfo,
-                        llvm::ValueMapTypeRemapper *TypeMapper, llvm::ValueMaterializer *Materializer);
+  
 
   /** Returns if a function is a library function which shall not
    *  be cloned.

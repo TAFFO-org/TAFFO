@@ -18,6 +18,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
 #include <cmath>
+#include "TaffoMathUtil.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -381,12 +382,12 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
     return convertOpenCLCall(call);
   /* Special-case known Cuda API calls */
   if (isSupportedCudaFunction(oldF))
-    return convertCudaCall(call);  
+    return convertCudaCall(call);
   /* Special-case known math intrinsics */
   if (isSupportedMathIntrinsicFunction(oldF))
     return convertMathIntrinsicFunction(call, fixpt);
   /* Special case function prototypes and all other intrinsics */
-  if (isSpecialFunction(oldF) && !isSupportedLibmFunction(oldF))
+  if (isSpecialFunction(oldF) && !TaffoMath::isSupportedLibmFunction(oldF, Fixm))
     return Unsupported;
   Function *newF = functionPool[oldF];
   if (!newF) {
@@ -774,15 +775,14 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
         Size = fixpt.scalarBitsAmt();
         unsigned target = fixpt.scalarFracBitsAmt();
 
-        //  we want fixpt fixpt.scalarFracBitsAmt() = Ext1Exp - Ext2Exp        
+        //  we want fixpt fixpt.scalarFracBitsAmt() = Ext1Exp - Ext2Exp
         if (Ext1Exp < Ext2Exp) {
           Ext2Exp = Ext1Exp;
         }
-        if (Ext1Exp - Ext2Exp < target){
-           int diff = fixpt.scalarFracBitsAmt() - (int)target;
-           Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
+        if (Ext1Exp - Ext2Exp < target) {
+          int diff = fixpt.scalarFracBitsAmt() - (int)target;
+          Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
         }
-
       }
 
       /* Extend first operand */

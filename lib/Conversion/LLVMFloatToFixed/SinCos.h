@@ -19,4 +19,6 @@ void fixrangeSinCos(FloatToFixed *ref, llvm::Function *oldf, FixedPointType &fxp
                     FixedPointType &fxpret, llvm::Value *arg_value,
                     llvm::IRBuilder<> &builder);
 
+bool createSinCos(FloatToFixed * ref,  llvm::Function *newfs, llvm::Function *oldf);
+
 }

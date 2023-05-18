@@ -1,4 +1,5 @@
 #include "TaffoInitializerPass.h"
+#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
 #include "CudaKernelPatcher.h"
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
@@ -451,7 +452,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
       LLVM_DEBUG(dbgs() << "found bitcasted funcptr in " << *v << ", skipping\n");
       continue;
     }
-    if (isSpecialFunction(oldF) && !TaffoMath::isSupportedLibmFunction(oldF))
+    if (isSpecialFunction(oldF) && !TaffoMath::isSupportedLibmFunction(oldF, Fixm))
       continue;
     if (ManualFunctionCloning) {
       if (enabledFunctions.count(oldF) == 0) {
@@ -521,7 +522,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
   Function *oldF = call->getCalledFunction();
   Function *newF = nullptr;
   ConvQueueT roots;
-  if (TaffoMath::isSupportedLibmFunction(oldF)) {
+  if (TaffoMath::isSupportedLibmFunction(oldF, Fixm)) {
     newF = Function::Create(oldF->getFunctionType(), llvm::GlobalValue::ExternalWeakLinkage, oldF->getName(), oldF->getParent());
     Function::arg_iterator newArgumentI = newF->arg_begin();
     Function::arg_iterator oldArgumentI = oldF->arg_begin();
@@ -557,7 +558,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
   }
   SmallVector<ReturnInst *, 100> returns;
   CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
-  if (!OpenCLKernelMode && !CudaKernelMode && !TaffoMath::isSupportedLibmFunction(oldF))
+  if (!OpenCLKernelMode && !CudaKernelMode && !TaffoMath::isSupportedLibmFunction(oldF, Fixm))
     newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 

@@ -1,4 +1,6 @@
 #include "TAFFOMath.h"
+#include "ArcSinCos.h"
+#include "SinCos.h"
 #include "TaffoMathUtil.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
@@ -17,9 +19,8 @@
 #include <string>
 #include <unordered_set>
 
+
 #define DEBUG_TYPE "taffo-conversion"
-
-
 
 
 using namespace flttofix;
@@ -143,7 +144,8 @@ void getFixedFromRet(FloatToFixed *ref, Function *oldf,
       }
     }
   }
-  LLVM_DEBUG(dbgs() << "Fix not founds for return " << "\n");
+  LLVM_DEBUG(dbgs() << "Fix not founds for return "
+                    << "\n");
 
   found = false;
 }
@@ -151,13 +153,13 @@ void getFixedFromRet(FloatToFixed *ref, Function *oldf,
 void getFixedFromArg(FloatToFixed *ref, Function *oldf,
                      FixedPointType &fxparg, int n, bool &found)
 {
-      LLVM_DEBUG(dbgs() << *oldf << "\n");
+  LLVM_DEBUG(dbgs() << *oldf << "\n");
 
   for (auto arg = oldf->arg_begin(); arg != oldf->arg_end(); ++arg) {
     if (n == 0) {
 
       LLVM_DEBUG(dbgs() << "Try n: " << n << "\n");
-      
+
       if (ref->hasInfo(arg)) {
         LLVM_DEBUG(dbgs() << "arg: "
                           << "\n");
@@ -171,7 +173,8 @@ void getFixedFromArg(FloatToFixed *ref, Function *oldf,
     }
     --n;
   }
-  LLVM_DEBUG(dbgs() << "Fix not founded from for arguments" << "\n");
+  LLVM_DEBUG(dbgs() << "Fix not founded from for arguments"
+                    << "\n");
   found = false;
 }
 
@@ -216,39 +219,6 @@ void createStub(Function *OldFunc)
 }
 
 
-void FloatToFixed::populateFunction(
-    Function *NewFunc, Function *OldFunc, ValueToValueMapTy &VMap,
-    bool ModuleLevelChanges, SmallVectorImpl<ReturnInst *> &Returns,
-    const char *NameSuffix, ClonedCodeInfo *CodeInfo,
-    ValueMapTypeRemapper *TypeMapper, ValueMaterializer *Materializer)
-{
-  llvm::SmallVector<std::pair<unsigned int, llvm::MDNode *>, 10> savedMetadata;
-  OldFunc->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
-  NewFunc->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
-  OldFunc->getAllMetadata(savedMetadata);
-  // remove old body
-  if (OldFunc->begin() != OldFunc->end()) {
-    LLVM_DEBUG(dbgs() << "\ndelete body"
-                      << "\n");
-    OldFunc->deleteBody();
-  }
-
-  SmallVector<std::pair<BasicBlock *, SmallVector<Value *, 10>>, 3> to_change;
-  createStub(OldFunc);
-  LLVM_DEBUG(dbgs() << "start clone"
-                    << "\n");
-  CloneFunctionInto(NewFunc, OldFunc, VMap, CloneFunctionChangeType::GlobalChanges, Returns);
-  LLVM_DEBUG(dbgs() << "end clone"
-                    << "\n");
-  getFunctionInto(NewFunc, OldFunc, to_change);
-  for (auto &MD : savedMetadata) {
-    OldFunc->setMetadata(MD.first, MD.second);
-    NewFunc->setMetadata(MD.first, MD.second);
-  }
-
-  LLVM_DEBUG(NewFunc->getParent()->dump());
-  LLVM_DEBUG(llvm::verifyFunction(*NewFunc, &dbgs()));
-}
 
 
 bool partialSpecialCall(
@@ -258,8 +228,6 @@ bool partialSpecialCall(
   StringRef fName = newf->getName();
   BasicBlock *where = &(newf->getEntryBlock());
   IRBuilder<> builder(where, where->getFirstInsertionPt());
-  Value *generic;
-  Value *ret;
   auto end = BasicBlock::Create(m->getContext(), "end", newf);
   auto trap = Intrinsic::getDeclaration(m, Intrinsic::trap);
   builder.CreateCall(trap);
@@ -275,7 +243,7 @@ bool partialSpecialCall(
 }
 
 
-bool FloatToFixed::createAbs(llvm::Function *newfs, llvm::Function *oldf)
+bool createAbs(FloatToFixed *ref, llvm::Function *newfs, llvm::Function *oldf)
 {
   llvm::LLVMContext &cont(oldf->getContext());
   DataLayout dataLayout(oldf->getParent());
@@ -284,7 +252,7 @@ bool FloatToFixed::createAbs(llvm::Function *newfs, llvm::Function *oldf)
   auto ret_type = newfs->getReturnType();
   BasicBlock *where = &(newfs->getEntryBlock());
   IRBuilder<> builder(where, where->getFirstInsertionPt());
-  if (this->hasInfo(oldf->getArg(0)) && !(this->valueInfo(oldf->getArg(0))->fixpType.scalarIsSigned())) {
+  if (ref->hasInfo(oldf->getArg(0)) && !(ref->valueInfo(oldf->getArg(0))->fixpType.scalarIsSigned())) {
     builder.CreateRet(newfs->getArg(0));
     return true;
   }
@@ -310,17 +278,11 @@ bool FloatToFixed::createAbs(llvm::Function *newfs, llvm::Function *oldf)
 }
 
 
-bool FloatToFixed::isSupportedLibmFunction(Function *F)
-{
-  return Fixm && TaffoMath::isSupportedLibmFunction(F);
-}
-
-
 // TODO: add an hashmap to dispatch
 bool FloatToFixed::convertLibmFunction(
     Function *OldFunc, Function *NewFunc)
 {
-  assert(isSupportedLibmFunction(OldFunc));
+  assert(TaffoMath::isSupportedLibmFunction(OldFunc, Fixm));
   // TODO: demangle names
   // auto fName = demangle(OldFunc->getName().str());
   auto fName = OldFunc->getName().str();
@@ -329,20 +291,20 @@ bool FloatToFixed::convertLibmFunction(
   if (taffo::start_with(fName, "sin") || taffo::start_with(fName, "cos") ||
       taffo::start_with(fName, "_ZSt3cos") ||
       taffo::start_with(fName, "_ZSt3sin")) {
-    return createSinCos(NewFunc, OldFunc);
+    return createSinCos(this, NewFunc, OldFunc);
   }
 
   if (taffo::start_with(fName, "asin")) {
-    return createASin(NewFunc, OldFunc);
+    return createASin(this, NewFunc, OldFunc);
   }
 
   if (taffo::start_with(fName, "acos")) {
-    return createACos(NewFunc, OldFunc);
+    return createACos(this, NewFunc, OldFunc);
   }
 
 
   if (taffo::start_with(fName, "abs")) {
-    return createAbs(NewFunc, OldFunc);
+    return createAbs(this, NewFunc, OldFunc);
   }
   llvm_unreachable("Function not recognized");
 }
