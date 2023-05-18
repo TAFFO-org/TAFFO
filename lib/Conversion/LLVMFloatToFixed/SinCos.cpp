@@ -11,8 +11,6 @@
 #define DEBUG_TYPE "taffo-conversion"
 
 
-extern float MathZFlag;
-extern bool MathZ;
 
 
 namespace flttofix
@@ -450,7 +448,7 @@ bool FloatToFixed::createSinCos(
                             TaffoMath::TABLELENGHT>
       arctan_2power;
   llvm::AllocaInst *pointer_to_array = nullptr;
-  if (MathZFlag == 0) {
+  if (!MathZFlag) {
     for (int i = 0; i < TaffoMath::TABLELENGHT; i++) {
       arctan_2power.fpt.push_back(flttofix::FixedPointType(fxpret));
       Constant *tmp = nullptr;
@@ -768,7 +766,7 @@ bool FloatToFixed::createSinCos(
 
 
   // calculate sin and cos
-  if (MathZFlag == 0) {
+  if (!MathZFlag) {
     builder.CreateStore(builder.CreateShl(builder.CreateLoad(getElementTypeFromValuePointer(arg_value), arg_value), internal_fxpt.scalarFracBitsAmt() - fxpret.scalarFracBitsAmt()), arg_value);
     auto zero_arg = builder.CreateLoad(getElementTypeFromValuePointer(zero.value), zero.value);
     // x=kopp
