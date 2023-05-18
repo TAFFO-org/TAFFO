@@ -8,11 +8,11 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/ValueMap.h"
-#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -23,6 +23,7 @@
 STATISTIC(AnnotationCount, "Number of valid annotations found");
 STATISTIC(FunctionCloned, "Number of fixed point function inserted");
 
+extern llvm::cl::opt<bool> Fixm;
 namespace taffo
 {
 
@@ -36,7 +37,8 @@ struct ValueInfo {
 };
 
 
-class TaffoInitializer : public llvm::PassInfoMixin<TaffoInitializer> {
+class TaffoInitializer : public llvm::PassInfoMixin<TaffoInitializer>
+{
 public:
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 

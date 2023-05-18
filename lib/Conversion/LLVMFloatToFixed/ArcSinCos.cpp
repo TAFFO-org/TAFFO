@@ -30,7 +30,7 @@ void print_fixp( Module* M, IRBuilder<> &builder, const char * c_str, Value *to_
   builder.CreateCall(fun, {str, generic});
 }
 
-bool FloatToFixed::createACos(llvm::Function *newfs, llvm::Function *oldf) {
+bool createACos(FloatToFixed* ref, llvm::Function *newfs, llvm::Function *oldf) {
   newfs->deleteBody();
   Value *generic;
   Module *M = oldf->getParent();
@@ -51,9 +51,9 @@ bool FloatToFixed::createACos(llvm::Function *newfs, llvm::Function *oldf) {
   Type *ret_type = newfs->getReturnType();
   assert(arg_type->getTypeID() == ret_type->getTypeID() && "mismatch type");
   int ret_size = newfs->getReturnType()->getPrimitiveSizeInBits();
-  TaffoMath::getFixedFromRet(this, oldf, fxpret, foundRet);
+  TaffoMath::getFixedFromRet(ref, oldf, fxpret, foundRet);
   // get argument fixed point
-  TaffoMath::getFixedFromArg(this, oldf, fxparg, 0, foundArg);
+  TaffoMath::getFixedFromArg(ref, oldf, fxparg, 0, foundArg);
   if (!foundRet || !foundArg) {
     return partialSpecialCall(newfs, foundRet, fxpret);
   }
@@ -82,9 +82,9 @@ bool FloatToFixed::createACos(llvm::Function *newfs, llvm::Function *oldf) {
   //assign constant
   auto zero = ConstantInt::get(Type::getInt32Ty(cont), 0);
   TaffoMath::createFixedPointFromConst(
-      cont, this, 1,  x.fpt, one.value, one.fpt); 
+      cont, ref, 1,  x.fpt, one.value, one.fpt); 
 TaffoMath::createFixedPointFromConst(
-    cont, this, -1,  x.fpt, minus.value, minus.fpt); 
+    cont, ref, -1,  x.fpt, minus.value, minus.fpt); 
 
   // alloca variable
   x.value = builder.CreateAlloca(arg_type, nullptr, "x");
@@ -106,7 +106,7 @@ TaffoMath::createFixedPointFromConst(
       arctan_2power.fpt.push_back(flttofix::FixedPointType(fxpret));
       Constant *tmp = nullptr;
       auto &current_fpt = arctan_2power.fpt.front();
-      TaffoMath::createFixedPointFromConst(cont, this,
+      TaffoMath::createFixedPointFromConst(cont, ref,
                                            TaffoMath::arctan_2power[i],
                                            theta.fpt, tmp, current_fpt);
       arctan_2power.value.push_back(tmp);
@@ -238,7 +238,7 @@ TaffoMath::createFixedPointFromConst(
 
 
 
-  bool FloatToFixed::createASin(llvm::Function * newfs, llvm::Function * oldf) {
+  bool createASin( FloatToFixed * ref, llvm::Function * newfs, llvm::Function * oldf) {
   newfs->deleteBody();
   Value *generic;
   Module *M = oldf->getParent();
@@ -259,9 +259,9 @@ TaffoMath::createFixedPointFromConst(
   Type *ret_type = newfs->getReturnType();
   assert(arg_type->getTypeID() == ret_type->getTypeID() && "mismatch type");
   int ret_size = newfs->getReturnType()->getPrimitiveSizeInBits();
-  TaffoMath::getFixedFromRet(this, oldf, fxpret, foundRet);
+  TaffoMath::getFixedFromRet(ref, oldf, fxpret, foundRet);
   // get argument fixed point
-  TaffoMath::getFixedFromArg(this, oldf, fxparg, 0, foundArg);
+  TaffoMath::getFixedFromArg(ref, oldf, fxparg, 0, foundArg);
   if (!foundRet || !foundArg) {
     return partialSpecialCall(newfs, foundRet, fxpret);
   }
@@ -290,9 +290,9 @@ TaffoMath::createFixedPointFromConst(
   //assign constant
   auto zero = ConstantInt::get(Type::getInt32Ty(cont), 0);
   TaffoMath::createFixedPointFromConst(
-      cont, this, 1,  x.fpt, one.value, one.fpt); 
+      cont, ref, 1,  x.fpt, one.value, one.fpt); 
 TaffoMath::createFixedPointFromConst(
-    cont, this, -1,  x.fpt, minus.value, minus.fpt); 
+    cont, ref, -1,  x.fpt, minus.value, minus.fpt); 
 
   // alloca variable
   x.value = builder.CreateAlloca(arg_type, nullptr, "x");
@@ -314,7 +314,7 @@ TaffoMath::createFixedPointFromConst(
       arctan_2power.fpt.push_back(flttofix::FixedPointType(fxpret));
       Constant *tmp = nullptr;
       auto &current_fpt = arctan_2power.fpt.front();
-      TaffoMath::createFixedPointFromConst(cont, this,
+      TaffoMath::createFixedPointFromConst(cont, ref,
                                            TaffoMath::arctan_2power[i],
                                            theta.fpt, tmp, current_fpt);
       arctan_2power.value.push_back(tmp);

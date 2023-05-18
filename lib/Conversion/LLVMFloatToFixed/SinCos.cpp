@@ -284,7 +284,7 @@ Value *generateCosLUT(FloatToFixed *ref, Function *newfs, FixedPointType &fxparg
 }
 
 
-bool FloatToFixed::createSinCos(
+bool createSinCos(FloatToFixed * ref,
     llvm::Function *newfs, llvm::Function *oldf)
 {
   //
@@ -308,9 +308,9 @@ bool FloatToFixed::createSinCos(
   flttofix::FixedPointType fxparg;
   bool foundRet = false;
   bool foundArg = false;
-  TaffoMath::getFixedFromRet(this, oldf, fxpret, foundRet);
+  TaffoMath::getFixedFromRet(ref, oldf, fxpret, foundRet);
   // get argument fixed point
-  TaffoMath::getFixedFromArg(this, oldf, fxparg, 0, foundArg);
+  TaffoMath::getFixedFromArg(ref, oldf, fxparg, 0, foundArg);
   if (!foundRet || !foundArg) {
     return partialSpecialCall(newfs, foundRet, fxpret);
   }
@@ -353,38 +353,38 @@ bool FloatToFixed::createSinCos(
   TaffoMath::pair_ftp_value<llvm::Constant *> minus_one(fxpret);
   TaffoMath::pair_ftp_value<llvm::Constant *> minus_one_internal(internal_fxpt);
   bool pi_created = TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::pi, fxpret, pi.value, pi.fpt);
+      cont, ref, TaffoMath::pi, fxpret, pi.value, pi.fpt);
   bool pi_2_created = TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::pi_2, fxpret, pi_2.value, pi_2.fpt);
+      cont, ref, TaffoMath::pi_2, fxpret, pi_2.value, pi_2.fpt);
   bool pi_32_created = TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::pi_32, fxpret, pi_32.value, pi_32.fpt);
+      cont, ref, TaffoMath::pi_32, fxpret, pi_32.value, pi_32.fpt);
   bool pi_half_created = TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::pi_half, fxpret, pi_half.value,
+      cont, ref, TaffoMath::pi_half, fxpret, pi_half.value,
       pi_half.fpt);
   bool done = TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::pi_half, internal_fxpt, pi_half_internal.value,
+      cont, ref, TaffoMath::pi_half, internal_fxpt, pi_half_internal.value,
       pi_half_internal.fpt);
   dbgs() << "\n\n\n";
   dbgs() << done;
   dbgs() << "\n\n\n";
 
   bool kopp_created = TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::Kopp, internal_fxpt, kopp.value, kopp.fpt);
+      cont, ref, TaffoMath::Kopp, internal_fxpt, kopp.value, kopp.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::zero, fxpret, zero.value, zero.fpt);
+      cont, ref, TaffoMath::zero, fxpret, zero.value, zero.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::zero, fxparg, zeroarg.value, zeroarg.fpt);
+      cont, ref, TaffoMath::zero, fxparg, zeroarg.value, zeroarg.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::one, fxpret, one.value, one.fpt);
+      cont, ref, TaffoMath::one, fxpret, one.value, one.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::one, internal_fxpt, one_internal.value, one_internal.fpt);
+      cont, ref, TaffoMath::one, internal_fxpt, one_internal.value, one_internal.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::zero, internal_fxpt, zero_internal.value, zero_internal.fpt);
+      cont, ref, TaffoMath::zero, internal_fxpt, zero_internal.value, zero_internal.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::minus_one, fxpret, minus_one.value,
+      cont, ref, TaffoMath::minus_one, fxpret, minus_one.value,
       minus_one.fpt);
   TaffoMath::createFixedPointFromConst(
-      cont, this, TaffoMath::minus_one, internal_fxpt, minus_one_internal.value,
+      cont, ref, TaffoMath::minus_one, internal_fxpt, minus_one_internal.value,
       minus_one_internal.fpt);
   std::string S_ret_point = "." + std::to_string(fxpret.scalarFracBitsAmt());
 
@@ -454,7 +454,7 @@ bool FloatToFixed::createSinCos(
       Constant *tmp = nullptr;
       auto &current_fpt = arctan_2power.fpt.front();
       TaffoMath::createFixedPointFromConst(
-          cont, this, TaffoMath::arctan_2power[i], internal_fxpt, tmp, current_fpt);
+          cont, ref, TaffoMath::arctan_2power[i], internal_fxpt, tmp, current_fpt);
       arctan_2power.value.push_back(tmp);
       LLVM_DEBUG(dbgs() << i << ")");
     }
@@ -546,7 +546,7 @@ bool FloatToFixed::createSinCos(
     }
   }
 
-  fixrangeSinCos(this, newfs, fxparg, fxpret, arg_value, builder);
+  fixrangeSinCos(ref, newfs, fxparg, fxpret, arg_value, builder);
 
   // special case
   {
@@ -846,7 +846,7 @@ bool FloatToFixed::createSinCos(
                                           internal_fxpt.scalarFracBitsAmt() -
                                               fxpret.scalarFracBitsAmt()),
                         arg_value);
-    Value *sin_g = generateSinLUT(this, newfs, internal_fxpt, builder);
+    Value *sin_g = generateSinLUT(ref, newfs, internal_fxpt, builder);
     // Value *cos_g = generateCosLUT(this, oldf, internal_fxpt, builder);
     auto zero_arg = builder.CreateLoad(getElementTypeFromValuePointer(zero.value), zero.value);
 
