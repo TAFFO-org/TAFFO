@@ -45,7 +45,8 @@ EMBEDDED_OPT_FLAGS := -m32 \
 
 modes := float fixed dynamic
 archs := PC EMBEDDED
-benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
 #benchmarks := 2mm
 
@@ -58,13 +59,13 @@ stats_jobs := $(foreach bench, $(benchmarks), \
 jobs := $(foreach bench, $(benchmarks), \
 			$(foreach mode, $(modes), \
 				$(foreach arch, $(archs), \
-					job-$(bench)-$(mode)-$(arch) )))
+					job-$(bench)--$(mode)--$(arch) )))
 
 jobs_run := $(patsubst %, run-%, $(jobs))
 
-bench = $(word 1, $(subst -, ,$*))
-mode = $(word 2, $(subst -, ,$*))
-arch = $(word 3, $(subst -, ,$*))
+bench = $(word 1, $(subst --, ,$*))
+mode = $(word 2, $(subst --, ,$*))
+arch = $(word 3, $(subst --, ,$*))
 
 bench_src = $(SRC_DIR)/$(bench)/$(bench).c
 bench_src_h = $(SRC_DIR)/$(bench)/$(bench).h
