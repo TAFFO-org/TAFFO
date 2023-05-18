@@ -225,7 +225,6 @@ bool partialSpecialCall(
     llvm::Function *newf, bool &foundRet, flttofix::FixedPointType &fxpret)
 {
   Module *m = newf->getParent();
-  StringRef fName = newf->getName();
   BasicBlock *where = &(newf->getEntryBlock());
   IRBuilder<> builder(where, where->getFirstInsertionPt());
   auto end = BasicBlock::Create(m->getContext(), "end", newf);
