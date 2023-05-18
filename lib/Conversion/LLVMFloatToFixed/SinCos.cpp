@@ -364,9 +364,6 @@ bool createSinCos(FloatToFixed * ref,
   bool done = TaffoMath::createFixedPointFromConst(
       cont, ref, TaffoMath::pi_half, internal_fxpt, pi_half_internal.value,
       pi_half_internal.fpt);
-  dbgs() << "\n\n\n";
-  dbgs() << done;
-  dbgs() << "\n\n\n";
 
   bool kopp_created = TaffoMath::createFixedPointFromConst(
       cont, ref, TaffoMath::Kopp, internal_fxpt, kopp.value, kopp.fpt);
