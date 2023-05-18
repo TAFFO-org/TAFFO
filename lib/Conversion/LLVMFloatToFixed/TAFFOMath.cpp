@@ -20,7 +20,7 @@
 #define DEBUG_TYPE "taffo-conversion"
 
 
-extern bool Fixm;
+
 
 using namespace flttofix;
 using namespace llvm;

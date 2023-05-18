@@ -25,6 +25,9 @@
 #define DEBUG_TYPE "taffo-conversion"
 extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
 extern llvm::cl::opt<unsigned int> MinQuotientFrac;
+extern llvm::cl::opt<int> MathZ;
+extern llvm::cl::opt<bool> MathZFlag;
+extern llvm::cl::opt<bool> Fixm;
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "
