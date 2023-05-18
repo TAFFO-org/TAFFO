@@ -174,6 +174,7 @@ def plot_error(results_path, stats_summary_full):
     plot_error_single(stats_summary_full, 'EMBEDDED', axd['embedded_error'])
 
     fig.savefig(f'{file_base}_relative.png', dpi=fig.dpi)
+    fig.savefig(f'{file_base}_relative.pdf', dpi=fig.dpi)
 
 def plot_error_single(stats_summary_full, arch, ax):
     data_slice = stats_summary_full[(stats_summary_full['arch'] == arch)]
@@ -184,15 +185,25 @@ def plot_error_single(stats_summary_full, arch, ax):
 def plot_error_bar(results_path, stats_summary_full):
     file_base = f'{results_path}/stats'
 
-    fig, axd = plt.subplot_mosaic([['pc_error', 'pc_speedup'], ['embedded_error', 'embedded_speedup']],
-                                  constrained_layout=True)
-    fig.suptitle(f'Relative error')
-    fig.set_size_inches(14, 14, forward=True)
-    plot_error_bar_single(stats_summary_full, 'PC', axd['pc_error'])
-    plot_error_bar_single(stats_summary_full, 'EMBEDDED', axd['embedded_error'])
-    plot_speedup_bar_single(stats_summary_full, 'PC', axd['pc_speedup'])
-    plot_speedup_bar_single(stats_summary_full, 'EMBEDDED', axd['embedded_speedup'])
-    fig.savefig(f'{file_base}_bar.png', dpi=fig.dpi)
+    # fig, axd = plt.subplot_mosaic([['pc_error', 'pc_speedup'], ['embedded_error', 'embedded_speedup']],
+    #                               constrained_layout=True)
+    # fig.suptitle(f'Relative error')
+    # fig.set_size_inches(14, 14, forward=True)
+    for (arch, metric) in [('PC', 'error'), ('EMBEDDED', 'error'), ('PC', 'speedup'), ('EMBEDDED', 'speedup')]:
+        fig, axd = plt.subplot_mosaic([[f'{arch}_{metric}']], constrained_layout=True)
+        fig.set_size_inches(6, 7, forward=True)
+        if metric == 'error':
+            plot_error_bar_single(stats_summary_full, arch, axd[f'{arch}_{metric}'])
+        else:
+            plot_speedup_bar_single(stats_summary_full, arch, axd[f'{arch}_{metric}'])
+        fig.savefig(f'{file_base}_{arch}_{metric}_bar.png', dpi=fig.dpi)
+        fig.savefig(f'{file_base}_{arch}_{metric}_bar.pdf', dpi=fig.dpi)
+
+    #     plot_error_bar_single(stats_summary_full, 'EMBEDDED', axd['embedded_error'])
+    # for metric in ['pc_error', 'embedded_error', 'pc_speedup', 'embedded_speedup']:
+    #     plot_speedup_bar_single(stats_summary_full, 'PC', axd['pc_speedup'])
+    #     plot_speedup_bar_single(stats_summary_full, 'EMBEDDED', axd['embedded_speedup'])
+
     # fig.savefig(f'{file_base}.pdf', dpi=fig.dpi)
 
 def plot_error_bar_single(stats_summary_full, arch, axd):
@@ -207,7 +218,7 @@ def plot_error_bar_single(stats_summary_full, arch, axd):
     axd.legend(loc='lower right')
     axd.set_xlabel('relative error')
     axd.set_ylabel('')
-    axd.title.set_text(f"{arch} error")
+    # axd.title.set_text(f"{arch} error")
 
 def plot_speedup_bar_single(stats_summary_full, arch, axd):
     pc_error = stats_summary_full[(stats_summary_full['arch'] == arch)]
@@ -221,7 +232,7 @@ def plot_speedup_bar_single(stats_summary_full, arch, axd):
     axd.legend(loc='lower right')
     axd.set_xlabel('speedup')
     axd.set_ylabel('')
-    axd.title.set_text(f"{arch} speedup")
+    # axd.title.set_text(f"{arch} speedup")
 
 def plot_mode(results_path, stats_summary_full):
     file_base = f'{results_path}/modes'
@@ -233,7 +244,7 @@ def plot_mode(results_path, stats_summary_full):
         ]
 
     fig, ax = plt.subplots(2, 2, constrained_layout=True)
-    fig.set_size_inches(18, 12, forward=True)
+    fig.set_size_inches(18, 15, forward=True)
     smul = stats_summary.pivot(index='bench', columns='mode', values='mul')
     sns.heatmap(smul, annot=True, linewidths=.5, ax=ax[0, 0], cmap='Blues')
     ax[0, 0].title.set_text('mul')
@@ -247,9 +258,10 @@ def plot_mode(results_path, stats_summary_full):
     sns.heatmap(fdiv, annot=True, linewidths=.5, ax=ax[1, 1], cmap='Blues')
     ax[1, 1].title.set_text('fdiv')
     fig.savefig(f'{file_base}_mul_div.png', dpi=fig.dpi)
+    fig.savefig(f'{file_base}_mul_div.pdf', dpi=fig.dpi)
 
     fig2, ax2 = plt.subplots(2, 2, constrained_layout=True)
-    fig2.set_size_inches(18, 12, forward=True)
+    fig2.set_size_inches(18, 15, forward=True)
     intop = stats_summary.pivot(index='bench', columns='mode', values='IntegerOp')
     sns.heatmap(intop, annot=True, linewidths=.5, ax=ax2[0, 0], cmap='Blues')
     ax2[0, 0].title.set_text('IntegerOp')
@@ -263,9 +275,10 @@ def plot_mode(results_path, stats_summary_full):
     sns.heatmap(shiftop, annot=True, linewidths=.5, ax=ax2[1, 1], cmap='Blues')
     ax2[1, 1].title.set_text('Shift')
     fig2.savefig(f'{file_base}_int_float.png', dpi=fig2.dpi)
+    fig2.savefig(f'{file_base}_int_float.pdf', dpi=fig2.dpi)
 
     fig3, ax3 = plt.subplots(2, 2, constrained_layout=True)
-    fig3.set_size_inches(18, 12, forward=True)
+    fig3.set_size_inches(18, 15, forward=True)
     add = stats_summary.pivot(index='bench', columns='mode', values='add')
     sns.heatmap(add, annot=True, linewidths=.5, ax=ax3[0, 0], cmap='Blues')
     ax3[0, 0].title.set_text('add')
@@ -279,6 +292,7 @@ def plot_mode(results_path, stats_summary_full):
     sns.heatmap(fsub, annot=True, linewidths=.5, ax=ax3[1, 1], cmap='Blues')
     ax3[1, 1].title.set_text('fsub')
     fig3.savefig(f'{file_base}_add_sub.png', dpi=fig3.dpi)
+    fig3.savefig(f'{file_base}_add_sub.pdf', dpi=fig3.dpi)
 
 
 def read_time(data_path):
