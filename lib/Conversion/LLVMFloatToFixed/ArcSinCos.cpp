@@ -226,9 +226,9 @@ TaffoMath::createFixedPointFromConst(
     builder.SetInsertPoint(end_loop);
 
     if(fxpret.scalarFracBitsAmt() > arg_size - 3){
-        builder.CreateStore(builder.CreateAShr(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), fxpret.scalarFracBitsAmt() - arg_size + 3), theta.value);
+        builder.CreateStore(builder.CreateShl(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), fxpret.scalarFracBitsAmt() - arg_size + 3), theta.value);
     }else if (fxpret.scalarFracBitsAmt() < arg_size - 3){
-        builder.CreateStore(builder.CreateShl(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), -fxpret.scalarFracBitsAmt() + arg_size - 3), theta.value);
+        builder.CreateStore(builder.CreateAShr(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), -fxpret.scalarFracBitsAmt() + arg_size - 3), theta.value);
     }
     builder.CreateRet(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value));
 
@@ -434,9 +434,9 @@ TaffoMath::createFixedPointFromConst(
     builder.SetInsertPoint(end_loop);
 
     if(fxpret.scalarFracBitsAmt() > arg_size - 3){
-        builder.CreateStore(builder.CreateAShr(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), fxpret.scalarFracBitsAmt() - arg_size + 3), theta.value);
+        builder.CreateStore(builder.CreateShl(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), fxpret.scalarFracBitsAmt() - arg_size + 3), theta.value);
     }else if (fxpret.scalarFracBitsAmt() < arg_size - 3){
-        builder.CreateStore(builder.CreateShl(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), -fxpret.scalarFracBitsAmt() + arg_size - 3), theta.value);
+        builder.CreateStore(builder.CreateAShr(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value), -fxpret.scalarFracBitsAmt() + arg_size - 3), theta.value);
     }
     builder.CreateRet(builder.CreateLoad(getElementTypeFromValuePointer(theta.value), theta.value));
 
