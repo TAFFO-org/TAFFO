@@ -318,7 +318,7 @@ for opt in $raw_opts; do
       parse_state=0
       ;;
     20)
-      dynamic_trace="$opt";
+      dynamic_trace="$dynamic_trace -trace_file $opt";
       parse_state=0;
       ;;
   esac;
@@ -593,10 +593,11 @@ else
       "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
       -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
   elif [ ! -z "$dynamic_trace" ]; then
+    echo "$dynamic_trace"
     ${OPT} \
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
       --passes='no-op-module,taffo-read-trace' \
-      -trace_file "$dynamic_trace" \
+      $dynamic_trace \
       $compat_flags_opt  \
       "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
       -S -o "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" || exit $?
