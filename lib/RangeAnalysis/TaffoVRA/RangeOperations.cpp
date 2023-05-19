@@ -3,6 +3,7 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/Support/Debug.h"
+#include <algorithm>
 #include <assert.h>
 #include <limits>
 #include <map>
@@ -124,10 +125,13 @@ taffo::handleCastInstruction(const range_ptr_t scalar,
   return nullptr;
 }
 
+//FIXME: better way to handle name.extension
+//now we just check the prefix 
 /** Return true if this function call can be handled by taffo::handleMathCallInstruction */
 bool taffo::isMathCallInstruction(const std::string &function)
 {
-  return functionWhiteList.count(function);
+  return std::any_of(functionWhiteList.cbegin(), functionWhiteList.cend(),
+                     [&function](const std::pair<const std::string, map_value_t> &whiteList) { return function.find(whiteList.first) == 0; });
 }
 
 /** Handle call to known math functions. Return nullptr if unknown */
@@ -135,8 +139,10 @@ range_ptr_t
 taffo::handleMathCallInstruction(const std::list<range_ptr_t> &ops,
                                  const std::string &function)
 {
-  const auto it = functionWhiteList.find(function);
-  if (it != functionWhiteList.end()) {
+  const auto it = std::find_if(functionWhiteList.cbegin(), functionWhiteList.cend(),
+                               [&function](const std::pair<const std::string, map_value_t> &whiteList) { return function.find(whiteList.first) == 0; });
+
+  if (it != functionWhiteList.cend()) {
     return it->second(ops);
   }
   return nullptr;
