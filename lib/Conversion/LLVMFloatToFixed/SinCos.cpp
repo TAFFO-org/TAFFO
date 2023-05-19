@@ -318,6 +318,12 @@ bool createSinCos(FloatToFixed * ref,
   arg.value = newfs->arg_begin();
   auto truefxpret = fxpret;
 
+  if ((fxpret.scalarBitsAmt() - fxpret.scalarFracBitsAmt()) < 5) {    
+      fxpret = flttofix::FixedPointType(true,
+                                        fxpret.scalarBitsAmt() - 5,
+                                        fxpret.scalarBitsAmt());
+      LLVM_DEBUG(dbgs() << "New fxpret: " << fxpret << "\n");    
+  }
 
   LLVM_DEBUG(dbgs() << "fxpret: " << fxpret.scalarBitsAmt() << " frac part: " << fxpret.scalarFracBitsAmt() << " difference: " << fxpret.scalarBitsAmt() - fxpret.scalarFracBitsAmt() << "\n");
 
