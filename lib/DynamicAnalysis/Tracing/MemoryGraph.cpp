@@ -7,6 +7,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "TracingUtils.h"
+#include "TaffoMathUtil.h"
 #include "TypeUtils.h"
 
 namespace taffo
@@ -174,6 +175,10 @@ void MemoryGraph::makeGraph()
       }
     }
 
+//    else if (castInst->getDestTy()->isFloatingPointTy() || castInst->getDestTy()->isIntegerTy()) {
+//      addUsesToGraph(Inst);
+//    }
+
     markVisited(wrappedInst);
   }
 }
@@ -246,6 +251,35 @@ void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper,
     queuePush(dstArgWrapper);
   }
 }
+
+//void MemoryGraph::addUsesToGraph(llvm::Value *V)
+//{
+//  auto srcWrapper = ValueWrapper::wrapValue(V);
+//  for (auto &Inst: V->uses()) {
+//    auto *dstInst = Inst.getUser();
+//    // passing as an argument to a function is fine for both pointers and values
+//    if (isa<CallInst, InvokeInst>(dstInst)) {
+//      auto *callSite = dyn_cast<CallBase>(dstInst);
+//      auto argNo = callSite->getArgOperandNo(&Inst);
+//      auto *fun = callSite->getCalledFunction();
+//      if (fun &&
+//          (!fun->getBasicBlockList().empty() || TaffoMath::isSupportedLibmFunction(fun, Fixm)) &&
+//          !fun->isVarArg()) {
+//        llvm::dbgs() << "Arg: " << *V << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
+//        auto *formalArg = fun->getArg(argNo);
+//        auto dstArgWrapper = ValueWrapper::wrapValue(formalArg);
+//        addToGraph(srcWrapper, dstArgWrapper);
+//        queuePush(dstArgWrapper);
+//      }
+//      // the rest of uses only are fine if it's a pointer or a store or a cast
+//    } else if (V->getType()->isPointerTy() || isa<StoreInst>(dstInst) || isa<CastInst>(dstInst)) {
+//      auto dstWrapper = ValueWrapper::wrapValueUse(&Inst);
+//      queuePush(dstWrapper);
+//      addToGraph(srcWrapper, dstWrapper);
+//    }
+//  }
+//}
+
 
 void MemoryGraph::handleGEPInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::GetElementPtrInst *gepInst, llvm::Use* UseObject)
 {
