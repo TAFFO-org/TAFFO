@@ -198,6 +198,7 @@ define build_fixed
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
+		-fixm \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
@@ -218,6 +219,7 @@ define build_dynamic
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
+		-fixm \
 		-dynamic-trace $(stats_job_file_base).instrumented.trace \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \

@@ -44,6 +44,10 @@ cl::opt<bool> CudaKernelMode("cudakern",
                              cl::desc("Allows cloning of Cuda kernel functions"),
                              cl::init(false));
 
+cl::opt<bool> InitNoAnnotations("taffo_init_no_annotations",
+                          cl::desc("Initialize TAFFO structures even if there are no annotations"),
+                          cl::init(false));
+
 PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
 {
   if (OpenCLKernelMode) {

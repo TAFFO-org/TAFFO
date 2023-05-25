@@ -4,10 +4,12 @@
 #include <unordered_map>
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "TaffoUtils/InputInfo.h"
 #include "MemoryGraph.h"
 
+extern llvm::cl::opt<bool> Fixm;
 //------------------------------------------------------------------------------
 // New PM interface
 //------------------------------------------------------------------------------

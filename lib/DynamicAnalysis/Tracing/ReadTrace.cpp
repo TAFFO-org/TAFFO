@@ -13,6 +13,7 @@
 #include "TaffoUtils/Metadata.h"
 #include "TaffoUtils/InputInfo.h"
 #include "TaffoUtils/TypeUtils.h"
+#include "TaffoMathUtil.h"
 #include "MemoryGraph.h"
 #include "ConnectedComponents.h"
 #include "ExpandEqualValue.h"
@@ -109,7 +110,9 @@ bool ReadTrace::runOnModule(Module &M) {
     bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
       if(item->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCall = static_cast<const taffo::FunCallArgWrapper *>(&(*item));
-        if (funCall->isExternalFunc) {
+        auto *funCallValue = static_cast<const CallBase *>(funCall->value);
+        auto * fun = funCallValue->getCalledFunction();
+        if (funCall->isExternalFunc && !(fun && TaffoMath::isSupportedLibmFunction(fun, Fixm))) {
           return true;
         }
       }

@@ -18,6 +18,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-init"
 
+extern llvm::cl::opt<bool> InitNoAnnotations;
 
 /**
  * @brief Looks for the global starting point
@@ -101,8 +102,40 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
       }
     }
   }
+  if (InitNoAnnotations && functionAnnotation && variables.empty()) {
+    // dynamic taffo does not have annotations so we have to initialize taffo structs on all allocas
+    addAllocasAsAnnotated(m, variables);
+  }
   if (functionAnnotation)
     removeNoFloatTy(variables);
+}
+
+bool isAllocaFloatLike(const llvm::Value *Inst)
+{
+  if (!isFloatType(Inst->getType())) {
+    return false;
+  }
+  if (dyn_cast<llvm::AllocaInst>(Inst)){
+    return true;
+  }
+  return false;
+}
+
+void TaffoInitializer::addAllocasAsAnnotated(Module &m, MultiValueMap<Value *, ValueInfo> &variables) {
+  for (auto &F: m) {
+    for (auto &BB: F) {
+      for (auto &Inst: BB) {
+        if (!Inst.isDebugOrPseudoInst() && isAllocaFloatLike(&Inst)) {
+          ValueInfo vi;
+          auto *ii = new mdutils::InputInfo(nullptr, nullptr, nullptr, true);
+          vi.metadata.reset(ii);
+          vi.fixpTypeRootDistance = 0;
+          vi.backtrackingDepthLeft = 0;
+          variables.push_back(&Inst, vi);
+        }
+      }
+    }
+  }
 }
 
 

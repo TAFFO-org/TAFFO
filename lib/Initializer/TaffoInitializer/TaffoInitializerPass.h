@@ -76,6 +76,7 @@ private:
     llvm::StringRef fName = f->getName();
     return fName.startswith("llvm.") || f->getBasicBlockList().empty();
   };
+  void addAllocasAsAnnotated(llvm::Module &m, ConvQueueT &res);
 };
 
 

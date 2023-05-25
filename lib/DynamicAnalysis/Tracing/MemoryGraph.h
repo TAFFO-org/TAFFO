@@ -2,16 +2,17 @@
 #define TAFFO_MEMORYGRAPH_H
 
 #include <list>
-#include <llvm/IR/Instructions.h>
 #include <memory>
 #include <unordered_map>
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "TracingUtils.h"
 
+extern llvm::cl::opt<bool> Fixm;
 
 namespace taffo {
 
