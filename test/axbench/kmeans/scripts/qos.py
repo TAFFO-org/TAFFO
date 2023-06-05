@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import sys
 import math
@@ -15,7 +15,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 def printUsage():
-  print "Usage: python qos.py <original file> <nn file>"
+  print("Usage: python qos.py <original file> <nn file>")
   exit(1)
 pass;
 
@@ -65,6 +65,6 @@ for i in range(len(origLines)):
   trueAbsError += nominator
 pass;
 
-print bcolors.WARNING + "*** Relative error: %1.8f %%" % (absError/float(len(origLines)) * 100.0) + bcolors.ENDC
-print bcolors.WARNING + "*** Absolute error: %1.8f" % (trueAbsError/float(len(origLines))) + bcolors.ENDC
-print bcolors.WARNING + "*** Maximum value: %1.8f" % (maxDist) + bcolors.ENDC
+print(bcolors.WARNING + "*** Relative error: %1.8f %%" % (absError/float(len(origLines)) * 100.0) + bcolors.ENDC)
+print(bcolors.WARNING + "*** Absolute error: %1.8f" % (trueAbsError/float(len(origLines))) + bcolors.ENDC)
+print(bcolors.WARNING + "*** Maximum value: %1.8f" % (maxDist) + bcolors.ENDC)
