@@ -1,7 +1,5 @@
 
-add_test(NAME polybench COMMAND  collect-fe-stats.sh WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/test/polybench-c-4.2.1-beta")
-
-
+add_test(NAME polybench COMMAND collect-fe-stats.sh WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set (failRegex "\[[ \n\r\t]*[-0-9]+[ \n\r\t]*\]")
 
