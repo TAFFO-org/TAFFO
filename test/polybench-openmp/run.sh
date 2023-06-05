@@ -34,15 +34,11 @@ run_one()
   benchpath=$1
   datadir=$2
   times=$3
-  benchdir=$(dirname $benchpath)
-  benchname=$(basename $benchdir)
-  fix_out=build/"$benchname".out
-  flt_out=build/"$benchname".float.out
-  
-  $TASKSET $flt_out 2> $datadir/$benchname.float.csv > $datadir/$benchname.float.time.txt || return $?
-  for ((i=1; i<$times; i++)); do
-    $TASKSET $flt_out 2> /dev/null >> $datadir/$benchname.float.time.txt || return $?
-  done
+  benchname=$1
+  fix_out=build/$benchname.out
+
+
+
   $TASKSET $fix_out 2> $datadir/$benchname.csv > $datadir/$benchname.time.txt || return $?
   for ((i=1; i<$times; i++)); do
     $TASKSET $fix_out 2> /dev/null >> $datadir/$benchname.time.txt || return $?
@@ -69,9 +65,14 @@ done
 
 mkdir -p results-out
 
-all_benchs=$(cat ./utilities/benchmark_list)
+all_benchs=(./build/*.out)
+all_benchs=(${all_benchs[@]#./build/})
+all_benchs=(${all_benchs[@]%.out})
+
+
+
 skipped_all=1
-for bench in $all_benchs; do
+for bench in "${all_benchs[@]}"; do
   if [[ "$bench" =~ $ONLY ]]; then
     skipped_all=0
     printf '[....] %s' "$bench"

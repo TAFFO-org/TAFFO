@@ -10,22 +10,21 @@ if [[ -z $(which $TIMEOUT) ]]; then
   TIMEOUT='gtimeout'
 fi
 if [[ ! ( -z $(which $TIMEOUT) ) ]]; then
-  TIMEOUT="$TIMEOUT 120"
+  TIMEOUT="$TIMEOUT 600"
 else
   printf 'warning: timeout command not found\n'
   TIMEOUT=''
 fi
 
+if [[ -z $(which taffo) ]]; then
+  echo -e '\031[33m'"Error"'\033[39m'" taffo command not found. Install taffo and make sure the place where you installed it is in your PATH!";
+fi
 if [[ -z $LLVM_DIR ]]; then
-  echo -e '\033[33m'"Warning"'\033[39m'" using default llvm/clang";
+  llvmbin=$(taffo -print-llvm-bin-dir)
 else
   llvmbin="$LLVM_DIR/bin/";
 fi
 if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
-
-if [[ -z $(which taffo) ]]; then
-  echo -e '\031[33m'"Error"'\033[39m'" taffo command not found. Install taffo and make sure the place where you installed it is in your PATH!";
-fi
 
 
 compile_one()
@@ -35,10 +34,10 @@ compile_one()
   benchdir=$(dirname $benchpath)
   benchname=$(basename $benchdir)
   $TIMEOUT taffo \
-    -o build/"$benchname".out \
+    "$benchpath" \
+    -o build/"$benchname${MIXEDNAME}.out" \
     -float-output build/"$benchname".float.out \
     -temp-dir build \
-    "$benchpath" \
     ./utilities/polybench.c \
     -I"$benchdir" \
     -I./utilities \
@@ -46,7 +45,7 @@ compile_one()
     $xparams \
     -debug-taffo \
     -lm \
-    2> build/${benchname}.log || return $?
+    2> build/"${benchname}${MIXEDNAME}.log" || return $?
 
   if [[ $RUN_METRICS -ne 0 ]]; then
     mkdir -p results-out
@@ -105,7 +104,8 @@ D_CONF="CONF_GOOD"
 RUN_METRICS=0
 ERRORPROP='-enable-err'
 MIXEDMODE=''
-COSTMODEL=""
+MIXEDNAME=''
+COSTMODEL='i7-4'
 
 for arg; do
   case $arg in
@@ -126,9 +126,10 @@ for arg; do
     --mixedmode)
       MIXEDMODE="-mixedmode -costmodel "
       ;;
+
     --costmodel=*)
-	    COSTMODEL=${arg#*=}
-	;;
+      COSTMODEL=${arg#*=}
+      ;;
     --only=*)
       ONLY="${arg#*=}"
       ;;
@@ -151,23 +152,58 @@ mkdir -p build
 rm -f build.log
 
 all_benchs=$(cat ./utilities/benchmark_list)
+
 skipped_all=1
 for bench in $all_benchs; do
-  if [[ "$bench" =~ $ONLY ]]; then
-    skipped_all=0
-    printf '[....] %s' "$bench"
-    opts=$(read_opts ${bench})
-    compile_one "$bench" \
-      "-O3 -fopenmp \
-      -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
-      -D$D_CONF -D$D_STANDARD_DATASET \
-      ${MIXEDMODE} ${COSTMODEL} -Xdta -totalbits -Xdta $TOT \
-      $ERRORPROP $opts"
-    bpid_fc=$?
-    if [[ $bpid_fc == 0 ]]; then
-      bpid_fc=' ok '
+  if [[ -z $MIXEDMODE ]]; then
+    if [[ "$bench" =~ $ONLY ]]; then
+      skipped_all=0
+      printf '[....] %s' "$bench"
+      opts=$(read_opts ${bench})
+      compile_one "$bench" \
+        "-O3 -fopenmp \
+        -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
+        -D$D_CONF -D$D_STANDARD_DATASET \
+        -Xdta -totalbits -Xdta $TOT \
+        $ERRORPROP $opts"
+      bpid_fc=$?
+      if [[ $bpid_fc == 0 ]]; then
+        bpid_fc=' ok '
+      fi
+      printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"
     fi
-    printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"
+  else
+    if [[ "$bench" =~ $ONLY ]]; then
+      cat ./utilities/values | while read line 
+        do
+
+        readarray -d ' ' -t column <<< "$line"
+        MIXED_PARAMETER="-Xdta -mixedtuningenob -Xdta ${column[0]} -Xdta -mixedtuningtime -Xdta ${column[1]} -Xdta -mixedtuningcastingtime -Xdta ${column[2]} "
+        MIXEDNAME="_${COSTMODEL}_${column[0]}_${column[1]}_${column[2]}"
+
+        MIXEDNAME=$(echo $MIXEDNAME|tr -d '\n')
+        MIXED_PARAMETER=$(echo $MIXED_PARAMETER|tr -d '\n')
+
+
+
+
+
+          skipped_all=0
+          printf '[....] %s' "$bench"
+          opts=$(read_opts ${bench})
+          compile_one "$bench" \
+            "-O3 -fopenmp \
+            -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
+            -D$D_CONF -D$D_STANDARD_DATASET \
+            ${MIXEDMODE} ${COSTMODEL} ${MIXED_PARAMETER} -Xdta -totalbits -Xdta $TOT \
+            $ERRORPROP $opts"
+          bpid_fc=$?
+          if [[ $bpid_fc == 0 ]]; then
+            bpid_fc=' ok '
+          fi
+          printf '\033[1G[%4s] %s\n' "$bpid_fc" "$bench"
+      done      
+    fi
   fi
 done
 
