@@ -33,9 +33,13 @@ At the moment TAFFO supports LLVM 14 and 15. No other version is supported.
 Moreover, LLVM plugins compiled for a given major version of LLVM cannot be loaded by any other version. Therefore it is not a good idea to redistribute TAFFO as a binary.
 If you are building LLVM from sources, you must configure it with `-DLLVM_BUILD_LLVM_DYLIB=ON` and `-DLLVM_LINK_LLVM_DYLIB=ON` for the TAFFO build to succeed.
 
-TAFFO requires a single additional dependency: Google ORTools.
+TAFFO requires a single additional dependency, Google ORTools.
 It is possible to build and install ORTools manually, or you can build it as part of TAFFO by specifying `-DTAFFO_BUILD_ORTOOLS=ON`.
 This option is recommended.
+Note that even though the ORTools website doesn't specify this, it depends on libre2.
+This package can be installed on Debian-derived distributions by installing `libre2-dev` through APT.
+
+The following are the minimal commands required for compiling TAFFO on a typical Linux distribution.
 
 ```sh
 cd /path/to/the/location/of/TAFFO
@@ -65,6 +69,9 @@ See the annotation syntax documentation or the examples in `test/simple-test-cas
 Note that there is no `taffo++`; C++ source files are autodetected by the file extension instead.
 
 ## How to build and run unit tests and integration tests
+
+Some of the tests fixtures and benchmarks in TAFFO require ImageMagick, Python 3 and the following Python packages:
+`matplotlib`, `pandas`, `scipy`, `gmpy2`, `pypng`.
 
 Unit tests are located in `unittests` directory, while
 integration tests and benchmarks are located in `test` directory.
