@@ -4,7 +4,7 @@
 
 TAFFO is an autotuning framework which tries to replace floating point operations with fixed point operations as much as possible.
 
-It is based on LLVM 15 and has been tested on Linux (any attempt to compile on Windows, WSL or macOS is at your own risk and peril).
+It is based on LLVM and has been tested on Linux (any attempt to compile on Windows, WSL or macOS is at your own risk and peril).
 
 ## How to use TAFFO
 
