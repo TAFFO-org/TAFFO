@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "stm32l010xb.h"
 #include "stm32l0xx_hal.h"
 #include "system_stm32l0xx.h"
@@ -27,4 +28,11 @@ __attribute__((always_inline)) __attribute__((__visibility__("default"))) void p
 __attribute__((always_inline)) __attribute__((__visibility__("default"))) void polybench_timer_print()
 {
   printf("EXECUTION_TIME: %ld ms\n", dt);
+}
+
+float __attribute__((__visibility__("default"))) RandomNumber(float Min, float Max)
+{
+  float r = (float)rand() / (float)RAND_MAX;
+  float result = r  * (Max - Min) + Min;
+  return result;
 }

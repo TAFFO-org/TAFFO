@@ -119,11 +119,15 @@ int BENCH_MAIN()
 
   /* Variable declaration/allocation. */
   POLYBENCH_1D_ARRAY_DECL(seq, base, N, n);
-  POLYBENCH_2D_ARRAY_DECL(table, DATA_TYPE __attribute__((annotate("target('table') scalar()"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(table, DATA_TYPE __attribute__((annotate("target('table') scalar(range(0, 30))"))), N, N, n, n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
   /* Initialize array(s). */
   init_array(n, POLYBENCH_ARRAY(seq), POLYBENCH_ARRAY(table));
+
+  srand(POLYBENCH_RANDOM_SEED);
+//  randomize_1d(N, seq);
+//  randomize_2d(N, N, table);
 
   /* Start timer. */
   polybench_start_instruments;

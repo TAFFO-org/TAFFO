@@ -126,6 +126,13 @@ int BENCH_MAIN()
                 POLYBENCH_ARRAY(A),
                 POLYBENCH_ARRAY(B));
 
+     srand(POLYBENCH_RANDOM_SEED);
+     randomize_scalar(&alpha);
+     randomize_scalar(&beta);
+     randomize_2d(M, N, C);
+     randomize_2d(M, M, A);
+     randomize_2d(M, N, B);
+
      /* Start timer. */
      polybench_start_instruments;
 

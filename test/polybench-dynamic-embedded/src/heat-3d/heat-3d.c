@@ -27,9 +27,9 @@ void init_array (int n,
 		 DATA_TYPE POLYBENCH_3D(A,N,N,N,n,n,n),
 		 DATA_TYPE POLYBENCH_3D(B,N,N,N,n,n,n))
 {
-  int i __attribute__((annotate("scalar(range(0, 80) final)")));
-  int j __attribute__((annotate("scalar(range(0, 80) final)")));
-  int k __attribute__((annotate("scalar(range(0, 80) final)")));
+  int i __attribute__((annotate("scalar(range(0, 10) final)")));
+  int j __attribute__((annotate("scalar(range(0, 10) final)")));
+  int k __attribute__((annotate("scalar(range(0, 10) final)")));
 
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
@@ -111,6 +111,10 @@ int BENCH_MAIN()
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
        /* Initialize array(s). */
        init_array(n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
+
+       srand(POLYBENCH_RANDOM_SEED);
+       randomize_3d(N, N, N, A);
+       randomize_3d(N, N, N, B);
 
        /* Start timer. */
        polybench_start_instruments;

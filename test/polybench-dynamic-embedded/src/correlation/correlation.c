@@ -142,6 +142,9 @@ int BENCH_MAIN()
         /* Initialize array(s). */
         init_array(m, n, &float_n, POLYBENCH_ARRAY(data));
 
+        srand(POLYBENCH_RANDOM_SEED);
+        randomize_2d(N, M, data);
+
         /* Start timer. */
         polybench_start_instruments;
 

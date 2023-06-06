@@ -8,7 +8,7 @@ ASM_SRC +=$(wildcard $(TARGET)/*.s)
 STM32_Programmer_CLI ?= STM32_Programmer_CLI
 SERIAL_DEVICE?=$(wildcard /dev/ttyACM*)
 EMBEDDED_OUTPUT?=monitor.txt
-TIMEOUT_SECONDS=300
+TIMEOUT_SECONDS=1200
 
 .PHONY: flash monitor cpuflags costmodel
 

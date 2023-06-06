@@ -46,6 +46,18 @@
 #define BENCH_NUM_ITERATIONS 1
 #endif
 
+#ifndef POLYBENCH_RANDOMIZE_ENABLED
+#define POLYBENCH_RANDOMIZE_ENABLED 0
+#endif
+
+#ifndef POLYBENCH_RANDOM_SEED
+#define POLYBENCH_RANDOM_SEED 1
+#endif
+
+#ifndef POLYBENCH_RANDOMIZE_RANGE
+#define POLYBENCH_RANDOMIZE_RANGE 0
+#endif
+
 #ifdef DATA_TYPE_IS_INT
 #  define DATA_TYPE int
 #  define DATA_PRINTF_MODIFIER "%d "
@@ -507,6 +519,51 @@ void stats_3d(char* name, int n, int m, int p, DATA_TYPE val[n][m][p]) {
 }
 
 #endif
+
+#if POLYBENCH_RANDOMIZE_ENABLED > 0
+
+extern float RandomNumber(float min, float max);
+
+void randomize_scalar(float *val) {
+  *val += *val * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
+}
+
+void randomize_1d(int n, float val[n]) {
+  for (int i = 0; i < n; i++) {
+    val[i] += val[i] * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
+  }
+}
+
+void randomize_2d(int n, int m, float val[n][m]) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      val[i][j] += val[i][j] * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
+    }
+  }
+}
+
+void randomize_3d(int n, int m, int p, float val[n][m][p]) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      for (int k = 0; k < p; k++) {
+        val[i][j][k] += val[i][j][k] * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
+      }
+    }
+  }
+}
+
+#else
+
+void inline __attribute__((always_inline)) randomize_scalar(float *val) {}
+
+void inline __attribute__((always_inline)) randomize_1d(int n, float val[n]) {}
+
+void inline __attribute__((always_inline)) randomize_2d(int n, int m, float val[n][m]) {}
+
+void inline __attribute__((always_inline)) randomize_3d(int n, int m, int p, float val[n][m][p]) {}
+
+#endif
+
 
 
 #endif /* !POLYBENCH_H */

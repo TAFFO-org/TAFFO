@@ -98,7 +98,8 @@ def main(argv):
             ops_stats = ops_stats.concat([ops_stats, pd.DataFrame([{}])])
             ops_placeholder = np.nan
 
-        precise_data = highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data']
+        precise_data = bench_results[(bench_results['arch'] == arch) &
+                                     (bench_results['bench'] == bench) & (bench_results['mode'] == 'float')].iloc[0]['data']
         approx_data = bench_results[
             (bench_results['bench'] == bench) &
             (bench_results['arch'] == arch) &

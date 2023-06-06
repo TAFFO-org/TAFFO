@@ -12,11 +12,11 @@ extern "C" {
 
 
 /* Timer code (gettimeofday). */
-double polybench_t_start, polybench_t_end;
+double __attribute__((weak)) polybench_t_start, polybench_t_end;
 /* Timer code (RDTSC). */
-unsigned long long int polybench_c_start, polybench_c_end;
+unsigned long long int __attribute__((weak)) polybench_c_start, polybench_c_end;
 
-static double rtclock()
+double __attribute__((weak)) rtclock()
 {
 #if defined(POLYBENCH_TIME) || defined(POLYBENCH_GFLOPS)
   struct timeval Tp;
@@ -44,7 +44,7 @@ static unsigned long long int rdtsc()
 }
 #endif
 
-void polybench_flush_cache()
+void __attribute__((weak)) polybench_flush_cache()
 {
   int cs = POLYBENCH_CACHE_SIZE_KB * 1024 / sizeof(double);
   double *flush = (double *)calloc(cs, sizeof(double));
@@ -59,7 +59,7 @@ void polybench_flush_cache()
   free(flush);
 }
 
-void polybench_prepare_instruments()
+void __attribute__((weak)) polybench_prepare_instruments()
 {
 #ifndef POLYBENCH_NO_FLUSH_CACHE
   polybench_flush_cache();
@@ -69,7 +69,7 @@ void polybench_prepare_instruments()
 #endif
 }
 
-void polybench_timer_start()
+void __attribute__((weak)) polybench_timer_start()
 {
   polybench_prepare_instruments();
 #ifndef POLYBENCH_CYCLE_ACCURATE_TIMER
@@ -79,7 +79,7 @@ void polybench_timer_start()
 #endif
 }
 
-void polybench_timer_stop()
+void __attribute__((weak)) polybench_timer_stop()
 {
 #ifndef POLYBENCH_CYCLE_ACCURATE_TIMER
   polybench_t_end = rtclock();
@@ -91,7 +91,7 @@ void polybench_timer_stop()
 #endif
 }
 
-void polybench_timer_print()
+void __attribute__((weak)) polybench_timer_print()
 {
 #ifdef POLYBENCH_GFLOPS
   if (polybench_program_total_flops == 0) {
@@ -109,5 +109,12 @@ void polybench_timer_print()
   printf("%Ld\n", polybench_c_end - polybench_c_start);
 #endif
 #endif
+}
+
+float __attribute__((weak)) RandomNumber(float Min, float Max)
+{
+  float r = (float)rand() / (float)RAND_MAX;
+  float result = r  * (Max - Min) + Min;
+  return result;
 }
 }

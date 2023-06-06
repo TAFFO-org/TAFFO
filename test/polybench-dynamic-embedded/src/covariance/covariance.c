@@ -113,6 +113,8 @@ int BENCH_MAIN()
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
       /* Initialize array(s). */
       init_array(m, n, &float_n, POLYBENCH_ARRAY(data));
+      srand(POLYBENCH_RANDOM_SEED);
+      randomize_2d(n, m, data);
 
       /* Start timer. */
       polybench_start_instruments;

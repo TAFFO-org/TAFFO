@@ -36,7 +36,6 @@ bool ReadTrace::runOnModule(Module &M) {
 
   std::unordered_map<std::string, double> minVals, maxVals;
   std::unordered_map<std::string, mdutils::FloatType::FloatStandard> valTypes;
-  std::unordered_map<Instruction*, double> derivedMinVals, derivedMaxVals;
 
   // calculate connected components on the memory operations
   taffo::MemoryGraph graph{M};

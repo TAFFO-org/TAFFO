@@ -141,6 +141,12 @@ int BENCH_MAIN()
                  POLYBENCH_ARRAY(hz),
                  POLYBENCH_ARRAY(_fict_));
 
+      srand(POLYBENCH_RANDOM_SEED);
+      randomize_2d(NX, NY, ex);
+      randomize_2d(NX, NY, ey);
+      randomize_2d(NX, NY, hz);
+//      randomize_1d(TMAX, _fict_);
+
       /* Start timer. */
       polybench_start_instruments;
 

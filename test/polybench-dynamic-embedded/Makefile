@@ -35,6 +35,8 @@ POLYBENCH_DATASET_FLAGS := -DMINI_DATASET
 #POLYBENCH_DATASET_FLAGS := -DSMALL_DATASET
 POLYBENCH_DATA_FLAGS :=  -DDATA_TYPE_IS_FLOAT
 POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
+POLYBENCH_TRACING_FLAGS := -DPOLYBENCH_RANDOMIZE_ENABLED=1 -DPOLYBENCH_RANDOM_SEED=1 -DPOLYBENCH_RANDOMIZE_RANGE=0
+POLYBENCH_EVAL_FLAGS := -DPOLYBENCH_RANDOM_SEED=2 -DPOLYBENCH_RANDOMIZE_RANGE=0
 PC_OPT_FLAGS :=
 PC_FLAGS :=
 EMBEDDED_OPT_FLAGS := -m32 \
@@ -44,11 +46,13 @@ EMBEDDED_OPT_FLAGS := -m32 \
 						-fshort-enums
 
 modes := float fixed dynamic
-archs := PC EMBEDDED
-benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#archs := PC EMBEDDED
+archs := PC
+benchmarks := deriche adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-#benchmarks := 2mm
+#benchmarks := heat-3d
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -143,7 +147,7 @@ summary:
 
 define build_pc_timer
     $(CLANGXX) \
-		-o $(deps_pc_dir)/timer.so \
+		-o $(deps_pc_dir)/timer.o \
 		-c \
 		$(HEADERS_DIR)/timer.cpp  \
 		-I$(HEADERS_DIR) \
@@ -161,10 +165,11 @@ define double_build
     $(CLANG) \
         -o $(double_job_file_base).out \
         $(bench_src)  \
-        $(deps_pc_dir)/timer.so \
+        $(deps_pc_dir)/timer.o \
         -I$(HEADERS_DIR) \
         -I$(bench_src_h) \
         $(CFLAGS_DOUBLE) \
+        $(POLYBENCH_EVAL_FLAGS) \
         $(POLYBENCH_SHARED_FLAGS) \
         $(POLYBENCH_PC_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
@@ -184,6 +189,7 @@ define build_float
         -I$(bench_src_h) \
         $($(arch)_OPT_FLAGS) \
         $(CFLAGS) \
+        $(POLYBENCH_EVAL_FLAGS) \
         $(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
@@ -198,13 +204,13 @@ define build_fixed
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
-		-fixm \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
+		$(POLYBENCH_EVAL_FLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
@@ -219,7 +225,6 @@ define build_dynamic
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
-		-fixm \
 		-dynamic-trace $(stats_job_file_base).instrumented.trace \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \
@@ -227,6 +232,8 @@ define build_dynamic
 		-I$(bench_src_h) \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
+		$(POLYBENCH_EVAL_FLAGS) \
+		-DPOLYBENCH_RANDOMIZE_ENABLED=1 \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
@@ -244,8 +251,10 @@ define stats_build_tracing
 		$(DEBUG_TAFFO) \
 		-dynamic-instrument \
 		$(bench_src) \
+		$(deps_pc_dir)/timer.o \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
+		$(POLYBENCH_TRACING_FLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
 		$(POLYBENCH_DATASET_FLAGS) \
@@ -276,7 +285,7 @@ define compile_binary_PC
 		-O3 \
 		$($(arch)_OPT_FLAGS) \
 		$(job_file_base).o \
-		$(deps_pc_dir)/timer.so \
+		$(deps_pc_dir)/timer.o \
 		-o $(job_file_base).out.bin
 endef
 
