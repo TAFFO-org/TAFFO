@@ -35,3 +35,5 @@ if (TAFFO_UNITTESTS)
   target_compile_definitions(obj.TaffoInitializer PUBLIC UNITTESTS)
   target_compile_definitions(obj.TaffoVRA PUBLIC UNITTESTS)
 endif()
+
+add_subdirectory(TaffoPosit)
