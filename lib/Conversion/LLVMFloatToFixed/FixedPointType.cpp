@@ -86,6 +86,7 @@ FixedPointType::FixedPointType(TType *mdtype)
   structData = nullptr;
   FPType *fpt;
   FloatType *flt;
+  PositType *pst;
   if (mdtype && (fpt = dyn_cast<FPType>(mdtype))) {
     scalarData.bitsAmt = fpt->getWidth();
     scalarData.fracBitsAmt = fpt->getPointPos();
@@ -96,7 +97,11 @@ FixedPointType::FixedPointType(TType *mdtype)
     scalarData.fracBitsAmt = 0;
     scalarData.isSigned = true;
     scalarData.floatStandard = static_cast<FloatStandard>(flt->getStandard());
-
+  } else if (mdtype && (pst = dyn_cast<PositType>(mdtype))) {
+    scalarData.bitsAmt = pst->getWidth();
+    scalarData.fracBitsAmt = 0;
+    scalarData.isSigned = true;
+    scalarData.floatStandard = FloatStandard::Float_Posit;
   } else {
     scalarData = {false, 0, 0, FloatStandard::Float_NotFloat};
   }
@@ -132,8 +137,16 @@ FixedPointType FixedPointType::get(MDInfo *mdnfo, int *enableConversion)
 Type *FixedPointType::scalarToLLVMType(LLVMContext &ctxt) const
 {
   assert(!structData && "fixed point type not a scalar");
-  if (scalarData.floatStandard == Float_NotFloat) {
+  if (isFixedPoint()) {
     return Type::getIntNTy(ctxt, scalarData.bitsAmt);
+  } else if (isPosit()) {
+    StringRef className = "Posit" + std::to_string(scalarData.bitsAmt);
+    StructType *classType = StructType::getTypeByName(ctxt, className);
+    if (!classType) {
+      classType = StructType::create(ctxt, className);
+      classType->setBody({IntegerType::get(ctxt, scalarData.bitsAmt)});
+    }
+    return classType;
   } else {
     switch (scalarData.floatStandard) {
     case Float_half: /*16-bit floating-point value*/
@@ -169,6 +182,8 @@ std::string FixedPointType::Primitive::toString() const
       stm << "u";
 
     stm << bitsAmt - fracBitsAmt << "_" << fracBitsAmt << "fixp";
+  } else if (floatStandard == Float_Posit) {
+    stm << "posit" << bitsAmt;
   } else {
     stm << floatStandard << "flp";
   }
