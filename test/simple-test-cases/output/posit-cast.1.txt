@@ -1,0 +1,5 @@
+Int32: 67
+Int64: 67
+Single precision: 67.099998474121094
+Double precision: 67.09999942779541
+Integer to Posit: 67

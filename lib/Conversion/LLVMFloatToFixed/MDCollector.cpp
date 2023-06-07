@@ -132,7 +132,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
           return false;
         }
       } else {
-        assert(!(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
+        assert(!(!(fpt->getKind() == TType::K_PositType) && fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
           "input info / actual type mismatch");
         vi.fixpType = FixedPointType(fpt);
       }

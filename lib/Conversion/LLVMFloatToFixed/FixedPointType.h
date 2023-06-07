@@ -33,7 +33,8 @@ public:
     Float_fp128,     /*128-bit floating-point value (112-bit mantissa)*/
     Float_x86_fp80,  /*80-bit floating-point value (X87)*/
     Float_ppc_fp128, /*128-bit floating-point value (two 64-bits)*/
-    Float_bfloat
+    Float_bfloat,
+    Float_Posit
   };
 
 private:
@@ -117,14 +118,16 @@ public:
   inline int &scalarBitsAmt(void)
   {
     assert(!structData && "fixed point type not a scalar");
-    assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
+    assert((scalarData.floatStandard == Float_NotFloat ||
+            scalarData.floatStandard == Float_Posit) && "this type is a float!");
     return scalarData.bitsAmt;
   };
 
   inline int scalarBitsAmt(void) const
   {
     assert(!structData && "fixed point type not a scalar");
-    assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
+    assert((scalarData.floatStandard == Float_NotFloat ||
+            scalarData.floatStandard == Float_Posit) && "this type is a float!");
     return scalarData.bitsAmt;
   };
 
@@ -163,7 +166,12 @@ public:
 
   inline bool isFloatingPoint() const
   {
-    return !structData && scalarData.floatStandard != Float_NotFloat;
+    return !structData && scalarData.floatStandard != Float_NotFloat && scalarData.floatStandard != Float_Posit;
+  }
+
+  inline bool isPosit() const
+  {
+    return !structData && scalarData.floatStandard == Float_Posit;
   }
 
   inline FloatStandard getFloatingPointStandard() const

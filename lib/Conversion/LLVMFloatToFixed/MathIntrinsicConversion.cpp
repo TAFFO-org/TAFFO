@@ -2,6 +2,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/NoFolder.h"
+#include "PositBuilder.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -199,6 +200,14 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &f
       IRBuilder<NoFolder> Builder(C);
       Value *Res = Builder.CreateCall(NewIntrins->getFunctionType(), NewIntrins, {val1, val2, val3});
       return Res;
+    } else if (fixpt.isPosit()) {
+      Value *val1 = translateOrMatchOperandAndType(Op1, fixpt, C);
+      Value *val2 = translateOrMatchOperandAndType(Op2, fixpt, C);
+      Value *val3 = translateOrMatchOperandAndType(Op3, fixpt, C);
+      if (!val1 || !val2 || !val3)
+        return nullptr;
+      IRBuilder<NoFolder> builder(C);
+      return PositBuilder(builder, fixpt).CreateFMA(val1, val2, val3);
     } else {
       llvm_unreachable("Unknown variable type. Are you trying to implement a new datatype?");
     }

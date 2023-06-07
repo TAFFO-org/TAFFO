@@ -561,7 +561,7 @@ struct FloatToFixed {
     else
       ty = val->getType();
     llvm::Type *fuwt = taffo::fullyUnwrapPointerOrArrayType(ty);
-    if (!fuwt->isStructTy()) {
+    if (!fuwt->isStructTy() || fuwt == vi->fixpType.scalarToLLVMType(val->getContext())) {
       if (!taffo::isFloatType(ty))
         return false;
     }

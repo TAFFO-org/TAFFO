@@ -1,5 +1,6 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
+#include "PositBuilder.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -209,7 +210,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
   if (Constant *c = dyn_cast<Constant>(val)) {
     Value *res = convertConstant(c, iofixpt, typepol);
     return res;
-  } else if (iofixpt.isFixedPoint()) {
+  } else if (iofixpt.isFixedPoint() || iofixpt.isPosit()) {
     // Only try to exclude conversion if we are trying to convert a float variable that has been converted
     if (SIToFPInst *instr = dyn_cast<SIToFPInst>(val)) {
       Value *intparam = instr->getOperand(0);
@@ -225,14 +226,20 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
   /* not an easy case; check if the value has a range metadata
    * from VRA before giving up and using the suggested type */
   // Do this hack only if the final wanted type is a fixed point, otherwise we can go ahead
-  if (iofixpt.isFixedPoint()) {
+  if (iofixpt.isFixedPoint() || iofixpt.isPosit()) {
     mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(val);
     if (mdutils::InputInfo *ii = dyn_cast_or_null<mdutils::InputInfo>(mdi)) {
       if (ii->IRange) {
-        FixedPointTypeGenError err;
-        mdutils::FPType fpt = taffo::fixedPointTypeFromRange(*(ii->IRange), &err, iofixpt.scalarBitsAmt());
-        if (err != FixedPointTypeGenError::InvalidRange)
-          iofixpt = FixedPointType(&fpt);
+        if (iofixpt.isFixedPoint()) {
+          FixedPointTypeGenError err;
+          mdutils::FPType fpt = taffo::fixedPointTypeFromRange(*(ii->IRange), &err, iofixpt.scalarBitsAmt());
+          if (err != FixedPointTypeGenError::InvalidRange)
+            iofixpt = FixedPointType(&fpt);
+        } else { // iofixpt.isPosit()
+          mdutils::PositType pt = taffo::positTypeFromRange(*(ii->IRange));
+          if (pt.getWidth() > 0)
+            iofixpt = FixedPointType(&pt);
+        }
       }
     }
   }
@@ -287,6 +294,10 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
   Type *destt = getLLVMFixedPointTypeForFloatType(SrcTy, fixpt);
 
   /* insert new instructions before ip */
+  if (fixpt.isPosit()) {
+    Value *posit = PositBuilder(builder, fixpt).CreateConstructor(flt);
+    return cpMetaData(posit, flt, ip);
+  }
   if (!destt->isFloatingPointTy()) {
     if (SIToFPInst *instr = dyn_cast<SIToFPInst>(flt)) {
       Value *intparam = instr->getOperand(0);
@@ -386,19 +397,31 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   /*We should never have these case in general, but when using mixed precision this can (and will) happen*/
   if (srct.isFloatingPoint() &&
-      destt.isFixedPoint()) {
+      !destt.isFloatingPoint()) {
     return genConvertFloatToFix(fix, destt, ip);
   }
 
-  if (srct.isFixedPoint() &&
+  if (!srct.isFloatingPoint() &&
       destt.isFloatingPoint()) {
     return genConvertFixToFloat(fix, srct, llvmdestt, ip);
   }
 
-  assert(llvmsrct->isSingleValueType() && "cannot change type of a pointer");
+  IRBuilder<NoFolder> builder(ip);
+  if (srct.isPosit()) {
+    assert(destt.scalarFracBitsAmt() == 0 && "cannot convert posit to fixed point (yet?)");
+    return cpMetaData(
+        PositBuilder(builder, srct).CreateConv(fix, llvmdestt),
+        fix);
+  } // otherwise srct.isFixedPoint()
+
+  assert(llvmsrct->isSingleValueType() && "cannot change type of an array or struct");
   assert(llvmsrct->isIntegerTy() && "cannot change type of a float");
 
-  IRBuilder<NoFolder> builder(ip);
+  if (destt.isPosit()) {
+    return cpMetaData(
+        PositBuilder(builder, destt).CreateConstructor(fix, srct.scalarIsSigned()),
+        fix);
+  }
 
   auto genSizeChange = [&](Value *fix) -> Value * {
     if (srct.scalarIsSigned()) {
@@ -499,7 +522,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
     }
   }
 
-  if (!fix->getType()->isIntegerTy()) {
+  if (fixpt.isFixedPoint() && !fix->getType()->isIntegerTy()) {
     LLVM_DEBUG(errs() << "can't wrap-convert to flt non integer value ";
                fix->print(errs());
                errs() << "\n");
@@ -518,6 +541,12 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
       ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
     }
     IRBuilder<NoFolder> builder(ip);
+
+    if (fixpt.isPosit()) {
+      return cpMetaData(
+        PositBuilder(builder, fixpt).CreateConv(fix, destt),
+        fix);
+    } // otherwise fixpt.isFixedPoint()
 
     double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
     if (twoebits == 1.0) {
