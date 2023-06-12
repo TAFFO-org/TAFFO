@@ -120,11 +120,11 @@ int BENCH_MAIN()
                POLYBENCH_ARRAY(A));
 
     srand(POLYBENCH_RANDOM_SEED);
-    randomize_1d(N, x1);
-    randomize_1d(N, x2);
-    randomize_1d(N, y_1);
-    randomize_1d(N, y_2);
-    randomize_2d(N, N, A);
+    randomize_1d(N, x1, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, x2, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, y_1, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, y_2, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_2d(N, N, A, POLYBENCH_RANDOMIZE_RANGE);
 
     /* Start timer. */
     polybench_start_instruments;

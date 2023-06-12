@@ -151,17 +151,17 @@ int BENCH_MAIN()
                POLYBENCH_ARRAY(z));
 
     srand(POLYBENCH_RANDOM_SEED);
-    randomize_scalar(&alpha);
-    randomize_scalar(&beta);
-    randomize_2d(N, N, A);
-    randomize_1d(N, u1);
-    randomize_1d(N, v1);
-    randomize_1d(N, u2);
-    randomize_1d(N, v2);
-    randomize_1d(N, w);
-    randomize_1d(N, x);
-    randomize_1d(N, y);
-    randomize_1d(N, z);
+    randomize_scalar(&alpha, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_scalar(&beta, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_2d(N, N, A, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, u1, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, v1, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, u2, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, v2, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, w, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, x, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, y, POLYBENCH_RANDOMIZE_RANGE);
+    randomize_1d(N, z, POLYBENCH_RANDOMIZE_RANGE);
 
 
     /* Start timer. */

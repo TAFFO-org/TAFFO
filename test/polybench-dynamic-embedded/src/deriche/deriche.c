@@ -174,9 +174,9 @@ int BENCH_MAIN()
         /* Initialize array(s). */
         init_array(w, h, &alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut));
         srand(POLYBENCH_RANDOM_SEED);
-//        randomize_scalar(&alpha);
-        randomize_2d(W, H, imgIn);
-        randomize_2d(W, H, imgOut);
+//        randomize_scalar(&alpha, POLYBENCH_RANDOMIZE_RANGE);
+        randomize_2d(W, H, imgIn, POLYBENCH_RANDOMIZE_RANGE);
+        randomize_2d(W, H, imgOut, POLYBENCH_RANDOMIZE_RANGE);
 
         /* Start timer. */
         polybench_start_instruments;

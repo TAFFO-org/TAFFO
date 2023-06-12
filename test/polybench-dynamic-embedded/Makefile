@@ -52,7 +52,7 @@ benchmarks := deriche adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlat
 #benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-#benchmarks := heat-3d
+#benchmarks := trisolv
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -254,6 +254,7 @@ define stats_build_tracing
 		$(deps_pc_dir)/timer.o \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
+		$(CFLAGS) \
 		$(POLYBENCH_TRACING_FLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \

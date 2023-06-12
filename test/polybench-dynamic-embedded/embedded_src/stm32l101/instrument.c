@@ -36,3 +36,31 @@ float __attribute__((__visibility__("default"))) RandomNumber(float Min, float M
   float result = r  * (Max - Min) + Min;
   return result;
 }
+
+//void __attribute__((__visibility__("default"))) randomize_scalar(float *val, float amplitude) {
+//  *val += *val * RandomNumber(-amplitude, amplitude);
+//}
+//
+//void __attribute__((__visibility__("default"))) randomize_1d(int n, float val[n], float amplitude) {
+//  for (int i = 0; i < n; i++) {
+//    val[i] += val[i] * RandomNumber(-amplitude, amplitude);
+//  }
+//}
+//
+//void __attribute__((__visibility__("default"))) randomize_2d(int n, int m, float val[n][m], float amplitude) {
+//  for (int i = 0; i < n; i++) {
+//    for (int j = 0; j < m; j++) {
+//      val[i][j] += val[i][j] * RandomNumber(-amplitude, amplitude);
+//    }
+//  }
+//}
+//
+//void __attribute__((__visibility__("default"))) randomize_3d(int n, int m, int p, float val[n][m][p], float amplitude) {
+//  for (int i = 0; i < n; i++) {
+//    for (int j = 0; j < m; j++) {
+//      for (int k = 0; k < p; k++) {
+//        val[i][j][k] += val[i][j][k] * RandomNumber(-amplitude, amplitude);
+//      }
+//    }
+//  }
+//}

@@ -35,6 +35,9 @@ void init_array(int n,
     {
       x[i] = 0; //- 999;
       b[i] =  i ;
+      for (j=0; j<n; j++) {
+        L[i][j] = (DATA_TYPE) 0;
+      }
       for (j = 0; j <= i; j++)
         L[i][j] = (DATA_TYPE) (i+n-j+1)*2/n;
     }
@@ -99,9 +102,9 @@ int BENCH_MAIN()
       init_array(n, POLYBENCH_ARRAY(L), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(b));
 
       srand(POLYBENCH_RANDOM_SEED);
-      randomize_2d(N, N, L);
-      randomize_1d(N, x);
-      randomize_1d(N, b);
+      randomize_2d(N, N, L, POLYBENCH_RANDOMIZE_RANGE);
+      randomize_1d(N, x, POLYBENCH_RANDOMIZE_RANGE);
+      randomize_1d(N, b, POLYBENCH_RANDOMIZE_RANGE);
 
       /* Start timer. */
       polybench_start_instruments;

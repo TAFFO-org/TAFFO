@@ -113,8 +113,8 @@ int BENCH_MAIN()
        init_array(n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
 
        srand(POLYBENCH_RANDOM_SEED);
-       randomize_3d(N, N, N, A);
-       randomize_3d(N, N, N, B);
+       randomize_3d(N, N, N, A, POLYBENCH_RANDOMIZE_RANGE);
+       randomize_3d(N, N, N, B, POLYBENCH_RANDOMIZE_RANGE);
 
        /* Start timer. */
        polybench_start_instruments;

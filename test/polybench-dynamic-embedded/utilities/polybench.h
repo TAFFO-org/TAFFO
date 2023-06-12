@@ -524,43 +524,23 @@ void stats_3d(char* name, int n, int m, int p, DATA_TYPE val[n][m][p]) {
 
 extern float RandomNumber(float min, float max);
 
-void randomize_scalar(float *val) {
-  *val += *val * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
-}
+extern void randomize_scalar(float *val, float amplitude);
 
-void randomize_1d(int n, float val[n]) {
-  for (int i = 0; i < n; i++) {
-    val[i] += val[i] * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
-  }
-}
+extern void randomize_1d(int n, float val[n], float amplitude);
 
-void randomize_2d(int n, int m, float val[n][m]) {
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      val[i][j] += val[i][j] * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
-    }
-  }
-}
+extern void randomize_2d(int n, int m, float val[n][m], float amplitude);
 
-void randomize_3d(int n, int m, int p, float val[n][m][p]) {
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      for (int k = 0; k < p; k++) {
-        val[i][j][k] += val[i][j][k] * RandomNumber(-POLYBENCH_RANDOMIZE_RANGE, POLYBENCH_RANDOMIZE_RANGE);
-      }
-    }
-  }
-}
+extern void randomize_3d(int n, int m, int p, float val[n][m][p], float amplitude);
 
 #else
 
-void inline __attribute__((always_inline)) randomize_scalar(float *val) {}
+void inline __attribute__((always_inline)) randomize_scalar(float *val, float amplitude) {}
 
-void inline __attribute__((always_inline)) randomize_1d(int n, float val[n]) {}
+void inline __attribute__((always_inline)) randomize_1d(int n, float val[n], float amplitude) {}
 
-void inline __attribute__((always_inline)) randomize_2d(int n, int m, float val[n][m]) {}
+void inline __attribute__((always_inline)) randomize_2d(int n, int m, float val[n][m], float amplitude) {}
 
-void inline __attribute__((always_inline)) randomize_3d(int n, int m, int p, float val[n][m][p]) {}
+void inline __attribute__((always_inline)) randomize_3d(int n, int m, int p, float val[n][m][p], float amplitude) {}
 
 #endif
 
