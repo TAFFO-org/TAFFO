@@ -299,13 +299,13 @@ public:
 	info analyze();
 
 
-    friend constexpr bool operator == (const Posit & a, const Posit & u)  { return withnan && (a.isNaN()||u.isNaN())?false :a.v == u.v; }
-    friend constexpr bool operator != (const Posit & a, const Posit & u)  { return !(a == u); }
-    friend constexpr bool operator < (const Posit & a, const Posit & u)  { return withnan && (a.isNaN()||u.isNaN())?false :a.v < u.v;; }
-    friend constexpr bool operator <= (const Posit & a, const Posit & u)  { return withnan && (a.isNaN()||u.isNaN())?false :a.v <= u.v; }
+    constexpr bool operator == (const Posit & other)  { return withnan && (isNaN()||other.isNaN())?false :v == other.v; }
+    constexpr bool operator != (const Posit & other)  { return !(*this == other); }
+    constexpr bool operator < (const Posit & other)  { return withnan && (isNaN()||other.isNaN())?false :v < other.v;; }
+    constexpr bool operator <= (const Posit & other)  { return withnan && (isNaN()||other.isNaN())?false :v <= other.v; }
 
-    friend constexpr bool operator > (const Posit & a, const Posit & u)  { return withnan && (a.isNaN()||u.isNaN())?false :a.v > u.v; }
-    friend constexpr bool operator >= (const Posit & a, const Posit & u)  { return withnan && (a.isNaN()||u.isNaN())?false :a.v >= u.v; }
+    constexpr bool operator > (const Posit & other)  { return withnan && (isNaN()||other.isNaN())?false :v > other.v; }
+    constexpr bool operator >= (const Posit & other)  { return withnan && (isNaN()||other.isNaN())?false :v >= other.v; }
 
     static constexpr Posit ldexp(const Posit & u, int exp); // exponent product
 
@@ -377,9 +377,9 @@ public:
 	}
 
 #else
-	friend CONSTEXPR14 Posit operator*(const Posit & a, const Posit & b) 
+	CONSTEXPR14 Posit operator*(const Posit & other)
 	{
-		return pack_posit<T,totalbits,esbits,FT,positspec>(a.unpack()*b.unpack());
+		return pack_posit<T,totalbits,esbits,FT,positspec>(unpack()*other.unpack());
 	}
 #endif
 
@@ -393,9 +393,9 @@ public:
 		*this = pack_posit<T,totalbits,esbits,FT,positspec>(unpack()*b.unpack());
 		return *this;
 	}
-    friend CONSTEXPR14 Posit operator+(const Posit & a, const Posit & b)
+    CONSTEXPR14 Posit operator+(const Posit & other)
     {
-        return a.iszero() ? b : b.iszero() ? a: pack_posit<T,totalbits,esbits,FT,positspec>(a.unpack()+b.unpack());
+        return iszero() ? other : other.iszero() ? *this: pack_posit<T,totalbits,esbits,FT,positspec>(unpack()+other.unpack());
     }
 
 	Posit& operator+=(const Posit &a) { Posit r = *this+a; v = r.v; return *this; }
@@ -419,8 +419,8 @@ public:
 	// custom operators
 	constexpr Posit operator-() const { return neg(); } 
 	constexpr Posit operator~() const { return inv(); } 
-	friend CONSTEXPR14 Posit operator-(const Posit & a, const Posit & b)  { return a + (-b); }
-	friend CONSTEXPR14 Posit operator/(const Posit & a, const Posit & b)  { return pack_posit< T,totalbits,esbits,FT,positspec> (a.unpack()/b.unpack()); }
+	CONSTEXPR14 Posit operator-(const Posit & other)  { return *this + (-other); }
+	CONSTEXPR14 Posit operator/(const Posit & other)  { return pack_posit< T,totalbits,esbits,FT,positspec> (this->unpack()/other.unpack()); }
     Posit & operator/= (const Posit & a) { auto x = *this / a; v = x.v; return *this; }
 
     template <class It1, class It2>
@@ -488,7 +488,7 @@ public:
 	constexpr Posit urOneMinus() const { return Posit(DeepInit(),PT::POSIT_INVERTBIT-v); }
 
 	/// unitary range x(1-x)
-	constexpr Posit urDeltaPs() const { return (*this)*urOneMinus(); }
+	constexpr Posit urDeltaPs() const { return (Posit)(*this)*urOneMinus(); }
 
 };
 
