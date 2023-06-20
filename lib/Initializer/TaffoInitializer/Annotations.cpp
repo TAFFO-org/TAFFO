@@ -1,10 +1,14 @@
 #include "AnnotationParser.h"
+#include "DebugUtils.h"
 #include "Metadata.h"
 #include "TaffoInitializerPass.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -151,7 +155,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
     readLocalAnnotations(f, t);
     res.insert(res.end(), t.begin(), t.end());
 
-       /* Otherwise dce pass ignores the function (removed also where it's not required).
+    /* Otherwise dce pass ignores the function (removed also where it's not required).
      *   Don't remove for OCL trampolines because we want to keep the useless code there
      * deliberately. These trampolines will be removed by conversion later anyway. */
     if (!f.hasMetadata(INIT_OCL_TRAMPOLINE_METADATA)) {
@@ -188,14 +192,24 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
 {
   ValueInfo vi;
 
+  if (annoPtrInst->isCast()) {
+    auto global_struct = cast<GlobalVariable>(annoPtrInst->stripPointerCastsAndAliases());
+    auto struct_with_pad = cast<ConstantStruct>(global_struct->getInitializer());
+    annoPtrInst = cast<ConstantExpr>(struct_with_pad->op_begin());
+  }
+
   if (annoPtrInst->getOpcode() != Instruction::GetElementPtr)
     return false;
   auto *annoContent = dyn_cast<GlobalVariable>(annoPtrInst->getOperand(0));
   if (!annoContent)
     return false;
   auto *annoStr = dyn_cast<ConstantDataSequential>(annoContent->getInitializer());
-  if (!annoStr)
-    return false;
+  if (!annoStr) {
+    auto annoStruct = dyn_cast<ConstantStruct>(annoContent->getInitializer());
+    if (!annoStruct || !isa<ConstantDataSequential>(*annoStruct->op_begin()))
+      return false;
+    annoStr = dyn_cast<ConstantDataSequential>(*annoStruct->op_begin());
+  }
   if (!(annoStr->isString()))
     return false;
 
