@@ -392,7 +392,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   if (srct.isFixedPoint() &&
       destt.isFloatingPoint()) {
-    return genConvertFixToFloat(fix, srct, llvmdestt);
+    return genConvertFixToFloat(fix, srct, llvmdestt, ip);
   }
 
   assert(llvmsrct->isSingleValueType() && "cannot change type of a pointer");
@@ -429,7 +429,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
 
 // TODO: rewrite this mess!
-Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixpt, Type *destt)
+Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixpt, Type *destt, Instruction *ip)
 {
   LLVM_DEBUG(dbgs() << "******** trace: genConvertFixToFloat ";
              fix->print(dbgs());
@@ -440,9 +440,9 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
   if (fix->getType()->isFloatingPointTy()) {
     if (isa<Instruction>(fix) || isa<Argument>(fix)) {
-      Instruction *ip = nullptr;
       if (Instruction *i = dyn_cast<Instruction>(fix)) {
-        ip = getFirstInsertionPointAfter(i);
+        if (!ip)
+          ip = getFirstInsertionPointAfter(i);
       } else if (Argument *arg = dyn_cast<Argument>(fix)) {
         ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
       }
@@ -511,9 +511,9 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
   FixToFloatWeight += std::pow(2, std::min((int)(sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(fix)));
 
   if (isa<Instruction>(fix) || isa<Argument>(fix)) {
-    Instruction *ip = nullptr;
     if (Instruction *i = dyn_cast<Instruction>(fix)) {
-      ip = getFirstInsertionPointAfter(i);
+      if (!ip)
+        ip = getFirstInsertionPointAfter(i);
     } else if (Argument *arg = dyn_cast<Argument>(fix)) {
       ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
     }
