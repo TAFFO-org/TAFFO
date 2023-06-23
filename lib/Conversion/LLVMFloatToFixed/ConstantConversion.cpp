@@ -1,5 +1,6 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
+#include "PositConstant.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -224,6 +225,19 @@ Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cd
     llvm_unreachable("Unsupported float constant conversion");
   }
 
+  if (fixpt.isPosit()) {
+    std::vector<Constant *> posits;
+    for (unsigned int i = 0; i < cds->getNumElements(); i++) {
+      APFloat thiselem = cds->getElementAsAPFloat(i);
+      posits.push_back(PositConstant::get(cds->getContext(), fixpt, thiselem.convertToDouble()));
+    }
+    if (isa<ConstantDataArray>(cds)) {
+      ArrayType *t = ArrayType::get(fixpt.scalarToLLVMType(cds->getContext()), cds->getNumElements());
+      return ConstantArray::get(t, posits);
+    }
+    return ConstantVector::get(posits);
+  }
+
   LLVM_DEBUG(dbgs() << fixpt << " too big for ConstantDataArray/Vector; 64 bit max\n");
   return nullptr;
 }
@@ -235,9 +249,7 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
   APFloat val = fpc->getValueAPF();
   APSInt fixval;
 
-
-  // Old workflow, convert the value to a fixed point value
-  if (fixpt.isFixedPoint()) {
+  if (fixpt.isFixedPoint() || fixpt.isPosit()) {
     if (!isHintPreferredPolicy(typepol)) {
       APFloat tmp(val);
       bool precise = false;
@@ -246,10 +258,17 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
       int nbits = fixpt.scalarBitsAmt();
       mdutils::Range range(dblval, dblval);
       int minflt = isMaxIntPolicy(typepol) ? -1 : 0;
-      mdutils::FPType t = taffo::fixedPointTypeFromRange(range, nullptr, nbits, minflt);
-      fixpt = FixedPointType(&t);
+      if (fixpt.isFixedPoint()) {
+        mdutils::FPType t = taffo::fixedPointTypeFromRange(range, nullptr, nbits, minflt);
+        fixpt = FixedPointType(&t);
+      } else { // fixpt.isPosit()
+        mdutils::PositType t = taffo::positTypeFromRange(range);
+        fixpt = FixedPointType(&t);
+      }
     }
+  }
 
+  if (fixpt.isFixedPoint()) {
     if (convertAPFloat(val, fixval, context, fixpt)) {
       Type *intty = fixpt.scalarToLLVMType(fpc->getContext());
       return ConstantInt::get(intty, fixval);
@@ -258,6 +277,9 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
     }
   }
 
+  if (fixpt.isPosit()) {
+    return PositConstant::get(fpc->getContext(), fixpt, val.convertToDouble());
+  }
 
   // Just "convert", actually recast, the value to the correct data type if using floating point data
   if (fixpt.isFloatingPoint()) {

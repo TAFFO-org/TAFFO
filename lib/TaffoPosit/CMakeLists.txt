@@ -9,3 +9,6 @@ add_library(${SELF} SHARED
 install(TARGETS ${SELF})
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DESTINATION include)
+
+target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+set_property(TARGET ${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

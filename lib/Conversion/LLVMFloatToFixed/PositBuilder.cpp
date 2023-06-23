@@ -1,4 +1,5 @@
 #include "PositBuilder.h"
+#include "PositConstant.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -53,6 +54,19 @@ Value *PositBuilder::CreateConstructor(Value *arg1, bool isSigned) {
 }
 
 Value *PositBuilder::CreateBinOp(int opcode, Value *arg1, Value *arg2) {
+  if (Constant *c1 = dyn_cast<Constant>(arg1)) {
+    if (Constant *c2 = dyn_cast<Constant>(arg2)) {
+      LLVM_DEBUG(dbgs() << "Attempting to fold constant Posit operation\n");
+      Constant *res = PositConstant::FoldBinOp(C, metadata, opcode, c1, c2);
+      if (res) {
+        LLVM_DEBUG(dbgs() << "Folded in " << *res << "\n");
+        return res;
+      } else {
+        LLVM_DEBUG(dbgs() << "Constant folding failed; falling back to runtime computation\n");
+      }
+    }
+  }
+
   const char* mangledName;
   switch (metadata.scalarBitsAmt()) {
   case 32:
@@ -91,6 +105,17 @@ Value *PositBuilder::CreateBinOp(int opcode, Value *arg1, Value *arg2) {
 }
 
 Value *PositBuilder::CreateUnaryOp(int opcode, Value *arg1) {
+  if (Constant *c = dyn_cast<Constant>(arg1)) {
+    LLVM_DEBUG(dbgs() << "Attempting to fold constant Posit operation\n");
+    Constant *res = PositConstant::FoldUnaryOp(C, metadata, opcode, c);
+    if (res) {
+      LLVM_DEBUG(dbgs() << "Folded in " << *res << "\n");
+      return res;
+    } else {
+      LLVM_DEBUG(dbgs() << "Constant folding failed; falling back to runtime computation\n");
+    }
+  }
+
   const char* mangledName;
   switch (metadata.scalarBitsAmt()) {
   case 32:
@@ -166,6 +191,17 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
 }
 
 Value *PositBuilder::CreateConv(Value *from, Type *dstType) {
+  if (Constant *c = dyn_cast<Constant>(from)) {
+    LLVM_DEBUG(dbgs() << "Attempting to fold constant Posit conversion\n");
+    Constant *res = PositConstant::FoldConv(C, &M->getDataLayout(), metadata, c, dstType);
+    if (res) {
+      LLVM_DEBUG(dbgs() << "Folded in " << *res << "\n");
+      return res;
+    } else {
+      LLVM_DEBUG(dbgs() << "Constant folding failed; falling back to runtime computation\n");
+    }
+  }
+
   const char* mangledName;
   Type* callDstType = dstType;
 
