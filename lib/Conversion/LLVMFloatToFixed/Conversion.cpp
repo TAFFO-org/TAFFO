@@ -1,6 +1,7 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
 #include "PositBuilder.h"
+#include "PositConstant.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -578,6 +579,10 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
     }
 
   } else if (Constant *cst = dyn_cast<Constant>(fix)) {
+    if (fixpt.isPosit()) {
+      return PositConstant::FoldConv(cst->getContext(), ModuleDL, fixpt, cst, destt);
+    } // otherwise fixpt.isFixedPoint()
+
     // Always convert to double then to the destination type
     // No need to worry about efficiency, as everything will be constant folded
     Type *TmpTy = Type::getDoubleTy(cst->getContext());

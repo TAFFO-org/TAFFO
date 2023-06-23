@@ -15,6 +15,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   TAFFOMath.cpp
   ArcSinCos.cpp
   PositBuilder.cpp
+  PositConstant.cpp
 
 
   ADDITIONAL_HEADERS
@@ -26,5 +27,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
+  TaffoPosit
   )
 set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)
