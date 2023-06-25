@@ -557,7 +557,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
     Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
     assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
     LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-    Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+    Constant *Res = destt == TmpTy ? DblRes : ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
     assert(Res && "Constant folding failed...");
     LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
     return Res;
