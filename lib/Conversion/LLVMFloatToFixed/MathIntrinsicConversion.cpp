@@ -207,7 +207,7 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &f
       if (!val1 || !val2 || !val3)
         return nullptr;
       IRBuilder<NoFolder> builder(C);
-      return PositBuilder(builder, fixpt).CreateFMA(val1, val2, val3);
+      return PositBuilder(this, builder, fixpt).CreateFMA(val1, val2, val3);
     } else {
       llvm_unreachable("Unknown variable type. Are you trying to implement a new datatype?");
     }
