@@ -296,7 +296,7 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
 
   /* insert new instructions before ip */
   if (fixpt.isPosit()) {
-    Value *posit = PositBuilder(builder, fixpt).CreateConstructor(flt);
+    Value *posit = PositBuilder(this, builder, fixpt).CreateConstructor(flt);
     return cpMetaData(posit, flt, ip);
   }
   if (!destt->isFloatingPointTy()) {
@@ -411,7 +411,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
   if (srct.isPosit()) {
     assert(destt.scalarFracBitsAmt() == 0 && "cannot convert posit to fixed point (yet?)");
     return cpMetaData(
-        PositBuilder(builder, srct).CreateConv(fix, llvmdestt),
+        PositBuilder(this, builder, srct).CreateConv(fix, llvmdestt),
         fix);
   } // otherwise srct.isFixedPoint()
 
@@ -420,7 +420,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   if (destt.isPosit()) {
     return cpMetaData(
-        PositBuilder(builder, destt).CreateConstructor(fix, srct.scalarIsSigned()),
+        PositBuilder(this, builder, destt).CreateConstructor(fix, srct.scalarIsSigned()),
         fix);
   }
 
@@ -545,7 +545,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
     if (fixpt.isPosit()) {
       return cpMetaData(
-        PositBuilder(builder, fixpt).CreateConv(fix, destt),
+        PositBuilder(this, builder, fixpt).CreateConv(fix, destt),
         fix);
     } // otherwise fixpt.isFixedPoint()
 

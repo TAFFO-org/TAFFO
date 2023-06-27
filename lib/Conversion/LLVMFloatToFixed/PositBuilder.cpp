@@ -6,6 +6,27 @@ using namespace flttofix;
 
 #define DEBUG_TYPE "taffo-conversion"
 
+Value *PositBuilder::getAlloc(unsigned idx) {
+  Function *func = builder.GetInsertBlock()->getParent();
+  auto &allocas = pass->positAllocaPool[func];
+  Instruction *first = &(*func->getEntryBlock().getFirstInsertionPt());
+
+  if (idx < allocas.size()) {
+    // We have already created this alloca,
+    // but here we should make sure that it still the first instruction,
+    // because somebody might be trying to insert at the basicblock entry.
+    allocas[idx]->moveBefore(first);
+  }
+
+  while (allocas.size() <= idx) {
+    AllocaInst *alloc = new AllocaInst(llvmType, func->getParent()->getDataLayout().getAllocaAddrSpace(),
+        "positArg" + std::to_string(allocas.size()), first);
+    allocas.push_back(alloc);
+  }
+
+  return allocas[idx];
+}
+
 Value *PositBuilder::CreateConstructor(Value *arg1, bool isSigned) {
   const char* mangledName;
   Type* srcType = arg1->getType();
@@ -48,7 +69,7 @@ Value *PositBuilder::CreateConstructor(Value *arg1, bool isSigned) {
       false /* isVarArg */
   );
   FunctionCallee ctorFun = M->getOrInsertFunction(mangledName, fnType);
-  Value *dst = builder.CreateAlloca(llvmType);
+  Value *dst = getAlloc(0);
   builder.CreateCall(ctorFun, {dst, arg1});
   return builder.CreateLoad(llvmType, dst);
 }
@@ -97,8 +118,8 @@ Value *PositBuilder::CreateBinOp(int opcode, Value *arg1, Value *arg2) {
     false /* isVarArg */
   );
   FunctionCallee fun = M->getOrInsertFunction(mangledName, fnType);
-  Value *src1 = builder.CreateAlloca(llvmType);
-  Value *src2 = builder.CreateAlloca(llvmType);
+  Value *src1 = getAlloc(0);
+  Value *src2 = getAlloc(1);
   builder.CreateStore(arg1, src1);
   builder.CreateStore(arg2, src2);
   return builder.CreateCall(fun, {src1, src2});
@@ -137,7 +158,7 @@ Value *PositBuilder::CreateUnaryOp(int opcode, Value *arg1) {
     false /* isVarArg */
   );
   FunctionCallee fun = M->getOrInsertFunction(mangledName, fnType);
-  Value *src1 = builder.CreateAlloca(llvmType);
+  Value *src1 = getAlloc(0);
   builder.CreateStore(arg1, src1);
   return builder.CreateCall(fun, {src1});
 }
@@ -183,8 +204,8 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
   );
 
   FunctionCallee fun = M->getOrInsertFunction(mangledName, fnType);
-  Value *src1 = builder.CreateAlloca(llvmType);
-  Value *src2 = builder.CreateAlloca(llvmType);
+  Value *src1 = getAlloc(0);
+  Value *src2 = getAlloc(1);
   builder.CreateStore(arg1, src1);
   builder.CreateStore(arg2, src2);
   return builder.CreateCall(fun, {src1, src2});
@@ -241,7 +262,7 @@ Value *PositBuilder::CreateConv(Value *from, Type *dstType) {
     false /* isVarArg */
   );
   FunctionCallee convFun = M->getOrInsertFunction(mangledName, fnType);
-  Value *src1 = builder.CreateAlloca(llvmType);
+  Value *src1 = getAlloc(0);
   builder.CreateStore(from, src1);
   Value *ret = builder.CreateCall(convFun, { src1 });
 
@@ -273,9 +294,9 @@ Value *PositBuilder::CreateFMA(Value *arg1, Value *arg2, Value *arg3) {
   );
 
   FunctionCallee fun = M->getOrInsertFunction(mangledName, fnType);
-  Value *src1 = builder.CreateAlloca(llvmType);
-  Value *src2 = builder.CreateAlloca(llvmType);
-  Value *src3 = builder.CreateAlloca(llvmType);
+  Value *src1 = getAlloc(0);
+  Value *src2 = getAlloc(1);
+  Value *src3 = getAlloc(2);
   builder.CreateStore(arg1, src1);
   builder.CreateStore(arg2, src2);
   builder.CreateStore(arg3, src3);

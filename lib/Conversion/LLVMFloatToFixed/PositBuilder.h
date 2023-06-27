@@ -1,4 +1,5 @@
 #include "FixedPointType.h"
+#include "LLVMFloatToFixedPass.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
@@ -12,10 +13,11 @@ namespace flttofix
 
 class PositBuilder {
 public:
-  PositBuilder(llvm::IRBuilderBase &builder, const FixedPointType &metadata)
+  PositBuilder(FloatToFixed *pass, llvm::IRBuilderBase &builder, const FixedPointType &metadata)
     : builder(builder)
     , C(this->builder.getContext())
     , M(this->builder.GetInsertBlock()->getParent()->getParent())
+    , pass(pass)
     , metadata(metadata)
     , llvmType(llvm::cast<llvm::StructType>(this->metadata.scalarToLLVMType(builder.getContext())))
   {}
@@ -28,9 +30,12 @@ public:
   llvm::Value *CreateFMA(llvm::Value *arg1, llvm::Value *arg2, llvm::Value *arg3);
 
 private:
+  llvm::Value *getAlloc(unsigned idx);
+
   llvm::IRBuilderBase &builder;
   llvm::LLVMContext &C;
   llvm::Module *M;
+  FloatToFixed *pass;
 
   const FixedPointType &metadata;
   llvm::StructType *llvmType;
