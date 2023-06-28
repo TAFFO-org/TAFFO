@@ -107,6 +107,10 @@ struct Unpacked
   explicit CONSTEXPR14 Unpacked(int32_t i) { unpack_xfixed<fixedtrait<int32_t, 32, 0>>(i); }
   explicit CONSTEXPR14 Unpacked(int16_t i) { unpack_xfixed<fixedtrait<int16_t, 16, 0>>(i); }
   explicit CONSTEXPR14 Unpacked(int8_t i) { unpack_xfixed<fixedtrait<int8_t, 8, 0>>(i); }
+  explicit CONSTEXPR14 Unpacked(int64_t x, int fracbits) { unpack_xfixed<fixedtrait<int64_t, 64, 0 /*discarded*/>>(x, fracbits); }
+  explicit CONSTEXPR14 Unpacked(int32_t x, int fracbits) { unpack_xfixed<fixedtrait<int32_t, 32, 0 /*discarded*/>>(x, fracbits); }
+  explicit CONSTEXPR14 Unpacked(int16_t x, int fracbits) { unpack_xfixed<fixedtrait<int16_t, 16, 0 /*discarded*/>>(x, fracbits); }
+  explicit CONSTEXPR14 Unpacked(int8_t x, int fracbits) { unpack_xfixed<fixedtrait<int8_t, 8, 0 /*discarded*/>>(x, fracbits); }
   explicit CONSTEXPR14 Unpacked(Type t, bool anegativeSign = false)
       : type(t), negativeSign(anegativeSign){};
 
@@ -163,12 +167,18 @@ struct Unpacked
   constexpr operator int32_t() const { return pack_xfixed<fixedtrait<int32_t, 32, 0>>(); }
   constexpr operator int16_t() const { return pack_xfixed<fixedtrait<int16_t, 16, 0>>(); }
   constexpr operator int8_t() const { return pack_xfixed<fixedtrait<int8_t, 8, 0>>(); }
+  constexpr int64_t toFixed64(int fracbits) const { return pack_xfixed<fixedtrait<int64_t, 64, 0 /*discarded*/>>(fracbits); }
+  constexpr int32_t toFixed32(int fracbits) const { return pack_xfixed<fixedtrait<int32_t, 32, 0 /*discarded*/>>(fracbits); }
+  constexpr int16_t toFixed16(int fracbits) const { return pack_xfixed<fixedtrait<int16_t, 16, 0 /*discarded*/>>(fracbits); }
+  constexpr int8_t toFixed8(int fracbits) const { return pack_xfixed<fixedtrait<int8_t, 8, 0 /*discarded*/>>(fracbits); }
 
   template <class Trait>
   CONSTEXPR14 typename Trait::holder_t pack_xfloati() const;
 
   template <class Trait>
   CONSTEXPR14 typename Trait::value_t pack_xfixed() const;
+  template <class Trait>
+  CONSTEXPR14 typename Trait::value_t pack_xfixed(int fracbits) const;
 
   template <class Trait>
   typename Trait::value_t pack_xfloat() const
@@ -286,6 +296,8 @@ struct Unpacked
   /// unpacks a value stored as fixed or integer. Value and holder match
   template <class Trait>
   CONSTEXPR14 Unpacked &unpack_xfixed(typename Trait::value_t value);
+  template <class Trait>
+  CONSTEXPR14 Unpacked &unpack_xfixed(typename Trait::value_t value, int fracbits);
 
   /// unpacks a floating point value as expressed by its holding type (uint32
   /// for single)
@@ -505,6 +517,15 @@ template <class Trait>
 CONSTEXPR14 Unpacked<FT, ET> &Unpacked<FT, ET>::unpack_xfixed(
     typename Trait::value_t nx)
 {
+  return unpack_xfixed<Trait>(nx, Trait::fraction_bits);
+}
+
+// Ignore Trait::fraction_bits, use param instead
+template <class FT, class ET>
+template <class Trait>
+CONSTEXPR14 Unpacked<FT, ET> &Unpacked<FT, ET>::unpack_xfixed(
+    typename Trait::value_t nx, int fracbits)
+{
   // TODO: handle infinity or nan in Trait
   if (nx != 0)
   {
@@ -513,7 +534,7 @@ CONSTEXPR14 Unpacked<FT, ET> &Unpacked<FT, ET>::unpack_xfixed(
     negativeSign = nx < 0;
     UT x = pcabs(nx);
     const int p = Trait::totalbits - findbitleftmostC(x) - 1; // 31->0,0->31
-    exponent = (p - Trait::fraction_bits);
+    exponent = (p - fracbits);
     UT ux = p == 0 ? 0 : (x << (Trait::totalbits - p));
 
     // UT x : 0[N-p-1] 1 ?[p]
@@ -642,6 +663,14 @@ template <class FT, class ET>
 template <class Trait>
 CONSTEXPR14 typename Trait::value_t Unpacked<FT, ET>::pack_xfixed() const
 {
+  return pack_xfixed<Trait>(Trait::fraction_bits);
+}
+
+// Ignore Trait::fraction_bits, use param instead
+template <class FT, class ET>
+template <class Trait>
+CONSTEXPR14 typename Trait::value_t Unpacked<FT, ET>::pack_xfixed(int fracbits) const
+{
   switch (type)
   {
   case Infinity:
@@ -653,13 +682,13 @@ CONSTEXPR14 typename Trait::value_t Unpacked<FT, ET>::pack_xfixed() const
   default:
     break;
   }
-  constexpr int intbits = Trait::totalbits - Trait::fraction_bits;
+  int intbits = Trait::totalbits - fracbits;
   if (exponent >= intbits)
   {
     return negativeSign ? std::numeric_limits<typename Trait::value_t>::lowest()
                         : std::numeric_limits<typename Trait::value_t>::max();
   }
-  else if (exponent < -Trait::fraction_bits)
+  else if (exponent < -fracbits)
   {
     return 0;
   }
@@ -680,7 +709,7 @@ CONSTEXPR14 typename Trait::value_t Unpacked<FT, ET>::pack_xfixed() const
     // extrema: e.g. for totalbits=32, whatever fraction
     // - exponent==-Trait::fraction_bits ==> 1 | 0
     // - exponent==intbits-1 ==> 0x8000000 | (F >> 1)
-    ST r = (ST(1) << (exponent + Trait::fraction_bits)) |
+    ST r = (ST(1) << (exponent + fracbits)) |
            (intbits - exponent < (signed)sizeof(f)*8 ? (ST)(f >> (intbits - exponent)) : 0);
     return negativeSign ? -r : r;
   }
