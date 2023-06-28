@@ -332,6 +332,10 @@ public:
 	CONSTEXPR14 Posit(int32_t i): Posit(UnpackedT(i)) {}
 	CONSTEXPR14 Posit(int16_t i): Posit(UnpackedT(i)) {}
 	CONSTEXPR14 Posit(int8_t i): Posit(UnpackedT(i)) {}
+	CONSTEXPR14 Posit(int64_t x, int fracbits): Posit(UnpackedT(x, fracbits)) {}
+	CONSTEXPR14 Posit(int32_t x, int fracbits): Posit(UnpackedT(x, fracbits)) {}
+	CONSTEXPR14 Posit(int16_t x, int fracbits): Posit(UnpackedT(x, fracbits)) {}
+	CONSTEXPR14 Posit(int8_t x, int fracbits): Posit(UnpackedT(x, fracbits)) {}
 
 	constexpr UnpackedT unpack() const { return unpack_posit<T,totalbits,esbits,FT,positspec>(*this); }
 
@@ -479,6 +483,10 @@ public:
 	constexpr operator int32_t() const { return unpack(); }
 	constexpr operator int16_t() const { return unpack(); }
 	constexpr operator int8_t() const { return unpack(); }
+	constexpr int64_t toFixed64(int fracbits) const { return unpack().toFixed64(fracbits); }
+	constexpr int32_t toFixed32(int fracbits) const { return unpack().toFixed32(fracbits); }
+	constexpr int16_t toFixed16(int fracbits) const { return unpack().toFixed16(fracbits); }
+	constexpr int8_t toFixed8(int fracbits) const { return unpack().toFixed8(fracbits); }
 
 	/// 1/(exp(-x)+1)
 	/// TODO: infintity check + __round of result
