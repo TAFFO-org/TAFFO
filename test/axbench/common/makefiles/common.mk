@@ -4,6 +4,11 @@ CLANGXX           :=$(shell taffo -print-llvm-bin-dir)/clang++
 LLVM_LINK         :=$(shell taffo -print-llvm-bin-dir)/llvm-link
 LIB               =-lm
 
+ifeq ($(shell uname -s),Darwin)
+CLANG:=xcrun $(CLANG)
+CLANGXX:=xcrun $(CLANGXX)
+endif
+
 TAFFO_DTA    ?=fixp
 
 ifeq ($(TAFFO_DTA),fixp)
