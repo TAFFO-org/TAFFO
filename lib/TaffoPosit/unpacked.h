@@ -103,7 +103,10 @@ struct Unpacked
   }
 
   explicit CONSTEXPR14 Unpacked(halffloat p) { unpack_half(p); }
-  explicit CONSTEXPR14 Unpacked(int i) { unpack_int(i); }
+  explicit CONSTEXPR14 Unpacked(int64_t i) { unpack_xfixed<fixedtrait<int64_t, 64, 0>>(i); }
+  explicit CONSTEXPR14 Unpacked(int32_t i) { unpack_xfixed<fixedtrait<int32_t, 32, 0>>(i); }
+  explicit CONSTEXPR14 Unpacked(int16_t i) { unpack_xfixed<fixedtrait<int16_t, 16, 0>>(i); }
+  explicit CONSTEXPR14 Unpacked(int8_t i) { unpack_xfixed<fixedtrait<int8_t, 8, 0>>(i); }
   explicit CONSTEXPR14 Unpacked(Type t, bool anegativeSign = false)
       : type(t), negativeSign(anegativeSign){};
 
@@ -156,10 +159,10 @@ struct Unpacked
   }
 
   constexpr operator halffloat() const { return pack_xfloat<half_trait>(); }
-  constexpr operator int() const
-  {
-    return pack_xfixed<fixedtrait<int, sizeof(int) * 8, 0>>();
-  }
+  constexpr operator int64_t() const { return pack_xfixed<fixedtrait<int64_t, 64, 0>>(); }
+  constexpr operator int32_t() const { return pack_xfixed<fixedtrait<int32_t, 32, 0>>(); }
+  constexpr operator int16_t() const { return pack_xfixed<fixedtrait<int16_t, 16, 0>>(); }
+  constexpr operator int8_t() const { return pack_xfixed<fixedtrait<int8_t, 8, 0>>(); }
 
   template <class Trait>
   CONSTEXPR14 typename Trait::holder_t pack_xfloati() const;

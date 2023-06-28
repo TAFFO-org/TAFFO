@@ -328,7 +328,10 @@ public:
     CONSTEXPR14 explicit Posit(float f): Posit(UnpackedT(f)) {}
 	CONSTEXPR14 explicit Posit(double d): Posit(UnpackedT(d)) {}
 #endif
-	CONSTEXPR14 Posit(int i): Posit(UnpackedT(i)) {}
+	CONSTEXPR14 Posit(int64_t i): Posit(UnpackedT(i)) {}
+	CONSTEXPR14 Posit(int32_t i): Posit(UnpackedT(i)) {}
+	CONSTEXPR14 Posit(int16_t i): Posit(UnpackedT(i)) {}
+	CONSTEXPR14 Posit(int8_t i): Posit(UnpackedT(i)) {}
 
 	constexpr UnpackedT unpack() const { return unpack_posit<T,totalbits,esbits,FT,positspec>(*this); }
 
@@ -472,7 +475,10 @@ public:
 	constexpr operator float() const { return unpack(); }
 	constexpr operator double() const { return unpack(); }
 #endif
-	constexpr operator int() const { return unpack(); }
+	constexpr operator int64_t() const { return unpack(); }
+	constexpr operator int32_t() const { return unpack(); }
+	constexpr operator int16_t() const { return unpack(); }
+	constexpr operator int8_t() const { return unpack(); }
 
 	/// 1/(exp(-x)+1)
 	/// TODO: infintity check + __round of result
