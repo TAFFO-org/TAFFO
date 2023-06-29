@@ -1,6 +1,4 @@
-# polybench-ilp
-
-This is a test harness for testing polybench with different options of the integer-linear-programming-based data type allocation optimizer.
+# polybench-cpu-embedded
 
 **Usage:** `./build.sh [actions] [benchmarks]`
 
@@ -19,12 +17,6 @@ The configuration to the script is passed through **environment variables**.
 
 Make sure to set them to the correct environment variables you want for your experiments first! The defaults are kinda random: they will certainly work, and at the same time they will certainly not be optimal.
 
- - `costmodel`: one of the available cost models (see also: `taffo --help`)
- - `instrset`: one of the available instruction set restrictions (leave this to the default or you'll be sorry)
- - `enobweight`: weight of the precision component to the obj. function
- - `timeweight`: weight of the mathematical operation component to the obj. function
- - `castweight`: weight of the cast operation component to the obj. function
- - `pb_dataset`: one of the dataset names provided by Polybench (look at the Polybench docs)
  - `embedded_sysroot`: (embedded only) a valid sysroot for the target architecture; used mainly to find C library header files. This is the only parameter that will need to be specified almost every time (unless you built GCC from source... and in that case you will probably have two problems)
  - `embedded_triple`: (embedded only) a valid architecture triple such as arm-none-eabi
  - `embedded_cpu`: (embedded only) the target CPU
@@ -48,7 +40,8 @@ To be able to successfully compile the flash image, a standard `arm-none-eabi` G
 
 To select the target board you must set the `TARGET` makefile variable. Currently supported boards:
 
-- `stm32f207`: STM3220G-EVAL (default)
+- `stm32f207`: STM3220G-EVAL
+- `stm32f407`: stm32f4-discovery (default)
 - there is no second board right now
 
 The makefile supports the targets that you expect (all, clean), plus a couple other that perform common actions on the currently selected target board:
@@ -56,4 +49,4 @@ The makefile supports the targets that you expect (all, clean), plus a couple ot
 - `flash`: flashes the board with the binary produced by the makefile
 - `monitor`: opens the serial connection to the board (if available) and pipes it to stdout and to the `monitor.log` file
 
-The `flash` command should work out-of-the-box as long as you have installed the opensource stlink-tools package (this one: https://github.com/stlink-org/stlink). On the other hand, the `monitor` command needs a serial port device specified using the `SERIAL_DEVICE` makefile variable. The default is always wrong (except on macOS, where it is correct if and only if you use a USB RS232 dongle with a Prolific chip).
+The `flash` command should work out-of-the-box as long as you have installed the opensource stlink-tools package (this one: https://github.com/stlink-org/stlink). On the other hand, the `monitor` command needs a serial port device specified using the `SERIAL_DEVICE` makefile variable. The default is always wrong (except on macOS, where it is correct if and only if you use a USB RS232 dongle with a Prolific chip). The stm32f407 board code emulates the serial port through its USB interface, for that board therefore you don't need a separate serial adapter.
