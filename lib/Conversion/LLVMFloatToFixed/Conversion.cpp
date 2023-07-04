@@ -136,11 +136,18 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
   LLVM_DEBUG(dbgs() << "translateOrMatchOperand of " << *val << "\n");
   
   // FIXME: handle all the cases, we need more info about destination!
-  if (typepol == TypeMatchPolicy::ForceHint) {
-    LLVM_DEBUG(dbgs() << "translateOrMatchOperand: forcing hint as requested!\n");
+  if (typepol == TypeMatchPolicy::ForceHint || (!wasHintForced && hasInfo(val) && !fixPType(val).isSameTypeAs(iofixpt))) {
+    LLVM_DEBUG({
+      if (typepol == TypeMatchPolicy::ForceHint)
+        dbgs() << "translateOrMatchOperand: forcing hint as requested!\n";
+      else
+        dbgs() << "translateOrMatchOperand: mismatching conversion type, forcing conversion\n";
+    });
     FixedPointType origfixpt = iofixpt;
     llvm::Value *tmp = translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::RangeOverHintMaxFrac, true);
-    return genConvertFixedToFixed(tmp, iofixpt, origfixpt, ip);
+    llvm::Value *ret = genConvertFixedToFixed(tmp, iofixpt, origfixpt, ip);
+    iofixpt = origfixpt;
+    return ret;
   }
 
   assert(val->getType()->getNumContainedTypes() == 0 && "translateOrMatchOperand val is not a scalar value");
@@ -362,7 +369,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
   if (srct == destt)
     return fix;
 
-  LLVM_DEBUG(dbgs() << "Called fixedToFixed\n";);
+  LLVM_DEBUG(dbgs() << "Called fixedToFixed: " << srct << " to " << destt << "\n");
 
   Instruction *fixinst = dyn_cast<Instruction>(fix);
   if (!ip && fixinst)
@@ -409,9 +416,8 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   IRBuilder<NoFolder> builder(ip);
   if (srct.isPosit()) {
-    assert(destt.scalarFracBitsAmt() == 0 && "cannot convert posit to fixed point (yet?)");
     return cpMetaData(
-        PositBuilder(this, builder, srct).CreateConv(fix, llvmdestt),
+        PositBuilder(this, builder, srct).CreateConv(fix, llvmdestt, &destt),
         fix);
   } // otherwise srct.isFixedPoint()
 
@@ -420,7 +426,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   if (destt.isPosit()) {
     return cpMetaData(
-        PositBuilder(this, builder, destt).CreateConstructor(fix, srct.scalarIsSigned()),
+        PositBuilder(this, builder, destt).CreateConstructor(fix, &srct),
         fix);
   }
 

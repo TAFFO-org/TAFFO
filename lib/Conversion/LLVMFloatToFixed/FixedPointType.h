@@ -196,6 +196,12 @@ public:
   FixedPointType unwrapIndexList(llvm::Type *valType, llvm::ArrayRef<unsigned> indices);
 
   bool operator==(const FixedPointType &rhs) const;
+
+  inline bool isSameTypeAs(const FixedPointType &other) {
+    return (isFloatingPoint() && other.isFloatingPoint()) ||
+           (isFixedPoint() && other.isFixedPoint()) ||
+           (isPosit() && other.isPosit());
+  }
 };
 
 
