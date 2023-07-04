@@ -867,10 +867,11 @@ Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
     isOneFloat = t2.isFloatingPoint();
   }
   if (!isOneFloat) {
-    if (t1.isPosit() || t2.isPosit()) {
-      assert((t1.isPosit() && t2.isPosit()) && "Cannot compare posit to fixed point");
-      cmptype = t1;
-      cmptype.scalarBitsAmt() = std::max(t1.scalarBitsAmt(), t2.scalarBitsAmt());
+    if ((t1.isPosit() || t2.isPosit())) {
+      // We might be comparing posit-vs-posit or posit-vs-fixp.
+      // Regardless, perform the conversion in the larger type,
+      // favouring t1 if equal.
+      cmptype = t1.scalarBitsAmt() >= t2.scalarBitsAmt() ? t1 : t2;
     } else {
       bool mixedsign = t1.scalarIsSigned() != t2.scalarIsSigned();
       int intpart1 = t1.scalarBitsAmt() - t1.scalarFracBitsAmt() +

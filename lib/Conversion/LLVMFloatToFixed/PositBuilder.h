@@ -22,8 +22,8 @@ public:
     , llvmType(llvm::cast<llvm::StructType>(this->metadata.scalarToLLVMType(builder.getContext())))
   {}
 
-  llvm::Value *CreateConstructor(llvm::Value *arg1, bool isSigned=true);
-  llvm::Value *CreateConv(llvm::Value *from, llvm::Type *dstType);
+  llvm::Value *CreateConstructor(llvm::Value *arg1, const FixedPointType *srcMetadata = nullptr);
+  llvm::Value *CreateConv(llvm::Value *from, llvm::Type *dstType, const FixedPointType *dstMetadata = nullptr);
   llvm::Value *CreateBinOp(int opcode, llvm::Value *arg1, llvm::Value *arg2);
   llvm::Value *CreateUnaryOp(int opcode, llvm::Value *arg1);
   llvm::Value *CreateCmp(llvm::CmpInst::Predicate pred, llvm::Value *arg1, llvm::Value *arg2);

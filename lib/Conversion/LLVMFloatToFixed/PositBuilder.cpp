@@ -27,9 +27,10 @@ Value *PositBuilder::getAlloc(unsigned idx) {
   return allocas[idx];
 }
 
-Value *PositBuilder::CreateConstructor(Value *arg1, bool isSigned) {
+Value *PositBuilder::CreateConstructor(Value *arg1, const FixedPointType *srcMetadata) {
   const char* mangledName;
   Type* srcType = arg1->getType();
+  const bool isSrcFixpt = srcMetadata && srcMetadata->isFixedPoint() && srcMetadata->scalarFracBitsAmt() > 0;
 
   switch (metadata.scalarBitsAmt()) {
   case 32:
@@ -41,16 +42,29 @@ Value *PositBuilder::CreateConstructor(Value *arg1, bool isSigned) {
       arg1 = builder.CreateFPCast(arg1, Type::getDoubleTy(C));
       mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ed";
     } else if (srcType->isIntegerTy(64)) {
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1El";
+      if (isSrcFixpt)
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Eli";
+      else
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1El";
     } else if (srcType->isIntegerTy(32)) {
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ei";
+      if (isSrcFixpt)
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Eii";
+      else
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ei";
     } else if (srcType->isIntegerTy(16)) {
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Es";
+      if (isSrcFixpt)
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Esi";
+      else
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Es";
     } else if (srcType->isIntegerTy(8)) {
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ea";
+      if (isSrcFixpt)
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Eai";
+      else
+        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ea";
     } else if (srcType->isIntegerTy()) {
+      assert(!isSrcFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit constructor from this integer size, passing through int64...");
-      if (isSigned)
+      if (!srcMetadata || srcMetadata->scalarIsSigned())
         arg1 = builder.CreateSExtOrTrunc(arg1, Type::getInt64Ty(C));
       else
         arg1 = builder.CreateZExtOrTrunc(arg1, Type::getInt64Ty(C));
@@ -63,14 +77,24 @@ Value *PositBuilder::CreateConstructor(Value *arg1, bool isSigned) {
     llvm_unreachable("Unimplemented Posit size");
   }
 
+
+  std::vector<Type*> argTypes = { llvmType->getPointerTo(), arg1->getType() };
+  if (isSrcFixpt)
+    argTypes.push_back(Type::getInt32Ty(C));
+
   FunctionType *fnType = FunctionType::get(
       Type::getVoidTy(C), /* Return type */
-      { llvmType->getPointerTo(), arg1->getType() }, /* Arguments... */
+      argTypes, /* Arguments... */
       false /* isVarArg */
   );
   FunctionCallee ctorFun = M->getOrInsertFunction(mangledName, fnType);
   Value *dst = getAlloc(0);
-  builder.CreateCall(ctorFun, {dst, arg1});
+
+  std::vector<Value*> args = {dst, arg1};
+  if (isSrcFixpt)
+    args.push_back(ConstantInt::get(Type::getInt32Ty(C), srcMetadata->scalarFracBitsAmt()));
+
+  builder.CreateCall(ctorFun, args);
   return builder.CreateLoad(llvmType, dst);
 }
 
@@ -211,7 +235,7 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
   return builder.CreateCall(fun, {src1, src2});
 }
 
-Value *PositBuilder::CreateConv(Value *from, Type *dstType) {
+Value *PositBuilder::CreateConv(Value *from, Type *dstType, const FixedPointType *dstMetadata) {
   if (Constant *c = dyn_cast<Constant>(from)) {
     LLVM_DEBUG(dbgs() << "Attempting to fold constant Posit conversion\n");
     Constant *res = PositConstant::FoldConv(C, &M->getDataLayout(), metadata, c, dstType);
@@ -225,6 +249,7 @@ Value *PositBuilder::CreateConv(Value *from, Type *dstType) {
 
   const char* mangledName;
   Type* callDstType = dstType;
+  const bool isDstFixpt = dstMetadata && dstMetadata->isFixedPoint() && dstMetadata->scalarFracBitsAmt() > 0;
 
   // TODO implement casting to bigger or smaller Posit
   switch (metadata.scalarBitsAmt()) {
@@ -237,14 +262,27 @@ Value *PositBuilder::CreateConv(Value *from, Type *dstType) {
       mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvdEv";
       callDstType = Type::getDoubleTy(C);
     } else if (dstType->isIntegerTy(64)) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvlEv";
+      if (isDstFixpt)
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE9toFixed64Ei";
+      else
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvlEv";
     } else if (dstType->isIntegerTy(32)) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcviEv";
+      if (isDstFixpt)
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE9toFixed32Ei";
+      else
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcviEv";
     } else if (dstType->isIntegerTy(16)) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvsEv";
+      if (isDstFixpt)
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE9toFixed16Ei";
+      else
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvsEv";
     } else if (dstType->isIntegerTy(8)) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvaEv";
+      if (isDstFixpt)
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE8toFixed8Ei";
+      else
+        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvaEv";
     } else if (dstType->isIntegerTy()) {
+      assert(!isDstFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit conversion to this integer size, passing through int64...");
       mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvlEv";
       callDstType = Type::getInt64Ty(C);
@@ -256,21 +294,31 @@ Value *PositBuilder::CreateConv(Value *from, Type *dstType) {
     llvm_unreachable("Unimplemented Posit size");
   }
 
+  std::vector<Type*> argTypes = { llvmType->getPointerTo() };
+  if (isDstFixpt)
+    argTypes.push_back(Type::getInt32Ty(C));
+
   FunctionType *fnType = FunctionType::get(
     callDstType, /* Return type */
-    { llvmType->getPointerTo() }, /* Arguments... */
+    argTypes, /* Arguments... */
     false /* isVarArg */
   );
   FunctionCallee convFun = M->getOrInsertFunction(mangledName, fnType);
   Value *src1 = getAlloc(0);
   builder.CreateStore(from, src1);
-  Value *ret = builder.CreateCall(convFun, { src1 });
+
+  std::vector<Value*> args = { src1 };
+  if (isDstFixpt)
+    args.push_back(ConstantInt::get(Type::getInt32Ty(C), dstMetadata->scalarFracBitsAmt()));
+
+  Value *ret = builder.CreateCall(convFun, args);
 
   if (dstType->isFloatingPointTy() && dstType != callDstType) {
-    ret = builder.CreateFPTrunc(ret, dstType);
+    ret = builder.CreateFPCast(ret, dstType);
   }
 
   if (dstType->isIntegerTy() && dstType != callDstType) {
+    assert(!isDstFixpt);
     ret = builder.CreateSExtOrTrunc(ret, dstType);
   }
 
