@@ -486,15 +486,24 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
       // Always convert to double then to the destination type
       // No need to worry about efficiency, as everything will be constant folded
+      // IMPORTANT: Until this code is refactored, the same logic is DUPLICATED BELOW
       Type *TmpTy = Type::getDoubleTy(cst->getContext());
       Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, TmpTy) : ConstantExpr::getUIToFP(cst, TmpTy);
       double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
       Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
       assert(DblRes && "Constant folding failed...");
       LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-      Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
-      assert(Res && "Constant folding failed...");
-      LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
+      Constant *Res;
+      LLVM_DEBUG(dbgs() << "destt=" << destt << ", TmpTy=" << TmpTy << "\n");
+      if (!destt->isDoubleTy()) {
+        LLVM_DEBUG(dbgs() << "A further cast is needed\n");
+        Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+        assert(Res && "Constant folding failed...");
+        LLVM_DEBUG(dbgs() << "ConstantFoldCastOperand returned " << *Res << "\n");
+      } else {
+        Res = DblRes;
+        LLVM_DEBUG(dbgs() << "No cast constant folding necessary because the required type is already " << *destt << "\n");
+      }
       return Res;
     }
   }
@@ -551,15 +560,24 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
   } else if (Constant *cst = dyn_cast<Constant>(fix)) {
     // Always convert to double then to the destination type
     // No need to worry about efficiency, as everything will be constant folded
+    // IMPORTANT: Until this code is refactored, the same logic is DUPLICATED ABOVE
     Type *TmpTy = Type::getDoubleTy(cst->getContext());
     Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, TmpTy) : ConstantExpr::getUIToFP(cst, TmpTy);
     double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
     Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
     assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
     LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-    Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
-    assert(Res && "Constant folding failed...");
-    LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
+    Constant *Res;
+    LLVM_DEBUG(dbgs() << "destt=" << destt << ", TmpTy=" << TmpTy << "\n");
+    if (!destt->isDoubleTy()) {
+      LLVM_DEBUG(dbgs() << "A further cast is needed\n");
+      Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+      assert(Res && "Constant folding failed...");
+      LLVM_DEBUG(dbgs() << "ConstantFoldCastOperand returned " << *Res << "\n");
+    } else {
+      Res = DblRes;
+      LLVM_DEBUG(dbgs() << "No cast constant folding necessary because the required type is already " << *destt << "\n");
+    }
     return Res;
   }
 
