@@ -46,12 +46,17 @@
 #  define POW_FUN(x,y) pow(x,y)
 
 
+static double frand(void)
+{
+	return (double)rand() / (double)RAND_MAX;
+}
+
 int BENCH_MAIN(){
 
 /* Variable declaration/allocation. */
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100))"))) A[M][N];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100)) target('R')"))) R[N][N];
-  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000) final error(1e-100)) target('Q')"))) Q[M][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-50, 50) final error(1e-100))"))) A[M][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-62, 62) final error(1e-100)) target('R')"))) R[N][N];
+  PB_STATIC DATA_TYPE __attribute__((annotate("scalar(range(-10, 10) final error(1e-100)) target('Q')"))) Q[M][N];
 
     TAFFO_DUMPCONFIG();
     
@@ -59,13 +64,14 @@ int BENCH_MAIN(){
     int m = M;
     int n = N;
 
-    int i __attribute__((annotate("scalar(range(-30, 30) final)")));
-    int j __attribute__((annotate("scalar(range(-30, 30) final)")));
+    int i;
+    int j;
     int k;
 
     for (i = 0; i < m; i++)
         for (j = 0; j < n; j++) {
-            A[i][j] = (((DATA_TYPE) ((i*j) % m) / m )*100) + 10;
+            double tmp = frand();
+            A[i][j] = tmp;
             Q[i][j] = 0.0;
         }
     for (i = 0; i < n; i++)
