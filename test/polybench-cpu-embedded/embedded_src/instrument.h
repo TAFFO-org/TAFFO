@@ -15,6 +15,7 @@ extern long unsigned dt;
 
 static __attribute__((always_inline)) void TIMING_CPUCLOCK_START()
 {
+  __disable_irq();
   DWT->CTRL &= ~DWT_CTRL_CYCCNTENA_Msk;
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT->CYCCNT = 0;
@@ -29,6 +30,7 @@ static __attribute__((always_inline)) void TIMING_CPUCLOCK_TOGGLE()
   __asm volatile("# LLVM-MCA-END " xstr(BENCH_MAIN));
   dt = DWT->CYCCNT;
   DWT->CYCCNT = 0;
+  __enable_irq();
 }
 
 
