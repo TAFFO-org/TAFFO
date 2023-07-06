@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include "instrument.h"
 
 #ifdef GLOBAL_ALLOC
@@ -12,9 +11,9 @@
 #  define DATA_TYPE float
 #  define DATA_PRINTF_MODIFIER "%0.16lf "
 #  define SCALAR_VAL(x) x
-#  define SQRT_FUN(x) sqrt(x)
-#  define EXP_FUN(x) exp(x)
-#  define POW_FUN(x,y) pow(x,y)
+//#  define SQRT_FUN(x) sqrt(x)
+//#  define EXP_FUN(x) exp(x)
+//#  define POW_FUN(x,y) pow(x,y)
 
 #  ifdef MINI_DATASET
 #   define N 60

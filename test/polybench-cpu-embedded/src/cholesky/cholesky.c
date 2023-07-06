@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <tgmath.h>
 #include "instrument.h"
 #  define DATA_TYPE float
 #  define DATA_PRINTF_MODIFIER "%0.16lf "

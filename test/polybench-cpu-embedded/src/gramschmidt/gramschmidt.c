@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <tgmath.h>
 #include "instrument.h"
 
 #ifdef GLOBAL_ALLOC
