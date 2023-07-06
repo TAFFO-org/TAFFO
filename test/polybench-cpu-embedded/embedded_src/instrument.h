@@ -48,7 +48,7 @@ static __attribute__((always_inline)) void TIMING_CPUCLOCK_PRINT()
 
 static __attribute__((always_inline)) void TAFFO_DUMPCONFIG()
 {
-  printf("****************** THIS IS BENCHMARK: %s\n", xstr(BENCH_MAIN));
+  printf("\n\n****************** THIS IS BENCHMARK: %s\n", xstr(BENCH_MAIN));
 }
 
 
