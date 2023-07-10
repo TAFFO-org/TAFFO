@@ -324,6 +324,12 @@ public:
 	/// construct from fully unpacked floating (s,e,F)
 	CONSTEXPR14 explicit Posit(UnpackedT u) : v(pack_posit<T,totalbits,esbits,FT,positspec>(u).v) {} 
 
+	template <class T2,int totalbits2, int esbits2, class FT2, PositSpec positspec2>
+	CONSTEXPR14 Posit(const Posit<T2,totalbits2,esbits2,FT2,positspec2> & other) :
+		v(totalbits > totalbits2 ? other.v << (totalbits - totalbits2) : other.v >> (totalbits2 - totalbits)) {
+		static_assert(esbits == esbits2,"Casting is only supported with same exponent bits");
+	}
+
 #ifndef FPGAHLS
     CONSTEXPR14 explicit Posit(float f): Posit(UnpackedT(f)) {}
 	CONSTEXPR14 explicit Posit(double d): Posit(UnpackedT(d)) {}
