@@ -44,6 +44,7 @@ compile_one()
     -I./ \
     $xparams \
     $MIXIMI  \
+    $POSIT \
     -debug-taffo \
     -lm \
     2> build/${benchname}.log || return $?
@@ -105,6 +106,7 @@ D_CONF="CONF_GOOD"
 RUN_METRICS=0
 ERRORPROP='-enable-err'
 MIXIMODE=""
+POSIT=""
 
 
 
@@ -142,6 +144,10 @@ for arg; do
     ;;
     metrics)
       RUN_METRICS=1
+      ;;
+    -posit)
+      POSIT='-posit'
+      ERRORPROP='' # TODO: Fix the error-prop pass with posits!
       ;;
     *)
       echo Unrecognized option $arg
