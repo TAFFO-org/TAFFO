@@ -43,11 +43,13 @@ def generatedata(path : Path):
     subprocess.run("cd {}; ./datagenerator.py > data.h".format(path.as_posix()), shell=True)
 
 def compiletaffo(path: Path):
-    global debug, common_flags
+    global debug, common_flags, posit
     bench_name = path.name + ".c"
     bench_exec = path.name + "-taffo"
     pipe_out = subprocess.DEVNULL
     compile_flag = f"{common_flags} -time-profile-file {path.absolute().as_posix()}/{path.name}_taffo_time.csv"
+    if posit:
+        compile_flag += " -posit"
     if debug:
         (path / "./llvm-file").mkdir(parents=True, exist_ok=True)
         compile_flag = f"{compile_flag} -debug -temp-dir ./llvm-file"
@@ -388,6 +390,7 @@ if __name__ == '__main__':
     parser.add_argument('-run', metavar='bool', type=bool, default=False, nargs='?', help='Run Benchmarks',   const=True)
     parser.add_argument('-validate', metavar='bool', type=bool, default=False, nargs='?', help='Validate Benchmarks', const=True)
     parser.add_argument('-comp_int', metavar='int', type=int, default=0, nargs='?', help='Compare first n bit', const=True)
+    parser.add_argument('-posit', metavar='bool', type=bool, default=False, nargs='?', help='Target posit numbers instead of fixed point', const=True)
     parser.add_argument('-ordereddiff', metavar='bool', type=bool, default=False, nargs='?', help='Print out an ordered list of line, error sorted by max error', const=True)
     parser.add_argument('-debug', metavar='bool', type=bool, default=False, nargs='?', help='debug build', const=True)
     parser.add_argument('-plot_compile_time', metavar='bool', type=bool, default=False, nargs='?', help='plot compilation time of benchmarks', const=True)
@@ -405,6 +408,7 @@ if __name__ == '__main__':
     bvalidate = args.validate
     brun = args.run
     debug = args.debug
+    posit = args.posit
     if (bcompile or bvalidate or brun) == False :
         bcompile=True
         brun=True
