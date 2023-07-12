@@ -38,6 +38,11 @@ by the Error Propagator in the specified file.
 Also compile the files without using TAFFO and store
 the output to the specified location.
 
+#### -posit
+Target posit numbers instead of fixed point.
+This enables the `-useposit` DTA flag, as well as link
+the binary with `-lTaffoPosit`
+
 #### -Xinit \<option\>
 Pass the specified option to the Initializer pass of
 TAFFO

@@ -1,4 +1,4 @@
-///TAFFO_TEST_ARGS -Xvra -propagate-all -Xdta -useposit -lTaffoPosit
+///TAFFO_TEST_ARGS -posit -Xvra -propagate-all
 
 #include <stdio.h>
 #include <inttypes.h>

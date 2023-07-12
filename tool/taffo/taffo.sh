@@ -100,6 +100,7 @@ errorprop_flags=
 errorprop_out=
 mem2reg='function(taffomem2reg),'
 dontlink=
+positlink=
 AUTO_CLANGXX=$CLANG
 feedback=0
 pe_model_file=
@@ -142,6 +143,10 @@ for opt in $raw_opts; do
           init_flags="$init_flags -fixm"
           conversion_flags="$conversion_flags -fixm"
           ;; 
+        -posit)
+          dta_flags="$dta_flags -useposit"
+          positlink="-lTaffoPosit"
+          ;;
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
             parse_state=1;
@@ -387,6 +392,7 @@ Options:
                         the output to the specified location.
   -time-profile-file <file> Outputs information about the execution time of
                         the various TAFFO passes into the specified file
+  -posit                Target posit numbers instead of fixed point
   -Xinit <option>       Pass the specified option to the Initializer pass of
                         TAFFO
   -Xvra <option>        Pass the specified option to the VRA pass of TAFFO
@@ -600,6 +606,7 @@ else
     $opts ${optimization} $compat_flags_clang \
     ${dontlink} \
     "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
+    ${positlink} \
     -o "$output_file" || exit $?
 fi
 
