@@ -17,6 +17,7 @@
 
 #include "llvm/IR/Constants.h"
 #include <cmath>
+#include <posit.h>
 
 namespace mdutils
 {
@@ -465,6 +466,47 @@ llvm::APFloat PositType::getMinValueBound() const
 llvm::APFloat PositType::getMaxValueBound() const
 {
   return llvm::APFloat(exp2(4 * this->getWidth() - 8));
+}
+
+template <class T, int totalbits, int esbits, class FT, PositSpec positspec>
+static int getPositFracBits(const Posit<T,totalbits,esbits,FT,positspec> p)
+{
+  std::bitset<totalbits> bits(p.v);
+  bool regime_start = bits[totalbits - 1 - 1];
+  size_t i;
+  for (i = 2; i < bits.size(); i++) {
+    if (bits[totalbits - 1 - i] != regime_start)
+      break;
+  }
+  return std::max(0, totalbits - (int)i - 3);
+}
+
+int PositType::getMinFracBits(const Range &range) const
+{
+#define CASE_POSIT(N) case N: \
+  { \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> min(range.Min); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> max(range.Max); \
+    if (min == max) \
+      return N; \
+    /* Heuristic: workaround the fact that the accuracy goes to zero when the posit tends to zero */ \
+    /* otherwise we would discard any range that includes zero as insufficient */ \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> pointOne(0.1); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> zero(0); \
+    if (min >= -pointOne && min <= zero && max >= pointOne) \
+      min = -pointOne; \
+    if (max >= zero && max <= pointOne && min <= -pointOne) \
+      max = pointOne; \
+    return std::min(getPositFracBits(min), getPositFracBits(max)); \
+  }
+
+  switch (getWidth()) {
+  CASE_POSIT(32)
+  CASE_POSIT(16)
+  CASE_POSIT(8)
+  default:
+    llvm_unreachable("Unimplemented posit size");
+  }
 }
 
 // TODO: rounding error depends on the regime, which is dynamic

@@ -15,5 +15,10 @@ add_library(${SELF} STATIC
   TaffoMathUtil.h
   WriteModule.h
 )
+
+target_link_libraries(${SELF} PUBLIC
+  obj.TaffoPosit
+)
+
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_property(TARGET ${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

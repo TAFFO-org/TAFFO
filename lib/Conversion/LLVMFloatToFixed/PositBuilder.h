@@ -30,7 +30,10 @@ public:
   llvm::Value *CreateFMA(llvm::Value *arg1, llvm::Value *arg2, llvm::Value *arg3);
 
 private:
-  llvm::Value *getAlloc(unsigned idx);
+  llvm::Value *getAlloc(unsigned idx) {
+    return getAlloc(idx, metadata);
+  }
+  llvm::Value *getAlloc(unsigned idx, const FixedPointType &target);
 
   llvm::IRBuilderBase &builder;
   llvm::LLVMContext &C;

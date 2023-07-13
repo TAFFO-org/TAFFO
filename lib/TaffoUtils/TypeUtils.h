@@ -63,7 +63,11 @@ mdutils::FPType fixedPointTypeFromRange(
     int maxTotalBits = 64,
     int totalBitsIncrement = 64);
 
-mdutils::PositType positTypeFromRange(const mdutils::Range &range);
+mdutils::PositType positTypeFromRange(
+    const mdutils::Range &range,
+    int minSize = 32,
+    int fracThreshold = 3,
+    int maxSize = 64);
 
 } // namespace taffo
 
