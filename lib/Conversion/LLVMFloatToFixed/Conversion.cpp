@@ -244,7 +244,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
           if (err != FixedPointTypeGenError::InvalidRange)
             iofixpt = FixedPointType(&fpt);
         } else { // iofixpt.isPosit()
-          mdutils::PositType pt = taffo::positTypeFromRange(*(ii->IRange));
+          mdutils::PositType pt = taffo::positTypeFromRange(*(ii->IRange), iofixpt.scalarBitsAmt());
           if (pt.getWidth() > 0)
             iofixpt = FixedPointType(&pt);
         }

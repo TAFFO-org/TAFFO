@@ -33,6 +33,8 @@ namespace mdutils
 #define FLOAT_TYPE_FLAG "float"
 #define POSIT_TYPE_FLAG "posit"
 
+struct Range;
+
 /// Info about a data type for numerical computations.
 class TType
 {
@@ -246,6 +248,8 @@ public:
   llvm::APFloat getMinValueBound() const override;
 
   llvm::APFloat getMaxValueBound() const override;
+
+  int getMinFracBits(const Range &range) const;
 
   llvm::MDNode *toMetadata(llvm::LLVMContext &C) const override;
 

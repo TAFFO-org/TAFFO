@@ -148,13 +148,19 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
   return mdutils::FPType(bitsAmt, fracBitsAmt, isSigned);
 }
 
-mdutils::PositType taffo::positTypeFromRange(const mdutils::Range &range)
+mdutils::PositType taffo::positTypeFromRange(
+    const mdutils::Range &range,
+    int minSize,
+    int fracThreshold,
+    int maxSize)
 {
-  // TODO: Add more sizes
-  for (int size : {32}) {
+  for (int size : {8, 16, 32}) {
+    if (size < minSize || size > maxSize)
+      continue;
     mdutils::PositType t(size);
     if (std::abs(t.getMinValueBound().convertToDouble()) >= std::abs(range.Min) &&
-        std::abs(t.getMaxValueBound().convertToDouble()) >= std::abs(range.Max))
+        std::abs(t.getMaxValueBound().convertToDouble()) >= std::abs(range.Max) &&
+        t.getMinFracBits(range) >= fracThreshold)
       return t;
   }
   // error

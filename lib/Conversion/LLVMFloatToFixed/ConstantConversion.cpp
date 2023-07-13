@@ -262,7 +262,7 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
         mdutils::FPType t = taffo::fixedPointTypeFromRange(range, nullptr, nbits, minflt);
         fixpt = FixedPointType(&t);
       } else { // fixpt.isPosit()
-        mdutils::PositType t = taffo::positTypeFromRange(range);
+        mdutils::PositType t = taffo::positTypeFromRange(range, nbits, minflt);
         fixpt = FixedPointType(&t);
       }
     }

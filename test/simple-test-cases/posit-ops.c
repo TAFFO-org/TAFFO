@@ -1,4 +1,4 @@
-///TAFFO_TEST_ARGS -posit -Xvra -propagate-all
+///TAFFO_TEST_ARGS -posit -Xvra -propagate-all -Xdta -totalbits=8 -Xdta -minfractbits=0
 
 #include <stdio.h>
 

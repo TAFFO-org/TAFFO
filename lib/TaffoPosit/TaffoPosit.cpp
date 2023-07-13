@@ -14,8 +14,3 @@ template P16::Posit(const P32 & other);
 template P16::Posit(const P8 & other);
 template P8::Posit(const P32 & other);
 template P8::Posit(const P16 & other);
-
-int main() {
-    P16 x(3);
-    P8 y = x;
-}

@@ -295,7 +295,7 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
       return true;
     }
   } else if (UsePosit) {
-    PositType res = positTypeFromRange(*rng);
+    PositType res = positTypeFromRange(*rng, TotalBits, FracThreshold, MaxTotalBits);
     if (res.getWidth() == 0) {
       LLVM_DEBUG(dbgs() << "[Info] Error when generating posit type\n");
     } else {

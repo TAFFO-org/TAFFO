@@ -104,7 +104,7 @@ struct FloatToFixed {
 
   llvm::ValueMap<llvm::PHINode *, PHIInfo> phiReplacementData;
 
-  llvm::DenseMap<llvm::Function *, std::vector<llvm::AllocaInst *>> positAllocaPool;
+  llvm::DenseMap<std::pair<llvm::Function *,unsigned>, std::vector<llvm::AllocaInst *>> positAllocaPool;
 
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
   void readGlobalMetadata(llvm::Module &m,

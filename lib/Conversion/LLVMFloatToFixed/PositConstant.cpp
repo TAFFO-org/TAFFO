@@ -16,6 +16,12 @@ static Constant *get(LLVMContext &C, const FixedPointType &fixpt, Posit<T,totalb
   case 32:
     innerRepr = ConstantInt::getSigned(Type::getInt32Ty(C), posit.v);
     break;
+  case 16:
+    innerRepr = ConstantInt::getSigned(Type::getInt16Ty(C), posit.v);
+    break;
+  case 8:
+    innerRepr = ConstantInt::getSigned(Type::getInt8Ty(C), posit.v);
+    break;
   default:
     llvm_unreachable("Unimplemented Posit size");
   }
@@ -89,6 +95,16 @@ Constant *PositConstant::get(LLVMContext &C, const FixedPointType &fixpt, double
       Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> posit(floatVal);
       return get(C, fixpt, posit);
     }
+  case 16:
+    {
+      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> posit(floatVal);
+      return get(C, fixpt, posit);
+    }
+  case 8:
+    {
+      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> posit(floatVal);
+      return get(C, fixpt, posit);
+    }
   default:
     llvm_unreachable("Unimplemented Posit size");
   }
@@ -110,6 +126,26 @@ Constant *PositConstant::FoldBinOp(LLVMContext &C, const FixedPointType &fixpt, 
           (int32_t)v2->getSExtValue());
       return FoldBinOp(C, fixpt, opcode, x, y);
     }
+  case 16:
+    {
+      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> x(
+          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+          (int16_t)v1->getSExtValue());
+      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> y(
+          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+          (int16_t)v2->getSExtValue());
+      return FoldBinOp(C, fixpt, opcode, x, y);
+    }
+  case 8:
+    {
+      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> x(
+          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+          (int8_t)v1->getSExtValue());
+      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> y(
+          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+          (int8_t)v2->getSExtValue());
+      return FoldBinOp(C, fixpt, opcode, x, y);
+    }
   default:
     llvm_unreachable("Unimplemented Posit size");
   }
@@ -127,6 +163,20 @@ Constant *PositConstant::FoldUnaryOp(LLVMContext &C, const FixedPointType &fixpt
           (int32_t)v->getSExtValue());
       return FoldUnaryOp(C, fixpt, opcode, x);
     }
+  case 16:
+    {
+      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> x(
+          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+          (int16_t)v->getSExtValue());
+      return FoldUnaryOp(C, fixpt, opcode, x);
+    }
+  case 8:
+    {
+      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> x(
+          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+          (int8_t)v->getSExtValue());
+      return FoldUnaryOp(C, fixpt, opcode, x);
+    }
   default:
     llvm_unreachable("Unimplemented Posit size");
   }
@@ -142,6 +192,20 @@ Constant *PositConstant::FoldConv(LLVMContext &C, const DataLayout *dl, const Fi
       Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> x(
           Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf>::DeepInit(),
           (int32_t)v->getSExtValue());
+      return FoldConv(C, dl, fixpt, x, dstType);
+    }
+  case 16:
+    {
+      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> x(
+          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+          (int16_t)v->getSExtValue());
+      return FoldConv(C, dl, fixpt, x, dstType);
+    }
+  case 8:
+    {
+      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> x(
+          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+          (int8_t)v->getSExtValue());
       return FoldConv(C, dl, fixpt, x, dstType);
     }
   default:
