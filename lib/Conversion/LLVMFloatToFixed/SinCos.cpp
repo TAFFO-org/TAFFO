@@ -876,14 +876,14 @@ bool createSinCos(FloatToFixed * ref,
 
 
     generic = builder.CreateCall(
-        udiv, {tmp_angle, builder.CreateLShr(builder.CreateLoad(getElementTypeFromValuePointer(pi_half_internal.value), pi_half_internal.value), int(log2(MathZ))),
+        udiv, {tmp_angle, builder.CreateLShr(builder.CreateLoad(getElementTypeFromValuePointer(pi_half_internal.value), pi_half_internal.value), int(log2((double)MathZ))),
                llvm::ConstantInt::get(internal_fxpt.scalarToLLVMType(cont),
                                       internal_fxpt.scalarFracBitsAmt() -
-                                          int(log2(MathZ)))});
+                                          int(log2((double)MathZ)))});
     generic = builder.CreateLShr(
         generic, llvm::ConstantInt::get(internal_fxpt.scalarToLLVMType(cont),
                                         internal_fxpt.scalarFracBitsAmt() -
-                                            int(log2(MathZ))));
+                                            int(log2((double)MathZ))));
 
     auto tmp = builder.CreateGEP(getElementTypeFromValuePointer(sin_g), sin_g, {zero_arg, generic});
 
