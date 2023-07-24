@@ -38,7 +38,7 @@ def compute_difference(fix_data, flt_data):
     else:
       n += 1
       accerr += (vflo - vfix).copy_abs()
-      accval += vflo
+      accval += vflo.copy_abs()
       if vflo == 0:
         accmeanerr += 100 if vfix.copy_abs() > 0.003 else 0
       else:

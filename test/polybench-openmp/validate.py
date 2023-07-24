@@ -83,7 +83,7 @@ def ComputeDifference(fix_data, flt_data):
     else:
       n += 1
       accerr += (vflo - vfix).copy_abs()
-      accval += vflo
+      accval += vflo.copy_abs()
       
   e_perc = (accerr / accval * 100) if accval > 0 and n > 0 else -1
   e_abs = (accerr / n) if n > 0 else -1
