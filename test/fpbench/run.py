@@ -174,9 +174,13 @@ def getData(file: str):
             continue
         tmp = abs(taffo_value-float_value)
         abs_err.append(tmp)
-        rel_err.append(tmp/abs(float_value))
+        if float_value == 0:
+            rel = 1 if taffo_value != 0 else 0
+        else:
+            rel = min(1, tmp/abs(float_value))
+        rel_err.append(rel)
         max_abs = max(max_abs, tmp)
-        max_rel = max(max_rel, tmp/abs(float_value))
+        max_rel = max(max_rel, rel)
         float_data.append(float_value)
         taffo_data.append(taffo_value)
 
