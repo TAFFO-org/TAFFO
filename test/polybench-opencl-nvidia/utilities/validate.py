@@ -18,7 +18,6 @@ def file_reader(filename):
 def compute_difference(fix_data, flt_data):
   n = 0
   accerr = Decimal(0)
-  accval = Decimal(0)
   accmeanerr = Decimal(0)
   fix_nofl = 0
   flo_nofl = 0
@@ -38,19 +37,16 @@ def compute_difference(fix_data, flt_data):
     else:
       n += 1
       accerr += (vflo - vfix).copy_abs()
-      accval += vflo.copy_abs()
       if vflo == 0:
-        accmeanerr += 100 if vfix.copy_abs() > 0.003 else 0
+        accmeanerr += 100 if vfix != 0 else 0
       else:
         accmeanerr += min(Decimal(100), ((vflo - vfix) / vflo * 100).copy_abs())
-      
-  e_perc_old = (accerr / accval * 100) if accval > 0 and n > 0 else -1
+
   e_perc = (accmeanerr / n) if n > 0 else -1
   e_abs = (accerr / n) if n > 0 else -1
       
   return {'taffo_overflows': fix_nofl, \
           'normal_overflows': flo_nofl, \
-          'e_perc_old': e_perc_old,
           'e_perc': e_perc,
           'e_abs': e_abs}
 
