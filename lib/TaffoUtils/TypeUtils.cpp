@@ -154,15 +154,18 @@ mdutils::PositType taffo::positTypeFromRange(
     int fracThreshold,
     int maxSize)
 {
+  int biggestRequested = 0;
   for (int size : {8, 16, 32}) {
     if (size < minSize || size > maxSize)
       continue;
+    biggestRequested = size;
     mdutils::PositType t(size);
     if (std::abs(t.getMinValueBound().convertToDouble()) >= std::abs(range.Min) &&
         std::abs(t.getMaxValueBound().convertToDouble()) >= std::abs(range.Max) &&
         t.getMinFracBits(range) >= fracThreshold)
       return t;
   }
-  // error
-  return mdutils::PositType(0);
+
+  LLVM_DEBUG(dbgs() << "[Warning]: Couldn't fit range within the requested Posit sizes; falling back to Posit" << biggestRequested << "\n");
+  return mdutils::PositType(biggestRequested);
 }
