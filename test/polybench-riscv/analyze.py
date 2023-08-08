@@ -2,6 +2,7 @@
 
 import sys
 import pandas as pd
+import os
 from os import listdir
 from os.path import isfile, join, isdir
 import matplotlib.pyplot as plt
@@ -116,7 +117,7 @@ def main(argv):
         except:
             print(f"{bench}_{scaling} ops stats compilation error")
             ops_stats = pd.DataFrame()
-            ops_stats = ops_stats.concat([ops_stats, pd.DataFrame([{}])])
+            ops_stats = pd.concat([ops_stats, pd.DataFrame([{}])])
             ops_placeholder = np.nan
 
         float_op_count = 0
@@ -148,71 +149,76 @@ def main(argv):
                     float_op_abs_max = max(float_op_abs_max, abs(value))
                     by_opcode_abs_max[opcode] = max(by_opcode_abs_max[opcode], abs(value))
 
-        # print(highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data'])
-        precise_data = highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data']
-        approx_data = bench_results[
-            (bench_results['bench'] == bench) &
-            (bench_results['input_size'] == input_size) &
-            (bench_results['scale'] == int(scaling)) &
-            (bench_results['mode'] == mode) &
-            (bench_results['bench_type'] == 'lamp') &
-            (bench_results['mantissa'] == int(mantissa))
-        ].iloc[0]['data']
-        err_metrics = ComputeDifference(precise_data, approx_data)
+        try:
+            # print(highest_precision[(highest_precision['bench'] == bench)].iloc[0]['data'])
+            precise_data = highest_precision[((highest_precision['bench'] == bench)) &
+                                             (highest_precision['scale'] == int(scaling))].iloc[0]['data']
+            approx_data = bench_results[
+                (bench_results['bench'] == bench) &
+                (bench_results['input_size'] == input_size) &
+                (bench_results['scale'] == int(scaling)) &
+                (bench_results['mode'] == mode) &
+                (bench_results['bench_type'] == 'lamp') &
+                (bench_results['mantissa'] == int(mantissa))
+            ].iloc[0]['data']
+            err_metrics = ComputeDifference(precise_data, approx_data)
 
-        logn = np.ceil(np.log2(float_op_count))
-        # log_max_value = np.ceil(np.log2(float_op_abs_max))
-        # err_float16 = logn - 7
-        # err_float19 = logn - 10
-        # err_float24 = logn - 15
-        # err_float32 = logn - 23
-        err_perc_predicted_order = logn - int(mantissa) + 1
-        err_perc_predicted_order_adjusted = logn - int(mantissa) + 1 - np.floor(np.log2(err_metrics['output_size']))
+            logn = np.ceil(np.log2(float_op_count))
+            # log_max_value = np.ceil(np.log2(float_op_abs_max))
+            # err_float16 = logn - 7
+            # err_float19 = logn - 10
+            # err_float24 = logn - 15
+            # err_float32 = logn - 23
+            err_perc_predicted_order = logn - int(mantissa) + 1
+            err_perc_predicted_order_adjusted = logn - int(mantissa) + 1 - np.floor(np.log2(err_metrics['output_size']))
 
-        # print(ops_stats)
-        stats_row = {
-            'bench': bench,
-            'input_size': input_size,
-            'scale': int(scaling),
-            'mode': mode,
-            'mantissa': int(mantissa),
-            'float_type': (f"float{int(mantissa) + 8}" if (int(mantissa) != 8) else "bfloat16"),
-            'job_file_base': job_file_base,
-            'stats_job_file_base': stats_job_file_base,
-            'var_min': var_stats['var_min'].min(),
-            'var_max': var_stats['var_max'].max(),
-            'var_isnan': var_stats['var_isnan'].max(),
-            'var_isinf': var_stats['var_isinf'].max(),
-            'MathOp': ops_stats.iloc[0].get("MathOp", ops_placeholder),
-            'IntegerOp': ops_stats.iloc[0].get("IntegerOp", ops_placeholder),
-            'Integer32Op': ops_stats.iloc[0].get("Integer32Op", ops_placeholder),
-            'Integer64Op': ops_stats.iloc[0].get("Integer64Op", ops_placeholder),
-            'FloatingPointOp': ops_stats.iloc[0].get("FloatingPointOp", ops_placeholder),
-            'FloatSingleOp': ops_stats.iloc[0].get("FloatSingleOp", ops_placeholder),
-            'FloatDoubleOp': ops_stats.iloc[0].get("FloatDoubleOp", ops_placeholder),
-            'FloatMulDivOp': ops_stats.iloc[0].get("FloatMulDivOp", ops_placeholder),
-            'FloatMulDivSingleOp': ops_stats.iloc[0].get("FloatMulDivSingleOp", ops_placeholder),
-            'FloatMulDivDoubleOp': ops_stats.iloc[0].get("FloatMulDivDoubleOp", ops_placeholder),
-            'smul.fix.i32': ops_stats.iloc[0].get("call(llvm.smul.fix.i32)", ops_placeholder),
-            'sdiv.fix.i32': ops_stats.iloc[0].get("call(llvm.sdiv.fix.i32)", ops_placeholder),
-            'add': ops_stats.iloc[0].get("add", ops_placeholder),
-            'sub': ops_stats.iloc[0].get("sub", ops_placeholder),
-            'CastOp': ops_stats.iloc[0].get("CastOp", ops_placeholder),
-            'Shift': ops_stats.iloc[0].get("Shift", ops_placeholder),
-            'fdiv': ops_stats.iloc[0].get("fdiv", ops_placeholder),
-            'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
-            'fadd': ops_stats.iloc[0].get("fadd", ops_placeholder),
-            'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
-            'err_predicted_perc_order': err_perc_predicted_order,
-            'err_predicted_perc_order_adjusted': err_perc_predicted_order_adjusted,
-            # 'err_float16': err_float16,
-            # 'err_float19': err_float19,
-            # 'err_float24': err_float24,
-            # 'err_float32': err_float32,
-        }
-        stats_row.update(err_metrics)
-        row_df = pd.DataFrame([stats_row])
-        stats_summary = pd.concat([stats_summary, row_df])
+            # print(ops_stats)
+            stats_row = {
+                'bench': bench,
+                'input_size': input_size,
+                'scale': int(scaling),
+                'mode': mode,
+                'mantissa': int(mantissa),
+                'float_type': (f"float{int(mantissa) + 8}" if (int(mantissa) != 8) else "bfloat16"),
+                'job_file_base': job_file_base,
+                'stats_job_file_base': stats_job_file_base,
+                'var_min': var_stats['var_min'].min(),
+                'var_max': var_stats['var_max'].max(),
+                'var_isnan': var_stats['var_isnan'].max(),
+                'var_isinf': var_stats['var_isinf'].max(),
+                'MathOp': ops_stats.iloc[0].get("MathOp", ops_placeholder),
+                'IntegerOp': ops_stats.iloc[0].get("IntegerOp", ops_placeholder),
+                'Integer32Op': ops_stats.iloc[0].get("Integer32Op", ops_placeholder),
+                'Integer64Op': ops_stats.iloc[0].get("Integer64Op", ops_placeholder),
+                'FloatingPointOp': ops_stats.iloc[0].get("FloatingPointOp", ops_placeholder),
+                'FloatSingleOp': ops_stats.iloc[0].get("FloatSingleOp", ops_placeholder),
+                'FloatDoubleOp': ops_stats.iloc[0].get("FloatDoubleOp", ops_placeholder),
+                'FloatMulDivOp': ops_stats.iloc[0].get("FloatMulDivOp", ops_placeholder),
+                'FloatMulDivSingleOp': ops_stats.iloc[0].get("FloatMulDivSingleOp", ops_placeholder),
+                'FloatMulDivDoubleOp': ops_stats.iloc[0].get("FloatMulDivDoubleOp", ops_placeholder),
+                'smul.fix.i32': ops_stats.iloc[0].get("call(llvm.smul.fix.i32)", ops_placeholder),
+                'sdiv.fix.i32': ops_stats.iloc[0].get("call(llvm.sdiv.fix.i32)", ops_placeholder),
+                'add': ops_stats.iloc[0].get("add", ops_placeholder),
+                'sub': ops_stats.iloc[0].get("sub", ops_placeholder),
+                'CastOp': ops_stats.iloc[0].get("CastOp", ops_placeholder),
+                'Shift': ops_stats.iloc[0].get("Shift", ops_placeholder),
+                'fdiv': ops_stats.iloc[0].get("fdiv", ops_placeholder),
+                'fmul': ops_stats.iloc[0].get("fmul", ops_placeholder),
+                'fadd': ops_stats.iloc[0].get("fadd", ops_placeholder),
+                'fsub': ops_stats.iloc[0].get("fsub", ops_placeholder),
+                'err_predicted_perc_order': err_perc_predicted_order,
+                'err_predicted_perc_order_adjusted': err_perc_predicted_order_adjusted,
+                'float_op_count': float_op_count
+                # 'err_float16': err_float16,
+                # 'err_float19': err_float19,
+                # 'err_float24': err_float24,
+                # 'err_float32': err_float32,
+            }
+            stats_row.update(err_metrics)
+            row_df = pd.DataFrame([stats_row])
+            stats_summary = pd.concat([stats_summary, row_df])
+        except:
+            print("could not handle row")
 
     mode_order = ["float", "fixed", "mixed"]
     mode_type = CategoricalDtype(categories=mode_order, ordered=True)
@@ -222,12 +228,17 @@ def main(argv):
     print(stats_summary)
     stats_summary.to_csv(f'{results_path}/stats_summary.csv', index = None, header=True)
 
-    plot_mode(results_path, stats_summary)
-    plot_error(results_path, stats_summary)
-    # plt.show()
+    scales = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    for s in scales:
+        stats_summary1 = stats_summary[stats_summary['scale'].eq(s)]
+        plot_mode(f"{results_path}/{s}", stats_summary1)
+        plot_error(f"{results_path}/{s}", stats_summary1)
+        plt.close('all')
 
 
 def plot_error(results_path, stats_summary_full):
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
     file_base = f'{results_path}/errors'
 
     stats_summary_float = stats_summary_full[(stats_summary_full['mode'] == 'float')]
@@ -255,12 +266,13 @@ def plot_error(results_path, stats_summary_full):
     fig.savefig(f'{file_base}_relative.png', dpi=fig.dpi)
 
 def plot_mode(results_path, stats_summary_full):
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
     file_base = f'{results_path}/modes'
 
     # print((stats_summary_full['mode'] == mode) & (stats_summary_full['scale'] == 1))
     stats_summary = stats_summary_full[
-        (stats_summary_full['mantissa'] == 24) &
-        (stats_summary_full['scale'] == 1)
+        (stats_summary_full['mantissa'] == 24)
     ]
 
     fig, ax = plt.subplots(2, 2, constrained_layout=True)

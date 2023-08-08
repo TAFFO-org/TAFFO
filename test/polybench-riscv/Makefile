@@ -33,12 +33,13 @@ timeweight := 1000
 castweight := 100
 
 modes := float fixed mixed
-benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
+#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
 #benchmarks := 2mm
 mantissa_sizes := 8 11 16 24
 input_sizes := standard
-scaling_factors := 1
+scaling_factors := 1 2 4 8 16 32 64 128 256 512 1024
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				$(foreach input_size, $(input_sizes), \

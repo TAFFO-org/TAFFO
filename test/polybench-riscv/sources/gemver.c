@@ -71,11 +71,29 @@ void init_array (int n,
    Can be used also to check the correctness of the output. */
 static
 void print_array(int n,
-		 DATA_TYPE POLYBENCH_1D(w,N,n))
+		 DATA_TYPE POLYBENCH_1D(w,N,n),
+		 DATA_TYPE POLYBENCH_1D(x,N,n),
+                DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
   int i;
+  int j;
 
   POLYBENCH_DUMP_START;
+  POLYBENCH_DUMP_BEGIN("A");
+  for (i = 0; i < n; i++) {
+      for (j = 0; j < n; j++) {
+        if (((i*n)+j) % 20 == 0)
+          fprintf(POLYBENCH_DUMP_TARGET, "\n");
+        fprintf(POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, A[i][j]);
+      }
+  }
+  POLYBENCH_DUMP_END("A");
+  POLYBENCH_DUMP_BEGIN("x");
+  for (i = 0; i < n; i++) {
+      if (i % 20 == 0) fprintf (POLYBENCH_DUMP_TARGET, "\n");
+      fprintf (POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, x[i]);
+  }
+  POLYBENCH_DUMP_END("x");
   POLYBENCH_DUMP_BEGIN("w");
   for (i = 0; i < n; i++) {
     if (i % 20 == 0) fprintf (POLYBENCH_DUMP_TARGET, "\n");
@@ -226,7 +244,7 @@ int main(int argc, char** argv)
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
-  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w)));
+  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w), POLYBENCH_ARRAY(x), POLYBENCH_ARRAY(A)));
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(A);
@@ -246,7 +264,7 @@ int main(int argc, char** argv)
       A_float[i][j] = A[i][j];
   }
 #ifdef _PRINT_OUTPUT
-  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w_float)));
+  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(w_float), POLYBENCH_ARRAY(x_float), POLYBENCH_ARRAY(A_float)));
 #endif
 #endif
 

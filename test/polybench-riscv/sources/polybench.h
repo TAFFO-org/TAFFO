@@ -257,7 +257,8 @@ float sqrtf_PB(float val)
 
 #if SCALING_FACTOR!=1
 void scale_scalar(DATA_TYPE* val, int factor) {
-  *val = *val * factor;
+//  scalars should probably not be scaled
+//  *val = *val * factor;
 }
 
 void scale_1d(int n, DATA_TYPE val[n], int factor) {
