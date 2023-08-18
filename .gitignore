@@ -1,11 +1,12 @@
-build*/
+build*
 .idea
+cmake-build-*/
 build.log
 *.zip
-dist
+dist*
 *.magiclangtmp.ll
 *.magiclangtmp.s
-.vscode
+.vscode*
 *.out
 *.log
 working-dist
@@ -15,3 +16,10 @@ working-dist-llvm6
 test/jpeg-decoder-no-external-fft
 .cache
 .envrc
+tool/taffo-costmodel-embedded/obj*
+*.bin
+*.elf
+*.map
+compile.sh
+test/axbench/jmeint/log_*
+lcov*
