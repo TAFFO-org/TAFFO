@@ -9,6 +9,8 @@
 using namespace llvm;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-vra"
+
 void VRAnalyzer::convexMerge(const AnalysisStore &Other)
 {
   // Since llvm::dyn_cast<T>() does not do cross-casting, we must do this:
@@ -24,13 +26,13 @@ void VRAnalyzer::convexMerge(const AnalysisStore &Other)
 std::shared_ptr<CodeAnalyzer>
 VRAnalyzer::newCodeAnalyzer(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAnalyzer>(CI);
+  return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI);
 }
 
 std::shared_ptr<AnalysisStore>
 VRAnalyzer::newFunctionStore(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAFunctionStore>(CI);
+  return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()));
 }
 
 std::shared_ptr<CodeAnalyzer>
@@ -165,7 +167,11 @@ bool VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const
   if (llvm::CallBase *CB = llvm::dyn_cast<llvm::CallBase>(I)) {
     if (!CB->isIndirectCall()) {
       llvm::Function *Called = CB->getCalledFunction();
-      return Called && !(Called->isIntrinsic() || isMathCallInstruction(Called->getName().str()) || isMallocLike(Called));
+      return Called && !(Called->isIntrinsic() 
+          || isMathCallInstruction(Called->getName().str()) 
+          || isMallocLike(Called) 
+          || Called->getBasicBlockList().size() == 0 // function prototypes
+        );
     }
     return true;
   }
@@ -235,6 +241,10 @@ void VRAnalyzer::handleSpecialCall(const llvm::Instruction *I)
     LLVM_DEBUG(Logger->logInfo("indirect calls not supported"));
     return;
   }
+
+  // check if it's an OMP library function and handle it if so
+  if (detectAndHandleLibOMPCall(CB)) 
+    return;
 
   const llvm::StringRef FunctionName = Callee->getName();
   if (isMathCallInstruction(FunctionName.str())) {
@@ -333,12 +343,33 @@ void VRAnalyzer::handleMallocCall(const llvm::CallBase *CB)
   }
 }
 
+bool VRAnalyzer::detectAndHandleLibOMPCall(const llvm::CallBase *CB)
+{
+  llvm::Function *F = CB->getCalledFunction();
+  if (F->getName() == "__kmpc_for_static_init_4") {
+    Value *VPLower = CB->getArgOperand(4U);
+    Value *VPUpper = CB->getArgOperand(5U);
+    range_ptr_t PLowerRange = fetchRange(VPLower);
+    range_ptr_t PUpperRange = fetchRange(VPUpper);
+    if (!PLowerRange || !PUpperRange) {
+      LLVM_DEBUG(Logger->logInfoln("ranges of plower/pupper unknown, doing nothing"));
+      return true;
+    }
+    range_ptr_t Merge = getUnionRange(PLowerRange, PUpperRange);
+    saveValueRange(VPLower, Merge);
+    saveValueRange(VPUpper, Merge);
+    LLVM_DEBUG(Logger->logRange(Merge));
+    LLVM_DEBUG(Logger->logInfoln(" set to plower, pupper nodes"));
+    return true;
+  }
+  return false;
+}
+
 void VRAnalyzer::handleReturn(const llvm::Instruction *ret)
 {
   const llvm::ReturnInst *ret_i = cast<llvm::ReturnInst>(ret);
   LLVM_DEBUG(Logger->logInstruction(ret));
   if (const llvm::Value *ret_val = ret_i->getReturnValue()) {
-    const llvm::Function *ret_fun = ret_i->getFunction();
     NodePtrT range = getNode(ret_val);
 
     std::shared_ptr<VRAFunctionStore> FStore =
@@ -405,9 +436,9 @@ void VRAnalyzer::handleLoadInstr(llvm::Instruction *I)
 
   if (std::shared_ptr<VRAScalarNode> Scalar =
           std::dynamic_ptr_cast_or_null<VRAScalarNode>(Loaded)) {
-    MemorySSA &memssa = CodeInt.getPass().getAnalysis<MemorySSAWrapperPass>(
-                                             *I->getFunction())
-                            .getMSSA();
+    auto &FAM = CodeInt.getMAM().getResult<FunctionAnalysisManagerModuleProxy>(*I->getFunction()->getParent()).getManager();
+    auto *SSARes = &(FAM.getResult<MemorySSAAnalysis>(*I->getFunction()));
+    MemorySSA &memssa = SSARes->getMSSA();
     MemSSAUtils memssa_utils(memssa);
     SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(Load);
 
@@ -453,8 +484,17 @@ void VRAnalyzer::handleBitCastInstr(const llvm::Instruction *I)
 {
   LLVM_DEBUG(Logger->logInstruction(I));
   if (NodePtrT Node = getNode(I->getOperand(0U))) {
-    setNode(I, Node);
-    LLVM_DEBUG(Logger->logRangeln(Node));
+    llvm::Type *InputT = I->getOperand(0U)->getType();
+    llvm::Type *OutputT = I->getType();
+    bool InputIsStruct = fullyUnwrapPointerOrArrayType(InputT)->isStructTy();
+    bool OutputIsStruct = fullyUnwrapPointerOrArrayType(OutputT)->isStructTy();
+    if (!InputIsStruct && !OutputIsStruct) {
+      setNode(I, Node);
+      LLVM_DEBUG(Logger->logRangeln(Node));
+    } else {
+      LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
+      LLVM_DEBUG(dbgs() << "This instruction is converting to/from a struct type. Ignoring to avoid generating invalid metadata\n");
+    }
   } else {
     LLVM_DEBUG(Logger->logInfoln("no node"));
   }
@@ -487,7 +527,7 @@ void VRAnalyzer::handlePhiNode(const llvm::Instruction *phi)
     return;
   }
   LLVM_DEBUG(Logger->logInstruction(phi));
-  RangeNodePtrT res = nullptr;
+  RangeNodePtrT res = copyRange(getGlobalStore()->getUserInput(phi));
   for (unsigned index = 0U; index < phi_n->getNumIncomingValues(); index++) {
     const llvm::Value *op = phi_n->getIncomingValue(index);
     NodePtrT op_node = getNode(op);

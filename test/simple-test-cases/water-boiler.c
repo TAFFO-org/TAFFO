@@ -1,4 +1,4 @@
-///TAFFO_TEST_ARGS -Xvra -propagate-all -Xvra -unroll=10
+///TAFFO_TEST_ARGS -Xvra -unroll=30
 /* This program reads a sequence of pressure values in the circuit of a
  * water boiler, measured at regular intervals. The sequence is terminated by 
  * the first negative number.
@@ -17,16 +17,19 @@
 int main(int argc, char *argv[]) {
   float p1 __attribute((annotate("scalar()")));
   float p2 __attribute((annotate("scalar()")));
-  float p3 __attribute((annotate("scalar(range(-3000, 3000) disabled final)")));
-  float sPeak __attribute((annotate("scalar()")));
-  float sAll __attribute((annotate("scalar()")));
+  float p3 __attribute((annotate("scalar()")));
+  float sPeak __attribute((annotate("scalar() target('sPeak')")));
+  float sAll __attribute((annotate("scalar() target('sAll')")));
   int cPeak, cAll;
   
   p3 = p2 = p1 = -1;
   sPeak = sAll = 0;
   cPeak = cAll = 0;
   
-  scanf("%f",&p3);
+  float tmp __attribute((annotate("scalar(range(-3000, 3000) final disabled)")));
+  scanf("%f",&tmp);
+  p3 = tmp;
+
   while (p3 > 0) {
     if (p3 > 0 && p2 > 0 && p1 > 0)
       if (p3 < p2 && p1 < p2) {
@@ -37,7 +40,9 @@ int main(int argc, char *argv[]) {
     cAll++;
     p1 = p2;
     p2 = p3;
-    scanf("%f",&p3);
+    
+    scanf("%f",&tmp);
+    p3 = tmp;
   }
   
   printf("Peak average: ");

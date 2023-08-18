@@ -14,26 +14,26 @@
 
 #include "FunctionErrorPropagator.h"
 
-#include "CallSiteVersions.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
-#include <llvm/IR/InstrTypes.h>
+#include "llvm/IR/InstrTypes.h"
 
-#include "MemSSAUtils.h"
+#include "MemSSAUtils.hpp"
 #include "Metadata.h"
 #include "Propagators.h"
 #include "TypeUtils.h"
+
+#define DEBUG_TYPE "errorprop"
 
 namespace ErrorProp
 {
 
 using namespace llvm;
 using namespace mdutils;
-
-#define DEBUG_TYPE "errorprop"
 
 void FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
                                                     SmallVectorImpl<Value *> *Args,
@@ -62,7 +62,7 @@ void FunctionErrorPropagator::computeErrorsWithCopy(RangeErrorMap &GlobRMap,
   // if (CFLSAA != nullptr)
   //   CFLSAA->getResult().scan(FCopy);
 
-  MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(CF).getMSSA());
+  MemSSA = &(FAM.getResult<MemorySSAAnalysis>(CF).getMSSA());
 
   computeFunctionErrors(Args);
 
@@ -105,15 +105,14 @@ void FunctionErrorPropagator::computeFunctionErrors(SmallVectorImpl<Value *> *Ar
   RMap.retrieveRangeErrors(*FCopy);
   RMap.applyArgumentErrors(*FCopy, ArgErrs);
 
-  LoopInfo &LInfo =
-      EPPass.getAnalysis<LoopInfoWrapperPass>(*FCopy).getLoopInfo();
+  LoopInfo &LInfo = FAM.getResult<LoopAnalysis>(*FCopy);
 
   // Compute errors for all instructions in the function
   BBScheduler BBSched(*FCopy, LInfo);
 
   // Restore MemSSA
   assert(FCopy != nullptr);
-  MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(*FCopy).getMSSA());
+  MemSSA = &(FAM.getResult<MemorySSAAnalysis>(*FCopy).getMSSA());
 
   for (BasicBlock *BB : BBSched)
     for (Instruction &I : *BB)
@@ -231,7 +230,7 @@ void FunctionErrorPropagator::prepareErrorsForCall(Instruction &I)
       if (RE != nullptr && RE->second.hasValue())
         Args.push_back(Arg);
       else {
-        Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, Arg);
+        Value *OrigPointer = taffo::MemSSAUtils::getOriginPointer(*MemSSA, Arg);
         Args.push_back(OrigPointer);
       }
     } else {
@@ -250,13 +249,13 @@ void FunctionErrorPropagator::prepareErrorsForCall(Instruction &I)
     return;
 
   // Now propagate the errors for this call.
-  FunctionErrorPropagator CFEP(EPPass, *CalledF,
+  FunctionErrorPropagator CFEP(FAM, *CalledF,
                                FCMap, RMap.getMetadataManager(), SloppyAA);
   CFEP.computeErrorsWithCopy(RMap, &Args, false);
 
   // Restore MemorySSA
   assert(FCopy != nullptr);
-  MemSSA = &(EPPass.getAnalysis<MemorySSAWrapperPass>(*FCopy).getMSSA());
+  MemSSA = &(FAM.getResult<MemorySSAAnalysis>(*FCopy).getMSSA());
 }
 
 void FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMap,
@@ -278,7 +277,7 @@ void FunctionErrorPropagator::applyActualParametersErrors(RangeErrorMap &GlobRMa
 
     const AffineForm<inter_t> *Err = RMap.getError(&(*FArg));
     if (Err == nullptr) {
-      Value *OrigPointer = MemSSAUtils::getOriginPointer(*MemSSA, &*FArg);
+      Value *OrigPointer = taffo::MemSSAUtils::getOriginPointer(*MemSSA, &*FArg);
       Err = RMap.getError(OrigPointer);
       if (Err == nullptr)
         continue;

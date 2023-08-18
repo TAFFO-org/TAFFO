@@ -2,6 +2,8 @@
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "OpenCLKernelPatcher.h"
+#include "CudaKernelPatcher.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -23,27 +25,35 @@
 #include <climits>
 #include <cmath>
 
+#define DEBUG_TYPE "taffo-init"
 
 using namespace llvm;
 using namespace taffo;
 
+cl::opt<bool> ManualFunctionCloning("manualclone",
+    cl::desc("Enables function cloning only for annotated functions"),
+    cl::init(false));
 
-char TaffoInitializer::ID = 0;
+cl::opt<bool> OpenCLKernelMode("oclkern",
+    cl::desc("Allows cloning of OpenCL kernel functions"),
+    cl::init(false));
 
-static RegisterPass<TaffoInitializer> X(
-    "taffoinit",
-    "TAFFO Framework Initialization Stage",
-    false /* does not affect the CFG */,
-    true /* Optimization Pass (sorta) */);
+cl::opt<bool> CudaKernelMode("cudakern",
+    cl::desc("Allows cloning of Cuda kernel functions"),
+    cl::init(false));
 
-
-llvm::cl::opt<bool> ManualFunctionCloning("manualclone",
-                                          llvm::cl::desc("Enables function cloning only for annotated functions"), llvm::cl::init(false));
-
-
-bool TaffoInitializer::runOnModule(Module &m)
+PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
 {
-  DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
+  if (OpenCLKernelMode) {
+    LLVM_DEBUG(dbgs() << "OpenCLKernelMode == true!\n");
+    createOpenCLKernelTrampolines(m);
+  }
+  else if (CudaKernelMode) {
+    LLVM_DEBUG(dbgs() << "CudaKernelMode == true!\n");
+    createCudaKernelTrampolines(m);
+  }
+
+  LLVM_DEBUG(printAnnotatedObj(m));
 
   manageIndirectCalls(m);
 
@@ -77,7 +87,7 @@ bool TaffoInitializer::runOnModule(Module &m)
   LLVM_DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m, vals);
 
-  return true;
+  return PreservedAnalyses::all();
 }
 
 
@@ -107,6 +117,9 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo &vi)
 {
   std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
 
+  if (vi.bufferID) {
+    mdutils::MetadataManager::setBufferIDMetadata(v, *(vi.bufferID));
+  }
   if (isa<Instruction>(v) || isa<GlobalObject>(v)) {
     mdutils::MetadataManager::setInputInfoInitWeightMetadata(v, vi.fixpTypeRootDistance);
   }
@@ -153,6 +166,9 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT &Q)
       if (Q.count(&a)) {
         LLVM_DEBUG(dbgs() << "Info found.\n");
         ValueInfo &vi = Q[&a];
+        if (vi.bufferID) {
+          mdutils::MetadataManager::setBufferIDMetadata(&a, *(vi.bufferID));
+        }
         ii = vi.metadata.get();
         weight = vi.fixpTypeRootDistance;
       }
@@ -231,6 +247,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           if (isa<BitCastInst>(valOp) && valueType->isPointerTy() && valueType->getPointerElementType()->isFloatingPointTy()) {
             LLVM_DEBUG(dbgs() << "MALLOC'D POINTER HACK\n");
             vdepth = 2;
+          } else if (valueType->isFloatingPointTy()) {
+            LLVM_DEBUG(dbgs() << "Backtracking to stored value def instr\n");
+            vdepth = 1;
           }
         }
         if (vdepth > 0) {
@@ -252,37 +271,31 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       if (!inst)
         continue;
 
-#ifdef LOG_BACKTRACK
-      dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
-#endif
+      LLVM_DEBUG(dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n");
 
+      int OpIdx = -1;
       for (Value *u : inst->operands()) {
+        OpIdx++;
         if (!isa<User>(u) && !isa<Argument>(u)) {
-#ifdef LOG_BACKTRACK
-          dbgs() << " - ";
-          u->printAsOperand(dbgs());
-          dbgs() << " not a User or an Argument\n";
-#endif
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " not a User or an Argument, ignoring\n");
           continue;
         }
-
+        if (isa<StoreInst>(inst) && OpIdx == 1 && mydepth == 1) {
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is the pointer argument of a store and backtracking depth left is 1, ignoring\n");
+          continue;
+        }
         if (isa<Function>(u) || isa<BlockAddress>(u)) {
-#ifdef LOG_BACKTRACK
-          dbgs() << " - ";
-          u->printAsOperand(dbgs());
-          dbgs() << " is a function/block address\n";
-#endif
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is a function/block address, ignoring\n");
           continue;
         }
-
-#ifdef LOG_BACKTRACK
-        dbgs() << " - " << *u;
-#endif
+        if (isa<Constant>(u)) {
+          LLVM_DEBUG(dbgs() << " - " << u->getNameOrAsOperand() << " is a constant, ignoring\n");
+          continue;
+        }
+        LLVM_DEBUG(dbgs() << " - " << *u);
 
         if (!isFloatType(u->getType())) {
-#ifdef LOG_BACKTRACK
-          dbgs() << " not a float\n";
-#endif
+          LLVM_DEBUG(dbgs() << " not a float, ignoring\n");
           continue;
         }
 
@@ -297,18 +310,13 @@ void TaffoInitializer::buildConversionQueueForRootValues(
             UI = queue.erase(UI);
         }
         if (!alreadyIn) {
-#ifdef LOG_BACKTRACK
-          dbgs() << "  enqueued\n";
-#endif
+          LLVM_DEBUG(dbgs() << "  enqueued\n");
           next = UI = queue.insert(next, u, std::move(VIU)).first;
           ++next;
+          createInfoOfUser(v, next->second, u, UI->second);
         } else {
-#ifdef LOG_BACKTRACK
-          dbgs() << " already in\n";
-#endif
+          LLVM_DEBUG(dbgs() << " already in, not updating info\n");
         }
-
-        createInfoOfUser(v, next->second, u, UI->second);
       }
     }
   }
@@ -329,6 +337,8 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
      * correct type in the correct place, but is'a huge mess */
     Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
     Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
+    LLVM_DEBUG(dbgs() << "usedt = " << *usedt << ", vinfo metadata = " << (vinfo.metadata ? vinfo.metadata->toString() : "(null)") << "\n");
+    LLVM_DEBUG(dbgs() << "usert = " << *usert << ", uinfo metadata = " << (uinfo.metadata ? uinfo.metadata->toString() : "(null)") << "\n");
     bool copyok = (usedt == usert);
     copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
     if (isa<GetElementPtrInst>(user) && used != dyn_cast<GetElementPtrInst>(user)->getPointerOperand())
@@ -363,6 +373,15 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
   if (std::shared_ptr<mdutils::MDInfo> gepi_mdi =
           extractGEPIMetadata(user, used, uinfo.metadata, vinfo.metadata)) {
     uinfo.metadata = gepi_mdi;
+    uinfo.bufferID = vinfo.bufferID;
+  }
+  // Copy BufferID across bitcasts
+  if (isa<BitCastInst>(user)) {
+    uinfo.bufferID = vinfo.bufferID;
+  }
+  // Copy BufferID across loads
+  if (isa<LoadInst>(user)) {
+    uinfo.bufferID = vinfo.bufferID;
   }
 }
 
@@ -387,6 +406,7 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
   }
 
   LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] begin\n");
+  LLVM_DEBUG(dbgs() << "Initial GEP object metadata is " << used_mdi->toString() << "\n");
 
   Type *source_element_type = gepi->getSourceElementType();
   for (auto idx_it = gepi->idx_begin() + 1; // skip first index
@@ -424,7 +444,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
     Value *v = VVI->first;
     if (!(isa<CallInst>(v) || isa<InvokeInst>(v)))
       continue;
-    CallSite *call = dyn_cast<CallSite>(v);
+    CallBase *call = dyn_cast<CallBase>(v);
 
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
@@ -490,7 +510,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
 }
 
 
-Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue)
+Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
 
@@ -511,15 +531,16 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
     mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
   }
   SmallVector<ReturnInst *, 100> returns;
-  CloneFunctionInto(newF, oldF, mapArgs, true, returns);
-  newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+  CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
+  if (!OpenCLKernelMode && !CudaKernelMode)
+    newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
   FunctionCloned++;
 
   ConvQueueT roots;
   oldArgumentI = oldF->arg_begin();
   newArgumentI = newF->arg_begin();
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
-  LLVM_DEBUG(dbgs() << "  callsite instr " << *call << " [" << call->getFunction()->getName() << "]\n");
+  LLVM_DEBUG(dbgs() << "  CallBase instr " << *call << " [" << call->getFunction()->getName() << "]\n");
   for (int i = 0; oldArgumentI != oldF->arg_end(); oldArgumentI++, newArgumentI++, i++) {
     auto user_begin = newArgumentI->user_begin();
     if (user_begin == newArgumentI->user_end()) {
@@ -527,8 +548,18 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
       continue;
     }
 
+
+
     Value *callOperand = call->getOperand(i);
     Value *allocaOfArgument = user_begin->getOperand(1);
+
+
+    for (; user_begin != newArgumentI->user_end(); ++user_begin) {
+      if (llvm::StoreInst *store = llvm::dyn_cast<StoreInst>(*user_begin)) {
+        allocaOfArgument = store->getOperand(1);
+      }
+    }
+
     if (!isa<AllocaInst>(allocaOfArgument))
       allocaOfArgument = nullptr;
 
@@ -555,6 +586,9 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
       allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance + 2);
       roots.push_back(allocaOfArgument, allocaVi);
     }
+
+    // Propagate BufferID
+    argumentVi.bufferID = callVi.bufferID;
 
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed\n");
     LLVM_DEBUG(dbgs() << "    md = " << argumentVi.metadata->toString() << "\n");
@@ -590,8 +624,11 @@ void TaffoInitializer::printConversionQueue(ConvQueueT &vals)
     for (auto val : vals) {
       dbgs() << "bt=" << val.second.backtrackingDepthLeft << " ";
       dbgs() << "md=" << val.second.metadata->toString() << " ";
+      if (Instruction *I = dyn_cast<Instruction>(val.first))
+        dbgs() << "fun=" << I->getFunction()->getName() << " ";
+      dbgs() << *(val.first) << "\n";
     }
-    dbgs() << "\n\n";
+    dbgs() << "\n";
   } else {
     dbgs() << "not printing the conversion queue because it exceeds 1000 items";
   }

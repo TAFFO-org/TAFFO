@@ -1,4 +1,5 @@
 ///TAFFO_TEST_ARGS -disable-vra
+#include <stdio.h>
 
 double test(void)
 {

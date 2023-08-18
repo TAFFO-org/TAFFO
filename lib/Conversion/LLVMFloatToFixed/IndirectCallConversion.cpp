@@ -9,10 +9,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <map>
 
 using namespace llvm;
 using namespace taffo;
 using namespace flttofix;
+
+#define DEBUG_TYPE "taffo-conversion"
 
 /// Retrieve the indirect calls converted into trampolines and re-use the
 /// original indirect functions.

@@ -1,7 +1,6 @@
 #ifndef __LLVM_FLOAT_TO_FIXED_PASS_H__
 #define __LLVM_FLOAT_TO_FIXED_PASS_H__
 
-#include "CallSiteVersions.h"
 #include "FixedPointType.h"
 #include "InputInfo.h"
 #include "Metadata.h"
@@ -11,15 +10,18 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "WriteModule.h"
 
 #define DEBUG_TYPE "taffo-conversion"
-#define DEBUG_ANNOTATION "annotation"
+extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
+extern llvm::cl::opt<unsigned int> MinQuotientFrac;
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "
@@ -73,11 +75,13 @@ struct PHIInfo {
 };
 
 
-struct FloatToFixed : public llvm::ModulePass {
-  static char ID;
+class Conversion : public llvm::PassInfoMixin<Conversion>
+{
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
 
-  FixedPointType defaultFixpType;
-
+struct FloatToFixed {
   /** Map from original values to converted values.
    *  Values not to be converted do not appear in the map.
    *  Values which have not been converted successfully are mapped to
@@ -94,9 +98,7 @@ struct FloatToFixed : public llvm::ModulePass {
 
   llvm::ValueMap<llvm::PHINode *, PHIInfo> phiReplacementData;
 
-  FloatToFixed() : ModulePass(ID){};
-  void getAnalysisUsage(llvm::AnalysisUsage &) const override;
-  bool runOnModule(llvm::Module &M) override;
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
   void readGlobalMetadata(llvm::Module &m,
                           llvm::SmallPtrSetImpl<llvm::Value *> &res,
                           bool functionAnnotation = false);
@@ -111,11 +113,12 @@ struct FloatToFixed : public llvm::ModulePass {
   void printAnnotatedObj(llvm::Module &m);
   void openPhiLoop(llvm::PHINode *phi);
   void closePhiLoops();
+  bool isKnownConvertibleWithIncompleteMetadata(llvm::Value *V);
   void sortQueue(std::vector<llvm::Value *> &vals);
   void cleanup(const std::vector<llvm::Value *> &queue);
   void insertOpenMPIndirection(llvm::Module &m);
-  void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global);
-  llvm::Function *createFixFun(llvm::CallSite *call, bool *old);
+  void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, llvm::Module &m);
+  llvm::Function *createFixFun(llvm::CallBase *call, bool *old);
   void printConversionQueue(std::vector<llvm::Value *> vals);
   void performConversion(llvm::Module &m, std::vector<llvm::Value *> &q);
   llvm::Value *convertSingleValue(llvm::Module &m, llvm::Value *val, FixedPointType &fixpt);
@@ -149,7 +152,7 @@ struct FloatToFixed : public llvm::ModulePass {
            tmp == TypeMatchPolicy::HintOverRangeMaxFrac ||
            tmp == TypeMatchPolicy::ForceHint;
   }
-  
+
   /* convert* functions return nullptr if the conversion cannot be
    * recovered, and Unsupported to trigger the fallback behavior */
   llvm::Constant *convertConstant(llvm::Constant *flt, FixedPointType &fixpt,
@@ -175,8 +178,8 @@ struct FloatToFixed : public llvm::ModulePass {
                                   FixedPointType &fixpt);
   llvm::Value *convertAlloca(llvm::AllocaInst *alloca,
                              const FixedPointType &fixpt);
-  llvm::Value *convertLoad(llvm::LoadInst *load, FixedPointType &fixpt);
-  llvm::Value *convertStore(llvm::StoreInst *load);
+  llvm::Value *convertLoad(llvm::LoadInst *load, FixedPointType &fixpt, llvm::Module &m);
+  llvm::Value *convertStore(llvm::StoreInst *load, llvm::Module &m);
   llvm::Value *convertGep(llvm::GetElementPtrInst *gep, FixedPointType &fixpt);
   llvm::Value *convertExtractValue(llvm::ExtractValueInst *exv,
                                    FixedPointType &fixpt);
@@ -184,7 +187,7 @@ struct FloatToFixed : public llvm::ModulePass {
                                   FixedPointType &fixpt);
   llvm::Value *convertPhi(llvm::PHINode *load, FixedPointType &fixpt);
   llvm::Value *convertSelect(llvm::SelectInst *sel, FixedPointType &fixpt);
-  llvm::Value *convertCall(llvm::CallSite *call, FixedPointType &fixpt);
+  llvm::Value *convertCall(llvm::CallBase *call, FixedPointType &fixpt);
   llvm::Value *convertRet(llvm::ReturnInst *ret, FixedPointType &fixpt);
   llvm::Value *convertBinOp(llvm::Instruction *instr,
                             const FixedPointType &fixpt);
@@ -193,6 +196,19 @@ struct FloatToFixed : public llvm::ModulePass {
   llvm::Value *convertCmp(llvm::FCmpInst *fcmp);
   llvm::Value *convertCast(llvm::CastInst *cast, const FixedPointType &fixpt);
   llvm::Value *fallback(llvm::Instruction *unsupp, FixedPointType &fixpt);
+
+  /* OpenCL support */
+  bool isSupportedOpenCLFunction(llvm::Function *F);
+  llvm::Value *convertOpenCLCall(llvm::CallBase *C);
+  void cleanUpOpenCLKernelTrampolines(llvm::Module *M);
+
+  /*Cuda support */
+  bool isSupportedCudaFunction(llvm::Function *F);
+  llvm::Value *convertCudaCall(llvm::CallBase *C);
+
+  /* Math intrinsic support */
+  bool isSupportedMathIntrinsicFunction(llvm::Function *F);
+  llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);
 
   /** Returns if a function is a library function which shall not
    *  be cloned.
@@ -317,11 +333,10 @@ struct FloatToFixed : public llvm::ModulePass {
     return translateOrMatchAnyOperand(val, iofixpt, ip,
                                       TypeMatchPolicy::ForceHint);
   };
-  
+
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
                                   llvm::Instruction *ip = nullptr)
   {
-
     LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
     llvm::Value *cvtfallval = operandPool[fallval];
 
@@ -350,9 +365,15 @@ struct FloatToFixed : public llvm::ModulePass {
       return cvtfallval;
 
     if (!ip) {
-      ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval);
-      if (ip)
-        ip = ip->getNextNode();
+      if ((ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval))){
+        ip->getNextNode();
+      }
+      // argument is not an instruction, insert it's convertion in the first basic block
+      if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)){
+        auto arg = llvm::cast<llvm::Argument>(cvtfallval);
+        ip = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
+      }
+      
       assert(ip && "ip mandatory for non-instruction values");
     }
     /*Nel caso in cui la chiave (valore rimosso in precedenze) è un float
@@ -472,7 +493,10 @@ struct FloatToFixed : public llvm::ModulePass {
   std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val)
   {
     auto vi = info.find(val);
-    assert((vi != info.end()) && "value with no info");
+    if (vi == info.end()) {
+      LLVM_DEBUG(llvm::dbgs() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
+      llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
+    }
     return vi->getSecond();
   };
 
@@ -484,7 +508,7 @@ struct FloatToFixed : public llvm::ModulePass {
   };
 
   bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); };
-  
+
   bool isConvertedFixedPoint(llvm::Value *val)
   {
     if (!hasInfo(val))
@@ -651,8 +675,16 @@ struct FloatToFixed : public llvm::ModulePass {
 
   void handleKmpcFork(llvm::CallInst *patchedDirectCall, llvm::Function *indirectFunction);
 
+private:
+  llvm::ModuleAnalysisManager *MAM;
+  const llvm::DataLayout *ModuleDL;
 };
 
+llvm::Value *adjustBufferSize(llvm::Value *OrigSize, llvm::Type *OldTy, llvm::Type *NewTy, llvm::Instruction *IP, bool Tight = false);
+
 } // namespace flttofix
+
+
+#undef DEBUG_TYPE
 
 #endif

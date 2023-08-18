@@ -1,0 +1,4 @@
+---
+"a" : { Class: 1, FloatStandard: 1, GreatestNumber: 1.1e+06 }
+"c4" : { Class: 1, FloatStandard: 1, GreatestNumber: 100 }
+"sum" : { Class: 1, FloatStandard: 1, GreatestNumber: 1.1e+06 }

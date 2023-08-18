@@ -1,0 +1,8 @@
+*.ll
+*.exe
+*.exe.txt
+*.ptx
+*.s
+taffo_drvr_logs
+taffo_kern_logs
+_experiment_*

@@ -15,6 +15,8 @@
 #ifndef __FIXED_POINT_TYPE_H__
 #define __FIXED_POINT_TYPE_H__
 
+#define DEBUG_TYPE "taffo-conversion"
+
 
 namespace flttofix
 {
@@ -84,6 +86,7 @@ public:
   std::string toString() const;
 
   llvm::Type *scalarToLLVMType(llvm::LLVMContext &ctxt) const;
+  llvm::Type *toLLVMType(llvm::Type *srct, bool *hasfloats) const;
 
   inline bool &scalarIsSigned(void)
   {
@@ -124,6 +127,11 @@ public:
     assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
     return scalarData.bitsAmt;
   };
+
+  inline int scalarIntegerBitsAmt(void) const
+  {
+    return scalarBitsAmt() - scalarFracBitsAmt();
+  }
 
   inline int structSize(void) const
   {
@@ -188,5 +196,7 @@ public:
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &stm, const flttofix::FixedPointType &f);
 
+
+#undef DEBUG_TYPE
 
 #endif

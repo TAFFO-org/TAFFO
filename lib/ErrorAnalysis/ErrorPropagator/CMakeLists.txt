@@ -9,7 +9,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   Propagators.cpp
   PropagatorsUtils.cpp
   SpecialFunctions.cpp
-  MemSSAUtils.cpp
+  MemSSARE.cpp
   AffineForms.cpp
   FixedPoint.cpp
 )

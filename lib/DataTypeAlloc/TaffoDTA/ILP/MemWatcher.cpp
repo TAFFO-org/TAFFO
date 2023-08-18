@@ -6,6 +6,8 @@ using namespace tuner;
 using namespace llvm;
 using namespace std;
 
+#define DEBUG_TYPE "taffo-dta"
+
 void MemWatcher::openPhiLoop(LoadInst *load, Value *requestedValue)
 {
   if (pairsToClose.find(requestedValue) == pairsToClose.end()) {

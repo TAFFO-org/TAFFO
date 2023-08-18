@@ -7,6 +7,7 @@ using namespace llvm;
 using namespace mdutils;
 using namespace tuner;
 
+#define DEBUG_TYPE "taffo-dta"
 
 static void emitError(const string &stringhina)
 {
@@ -95,43 +96,43 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   handleDisabled(res, cpuCosts, "ADD");
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_FIX)),
+      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FIX)),
       MODEL_OBJ_MATHCOST, maxCost);
   model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_FLOAT)),
+      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
   if (hasDouble) {
     model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
+        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasHalf) {
     model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_HALF)),
+        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_HALF)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasQuad) {
     model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_QUAD)),
+        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_QUAD)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasPPC128) {
     model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_PPC128)),
+        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_PPC128)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasFP80) {
     model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_FP80)),
+        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FP80)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasBF16) {
     model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::ADD_BF16)),
+        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
@@ -173,42 +174,42 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
 
   double maxCost = getCpuCosts().MaxMinCosts("SUB").first;
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FIX)),
+      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FIX)),
       MODEL_OBJ_MATHCOST, maxCost);
   model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
+      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
   if (hasDouble) {
     model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasHalf) {
     model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
+        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_HALF)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasQuad) {
     model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
+        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasPPC128) {
     model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
+        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasFP80) {
     model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FP80)),
+        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FP80)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasBF16) {
     model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_BF16)),
+        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
   // Precision cost
@@ -244,42 +245,42 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
 
   double maxCost = getCpuCosts().MaxMinCosts("SUB").first;
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FIX)),
+      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FIX)),
       MODEL_OBJ_MATHCOST, maxCost);
   model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
+      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
   if (hasDouble) {
     model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasHalf) {
     model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_HALF)),
+        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_HALF)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasQuad) {
     model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
+        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasPPC128) {
     model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
+        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasFP80) {
     model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_FP80)),
+        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FP80)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasBF16) {
     model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::SUB_BF16)),
+        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
   // Precision cost
@@ -320,42 +321,42 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   double maxCost = getCpuCosts().MaxMinCosts("MUL").first;
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_FIX)),
+      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FIX)),
       MODEL_OBJ_MATHCOST, maxCost);
   model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_FLOAT)),
+      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
   if (hasDouble) {
     model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
+        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasHalf) {
     model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_HALF)),
+        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_HALF)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasQuad) {
     model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_QUAD)),
+        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_QUAD)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasPPC128) {
     model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_PPC128)),
+        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_PPC128)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasFP80) {
     model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_FP80)),
+        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FP80)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasBF16) {
     model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::MUL_BF16)),
+        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
@@ -425,44 +426,44 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   handleDisabled(res, cpuCosts, "DIV");
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_FIX)),
+      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FIX)),
       MODEL_OBJ_MATHCOST, maxCost);
   model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_FLOAT)),
+      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
   if (hasDouble) {
     model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
+        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasHalf) {
     model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_HALF)),
+        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_HALF)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasQuad) {
     model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_QUAD)),
+        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_QUAD)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasPPC128) {
     model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_PPC128)),
+        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_PPC128)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasFP80) {
     model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_FP80)),
+        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FP80)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
 
   if (hasBF16) {
     model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::DIV_BF16)),
+        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
   // Precision cost
@@ -527,42 +528,42 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
   handleDisabled(res, cpuCosts, "REM");
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_FIX)),
+      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FIX)),
       MODEL_OBJ_MATHCOST, maxCost);
   model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_FLOAT)),
+      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FLOAT)),
       MODEL_OBJ_MATHCOST, 0);
   if (hasDouble) {
     model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
+        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasHalf) {
     model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_HALF)),
+        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_HALF)),
         MODEL_OBJ_MATHCOST, 0);
   }
   if (hasQuad) {
     model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_QUAD)),
+        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_QUAD)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasPPC128) {
     model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_PPC128)),
+        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_PPC128)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasFP80) {
     model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_FP80)),
+        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FP80)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
   if (hasBF16) {
     model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), I_COST * cpuCosts.getCost(CPUCosts::REM_BF16)),
+        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_BF16)),
         MODEL_OBJ_MATHCOST, 0);
   }
 
@@ -1037,7 +1038,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
     // As we cannot cast anything during a load, the register will use the very same variable
 
     // Running MemorySSA to find Values from which the load can actually load
-    MemorySSA &memssa = getTuner()->getAnalysis<MemorySSAWrapperPass>(*load->getFunction()).getMSSA();
+    MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<MemorySSAAnalysis>(*load->getFunction()).getMSSA();
     taffo::MemSSAUtils memssa_utils(memssa);
     SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
     def_vals.push_back(load->getPointerOperand());
@@ -1097,11 +1098,10 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
       // return;
     }
 
-
     int missing = 0;
 
     for (unsigned index = 0; index < def_vals.size(); index++) {
-      LLVM_DEBUG(dbgs() << "[memPhi] Handlign operator " << index << "...\n";);
+      LLVM_DEBUG(dbgs() << "[memPhi] Handling operator " << index << "...\n";);
       Value *op = def_vals[index];
 
       if (toSkip[index]) {
@@ -1121,8 +1121,8 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
       }
     }
 
-
-    LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n";);
+    LLVM_DEBUG(dbgs() << "missing no. = " << missing << "\n");
+    LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n");
 
   } else if (load->getType()->isPointerTy()) {
     LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n";);

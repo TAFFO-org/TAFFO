@@ -9,6 +9,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
 
+#define DEBUG_TYPE "taffo-vra"
+
 using namespace llvm;
 using namespace taffo;
 

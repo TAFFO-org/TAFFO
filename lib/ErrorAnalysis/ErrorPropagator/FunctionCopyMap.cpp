@@ -1,5 +1,4 @@
 #include "FunctionCopyMap.h"
-
 #include "Metadata.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -9,23 +8,24 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
+#include "llvm/Config/llvm-config.h"
+
+#define DEBUG_TYPE "errorprop"
 
 namespace ErrorProp
 {
 
 using namespace llvm;
 
-#define DEBUG_TYPE "errorprop"
-
-void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned MaxUnroll)
+void UnrollLoops(FunctionAnalysisManager &FAM, Function &F, unsigned DefaultUnrollCount, unsigned MaxUnroll)
 {
   // Prepare required analyses
-  LoopInfo &LInfo = P.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+  LoopInfo &LInfo = FAM.getResult<LoopAnalysis>(F);
   SmallVector<Loop *, 4U> Loops(LInfo.begin(), LInfo.end());
 
   // Now try to unroll all loops
   for (Loop *L : Loops) {
-    ScalarEvolution &SE = P.getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();
+    ScalarEvolution &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
     // Compute loop trip count
     unsigned TripCount = SE.getSmallConstantTripCount(L);
     // Get user supplied unroll count
@@ -49,22 +49,33 @@ void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned Max
       TripMult = UnrollCount;
 
     // Actually unroll loop
-    DominatorTree &DomTree = P.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    AssumptionCache &AssC = P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-    OptimizationRemarkEmitter &ORE = P.getAnalysis<OptimizationRemarkEmitterWrapperPass>(F).getORE();
-    TargetTransformInfo &TTI = P.getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    UnrollLoopOptions ULO = {
-        .Count = UnrollCount,
-        .TripCount = TripCount,
-        .Force = true,
-        .AllowRuntime = false,
-        .AllowExpensiveTripCount = true,
-        .PreserveCondBr = false,
-        .PreserveOnlyFirst = false,
-        .TripMultiple = TripMult,
-        .PeelCount = 0U,
-        .UnrollRemainder = false,
-        .ForgetAllSCEV = false};
+    DominatorTree &DomTree = FAM.getResult<DominatorTreeAnalysis>(F);
+    AssumptionCache &AssC = FAM.getResult<AssumptionAnalysis>(F);
+    OptimizationRemarkEmitter &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+    TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(F);
+    UnrollLoopOptions ULO;
+    #if (LLVM_VERSION_MAJOR >= 13)
+    ULO = {
+      .Count = UnrollCount,
+      .Force = true,
+      .Runtime = false,
+      .AllowExpensiveTripCount = true,
+      .UnrollRemainder = false,
+      .ForgetAllSCEV = false};
+    #else
+    ULO = {
+      .Count = UnrollCount,
+      .TripCount = TripCount,
+      .Force = true,
+      .AllowRuntime = false,
+      .AllowExpensiveTripCount = true,
+      .PreserveCondBr = false,
+      .PreserveOnlyFirst = false,
+      .TripMultiple = TripMult,
+      .PeelCount = 0U,
+      .UnrollRemainder = false,
+      .ForgetAllSCEV = false};
+    #endif
 
     LoopUnrollResult URes = UnrollLoop(L, ULO, &LInfo, &SE, &DomTree, &AssC, &TTI, &ORE, false);
 
@@ -80,6 +91,7 @@ void UnrollLoops(Pass &P, Function &F, unsigned DefaultUnrollCount, unsigned Max
       break;
     }
   }
+  FAM.invalidate(F, PreservedAnalyses::none());
 }
 
 FunctionCopyCount *FunctionCopyManager::prepareFunctionData(Function *F)
@@ -92,18 +104,19 @@ FunctionCopyCount *FunctionCopyManager::prepareFunctionData(Function *F)
     // do not change original code.
     FunctionCopyCount &FCC = FCMap[F];
 
+    FunctionAnalysisManager &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(*(F->getParent())).getManager();
+
     if ((FCC.MaxRecCount = mdutils::MetadataManager::retrieveMaxRecursionCount(*F)) == 0U)
       FCC.MaxRecCount = MaxRecursionCount;
 
     // Check if we really need to clone the function
     if (MaxUnroll > 0U && !F->empty()) {
-      LoopInfo &LInfo =
-          P.getAnalysis<LoopInfoWrapperPass>(*F).getLoopInfo();
+      LoopInfo &LInfo = FAM.getResult<LoopAnalysis>(*F);
       if (!LInfo.empty()) {
         FCC.Copy = CloneFunction(F, FCC.VMap);
 
         if (FCC.Copy != nullptr)
-          UnrollLoops(P, *FCC.Copy, DefaultUnrollCount, MaxUnroll);
+          UnrollLoops(FAM, *FCC.Copy, DefaultUnrollCount, MaxUnroll);
       }
     }
     return &FCC;

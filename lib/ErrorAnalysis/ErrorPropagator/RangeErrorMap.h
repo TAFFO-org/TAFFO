@@ -27,6 +27,8 @@
 #include "llvm/IR/Value.h"
 #include <map>
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
@@ -131,5 +133,7 @@ typedef llvm::DenseMap<llvm::Value *, mdutils::CmpErrorInfo> CmpErrorMap;
 #define CMPERRORMAP_NUMINITBUCKETS 4U
 
 } // end namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif

@@ -5,15 +5,16 @@
 #include "VRALogger.hpp"
 #include "VRAStore.hpp"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
 class VRAFunctionStore : protected VRAStore, public AnalysisStore
 {
 public:
-  VRAFunctionStore(CodeInterpreter &CI)
-      : VRAStore(VRASK_VRAFunctionStore,
-                 std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger())),
+  VRAFunctionStore(std::shared_ptr<VRALogger> VRAL)
+      : VRAStore(VRASK_VRAFunctionStore, VRAL),
         AnalysisStore(ASK_VRAFunctionStore),
         ReturnValue() {}
 
@@ -26,6 +27,11 @@ public:
   void setNode(const llvm::Value *V, NodePtrT Node) override
   {
     VRAStore::setNode(V, Node);
+  }
+
+  NodePtrT getNode(const llvm::Value *V) override
+  {
+    return VRAStore::getNode(V);
   }
 
   // Function handling stuff
@@ -49,5 +55,7 @@ protected:
 };
 
 } // end namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

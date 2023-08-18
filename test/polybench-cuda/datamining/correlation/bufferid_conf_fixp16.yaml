@@ -1,0 +1,7 @@
+---
+"data" : { Class: 0, SWidth: -16, PointPos: 13 }
+"eps" : { Class: 0, SWidth: 16, PointPos: 15 }
+"float_n" : { Class: 0, SWidth: 16, PointPos: 4 }
+"mean" : { Class: 0, SWidth: 16, PointPos: 15 }
+"std" : { Class: 0, SWidth: 16, PointPos: 6 }
+"symmat" : { Class: 0, SWidth: -16, PointPos: 13 }

@@ -8,7 +8,10 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Support/Casting.h"
 #include <cstdio>
+#include <stack>
 #include <unordered_map>
+
+#define DEBUG_TYPE "taffo-dta"
 
 namespace tuner
 {
@@ -19,11 +22,9 @@ class MemWatcher;
 
 class MetricBase
 {
-
 protected:
   enum MetricKind { MK_Perf,
                     MK_Size };
-
 
 public:
   void setOpt(tuner::Optimizer *O) { opt = O; }
@@ -153,7 +154,7 @@ public:
   void handleFPPrecisionShift(llvm::Instruction *instruction,
                               shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handlePhi(llvm::Instruction *instruction,
-                 shared_ptr<tuner::ValueInfo> valueInfo);
+                 shared_ptr<tuner::ValueInfo> valueInfo) override;
   void handleCastInstruction(llvm::Instruction *instruction,
                              shared_ptr<tuner::ValueInfo> valueInfo) override;
   int getMaxIntBitOfValue(llvm::Value *pValue) override;
@@ -258,3 +259,5 @@ protected:
 
 };
 */
+
+#undef DEBUG_TYPE

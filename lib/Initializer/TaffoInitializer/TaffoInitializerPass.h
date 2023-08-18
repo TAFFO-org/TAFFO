@@ -1,8 +1,6 @@
 #ifndef __TAFFO_INITIALIZER_PASS_H__
 #define __TAFFO_INITIALIZER_PASS_H__
 
-
-#include "CallSiteVersions.h"
 #include "InputInfo.h"
 #include "MultiValueMap.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -13,19 +11,17 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueMap.h"
+#include "llvm/IR/AbstractCallSite.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include <limits>
 
-
 #define DEBUG_TYPE "taffo-init"
-#define DEBUG_ANNOTATION "annotation"
-
 
 STATISTIC(AnnotationCount, "Number of valid annotations found");
 STATISTIC(FunctionCloned, "Number of fixed point function inserted");
-
 
 namespace taffo
 {
@@ -36,18 +32,20 @@ struct ValueInfo {
 
   std::shared_ptr<mdutils::MDInfo> metadata;
   llvm::Optional<std::string> target;
+  llvm::Optional<std::string> bufferID;
 };
 
 
-struct TaffoInitializer : public llvm::ModulePass {
-  static char ID;
+class TaffoInitializer : public llvm::PassInfoMixin<TaffoInitializer> {
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 
+#ifndef UNITTESTS
+private:
+#endif
   using ConvQueueT = MultiValueMap<llvm::Value *, ValueInfo>;
 
   llvm::SmallPtrSet<llvm::Function *, 32> enabledFunctions;
-
-  TaffoInitializer() : ModulePass(ID) {}
-  bool runOnModule(llvm::Module &M) override;
 
   llvm::Function *findStartingPointFunctionGlobal(llvm::Module &M);
   void readGlobalAnnotations(llvm::Module &m, ConvQueueT &res, bool functionAnnotation = false);
@@ -64,7 +62,7 @@ struct TaffoInitializer : public llvm::ModulePass {
                                                        std::shared_ptr<mdutils::MDInfo> user_mdi,
                                                        std::shared_ptr<mdutils::MDInfo> used_mdi);
   void generateFunctionSpace(ConvQueueT &vals, ConvQueueT &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(llvm::CallSite *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
+  llvm::Function *createFunctionAndQueue(llvm::CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
   void printConversionQueue(ConvQueueT &vals);
   void removeAnnotationCalls(ConvQueueT &vals);
 
@@ -81,5 +79,7 @@ struct TaffoInitializer : public llvm::ModulePass {
 
 } // namespace taffo
 
+
+#undef DEBUG_TYPE
 
 #endif

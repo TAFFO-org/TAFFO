@@ -3,40 +3,66 @@
 //
 
 #include "LoopAnalyzerUtil.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Support/Debug.h"
+#include "Metadata.h"
+
 #define DEBUG_TYPE "taffo-dta"
 
-using namespace llvm;
+STATISTIC(TripCountDetectionFailCount, "Number of times the trip count of a loop could not be determined");
+STATISTIC(TripCountDetectionSuccessCount, "Number of times the trip count of a loop was found");
 
-unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Instruction *instruction)
+using namespace llvm;
+using namespace tuner;
+
+unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction *instruction)
 {
   auto bb = instruction->getParent();
   auto f = instruction->getParent()->getParent();
-  auto loop = tuner->getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo().getLoopFor(bb);
+  auto loop = FAM.getResult<llvm::LoopAnalysis>(*f).getLoopFor(bb);
 
   unsigned info;
-  info = computeFullTripCount(tuner, loop);
+  info = computeFullTripCount(FAM, loop);
 
   LLVM_DEBUG(dbgs() << "Total trip count: " << info << "\n";);
   return info;
 }
 
-unsigned LoopAnalyzerUtil::computeFullTripCount(ModulePass *tuner, Loop *loop)
+unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop *loop)
 {
-  if (loop) {
-    auto scev = tuner->getAnalysis<ScalarEvolutionWrapperPass>(
-                         *loop->getHeader()->getParent())
-                    .getSE()
-                    .getSmallConstantTripCount(loop);
-    LLVM_DEBUG(dbgs() << "Got SCEV " << scev << "; looking for nested loops...\n";);
-    if (scev == 0) {
-      scev = 1;
-      LLVM_DEBUG(dbgs() << "[Warning] Could not find a loop trip count, forcing to be at least 1.\n";);
-    }
-    return scev * computeFullTripCount(tuner, loop->getParentLoop());
-  } else {
+  unsigned int LocalTrip;
+
+  if (!loop) {
     LLVM_DEBUG(dbgs() << "Loop Info: loop is null! Not part of a loop, finishing search!\n";);
     return 1;
   }
+
+  Function *F = (*(loop->block_begin()))->getParent();
+  LoopInfo &LI = FAM.getResult<LoopAnalysis>(*F);
+  llvm::Optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*loop, &LI);
+
+  if (OUC.hasValue()) {
+    LocalTrip = OUC.getValue();
+    if (LocalTrip > 0) {
+      LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata = " << LocalTrip << "\n");
+      TripCountDetectionSuccessCount++;
+    } else {
+      LocalTrip = 2;
+      LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata but it's zero, forcing default of " << LocalTrip << "\n");
+      TripCountDetectionFailCount++;
+    }
+  } else {
+    LocalTrip = FAM.getResult<ScalarEvolutionAnalysis>(*loop->getHeader()->getParent()).getSmallConstantTripCount(loop);
+    if (LocalTrip > 0) {
+      LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n";);
+      TripCountDetectionSuccessCount++;
+    } else {
+      LocalTrip = 2;
+      LLVM_DEBUG(dbgs() << "SCEV told us the trip count is zero; forcing the default of " << LocalTrip << "!\n");
+      TripCountDetectionFailCount++;
+    }
+  }
+  LLVM_DEBUG(dbgs() << "Checking for nested loops...\n");
+  return LocalTrip * computeFullTripCount(FAM, loop->getParentLoop());
 }

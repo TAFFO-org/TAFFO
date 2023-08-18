@@ -13,8 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "Metadata.h"
-//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
-
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include <sstream>
 
 namespace mdutils
@@ -90,7 +91,7 @@ void MetadataManager::
       ResII.push_back(retrieveStructInfo(cast<MDNode>(ArgMDOp->get())).get());
       break;
     default:
-      assert("invalid funinfo type id");
+      assert(0 && "invalid funinfo type id");
     }
     ArgMDOp++;
   }
@@ -228,7 +229,7 @@ void MetadataManager::setStructInfoMetadata(GlobalObject &V, const StructInfo &S
 
 void MetadataManager::setInputInfoInitWeightMetadata(Value *v, int weight)
 {
-  assert(isa<Instruction>(v) || isa<GlobalObject>(v) && "v not an instruction or a global object");
+  assert((isa<Instruction>(v) || isa<GlobalObject>(v)) && "v not an instruction or a global object");
   ConstantInt *cweight = ConstantInt::get(IntegerType::getInt32Ty(v->getContext()), weight);
   ConstantAsMetadata *mdweight = ConstantAsMetadata::get(cweight);
   if (Instruction *i = dyn_cast<Instruction>(v)) {
@@ -255,6 +256,116 @@ int MetadataManager::retrieveInputInfoInitWeightMetadata(const Value *v)
   ConstantAsMetadata *mdweight = cast<ConstantAsMetadata>(node->getOperand(0U));
   ConstantInt *cweight = cast<ConstantInt>(mdweight->getValue());
   return cweight->getZExtValue();
+}
+
+void MetadataManager::setOpenCLCloneTrampolineMetadata(Function *F, Function *KernF)
+{
+  F->setMetadata(INIT_OCL_TRAMPOLINE_METADATA, MDNode::get(F->getContext(), {ValueAsMetadata::get(KernF)}));
+}
+
+bool MetadataManager::retrieveOpenCLCloneTrampolineMetadata(Function *F, Function **KernF)
+{
+  MDNode *MDN = F->getMetadata(INIT_OCL_TRAMPOLINE_METADATA);
+  if (!MDN)
+    return false;
+  ValueAsMetadata *VAM = cast<ValueAsMetadata>(MDN->getOperand(0U));
+  Function *OutF = cast<Function>(VAM->getValue());
+  if (KernF)
+    *KernF = OutF;
+  return true;
+}
+
+void MetadataManager::setBufferIDMetadata(Value *V, std::string BufID)
+{
+  Metadata *TheString = MDString::get(V->getContext(), BufID);
+
+  if (Argument *Arg = dyn_cast<Argument>(V)) {
+    Function *F = Arg->getParent();
+    MDNode *Node = F->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    SmallVector<Metadata *> MDs;
+    if (!Node) {
+      MDs = SmallVector<Metadata *>(F->arg_size(), nullptr);
+    } else {
+      MDs = SmallVector<Metadata *>(Node->op_begin(), Node->op_end());
+    }
+    MDs[Arg->getArgNo()] = TheString;
+    MDNode *NewNode = MDTuple::get(V->getContext(), MDs);
+    F->setMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA, NewNode);
+  } else {
+    MDNode *NewNode = MDNode::get(V->getContext(), {TheString});
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      I->setMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA, NewNode);
+    } else if (GlobalObject *GO = dyn_cast<GlobalObject>(V)) {
+      GO->setMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA, NewNode);
+    } else {
+      llvm_unreachable("attempted to attach metadata to unsupported value type");
+    }
+  }
+}
+
+Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
+{
+  MDString *String;
+
+  if (Argument *Arg = dyn_cast<Argument>(V)) {
+    Function *F = Arg->getParent();
+    MDNode *Node = F->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    if (!Node || Node->getNumOperands() != F->arg_size())
+      return Optional<std::string>();
+    String = dyn_cast_or_null<MDString>(Node->getOperand(Arg->getArgNo()));
+  } else {
+    MDNode *Node;
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      Node = I->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    } else if (GlobalObject *GO = dyn_cast<GlobalObject>(V)) {
+      Node = GO->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
+    } else {
+      llvm_unreachable("attempted to attach metadata to unsupported value type");
+    }
+    if (!Node || Node->getNumOperands() != 1)
+      return Optional<std::string>();
+    String = dyn_cast_or_null<MDString>(Node->getOperand(0U));
+  }
+
+  if (String)
+    return Optional<std::string>(std::string(String->getString()));
+  return Optional<std::string>();
+}
+
+void MetadataManager::getCudaKernels(Module &M, SmallVectorImpl<Function *> &Fs) {
+  NamedMDNode *MD = M.getNamedMetadata(CUDA_KERNEL_METADATA);
+ 
+  if (!MD)
+    return;
+ 
+  for (auto *Op : MD->operands()) {
+    if (Op->getNumOperands() < 2)
+      continue;
+    MDString *KindID = dyn_cast<MDString>(Op->getOperand(1));
+    if (!KindID || KindID->getString() != "kernel")
+      continue;
+ 
+    Function *KernelFn = mdconst::dyn_extract_or_null<Function>(Op->getOperand(0));
+    if (!KernelFn)
+      continue;
+ 
+    Fs.append({KernelFn});
+  }
+ 
+  return;
+}
+
+bool MetadataManager::isCudaKernel(llvm::Module &m, llvm::Function *f){
+  llvm::MDNode *mdn = f->getMetadata(SOURCE_FUN_METADATA); 
+  if(mdn)
+    f = mdconst::dyn_extract_or_null<Function>(mdn->getOperand(0));
+  SmallVector<Function *, 2> KernFs;
+  mdutils::MetadataManager::getCudaKernels(m, KernFs);
+  for (Function *kernel: KernFs) {
+    if(f == kernel) 
+      return true;
+  }
+  return false;
 }
 
 void MetadataManager::setInputInfoInitWeightMetadata(llvm::Function *f,
@@ -474,6 +585,22 @@ bool MetadataManager::isStartingPoint(const Function &F)
   return F.getMetadata(START_FUN_METADATA) != nullptr;
 }
 
+void MetadataManager::defaultStartingPoint(Module &M)
+{
+  auto main = llvm::find_if(M.functions(), [](const Function &F) { return F.getName().equals("main"); } );
+  if (main != M.end()) {
+    setStartingPoint(*main);
+  }
+}
+
+bool MetadataManager::hasStartingPoint(const Module &M)
+{
+  bool hasStartingPoint = false;
+  hasStartingPoint = llvm::any_of(M.functions(), [](const auto &F) { return isStartingPoint(F); });
+  return hasStartingPoint;
+}
+
+
 void MetadataManager::setTargetMetadata(Instruction &I, StringRef Name)
 {
   MDNode *TMD = MDNode::get(I.getContext(), MDString::get(I.getContext(), Name));
@@ -586,7 +713,7 @@ std::unique_ptr<InputInfo> MetadataManager::
     createInputInfoFromMetadata(MDNode *MDN)
 {
   assert(MDN != nullptr);
-  assert(MDN->getNumOperands() == 4U && "Must have Type, Range, Initial Error, Flags");
+  assert(MDN->getNumOperands() >= 3U && "Must have Type, Range, Initial Error, [Flags]");
 
   Metadata *ITypeMDN = MDN->getOperand(0U).get();
   std::shared_ptr<TType> IType = (IsNullInputInfoField(ITypeMDN))
@@ -603,14 +730,16 @@ std::unique_ptr<InputInfo> MetadataManager::
                                        ? nullptr
                                        : retrieveError(cast<MDNode>(IErrorMDN));
 
-  Metadata *IFlagsMDN = MDN->getOperand(3U).get();
   bool IEnabled = true;
   bool IFinal = false;
-  if (IFlagsMDN) {
-    ConstantAsMetadata *tmpmd = cast<ConstantAsMetadata>(IFlagsMDN);
-    uint64_t tmpint = cast<ConstantInt>(tmpmd->getValue())->getZExtValue();
-    IEnabled = tmpint & 1U;
-    IFinal = tmpint & 2U;
+  if (MDN->getNumOperands() >= 4U) {
+    Metadata *IFlagsMDN = MDN->getOperand(3U).get();
+    if (IFlagsMDN) {
+      ConstantAsMetadata *tmpmd = cast<ConstantAsMetadata>(IFlagsMDN);
+      uint64_t tmpint = cast<ConstantInt>(tmpmd->getValue())->getZExtValue();
+      IEnabled = tmpint & 1U;
+      IFinal = tmpint & 2U;
+    }
   }
 
   return std::unique_ptr<InputInfo>(new InputInfo(IType, IRange, IError, IEnabled, IFinal));

@@ -6,11 +6,11 @@
 #include "llvm/Support/Debug.h"
 #include <string>
 
-namespace taffo
-{
-
 #define DEBUG_TYPE "taffo-vra"
 #define DEBUG_HEAD "[TAFFO][VRA]"
+
+namespace taffo
+{
 
 class VRALogger : public CILogger
 {
@@ -105,7 +105,7 @@ public:
         std::shared_ptr<VRAStructNode> StructNode =
             std::static_ptr_cast<VRAStructNode>(Range);
         std::string Result("{ ");
-        for (const NodePtrT Field : StructNode->fields()) {
+        for (const NodePtrT& Field : StructNode->fields()) {
           Result.append(toString(Field));
           Result.append(", ");
         }
@@ -147,5 +147,7 @@ private:
 };
 
 } // namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

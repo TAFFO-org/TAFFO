@@ -2,8 +2,8 @@
 #include "Optimizer.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
-
 
 extern llvm::cl::opt<int> TotalBits;
 extern llvm::cl::opt<int> FracThreshold;
@@ -13,6 +13,7 @@ using namespace mdutils;
 using namespace std;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-dta"
 
 bool MetricBase::valueHasInfo(llvm::Value *value) { return opt->valueHasInfo(value); }
 
@@ -109,7 +110,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
   }
 
   if (auto constantExpr = dyn_cast_or_null<ConstantExpr>(constant)) {
-    if (constantExpr->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(constantExpr)) {
       return handleGEPConstant(constantExpr);
     }
     LLVM_DEBUG(dbgs() << "Unknown constant expr!\n";);
@@ -233,15 +234,21 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
     }
     LLVM_DEBUG(dbgs() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
-    auto optInfo_t = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerPointerInfo>(getInfoOfValue(operand));
+    auto baseinfo = getInfoOfValue(operand);
+    if (!baseinfo) {
+      LLVM_DEBUG(dbgs() << "Operand pointer info missing; probably trying to access a non float element, bailing out.\n";);
+      return;
+    }
+    auto optInfo_t = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerPointerInfo>(baseinfo);
     if (!optInfo_t) {
-      LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "Operand pointer info has the wrong type!! Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "wrong info: " << baseinfo->toString() << "\n");
       return;
     }
 
     auto optInfo = optInfo_t->getOptInfo();
     if (!optInfo) {
-      LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "Operand pointed value info null; probably trying to access a non float element, bailing out.\n";);
       return;
     }
 
@@ -249,7 +256,7 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
     for (unsigned int i = 0; i < offset.size(); i++) {
       auto structInfo = dynamic_ptr_cast_or_null<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
-        LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
+        LLVM_DEBUG(dbgs() << "Pointer value info kind is not struct, probably trying to access a non float element, bailing out.\n";);
         return;
       }
 
@@ -486,37 +493,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
   }
 
   // fetch ranges of arguments
-  std::list<shared_ptr<OptimizerInfo>> arg_errors;
-  std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors;
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
-  for (auto arg_it = call_i->arg_begin(); arg_it != call_i->arg_end(); ++arg_it) {
-    LLVM_DEBUG(dbgs() << "info for ";);
-    LLVM_DEBUG((*arg_it)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << " --> ";);
-
-    // if a variable was declared for type
-    auto info = getInfoOfValue(*arg_it);
-    if (!info) {
-      // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-      LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
-    } else {
-      LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
-    }
-
-    // Even if is a null value, we push it!
-    arg_errors.push_back(info);
-
-    /*if (const generic_range_ptr_t arg_info = fetchInfo(*arg_it)) {*/
-    // If the error is a scalar, collect it also as a scalar
-    auto arg_info_scalar = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
-    if (arg_info_scalar) {
-      arg_scalar_errors.push_back(arg_info_scalar);
-    }
-    //}
-    LLVM_DEBUG(dbgs() << "\n\n";);
-  }
-  LLVM_DEBUG(dbgs() << ("Arguments end.\n"););
-
+  std::list<shared_ptr<OptimizerInfo>> arg_errors = opt->fetchFunctionCallArgumentInfo(call_i);
 
   // Allocating variable for result: all returns will have the same type, and therefore a cast, if needed
   shared_ptr<OptimizerInfo> retInfo;
@@ -885,12 +862,11 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<ValueInfo> va
       }
 
       auto optInfo = loadStructInfo(alloca, fieldInfo, "");
-      saveInfoForValue(alloca, optInfo);
+      saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(optInfo));
 
     } else {
       llvm_unreachable("Unknown metadata!");
     }
-
 
   } else {
     LLVM_DEBUG(dbgs() << " ^ this is a pointer, skipping as it is unsupported at the moment.\n";);

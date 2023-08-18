@@ -11,13 +11,15 @@
 #include "RangeNode.hpp"
 #include "VRALogger.hpp"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
 class VRAStore
 {
 public:
-  virtual void convexMerge(const VRAStore &Other);
+  void convexMerge(const VRAStore &Other);
 
   virtual const range_ptr_t fetchRange(const llvm::Value *V);
   virtual RangeNodePtrT fetchRange(const NodePtrT Node) const;
@@ -56,5 +58,7 @@ private:
 };
 
 } // end namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

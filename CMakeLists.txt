@@ -19,7 +19,7 @@ include(AddLLVM)
 include(LLVMConfig)
 include(HandleLLVMOptions)
 
-if ((${LLVM_VERSION_MAJOR} LESS 12) OR (${LLVM_VERSION_MAJOR} GREATER 12))
+if ((${LLVM_VERSION_MAJOR} LESS 14) OR (${LLVM_VERSION_MAJOR} GREATER 15))
   message(FATAL_ERROR "LLVM version ${LLVM_VERSION_MAJOR} is not supported!")
 endif ()
 
@@ -27,7 +27,7 @@ endif ()
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy-10;")
-add_compile_options(-Wall -Wextra -Wno-unused-parameter)
+add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-covered-switch-default)
 
 # build & install all tools by default
 set(LLVM_BUILD_TOOLS ON)
@@ -41,6 +41,11 @@ include_directories(lib)
 
 add_subdirectory(lib)
 add_subdirectory(utils)
-add_subdirectory(unittests)
+add_subdirectory(test-lit)
+add_subdirectory(test)
 add_subdirectory(tool)
+
+if (TAFFO_UNITTESTS)
+  add_subdirectory(unittests)
+endif()
 

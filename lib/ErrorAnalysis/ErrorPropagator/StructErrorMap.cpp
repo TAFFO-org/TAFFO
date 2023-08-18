@@ -17,16 +17,17 @@
 #include "TypeUtils.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
 #include <memory>
+
+#define DEBUG_TYPE "errorprop"
 
 namespace ErrorProp
 {
 
 using namespace llvm;
 using namespace mdutils;
-
-#define DEBUG_TYPE "errorprop"
 
 StructNode::StructNode(const StructInfo *SI, StructType *ST, StructTree *Parent)
     : StructTree(STK_Node, Parent), Fields(), SType(ST)
@@ -85,7 +86,7 @@ StructType *StructNode::getElementStructType(Type *T)
 {
   while (!T->isStructTy()) {
     if (PointerType *PT = dyn_cast<PointerType>(T))
-      T = PT->getElementType();
+      T = PT->getPointerElementType();
     else if (isa<ArrayType>(T) || isa<VectorType>(T)) {
       T = T->getContainedType(0);
     } else
@@ -132,7 +133,7 @@ StructError *StructTreeWalker::getFieldNode(StructTree *Root)
 
 StructTree *StructTreeWalker::makeRoot(Value *P)
 {
-  StructType *ST = cast<StructType>(cast<PointerType>(P->getType())->getElementType());
+  StructType *ST = cast<StructType>(cast<PointerType>(P->getType())->getPointerElementType());
   return new StructNode(ST);
 }
 
@@ -147,7 +148,7 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P)
 
     return navigatePointerTreeToRoot(GEPI->getPointerOperand());
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(P)) {
-    if (CE->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(CE)) {
       auto OpIt = CE->op_begin();
 
       // Get the Pointer Operand.
@@ -174,7 +175,7 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P)
     if (AArg != ArgBindings.end() && AArg->second != nullptr)
       return navigatePointerTreeToRoot(AArg->second);
     else
-      return (isa<StructType>(cast<PointerType>(A->getType())->getElementType())) ? P : nullptr;
+      return (isa<StructType>(cast<PointerType>(A->getType())->getPointerElementType())) ? P : nullptr;
   } else if (AllocaInst *AI = dyn_cast<AllocaInst>(P)) {
     return (isa<StructType>(AI->getAllocatedType())) ? P : nullptr;
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(P)) {
@@ -261,7 +262,7 @@ void StructErrorMap::initArgumentBindings(Function &F,
   for (Argument &FArg : F.args()) {
     if (AArgIt == AArgs.end())
       break;
-    if (FArg.getType()->isPointerTy() && cast<PointerType>(FArg.getType())->getElementType()->isStructTy())
+    if (FArg.getType()->isPointerTy() && cast<PointerType>(FArg.getType())->getPointerElementType()->isStructTy())
       ArgBindings.insert(std::make_pair(&FArg, *AArgIt));
 
     ++AArgIt;

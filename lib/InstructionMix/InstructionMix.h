@@ -1,6 +1,6 @@
 #include "llvm/IR/Instructions.h"
 #include <string>
-#include <unordered_map>
+#include <map>
 
 
 #ifndef INSTRUCTION_MIX_H

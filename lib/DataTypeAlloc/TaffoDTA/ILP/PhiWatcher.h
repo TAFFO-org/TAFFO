@@ -5,6 +5,8 @@
 #include "llvm/IR/Instructions.h"
 #include <vector>
 
+#define DEBUG_TYPE "taffo-dta"
+
 namespace tuner {
 
   // This class contains references to phi node that has no been closed yet
@@ -24,3 +26,5 @@ namespace tuner {
   };
 
 }
+
+#undef DEBUG_TYPE

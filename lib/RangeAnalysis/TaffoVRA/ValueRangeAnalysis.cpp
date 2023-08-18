@@ -3,37 +3,47 @@
 #include "VRAGlobalStore.hpp"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/CommandLine.h"
+
+#define DEBUG_TYPE "taffo-vra"
 
 using namespace llvm;
 using namespace taffo;
 using namespace mdutils;
 
-char ValueRangeAnalysis::ID = 0;
+namespace taffo
+{
+llvm::cl::opt<bool> PropagateAll("propagate-all",
+                                 llvm::cl::desc("Propagate ranges for all functions, "
+                                                "not only those marked as starting point."),
+                                 llvm::cl::init(false));
+llvm::cl::opt<unsigned> Unroll("unroll",
+                               llvm::cl::desc("Default loop unroll count. "
+                                              "Setting this to 0 disables loop unrolling. "
+                                              "(Default: 1)"),
+                               llvm::cl::value_desc("count"),
+                               llvm::cl::init(1U));
 
-static RegisterPass<ValueRangeAnalysis> X(
-    "taffoVRA",
-    "TAFFO Framework Value Range Analysis Pass",
-    false /* does not affect the CFG */,
-    false /* only Analysis */);
+llvm::cl::opt<unsigned> MaxUnroll("max-unroll",
+                                  llvm::cl::desc("Max loop unroll count. "
+                                                 "Setting this to 0 disables loop unrolling. "
+                                                 "(Default: 256)"),
+                                  llvm::cl::value_desc("count"),
+                                  llvm::cl::init(256U));
+}
 
-bool ValueRangeAnalysis::runOnModule(Module &M)
+PreservedAnalyses ValueRangeAnalysis::run(Module &M, ModuleAnalysisManager &AM)
 {
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>();
   GlobalStore->harvestMetadata(M);
 
-  CodeInterpreter CodeInt(*this, GlobalStore, Unroll, MaxUnroll);
+  CodeInterpreter CodeInt(AM, GlobalStore, Unroll, MaxUnroll);
   processModule(CodeInt, M);
 
+  LLVM_DEBUG(dbgs() << "saving results...\n");
   GlobalStore->saveResults(M);
 
-  return true;
-}
-
-void ValueRangeAnalysis::getAnalysisUsage(AnalysisUsage &AU) const
-{
-  CodeInterpreter::getAnalysisUsage(AU);
-  AU.addRequiredTransitive<MemorySSAWrapperPass>();
-  AU.setPreservesAll();
+  return PreservedAnalyses::all();
 }
 
 void ValueRangeAnalysis::processModule(CodeInterpreter &CodeInt, Module &M)

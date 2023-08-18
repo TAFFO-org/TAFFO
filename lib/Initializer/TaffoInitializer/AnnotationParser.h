@@ -7,6 +7,7 @@
 #ifndef __ANNOTATION_PARSER_H__
 #define __ANNOTATION_PARSER_H__
 
+#define DEBUG_TYPE "taffo-init"
 
 namespace taffo
 {
@@ -23,7 +24,6 @@ class AnnotationParser
   bool parseOldSyntax();
 
   bool parseNewSyntax();
-  bool initializeInputInfo(std::shared_ptr<mdutils::MDInfo> &thisMd);
   bool parseScalar(std::shared_ptr<mdutils::MDInfo> &thisMd);
   bool parseStruct(std::shared_ptr<mdutils::MDInfo> &thisMd);
   char skipWhitespace();
@@ -49,6 +49,7 @@ public:
   bool backtracking;
   unsigned int backtrackingDepth;
   std::shared_ptr<mdutils::MDInfo> metadata;
+  llvm::Optional<std::string> bufferID;
 
   bool parseAnnotationString(llvm::StringRef annString);
   llvm::StringRef lastError();
@@ -57,5 +58,6 @@ public:
 
 } // namespace taffo
 
+#undef DEBUG_TYPE
 
 #endif // __ANNOTATION_PARSER_H__

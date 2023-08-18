@@ -3,7 +3,10 @@ set(SELF TaffoDTA)
 set(DTA_SRC
   TaffoDTA.cpp
   TaffoDTA.h
+  DTAConfig.cpp
   DTAConfig.h
+  BufferIDFiles.h
+  BufferIDFiles.cpp
   )
 
 if (TAFFO_BUILD_ILP_DTA)

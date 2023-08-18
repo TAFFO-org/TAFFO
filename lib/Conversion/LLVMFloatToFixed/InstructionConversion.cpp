@@ -1,3 +1,4 @@
+#include "DataTypeAlloc/TaffoDTA/DTAConfig.h"
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/APFloat.h"
@@ -10,15 +11,21 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/NoFolder.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
 #include <cmath>
+
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
-#define defaultFixpType @SYNTAX_ERROR @
+
+#define DEBUG_TYPE "taffo-conversion"
+
+
 /* also inserts the new value in the basic blocks, alongside the old one */
 Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
                                         FixedPointType &fixpt)
@@ -27,9 +34,9 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
   if (AllocaInst *alloca = dyn_cast<AllocaInst>(val)) {
     res = convertAlloca(alloca, fixpt);
   } else if (LoadInst *load = dyn_cast<LoadInst>(val)) {
-    res = convertLoad(load, fixpt);
+    res = convertLoad(load, fixpt, m);
   } else if (StoreInst *store = dyn_cast<StoreInst>(val)) {
-    res = convertStore(store);
+    res = convertStore(store, m);
   } else if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(val)) {
     res = convertGep(gep, fixpt);
   } else if (ExtractValueInst *ev = dyn_cast<ExtractValueInst>(val)) {
@@ -82,8 +89,18 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
       res->setName(tmp.str());
     }
   }
-  return res ? res : ConversionError;
+
+  if (res) {
+    if (!isa<Instruction>(res)) {
+      LLVM_DEBUG(dbgs() << "Conversion produced something that is not an instruction from an instruction...\n");
+    }
+    return res;
+  } else {
+    return ConversionError;
+  }
 }
+
+
 Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
                                    const FixedPointType &fixpt)
 {
@@ -94,15 +111,17 @@ Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
   if (newt == prevt)
     return alloca;
   Value *as = alloca->getArraySize();
-  MaybeAlign alignment(alloca->getAlignment());
+  Align align = alloca->getAlign();
   AllocaInst *newinst = new AllocaInst(
-      newt, alloca->getType()->getPointerAddressSpace(), as, alignment.valueOrOne());
+      newt, alloca->getType()->getPointerAddressSpace(), as, align);
   newinst->setUsedWithInAlloca(alloca->isUsedWithInAlloca());
   newinst->setSwiftError(alloca->isSwiftError());
   newinst->insertAfter(alloca);
   return newinst;
 }
-Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
+
+
+Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt, Module &m)
 {
   Value *ptr = load->getPointerOperand();
   Value *newptr = operandPool[ptr];
@@ -112,9 +131,15 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
     return Unsupported;
   if (isConvertedFixedPoint(newptr)) {
     fixpt = fixPType(newptr);
-    MaybeAlign alignment(load->getAlignment());
+    Type *PELType = newptr->getType()->getPointerElementType();
+    Align align;
+    if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, load->getFunction())) {
+      align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8);
+    } else {
+      align = load->getAlign();
+    }
     LoadInst *newinst =
-        new LoadInst(newptr->getType()->getPointerElementType(), newptr, Twine(), load->isVolatile(), alignment.valueOrOne(),
+        new LoadInst(PELType, newptr, Twine(), load->isVolatile(), align,
                      load->getOrdering(), load->getSyncScopeID());
     newinst->insertAfter(load);
     if (valueInfo(load)->noTypeConversion) {
@@ -126,7 +151,9 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt)
   }
   return Unsupported;
 }
-Value *FloatToFixed::convertStore(StoreInst *store)
+
+
+Value *FloatToFixed::convertStore(StoreInst *store, Module &m)
 {
   Value *ptr = store->getPointerOperand();
   Value *val = store->getValueOperand();
@@ -156,7 +183,7 @@ Value *FloatToFixed::convertStore(StoreInst *store)
     } else {
       /* store fixp <value ptr?> into original <value ptr?> pointer
        * try to match the stored value if possible */
-      newval = fallbackMatchValue(val, peltype);
+      newval = fallbackMatchValue(val, peltype, store);
       if (!newval)
         return Unsupported;
     }
@@ -190,17 +217,24 @@ Value *FloatToFixed::convertStore(StoreInst *store)
   }
   if (!newval)
     return nullptr;
-  MaybeAlign alignment(store->getAlignment());
+  Align align;
+  if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, store->getFunction())) {
+    align = Align(fullyUnwrapPointerOrArrayType(peltype)->getScalarSizeInBits() / 8);
+  } else {
+    align = store->getAlign();
+  }
   StoreInst *newinst =
-      new StoreInst(newval, newptr, store->isVolatile(), alignment.valueOrOne(),
+      new StoreInst(newval, newptr, store->isVolatile(), align,
                     store->getOrdering(), store->getSyncScopeID());
   newinst->insertAfter(store);
   return newinst;
 }
+
+
 Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
 {
   LLVM_DEBUG(llvm::dbgs() << "### Convert GEP ###\n");
-  IRBuilder<> builder(gep);
+  IRBuilder<NoFolder> builder(gep);
   Value *newval = matchOp(gep->getPointerOperand());
 
   LLVM_DEBUG(llvm::dbgs() << *gep << "\nhas operand \n"
@@ -220,14 +254,16 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
   if (valueInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid())
     return Unsupported;
   std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
-  return builder.CreateInBoundsGEP(newval, idxlist);
+  return builder.CreateInBoundsGEP(newval->getType()->getPointerElementType(), newval, idxlist);
 }
+
+
 Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
                                          FixedPointType &fixpt)
 {
   if (valueInfo(exv)->noTypeConversion)
     return Unsupported;
-  IRBuilder<> builder(exv);
+  IRBuilder<NoFolder> builder(exv);
   Value *oldval = exv->getAggregateOperand();
   Value *newval = matchOp(oldval);
   if (!newval)
@@ -241,12 +277,14 @@ Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
   fixpt = baset;
   return newi;
 }
+
+
 Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
                                         FixedPointType &fixpt)
 {
   if (valueInfo(inv)->noTypeConversion)
     return Unsupported;
-  IRBuilder<> builder(inv);
+  IRBuilder<NoFolder> builder(inv);
   Value *oldAggVal = inv->getAggregateOperand();
   Value *newAggVal = matchOp(oldAggVal);
   if (!newAggVal)
@@ -265,6 +303,8 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
   std::vector<unsigned> idxlist(inv->indices().begin(), inv->indices().end());
   return builder.CreateInsertValue(newAggVal, newInsertVal, idxlist);
 }
+
+
 Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
 {
   if (!phi->getType()->isFloatingPointTy() ||
@@ -275,7 +315,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
      * that information across the phi. If at least one of them was converted
      * the phi is converted as well; otherwise it is not. */
     bool donesomething = false;
-    for (int i = 0; i < phi->getNumIncomingValues(); i++) {
+    for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
       Value *thisval = phi->getIncomingValue(i);
       Value *newval = fallbackMatchValue(thisval, thisval->getType(), phi);
       if (newval && newval != ConversionError) {
@@ -290,7 +330,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
    * and thus all of its incoming values were floats */
   PHINode *newphi = PHINode::Create(fixpt.scalarToLLVMType(phi->getContext()),
                                     phi->getNumIncomingValues());
-  for (int i = 0; i < phi->getNumIncomingValues(); i++) {
+  for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
     Value *thisval = phi->getIncomingValue(i);
     BasicBlock *thisbb = phi->getIncomingBlock(i);
     Value *newval =
@@ -309,6 +349,8 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
   newphi->insertAfter(phi);
   return newphi;
 }
+
+
 Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
 {
   if (!isFloatingPointToConvert(sel))
@@ -326,11 +368,24 @@ Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
   newsel->insertAfter(sel);
   return newsel;
 }
-Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
+
+
+Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
 {
   /* If the function return a float the new return type will be a fix point of
    * type fixpt, otherwise the return type is left unchanged.*/
   Function *oldF = call->getCalledFunction();
+
+  /* Special-case known OpenCL API calls */
+  if (isSupportedOpenCLFunction(oldF))
+    return convertOpenCLCall(call);
+  /* Special-case known Cuda API calls */
+  if (isSupportedCudaFunction(oldF))
+    return convertCudaCall(call);  
+  /* Special-case known math intrinsics */
+  if (isSupportedMathIntrinsicFunction(oldF))
+    return convertMathIntrinsicFunction(call, fixpt);
+  /* Special case function prototypes and all other intrinsics */
   if (isSpecialFunction(oldF))
     return Unsupported;
   Function *newF = functionPool[oldF];
@@ -344,8 +399,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
                     << *newF->getType() << "\n";);
   std::vector<Value *> convArgs;
   std::vector<Type *> typeArgs;
-  std::vector<std::pair<int, FixedPointType>>
-      fixArgs; // for match right function
+  std::vector<std::pair<int, FixedPointType>> fixArgs; // for match right function
   if (isFloatType(oldF->getReturnType())) {
     fixArgs.push_back(
         std::pair<int, FixedPointType>(-1, fixpt)); // ret value in signature
@@ -359,7 +413,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
       if (!hasInfo(*call_arg)) {
         thisArgument = *call_arg;
       } else {
-        thisArgument = fallbackMatchValue(*call_arg, f_arg->getType());
+        thisArgument = fallbackMatchValue(*call_arg, f_arg->getType(), call);
       }
     } else if (hasInfo(*call_arg) &&
                valueInfo(*call_arg)->noTypeConversion == false) {
@@ -385,8 +439,13 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
                         << ") converted but not actual argument\n");
       LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
                            "because mem2reg can interfere\n");
-      thisArgument = translateOrMatchAnyOperandAndType(*call_arg, funfpt,
-                                                       call);
+      if (call_arg->get()->getType()->isPointerTy()) {
+        LLVM_DEBUG(dbgs() << "DANGER!! To make things worse, the problematic argument is a POINTER. Introducing a bitcast to try to salvage the mess.\n");
+        Type *BCType = funfpt.toLLVMType(call_arg->get()->getType(), nullptr);
+        thisArgument = new BitCastInst(call_arg->get(), BCType, call_arg->get()->getName() + ".salvaged", call);
+      } else {
+        thisArgument = translateOrMatchAnyOperandAndType(*call_arg, funfpt, call);
+      }
     }
     if (!thisArgument) {
       LLVM_DEBUG(dbgs() << "CALL: match of argument " << i << " (" << *f_arg
@@ -417,9 +476,11 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
     newInvk->insertBefore(invk);
     return newInvk;
   }
-  assert(false && "Unknown CallSite type");
+  assert(false && "Unknown CallBase type");
   return Unsupported;
 }
+
+
 Value *FloatToFixed::convertRet(ReturnInst *ret, FixedPointType &fixpt)
 {
   Value *oldv = ret->getReturnValue();
@@ -454,7 +515,7 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
     Value *val1 = translateOrMatchOperandAndType(instr->getOperand(0), fixpt, instr);
     if (!val1)
       return nullptr;
-    IRBuilder<> builder(instr);
+    IRBuilder<NoFolder> builder(instr);
     Value *fixop = nullptr;
 
     if (fixpt.isFixedPoint()) {
@@ -470,18 +531,19 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
     updateConstTypeMetadata(fixop, 0U, fixpt);
     return fixop;
   }
+  return Unsupported;
 }
 
 
 Value *FloatToFixed::convertBinOp(Instruction *instr,
                                   const FixedPointType &fixpt)
 {
-  /*le istruzioni Instruction::
-    [Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
-    vengono gestite dalla fallback e non in questa funzione */
+  /* Instruction::[Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
+   * are handled by the fallback function, not here */
   if (!instr->getType()->isFloatingPointTy() ||
       valueInfo(instr)->noTypeConversion)
     return Unsupported;
+
   int opc = instr->getOpcode();
   if (opc == Instruction::FAdd || opc == Instruction::FSub ||
       opc == Instruction::FRem) {
@@ -495,7 +557,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
         translateOrMatchOperandAndType(instr->getOperand(1), fixpt, instr);
     if (!val1 || !val2)
       return nullptr;
-    IRBuilder<> builder(instr);
+    IRBuilder<NoFolder> builder(instr);
     Value *fixop;
     if (opc == Instruction::FAdd) {
       if (fixpt.isFixedPoint()) {
@@ -555,21 +617,125 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
           intype1.scalarFracBitsAmt() + intype2.scalarFracBitsAmt(),
           intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
       Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
-      IRBuilder<> builder(instr);
-      Value *ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
-                                             : builder.CreateZExt(val1, dbfxt);
-      Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
-                                             : builder.CreateZExt(val2, dbfxt);
-      Value *fixop = builder.CreateMul(ext1, ext2);
-      cpMetaData(ext1, val1);
-      cpMetaData(ext2, val2);
-      cpMetaData(fixop, instr);
-      updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
-                           intermtype.scalarFracBitsAmt(),
-                           intermtype.scalarBitsAmt());
-      updateConstTypeMetadata(fixop, 0U, intype1);
-      updateConstTypeMetadata(fixop, 1U, intype2);
-      return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+      IRBuilder<NoFolder> builder(instr);
+      Value *fixop = nullptr;
+      Value *ext1 = nullptr;
+      Value *ext2 = nullptr;
+      if (dbfxt->getScalarSizeInBits() > MaxTotalBitsConv) {
+        dbfxt = fixpt.scalarToLLVMType(instr->getContext());
+
+        ext1 = val1;
+        ext2 = val2;
+
+        auto make_to_same_size = [this, instr, &builder](FixedPointType &from, FixedPointType &to, Value *&ext, Value *val) {
+          auto llvmfrom = from.scalarToLLVMType(instr->getContext());
+          auto llvmto = to.scalarToLLVMType(instr->getContext());
+          ext = from.scalarIsSigned() ? builder.CreateSExt(val, llvmto)
+                                      : builder.CreateZExt(val, llvmto);
+
+          auto diff = llvmto->getScalarSizeInBits() - llvmfrom->getScalarSizeInBits();
+          // create metadata same as val2 but more bits
+          cpMetaData(ext, val);
+          updateFPTypeMetadata(ext, from.scalarIsSigned(), from.scalarFracBitsAmt(), from.scalarBitsAmt() + diff);
+
+          ext = builder.CreateShl(ext, diff);
+          // create metadata same as val2 but more bits and appropriate scalar frac
+          cpMetaData(ext, val);
+          updateFPTypeMetadata(ext, from.scalarIsSigned(), from.scalarFracBitsAmt() + diff, from.scalarBitsAmt() + diff);
+
+          // update inttype2 to correct type
+          from.scalarBitsAmt() = from.scalarBitsAmt() + diff;
+          from.scalarFracBitsAmt() = from.scalarFracBitsAmt() + diff;
+        };
+
+
+        // Adjust to same size
+        if (intype1.scalarBitsAmt() > intype2.scalarBitsAmt()) {
+          make_to_same_size(intype2, intype1, ext2, val2);
+        } else if (intype1.scalarBitsAmt() < intype2.scalarBitsAmt()) {
+          make_to_same_size(intype1, intype2, ext1, val1);
+        }
+
+        const auto frac1_s = intype1.scalarFracBitsAmt();
+        const auto frac2_s = intype2.scalarFracBitsAmt();
+
+        auto target_frac = fixpt.scalarFracBitsAmt();
+        int shift_right1 = 0;
+        int shift_right2 = 0;
+        auto new_frac1 = frac1_s;
+        auto new_frac2 = frac2_s;
+
+        if (target_frac % 2 == 0) {
+          auto required_fract = target_frac / 2;
+          shift_right1 = frac1_s - required_fract;
+          shift_right2 = frac2_s - required_fract;
+        } else {
+          auto required_fract = target_frac / 2;
+          if (frac1_s > frac2_s) {
+            shift_right1 = frac1_s - (required_fract + 1);
+            shift_right2 = frac2_s - required_fract;
+          } else {
+
+            shift_right2 = frac2_s - (required_fract + 1);
+            shift_right1 = frac1_s - required_fract;
+          }
+        }
+
+        // create shift to make space for all possible value
+        if (shift_right1 > 0) {
+
+          ext1 = intype1.scalarIsSigned() ? builder.CreateAShr(ext1, shift_right1)
+                                          : builder.CreateLShr(ext1, shift_right1);
+          new_frac1 = new_frac1 - shift_right1;
+        }
+        if (shift_right2 > 0) {
+          ext2 = intype2.scalarIsSigned() ? builder.CreateAShr(ext2, shift_right2)
+                                          : builder.CreateLShr(ext2, shift_right2);
+          new_frac2 = new_frac2 - shift_right2;
+        }
+
+        auto new_frac = new_frac1 + new_frac2;
+
+
+        intype1.scalarFracBitsAmt() = new_frac1;
+        intype2.scalarFracBitsAmt() = new_frac2;
+
+        cpMetaData(ext1, val1);
+        updateFPTypeMetadata(ext1, intype1.scalarIsSigned(), intype1.scalarFracBitsAmt(), intype1.scalarBitsAmt());
+        cpMetaData(ext2, val2);
+        updateFPTypeMetadata(ext2, intype2.scalarIsSigned(), intype2.scalarFracBitsAmt(), intype2.scalarBitsAmt());
+        intermtype.scalarBitsAmt() = intype1.scalarBitsAmt();
+        intermtype.scalarFracBitsAmt() = new_frac;
+        fixop = builder.CreateMul(ext1, ext2);
+        updateConstTypeMetadata(fixop, 0U, intype1);
+        updateConstTypeMetadata(fixop, 1U, intype2);
+        cpMetaData(fixop, instr);
+        updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
+                             intermtype.scalarFracBitsAmt(),
+                             intermtype.scalarBitsAmt());
+
+
+        return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+
+      } else {
+
+
+        ext1 = intype1.scalarIsSigned() ? builder.CreateSExt(val1, dbfxt)
+                                        : builder.CreateZExt(val1, dbfxt);
+        ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
+                                        : builder.CreateZExt(val2, dbfxt);
+        fixop = builder.CreateMul(ext1, ext2);
+        cpMetaData(ext1, val1);
+        cpMetaData(ext2, val2);
+        cpMetaData(fixop, instr);
+        updateFPTypeMetadata(fixop, intermtype.scalarIsSigned(),
+                             intermtype.scalarFracBitsAmt(),
+                             intermtype.scalarBitsAmt());
+        updateConstTypeMetadata(fixop, 0U, intype1);
+        updateConstTypeMetadata(fixop, 1U, intype2);
+        return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+      }
+
     } else if (fixpt.isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
                                             instr, TypeMatchPolicy::ForceHint);
@@ -577,7 +743,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
                                             instr, TypeMatchPolicy::ForceHint);
       if (!val1 || !val2)
         return nullptr;
-      IRBuilder<> builder(instr);
+      IRBuilder<NoFolder> builder(instr);
       Value *fltop = builder.CreateFMul(val1, val2);
       return fltop;
     } else {
@@ -588,36 +754,63 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
     // TODO: fix by using HintOverRange when it is actually implemented
     FixedPointType intype1 = fixpt, intype2 = fixpt;
     if (fixpt.isFixedPoint()) {
-      Value *val1 =
-          translateOrMatchOperand(instr->getOperand(0), intype1, instr,
-                                  TypeMatchPolicy::RangeOverHintMaxFrac);
-      Value *val2 =
-          translateOrMatchOperand(instr->getOperand(1), intype2, instr,
-                                  TypeMatchPolicy::RangeOverHintMaxInt);
+      Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1, instr, TypeMatchPolicy::RangeOverHintMaxFrac);
+      Value *val2 = translateOrMatchOperand(instr->getOperand(1), intype2, instr, TypeMatchPolicy::RangeOverHintMaxInt);
       if (!val1 || !val2)
         return nullptr;
-      FixedPointType intermtype(
-          fixpt.scalarIsSigned(),
-          intype1.scalarFracBitsAmt() + intype2.scalarFracBitsAmt(),
-          intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
-      Type *dbfxt = intermtype.scalarToLLVMType(instr->getContext());
-      FixedPointType fixoptype(
-          fixpt.scalarIsSigned(), intype1.scalarFracBitsAmt(),
-          intype1.scalarBitsAmt() + intype2.scalarBitsAmt());
-      Value *ext1 = genConvertFixedToFixed(val1, intype1, intermtype, instr);
-      IRBuilder<> builder(instr);
-      Value *ext2 = intype2.scalarIsSigned() ? builder.CreateSExt(val2, dbfxt)
-                                             : builder.CreateZExt(val2, dbfxt);
+      LLVM_DEBUG(dbgs() << "fdiv val1 = " << *val1 << " type = " << intype1 << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv val2 = " << *val2 << " type = " << intype2 << "\n");
+
+      /* Compute types of the intermediates */
+      bool SignedRes = fixpt.scalarIsSigned();
+      unsigned Ext2Exp = std::max(0, intype2.scalarFracBitsAmt() - (SignedRes && !intype2.scalarIsSigned() ? 1 : 0));
+      unsigned Ext1Exp = fixpt.scalarFracBitsAmt() + Ext2Exp;
+      unsigned Size = std::max(intype1.scalarBitsAmt(), intype2.scalarBitsAmt());
+      if (Ext1Exp + intype1.scalarIntegerBitsAmt() > Size)
+        Size = intype1.scalarBitsAmt() + intype2.scalarBitsAmt();
+
+      if (Size > MaxTotalBitsConv) {
+        Ext1Exp = intype1.scalarFracBitsAmt();
+        Size = fixpt.scalarBitsAmt();
+        unsigned target = fixpt.scalarFracBitsAmt();
+
+        //  we want fixpt fixpt.scalarFracBitsAmt() = Ext1Exp - Ext2Exp        
+        if (Ext1Exp < Ext2Exp) {
+          Ext2Exp = Ext1Exp;
+        }
+        if (Ext1Exp - Ext2Exp < target){
+           int diff = fixpt.scalarFracBitsAmt() - (int)target;
+           Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
+        }
+
+      }
+
+      /* Extend first operand */
+      FixedPointType ext1type(SignedRes, Ext1Exp, Size);
+      Value *ext1 = genConvertFixedToFixed(val1, intype1, ext1type, instr);
+
+      /* Extend second operand */
+      FixedPointType ext2type(SignedRes, Ext2Exp, Size);
+      Value *ext2 = genConvertFixedToFixed(val2, intype2, ext2type, instr);
+
+      /* Generate division */
+      FixedPointType fixoptype(SignedRes, Ext1Exp - Ext2Exp, Size);
+      IRBuilder<NoFolder> builder(instr);
       Value *fixop = fixpt.scalarIsSigned() ? builder.CreateSDiv(ext1, ext2)
                                             : builder.CreateUDiv(ext1, ext2);
+
+      LLVM_DEBUG(dbgs() << "fdiv ext1 = " << *ext1 << " type = " << ext1type << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv ext2 = " << *ext2 << " type = " << ext2type << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv fixop = " << *fixop << "type = " << fixoptype << "\n");
+
       cpMetaData(ext1, val1);
       cpMetaData(ext2, val2);
       cpMetaData(fixop, instr);
       updateFPTypeMetadata(fixop, fixoptype.scalarIsSigned(),
                            fixoptype.scalarFracBitsAmt(),
                            fixoptype.scalarBitsAmt());
-      updateConstTypeMetadata(fixop, 0U, intermtype);
-      updateConstTypeMetadata(fixop, 1U, intype2);
+      updateConstTypeMetadata(fixop, 0U, ext1type);
+      updateConstTypeMetadata(fixop, 1U, ext2type);
       return genConvertFixedToFixed(fixop, fixoptype, fixpt, instr);
     } else if (fixpt.isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
@@ -626,7 +819,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
                                             instr, TypeMatchPolicy::ForceHint);
       if (!val1 || !val2)
         return nullptr;
-      IRBuilder<> builder(instr);
+      IRBuilder<NoFolder> builder(instr);
       Value *fltop = builder.CreateFDiv(val1, val2);
       return fltop;
     } else {
@@ -636,6 +829,8 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
   }
   return Unsupported;
 }
+
+
 Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
 {
   Value *op1 = fcmp->getOperand(0);
@@ -672,7 +867,7 @@ Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
         std::max(intpart1, intpart2) + cmptype.scalarFracBitsAmt();
     Value *val1 = translateOrMatchOperandAndType(op1, cmptype, fcmp);
     Value *val2 = translateOrMatchOperandAndType(op2, cmptype, fcmp);
-    IRBuilder<> builder(fcmp->getNextNode());
+    IRBuilder<NoFolder> builder(fcmp->getNextNode());
     CmpInst::Predicate ty;
     int pr = fcmp->getPredicate();
     bool swapped = false;
@@ -740,7 +935,7 @@ Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
     }
     Value *val1 = translateOrMatchOperandAndType(op1, cmptype, fcmp);
     Value *val2 = translateOrMatchOperandAndType(op2, cmptype, fcmp);
-    IRBuilder<> builder(fcmp->getNextNode());
+    IRBuilder<NoFolder> builder(fcmp->getNextNode());
     return builder.CreateFCmp(fcmp->getPredicate(), // original predicate
                               val1, val2);
   }
@@ -754,7 +949,7 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
    * - [Trunc,ZExt,SExt] are handled as a fallback case, not here
    * - [PtrToInt,IntToPtr,BitCast,AddrSpaceCast] might cause errors */
 
-  IRBuilder<> builder(cast->getNextNode());
+  IRBuilder<NoFolder> builder(cast->getNextNode());
   Value *operand = cast->getOperand(0);
   if (valueInfo(cast)->noTypeConversion)
     return Unsupported;
@@ -792,6 +987,8 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
   }
   return Unsupported;
 }
+
+
 Value *FloatToFixed::fallback(Instruction *unsupp, FixedPointType &fixpt)
 {
   Value *fallval;

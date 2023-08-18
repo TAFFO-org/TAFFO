@@ -1,0 +1,12 @@
+---
+"a" : { Class: 0, SWidth: 32, PointPos: 22 }
+"alpha" : { Class: 0, SWidth: 32, PointPos: 30 }
+"beta" : { Class: 0, SWidth: 32, PointPos: 30 }
+"u1" : { Class: 0, SWidth: 32, PointPos: 19 }
+"u2" : { Class: 0, SWidth: 32, PointPos: 30 }
+"v1" : { Class: 0, SWidth: 32, PointPos: 30 }
+"v2" : { Class: 0, SWidth: 32, PointPos: 30 }
+"w" : { Class: 0, SWidth: 32, PointPos: 16 }
+"x" : { Class: 0, SWidth: 32, PointPos: 24 }
+"y" : { Class: 0, SWidth: 32, PointPos: 24 }
+"z" : { Class: 0, SWidth: 32, PointPos: 30 }

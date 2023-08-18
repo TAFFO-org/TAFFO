@@ -1,15 +1,10 @@
 #ifndef __TAFFO_DTA_OPTIMIZER_H__
 #define __TAFFO_DTA_OPTIMIZER_H__
 
-#include "CPUCosts.h"
-#include "InputInfo.h"
-#include "Metadata.h"
-#include "Model.h"
-#include "OptimizerInfo.h"
-#include "TaffoDTA.h"
-#include "TypeUtils.h"
-#include "PhiWatcher.h"
-#include "MemWatcher.h"
+#include <fstream>
+#include <set>
+#include <stack>
+#include <unordered_map>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -19,10 +14,17 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include <fstream>
-#include <set>
-#include <stack>
-#include <unordered_map>
+#include "CPUCosts.h"
+#include "InputInfo.h"
+#include "Metadata.h"
+#include "Model.h"
+#include "OptimizerInfo.h"
+#include "TaffoDTA.h"
+#include "TypeUtils.h"
+#include "PhiWatcher.h"
+#include "MemWatcher.h"
+
+#define DEBUG_TYPE "taffo-dta"
 
 extern bool hasDouble;
 extern bool hasHalf;
@@ -31,16 +33,12 @@ extern bool hasPPC128;
 extern bool hasFP80;
 extern bool hasBF16;
 
-
-// FIXME: I_COST should absolutely not be constant
-
-#define I_COST 1
-
 // This means how much the casting cost will be relevant for the computation
 extern llvm::cl::opt<double> MixedTuningTime;
 extern llvm::cl::opt<double> MixedTuningENOB;
 extern llvm::cl::opt<double> MixedTuningCastingTime;
 extern llvm::cl::opt<bool> MixedDoubleEnabled;
+extern llvm::cl::opt<bool> MixedTripCount;
 #define TUNING_CASTING (MixedTuningCastingTime)
 #define TUNING_MATH (MixedTuningTime)
 #define TUNING_ENOB (MixedTuningENOB)
@@ -97,13 +95,16 @@ public:
   int StatSelectedFP80 = 0;
   int StatSelectedBF16 = 0;
 
-
   /*
   bool hasHalf;
   bool hasQuad;
   bool hasFP80 ;
   bool hasPPC128;
   bool hasBF16;*/
+
+private:
+  Instruction *currentInstruction;
+  unsigned int currentInstructionTripCount = 1;
 
 public:
   void handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo);
@@ -126,6 +127,8 @@ public:
 public:
   void handleInstruction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo);
 
+  /** Returns the cost of the instruction currently being processed by handleInstruction. */
+  int getCurrentInstructionCost();
 
   void emitError(const string &stringhina);
 
@@ -136,7 +139,6 @@ public:
   handleBinaryInstruction(Instruction *instr, const unsigned int OpCode, const shared_ptr<ValueInfo> &valueInfos);
   void handleUnaryInstruction(Instruction *instr, const shared_ptr<ValueInfo> &valueInfos);
 
-
   void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1, shared_ptr<OptimizerScalarInfo> op2,
                                     bool forceFixBitsConstraint);
 
@@ -145,9 +147,8 @@ public:
 
   bool valueHasInfo(Value *value);
 
-
-  void
-  processFunction(Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
+  list<shared_ptr<OptimizerInfo>> fetchFunctionCallArgumentInfo(const CallBase *call_i);
+  void processFunction(Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
 
   void handleTerminators(Instruction *term, shared_ptr<ValueInfo> valueInfo);
 
@@ -171,5 +172,6 @@ public:
 
 } // namespace tuner
 
+#undef DEBUG_TYPE
 
 #endif

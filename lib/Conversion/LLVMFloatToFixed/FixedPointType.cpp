@@ -18,6 +18,8 @@ using namespace flttofix;
 using namespace mdutils;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-conversion"
+
 
 FixedPointType::FixedPointType()
 {
@@ -122,7 +124,7 @@ FixedPointType FixedPointType::get(MDInfo *mdnfo, int *enableConversion)
     }
     return FixedPointType(elems);
   }
-  assert("unknown type of MDInfo");
+  assert(0 && "unknown type of MDInfo");
   return FixedPointType();
 }
 
@@ -182,7 +184,7 @@ std::string FixedPointType::toString() const
     stm << scalarData.toString();
   } else {
     stm << '<';
-    for (int i = 0; i < structData->size(); i++) {
+    for (size_t i = 0; i < structData->size(); i++) {
       stm << (*structData)[i].toString();
       if (i != structData->size() - 1)
         stm << ',';
@@ -212,7 +214,7 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, const iterator_ran
       resolvedType = resolvedType->getStructElementType(n);
       tempFixpt = tempFixpt.structItem(n);
     } else {
-      assert("unsupported type in GEP");
+      assert(0 && "unsupported type in GEP");
     }
   }
   return tempFixpt;
@@ -234,10 +236,58 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned>
       resolvedType = resolvedType->getStructElementType(n);
       tempFixpt = tempFixpt.structItem(n);
     } else {
-      assert("unsupported type in GEP");
+      assert(0 && "unsupported type in GEP");
     }
   }
   return tempFixpt;
+}
+
+
+Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const
+{
+  // this == baset
+  if (srct->isPointerTy()) {
+    Type *enc = toLLVMType(srct->getPointerElementType(), hasfloats);
+    if (enc)
+      return enc->getPointerTo(srct->getPointerAddressSpace());
+    return nullptr;
+
+  } else if (srct->isArrayTy()) {
+    int nel = srct->getArrayNumElements();
+    Type *enc = toLLVMType(srct->getArrayElementType(), hasfloats);
+    if (enc)
+      return ArrayType::get(enc, nel);
+    return nullptr;
+
+  } else if (srct->isStructTy()) {
+    SmallVector<Type *, 2> elems;
+    bool allinvalid = true;
+    for (unsigned i = 0; i < srct->getStructNumElements(); i++) {
+      const FixedPointType &fpelemt = structItem(i);
+      Type *baseelemt = srct->getStructElementType(i);
+      Type *newelemt;
+      if (!fpelemt.isInvalid()) {
+        allinvalid = false;
+        newelemt = fpelemt.toLLVMType(baseelemt, hasfloats);
+      } else {
+        newelemt = baseelemt;
+      }
+      elems.push_back(newelemt);
+    }
+    if (!allinvalid)
+      return StructType::get(srct->getContext(), elems, dyn_cast<StructType>(srct)->isPacked());
+    return srct;
+
+  } else if (srct->isFloatingPointTy()) {
+    if (hasfloats)
+      *hasfloats = true;
+    return scalarToLLVMType(srct->getContext());
+  }
+  
+  LLVM_DEBUG(dbgs() << "FixedPointType::toLLVMType given unexpected non-float type " << *srct << "\n");
+  if (hasfloats)
+    *hasfloats = false;
+  return srct;
 }
 
 
@@ -255,7 +305,7 @@ bool FixedPointType::operator==(const FixedPointType &rhs) const
   } else {
     if (structData->size() != rhs.structData->size())
       return false;
-    for (int i = 0; i < structData->size(); i++) {
+    for (size_t i = 0; i < structData->size(); i++) {
       if (!((*structData)[i] == (*rhs.structData)[i]))
         return false;
     }

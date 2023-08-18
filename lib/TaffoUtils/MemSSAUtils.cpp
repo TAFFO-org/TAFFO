@@ -29,7 +29,7 @@ void MemSSAUtils::findMemDefValue(Instruction *i, const MemoryDef *md)
 
   Instruction *mi = md->getMemoryInst();
   if (isa<CallInst>(mi) || isa<InvokeInst>(mi))
-    // The computed error should have been attached to the actual parameter.
+    // The computed value should be attached to the actual parameter
     findLOEValue(i);
   else
     Res.push_back(mi);

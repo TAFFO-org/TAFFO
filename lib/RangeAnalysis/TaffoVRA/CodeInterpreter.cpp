@@ -3,11 +3,13 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/Debug.h"
 #include <Metadata.h>
 #include <cassert>
 #include <deque>
 
+#define DEBUG_TYPE "taffo-vra"
 
 namespace taffo
 {
@@ -43,10 +45,11 @@ void CodeInterpreter::interpretFunction(llvm::Function *F,
     DEBUG_WITH_TYPE(GlobalStore->getLogger()->getDebugType(),
                     GlobalStore->getLogger()->logBasicBlock(BB));
     for (llvm::Instruction &I : *BB) {
-      if (CurAnalyzer->requiresInterpretation(&I))
+      if (CurAnalyzer->requiresInterpretation(&I)) {
         interpretCall(CurAnalyzer, &I);
-      else
+      } else {
         CurAnalyzer->analyzeInstruction(&I);
+      }
     }
 
     assert(Scopes.back().EvalCount[BB] > 0 && "Trying to evaluate block with 0 EvalCount.");
@@ -218,17 +221,64 @@ void CodeInterpreter::interpretCall(std::shared_ptr<CodeAnalyzer> CurAnalyzer,
 void CodeInterpreter::updateLoopInfo(llvm::Function *F)
 {
   assert(F);
-  LoopInfo = &Pass.getAnalysis<llvm::LoopInfoWrapperPass>(*F).getLoopInfo();
+  auto &FAM = getMAM().getResult<llvm::FunctionAnalysisManagerModuleProxy>(*F->getParent()).getManager();
+  LoopInfo = &(FAM.getResult<llvm::LoopAnalysis>(*F));
 }
 
 /// Get the latch condition instruction.
-static llvm::ICmpInst *getLatchCmpInst(llvm::BasicBlock *BB)
+static llvm::Value *getLatchConditionInst(llvm::BasicBlock *BB)
 {
   if (llvm::BranchInst *BI = llvm::dyn_cast_or_null<llvm::BranchInst>(BB->getTerminator()))
     if (BI->isConditional())
-      return llvm::dyn_cast<llvm::ICmpInst>(BI->getCondition());
+      return BI->getCondition();
 
   return nullptr;
+}
+
+static unsigned retrieveOMPExternalCallBoundaryTripCount(llvm::Function *F, llvm::Loop *L)
+{
+  auto branch = L->getLoopLatch();
+  // Get the true latch because the default is not correct
+  llvm::Value *cmpvalue = getLatchConditionInst(branch);
+  while (cmpvalue == nullptr) {
+    llvm::dbgs() << "branch = " << *branch << "\n";
+    auto end_block = llvm::dyn_cast_or_null<llvm::BranchInst>(branch->getTerminator());
+    if (end_block == nullptr) {
+      // block terminated by something that is not a branch (e.g. invoke), bail out
+      return 0;
+    }
+    branch = end_block->getSuccessor(0);
+    cmpvalue = getLatchConditionInst(branch);
+  }
+
+  // loop condition should always be an ICmpInst
+  llvm::ICmpInst *cmpinst = llvm::dyn_cast<llvm::ICmpInst>(cmpvalue);
+  if (cmpinst == nullptr)
+    return 0;
+
+  auto second_operand = cmpinst->getOperand(1);
+  // The second operand of the comparison should always be a load
+  auto load = llvm::dyn_cast_or_null<llvm::LoadInst>(second_operand);
+  if (load == nullptr)
+    return 0;
+
+  for (auto i = load->getOperand(0)->use_begin(); i != load->getOperand(0)->use_end(); i++) {
+    // Search if it is used in one of the omp static init
+    if (auto call = llvm::dyn_cast_or_null<llvm::CallInst>(i->getUser())) {
+      if (call->getCalledFunction()->getName().find("__kmpc_for_static_init") == 0) {
+        // If it is a omp loop search the constant value loaded in the ub
+        for (auto s = load->getOperand(0)->use_begin(); s != load->getOperand(0)->use_end(); s++) {
+          if (auto store = llvm::dyn_cast_or_null<llvm::StoreInst>(s->getUser())) {
+            LLVM_DEBUG(store->dump());
+            if (auto constant_value = llvm::dyn_cast_or_null<llvm::ConstantInt>(store->getOperand(0))) {
+              return constant_value->getSExtValue() + 1;
+            }
+          }
+        }
+      }
+    }
+  }
+  return 0;
 }
 
 void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
@@ -246,50 +296,15 @@ void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
           TripCount = OUC.getValue();
         } else {
           // Compute loop trip count
-          if (!SE)
-            SE = &Pass.getAnalysis<llvm::ScalarEvolutionWrapperPass>(*F).getSE();
-          TripCount = SE->getSmallConstantTripCount(L);
-          // Handle OMP load of boundary with external call
-          if (TripCount == 0) {
-            auto branch = L->getLoopLatch();
-            // Get the true latch beacouse the default is not correct
-            while (getLatchCmpInst(branch) == nullptr) {
-              auto end_block = llvm::dyn_cast_or_null<llvm::BranchInst>(
-                  branch->getTerminator());
-              branch = end_block->getSuccessor(0);
-            }
-
-            auto cmpinst = getLatchCmpInst(branch);
-            auto second_operand = cmpinst->getOperand(1);
-            // The second operand of the comparison is always a load
-            if (auto load =
-                    llvm::dyn_cast_or_null<llvm::LoadInst>(second_operand)) {
-
-              for (auto i = load->getOperand(0)->use_begin();
-                   i != load->getOperand(0)->use_end(); i++) {
-                // Search if it is used in one of the omp static init
-                if (auto call =
-                        llvm::dyn_cast_or_null<llvm::CallInst>(i->getUser())) {
-                  if (call->getCalledFunction()->getName().find(
-                          "__kmpc_for_static_init") == 0) {
-                    // If it is a omp loop search the constant value loaded in the ub
-                    for (auto s = load->getOperand(0)->use_begin();
-                         s != load->getOperand(0)->use_end(); s++) {
-                      if (auto store = llvm::dyn_cast_or_null<llvm::StoreInst>(
-                              s->getUser())) {
-                        store->dump();
-                        if (auto constant_value =
-                                llvm::dyn_cast_or_null<llvm::ConstantInt>(
-                                    store->getOperand(0))) {
-                          TripCount = constant_value->getSExtValue() + 1;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          if (!SE) {
+            auto &FAM = getMAM().getResult<llvm::FunctionAnalysisManagerModuleProxy>(*F->getParent()).getManager();
+            SE = &(FAM.getResult<llvm::ScalarEvolutionAnalysis>(*F));
           }
+          TripCount = SE->getSmallConstantTripCount(L);
+
+          // Handle OMP load of boundary with external call
+          if (TripCount == 0)
+            TripCount = retrieveOMPExternalCallBoundaryTripCount(F, L);
         }
         TripCount = (TripCount > 0U) ? TripCount : DefaultTripCount;
         LoopTripCount[Latch] = (TripCount > MaxTripCount) ? MaxTripCount : TripCount;
@@ -319,12 +334,5 @@ bool CodeInterpreter::updateRecursionCount(llvm::Function *F)
   }
   return false;
 }
-
-void CodeInterpreter::getAnalysisUsage(llvm::AnalysisUsage &AU)
-{
-  AU.addRequiredTransitive<llvm::LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<llvm::ScalarEvolutionWrapperPass>();
-}
-
 
 } // end namespace taffo

@@ -8,11 +8,12 @@
 using namespace std;
 using namespace mdutils;
 
+#define DEBUG_TYPE "taffo-dta"
 
 shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<mdutils::FPType> fpInfo, shared_ptr<mdutils::Range> rangeInfo, shared_ptr<double> suggestedMinError,
                                                                                bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
 {
-  assert(!valueHasInfo(value) && "The value considered already have an info!");
+  assert(!valueHasInfo(value) && "The value considered already has optimizer info!");
 
   assert(fpInfo && "fpInfo should not be nullptr here!");
   assert(rangeInfo && "rangeInfo should not be nullptr here!");
@@ -361,8 +362,8 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
 
   // Casting costs
   // Is correct to only place here the maxCastCost, as only one cast will be active at a time
-  model.insertObjectiveElement(make_pair(C1, I_COST * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, maxCastCost);
-  model.insertObjectiveElement(make_pair(C2, I_COST * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, 0);
+  model.insertObjectiveElement(make_pair(C1, opt->getCurrentInstructionCost() * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, maxCastCost);
+  model.insertObjectiveElement(make_pair(C2, opt->getCurrentInstructionCost() * cpuCosts.getCost(tuner::CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, 0);
 
   // TYPE CAST
   auto costcrosslambda = [&](std::string &variable, tuner::CPUCosts::CostsId cost, const string (tuner::OptimizerScalarInfo::*getFirstVariable)(), const string (tuner::OptimizerScalarInfo::*getSecondVariable)(), const std::string &desc) mutable {
@@ -371,7 +372,7 @@ shared_ptr<tuner::OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCo
     constraint.push_back(make_pair(((*optimizerInfo).*getSecondVariable)(), 1.0));
     constraint.push_back(make_pair(variable, -1));
     model.insertLinearConstraint(constraint, tuner::Model::LE, 1 /*, desc*/);
-    model.insertObjectiveElement(make_pair(variable, I_COST * cpuCosts.getCost(cost)), MODEL_OBJ_CASTCOST, 0);
+    model.insertObjectiveElement(make_pair(variable, opt->getCurrentInstructionCost() * cpuCosts.getCost(cost)), MODEL_OBJ_CASTCOST, 0);
   };
 
   int counter2 = 3;
@@ -601,7 +602,7 @@ void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
 
   string enob_var;
 
-  MemorySSA &memssa = getTuner()->getAnalysis<llvm::MemorySSAWrapperPass>(*load->getFunction()).getMSSA();
+  MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<llvm::MemorySSAAnalysis>(*load->getFunction()).getMSSA();
   taffo::MemSSAUtils memssa_utils(memssa);
   SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
   def_vals.push_back(load->getPointerOperand());

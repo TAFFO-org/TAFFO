@@ -1,2 +1,2 @@
 Peak average: 2.000000
-Global average: 1.995651
+Global average: 1.995630

@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 
-namespace {
+namespace
+{
 
-  TEST(SanityCheckTest, ShouldBeOne) {
-    EXPECT_EQ(1, 1);
-  }
+TEST(SanityCheckTest, ShouldBeOne)
+{
+  EXPECT_EQ(1, 1);
+}
 
-};
+}; // namespace

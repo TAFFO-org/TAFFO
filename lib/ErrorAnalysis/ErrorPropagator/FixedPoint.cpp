@@ -14,9 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include <cmath>
-
 #include "FixedPoint.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/ADT/StringExtras.h"
+
+#define DEBUG_TYPE "errorprop"
 
 namespace ErrorProp
 {
@@ -301,8 +303,13 @@ FPInterval FixedPointGeneric::getInterval() const
 {
   inter_t Exp = std::ldexp(static_cast<inter_t>(1.0), -this->getPointPos());
   // crappy workaround for a bug in APInt::roundToDouble for signed values with > 64 bits
+  #if (LLVM_VERSION_MAJOR >= 13)
+  std::string minstr = llvm::toString(Min, 10, this->isSigned());
+  std::string maxstr = llvm::toString(Max, 10, this->isSigned());
+  #else
   std::string minstr = Min.toString(10, this->isSigned());
   std::string maxstr = Max.toString(10, this->isSigned());
+  #endif
   return FPInterval(Interval<inter_t>(std::atof(minstr.c_str()) * Exp, std::atof(maxstr.c_str()) * Exp));
 }
 

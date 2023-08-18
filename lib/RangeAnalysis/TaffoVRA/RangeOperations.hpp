@@ -8,6 +8,8 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
@@ -113,5 +115,6 @@ RangeNodePtrT fillRangeHoles(const RangeNodePtrT src, const RangeNodePtrT dst);
 
 } // namespace taffo
 
+#undef DEBUG_TYPE
 
 #endif /* end of include guard: TAFFO_RANGE_OPERATIONS_HPP */

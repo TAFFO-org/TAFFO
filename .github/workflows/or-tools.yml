@@ -1,0 +1,58 @@
+name: or-tool build
+
+on:
+  workflow_call:
+  
+jobs:
+  or-tool:
+    name: OR Tool
+    runs-on: ubuntu-latest
+    
+    
+    steps:
+      - name: or-tools
+        uses: actions/cache@v3.2.0-beta.1
+        id: or-cache
+        with:
+          # A list of files, directories, and wildcard patterns to cache and restore
+          path: "/home/runner/ortools"
+          # An explicit key for restoring and saving the cache
+          key: "ortools"
+          restore-keys: "ortools"
+       
+       
+      - name: Checkout or-tool
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+         repository: google/or-tools
+         ref: v9.6
+
+
+      - name: Install Ninja
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build
+      - name: Check cmake
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        run: cmake --version
+      - name: Configure
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        run: cmake -S. -Bbuild -G "Ninja" -DCMAKE_BUILD_TYPE="Release" -DBUILD_DEPS=ON -DCMAKE_INSTALL_PREFIX="$HOME/ortools"
+      - name: Build
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        run: cmake --build build --config "Release" --target all -v
+      - name: Install
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        run: cmake --build build --config "Release" --target install -v 
+      - name: Cache
+        if: steps.or-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v3.2.0-beta.1
+        with:
+          # A list of files, directories, and wildcard patterns to cache and restore
+          path: "/home/runner/ortools"
+            # An explicit key for restoring and saving the cache
+          key: "ortools"
+
+      

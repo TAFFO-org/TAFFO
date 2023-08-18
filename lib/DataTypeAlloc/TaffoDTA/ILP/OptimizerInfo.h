@@ -4,12 +4,15 @@
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "TaffoDTA.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+
+#define DEBUG_TYPE "taffo-dta"
 
 namespace tuner
 {
@@ -24,7 +27,6 @@ public:
   };
 
   OptimizerInfo(OptimizerInfoKind K) : Kind(K) {}
-
 
   // virtual OptimizerInfo *clone() const = 0;
 
@@ -41,7 +43,6 @@ public:
   {
     return Kind == b.Kind;
   }
-
 
 private:
   const OptimizerInfoKind Kind;
@@ -348,5 +349,7 @@ public:
 };
 
 } // namespace tuner
+
+#undef DEBUG_TYPE
 
 #endif

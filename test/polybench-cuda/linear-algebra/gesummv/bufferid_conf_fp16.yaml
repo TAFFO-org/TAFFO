@@ -1,0 +1,8 @@
+---
+"a" : { Class: 1, FloatStandard: 0, GreatestNumber: 1 }
+"alpha" : { Class: 1, FloatStandard: 0, GreatestNumber: 43532 }
+"b" : { Class: 1, FloatStandard: 0, GreatestNumber: 1 }
+"beta" : { Class: 1, FloatStandard: 0, GreatestNumber: 43532 }
+"tmp" : { Class: 1, FloatStandard: 0, GreatestNumber: 2000 }
+"x" : { Class: 1, FloatStandard: 0, GreatestNumber: 1 }
+"y" : { Class: 1, FloatStandard: 1, GreatestNumber: 7.62005e+07 }

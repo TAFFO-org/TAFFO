@@ -9,6 +9,8 @@ using namespace llvm;
 using namespace taffo;
 using namespace mdutils;
 
+#define DEBUG_TYPE "taffo-init"
+
 
 void AnnotationParser::reset()
 {
@@ -25,7 +27,7 @@ bool AnnotationParser::parseAnnotationString(StringRef annstr)
   sstream = std::istringstream((annstr.substr(0, annstr.size())).str());
 
   bool res;
-  if (annstr.find('(') == StringRef::npos)
+  if (annstr.find('(') == StringRef::npos && !annstr.contains("struct"))
     res = parseOldSyntax();
   else
     res = parseNewSyntax();
@@ -120,8 +122,8 @@ bool AnnotationParser::parseNewSyntax()
         return false;
       target = tgt;
       startingPoint = true;
-    }
-    if (peek("errtarget")) {
+
+    } else if (peek("errtarget")) {
       std::string tgt;
       if (!expect("("))
         return false;
@@ -154,6 +156,16 @@ bool AnnotationParser::parseNewSyntax()
     } else if (peek("scalar")) {
       if (!parseScalar(metadata))
         return false;
+
+    } else if (peek("bufferid")) {
+      std::string bid;
+      if (!expect("("))
+        return false;
+      if (!expectString(bid))
+        return false;
+      if (!expect(")"))
+        return false;
+      bufferID = bid;
 
     } else {
       error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
@@ -210,6 +222,10 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo> &thisMd)
       }
       if (!expectInteger(total))
         return false;
+      if (total <= 0) {
+        error = "Fixed point data type must have a positive bit size";
+        return false;
+      }
       if (!expectInteger(frac))
         return false;
       if (!expect(")"))
@@ -357,12 +373,17 @@ bool AnnotationParser::expectInteger(int64_t &res)
     if (next == 'x') {
       base = 16;
       sstream >> next;
+      if (!isdigit(next))
+        return false;
     }
-  }
-  if (!isdigit(next))
+  } else if (!isdigit(next))
     return false;
   res = 0;
-  while (isdigit(next) || (base == 16 ? isxdigit(next) : false)) {
+  while (true) {
+    if (base <= 10 && (next < '0' || '0'+base-1 < next))
+      break;
+    else if (base == 16 && !isxdigit(next))
+      break;
     res *= base;
     if (next > '9')
       res += toupper(next) - 'A' + 10;

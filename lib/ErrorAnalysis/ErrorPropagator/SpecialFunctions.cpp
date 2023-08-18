@@ -1,5 +1,7 @@
 #include "Propagators.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 

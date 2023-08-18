@@ -26,8 +26,9 @@
 #include "llvm/IR/GlobalObject.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
 #include <memory>
-//#include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
+// #include "../PrecisionAnalysis/TaffoPRA/ErrorInfo.hpp"
 
 #define INPUT_INFO_METADATA "taffo.info"
 #define FUNCTION_ARGS_METADATA "taffo.funinfo"
@@ -45,11 +46,17 @@
 #define INDIRECT_METADATA "taffo.indirectFunction"
 #define OMP_DISABLED_METADATA "taffo.ompDisabled"
 
+#define INIT_OCL_TRAMPOLINE_METADATA "taffo.ocl.trampoline"
+
+#define CUDA_KERNEL_METADATA "nvvm.annotations"
+
 /* Integer which specifies the distance of the metadata from the
  * original annotation as data flow node counts.
  * Used by VRA to determine the metadata to use as a starting point. */
 #define INIT_WEIGHT_METADATA "taffo.initweight"
 
+#define INIT_BUFFER_ID_METADATA "taffo.bufferid"
+#define INIT_FUN_ARGS_BUFFER_ID_METADATA "taffo.args.bufferid"
 
 #define PRA_ERROR_METADATA "taffo.praerr"
 #define PRA_STRUCT_METADATA "taffo.prastruct"
@@ -127,6 +134,16 @@ public:
   static void retrieveInputInfoInitWeightMetadata(llvm::Function *f,
                                                   llvm::SmallVectorImpl<int> &ResWs);
 
+  static void setOpenCLCloneTrampolineMetadata(llvm::Function *F, llvm::Function *KernF);
+  static bool retrieveOpenCLCloneTrampolineMetadata(llvm::Function *f, llvm::Function **KernF);
+
+  static void setBufferIDMetadata(llvm::Value *V, std::string BufID);
+  static llvm::Optional<std::string> retrieveBufferIDMetadata(llvm::Value *V);
+
+  static void getCudaKernels(llvm::Module &M, llvm::SmallVectorImpl<llvm::Function *> &Fs);
+
+  static bool isCudaKernel(llvm::Module &M, llvm::Function* Fs);
+
   ///\section Error Propagation Metadata
 
   /// Attach MaxRecursionCount to the given function.
@@ -168,11 +185,18 @@ public:
   /// Get the computed comparison error info from metadata attached to I.
   static std::unique_ptr<CmpErrorInfo> retrieveCmpError(const llvm::Instruction &I);
 
-  /// Set this function as a starting point for error analysis.
+  /// Set this function as a starting point for analysis.
   static void setStartingPoint(llvm::Function &F);
 
-  /// Returns true if F has been marked as a starting point for error analysis.
+  /// Returns true if F has been marked as a starting point for analysis.
   static bool isStartingPoint(const llvm::Function &F);
+
+  /// Returns true if M contains at least one function F marked as a starting point
+  static bool hasStartingPoint(const llvm::Module &M);
+
+  /// Set main function as a starting point for analysis.
+  static void defaultStartingPoint(llvm::Module &M);
+
 
   /// Mark instruction/global variable I/V as a target with name `Name'.
   static void setTargetMetadata(llvm::Instruction &I, llvm::StringRef Name);

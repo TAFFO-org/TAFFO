@@ -20,7 +20,7 @@ using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
 
-#define defaultFixpType @SYNTAX_ERROR@
+#define DEBUG_TYPE "taffo-conversion"
 
 Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt,
                                         TypeMatchPolicy typepol)
@@ -51,7 +51,7 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
                                             FixedPointType &fixpt,
                                             TypeMatchPolicy typepol)
 {
-  if (cexp->isGEPWithNoNotionalOverIndexing()) {
+  if (isa<GEPOperator>(cexp)) {
     Value *newval = operandPool[cexp->getOperand(0)];
     if (!newval) {
       LLVM_DEBUG(dbgs() << "[Warning] Operand of constant GEP not found in operandPool!\n");
@@ -73,6 +73,9 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
 
     ArrayRef<Constant *> idxlist(vals);
     return ConstantExpr::getInBoundsGetElementPtr(nullptr, newconst, idxlist);
+
+  } else {
+    LLVM_DEBUG(dbgs() << "constant expression " << *cexp << " is not handled explicitly yet\n");
   }
   return nullptr;
 }
@@ -121,14 +124,14 @@ FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, FixedPointType &f
     consts.push_back(newconst);
   }
 
-  if (ConstantArray *array = dyn_cast<ConstantArray>(cag)) {
+  if (isa<ConstantArray>(cag)) {
     ArrayType *aty = ArrayType::get(consts[0]->getType(), consts.size());
     return ConstantArray::get(aty, consts);
 
-  } else if (ConstantVector *vector = dyn_cast<ConstantVector>(cag)) {
+  } else if (isa<ConstantVector>(cag)) {
     return ConstantVector::get(consts);
 
-  } else if (ConstantStruct *strt = dyn_cast<ConstantStruct>(cag)) {
+  } else if (isa<ConstantStruct>(cag)) {
     std::vector<Type *> types;
     types.reserve(consts.size());
     for (Constant *c : consts) {

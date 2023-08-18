@@ -1,4 +1,4 @@
-///TAFFO_TEST_ARGS -Xinit -mem2reg
+///TAFFO_TEST_ARGS
 #include <stdio.h>
 
 float test(float a)

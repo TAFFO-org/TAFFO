@@ -1,4 +1,3 @@
-#include "CallSiteVersions.h"
 #include "InputInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
@@ -11,8 +10,26 @@
 namespace taffo
 {
 
+/** Same as llvm::Type::isFloatingPointTy() but considers the pointer
+ *  element type in case of pointers/arrays/pointers to pointers/arrays of
+ *  arrays.
+ *  @param scrt Source type
+ *  @returns True if the pointer element type is one of the possible
+ *           floating point types. */
 bool isFloatType(llvm::Type *srct);
+
+/** Finds the pointer element type of pointers to pointers and 
+ *  of arrays of arrays.
+ *  @param scrt Source type
+ *  @returns The pointer element type. */
 llvm::Type *fullyUnwrapPointerOrArrayType(llvm::Type *srct);
+
+/** Checks if a value with the given LLVM type can have the specified InputInfo
+ *  metadata attached or not.
+ *  @param T An LLVM type.
+ *  @param II A TAFFO InputInfo object
+ *  @returns true if the two types are compatible, false otherwise. */
+bool typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II);
 
 enum class FixedPointTypeGenError {
   NoError = 0,

@@ -1,6 +1,8 @@
 #include "Propagators.h"
 
-#include "MemSSAUtils.h"
+#include "MemSSAUtils.hpp"
+
+#define DEBUG_TYPE "errorprop"
 
 namespace ErrorProp
 {
@@ -108,7 +110,7 @@ void InstructionPropagator::
   assert(Pointer != nullptr);
   assert(NewRE != nullptr);
 
-  Pointer = MemSSAUtils::getOriginPointer(MemSSA, Pointer);
+  Pointer = taffo::MemSSAUtils::getOriginPointer(MemSSA, Pointer);
   if (Pointer != nullptr) {
     auto *PointerRE = RMap.getRangeError(Pointer);
     if (PointerRE == nullptr || !PointerRE->second.hasValue() || PointerRE->second->noiseTermsAbsSum() < NewRE->second->noiseTermsAbsSum()) {

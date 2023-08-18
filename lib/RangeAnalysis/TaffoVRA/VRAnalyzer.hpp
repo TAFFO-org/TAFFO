@@ -7,15 +7,16 @@
 #include "VRALogger.hpp"
 #include "VRAStore.hpp"
 
+#define DEBUG_TYPE "taffo-vra"
+
 namespace taffo
 {
 
 class VRAnalyzer : protected VRAStore, public CodeAnalyzer
 {
 public:
-  VRAnalyzer(CodeInterpreter &CI)
-      : VRAStore(VRASK_VRAnalyzer,
-                 std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger())),
+  VRAnalyzer(std::shared_ptr<VRALogger> VRAL, CodeInterpreter& CI)
+      : VRAStore(VRASK_VRAnalyzer, VRAL),
         CodeAnalyzer(ASK_VRAnalyzer),
         CodeInt(CI) {}
 
@@ -50,6 +51,16 @@ public:
     return VS->getKind() == VRASK_VRAnalyzer;
   }
 
+#ifdef UNITTESTS
+public:
+  NodePtrT getNode(const llvm::Value *v) override;
+  void setNode(const llvm::Value *V, NodePtrT Node) override;
+#else
+private:
+  NodePtrT getNode(const llvm::Value *v) override;
+  void setNode(const llvm::Value *V, NodePtrT Node) override;
+#endif
+
 private:
   // Instruction Handlers
   void handleSpecialCall(const llvm::Instruction *I);
@@ -57,6 +68,8 @@ private:
   bool isMallocLike(const llvm::Function *F) const;
   bool isCallocLike(const llvm::Function *F) const;
   void handleMallocCall(const llvm::CallBase *CB);
+  bool detectAndHandleLibOMPCall(const llvm::CallBase *CB);
+
   void handleReturn(const llvm::Instruction *ret);
 
   void handleAllocaInstr(const llvm::Instruction *I);
@@ -73,8 +86,7 @@ private:
   using VRAStore::fetchRange;
   const range_ptr_t fetchRange(const llvm::Value *V) override;
   const RangeNodePtrT fetchRangeNode(const llvm::Value *V) override;
-  NodePtrT getNode(const llvm::Value *v) override;
-  void setNode(const llvm::Value *V, NodePtrT Node) override;
+
 
   // Interface with CodeInterpreter
   std::shared_ptr<VRAGlobalStore> getGlobalStore() const
@@ -110,5 +122,7 @@ private:
 };
 
 } // end namespace taffo
+
+#undef DEBUG_TYPE
 
 #endif

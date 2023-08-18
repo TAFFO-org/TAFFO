@@ -1,11 +1,13 @@
 #include "VRAGlobalStore.hpp"
-
 #include "RangeOperations.hpp"
 #include "VRAnalyzer.hpp"
-#include <TypeUtils.h>
+#include "TypeUtils.h"
+#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 using namespace taffo;
+
+#define DEBUG_TYPE "taffo-vra"
 
 void VRAGlobalStore::convexMerge(const AnalysisStore &Other)
 {
@@ -22,13 +24,13 @@ void VRAGlobalStore::convexMerge(const AnalysisStore &Other)
 std::shared_ptr<CodeAnalyzer>
 VRAGlobalStore::newCodeAnalyzer(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAnalyzer>(CI);
+  return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI);
 }
 
 std::shared_ptr<AnalysisStore>
 VRAGlobalStore::newFunctionStore(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAFunctionStore>(CI);
+  return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -287,7 +289,7 @@ VRAGlobalStore::toMDInfo(const RangeNodePtrT r)
                  std::dynamic_ptr_cast<VRAStructNode>(r)) {
     SmallVector<std::shared_ptr<mdutils::MDInfo>, 4U> fields;
     fields.reserve(structr->fields().size());
-    for (const NodePtrT f : structr->fields()) {
+    for (const NodePtrT& f : structr->fields()) {
       fields.push_back(toMDInfo(fetchRange(f)));
     }
     return std::make_shared<StructInfo>(fields);
@@ -447,15 +449,15 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     const num_t k = static_cast<num_t>(tmp.convertToDouble());
     return std::make_shared<VRAScalarNode>(make_range(k, k));
   }
-  if (const llvm::ConstantTokenNone *none_i = dyn_cast<llvm::ConstantTokenNone>(kval)) {
+  if (isa<llvm::ConstantTokenNone>(kval)) {
     LLVM_DEBUG(Logger->logInfo("Warning: treating llvm::ConstantTokenNone as 0"));
     return std::make_shared<VRAScalarNode>(make_range(0, 0));
   }
-  if (const llvm::ConstantPointerNull *null_i = dyn_cast<llvm::ConstantPointerNull>(kval)) {
+  if (isa<llvm::ConstantPointerNull>(kval)) {
     LLVM_DEBUG(Logger->logInfo("Warning: found llvm::ConstantPointerNull"));
     return std::make_shared<VRAPtrNode>();
   }
-  if (const llvm::UndefValue *undef_i = dyn_cast<llvm::UndefValue>(kval)) {
+  if (isa<llvm::UndefValue>(kval)) {
     LLVM_DEBUG(Logger->logInfo("Warning: treating llvm::UndefValue as nullptr"));
     return nullptr;
   }
@@ -463,7 +465,7 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     llvm::Type *zero_type = agg_zero_i->getType();
     if (llvm::dyn_cast<llvm::StructType>(zero_type)) {
       llvm::SmallVector<NodePtrT, 1U> Fields;
-      const unsigned num_elements = agg_zero_i->getNumElements();
+      const unsigned num_elements = agg_zero_i->getElementCount().getFixedValue();
       Fields.reserve(num_elements);
       for (unsigned i = 0; i < num_elements; i++) {
         Fields.push_back(fetchConstant(agg_zero_i->getElementValue(i)));
@@ -492,16 +494,16 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     }
     return std::make_shared<VRAScalarNode>(seq_range);
   }
-  if (const llvm::ConstantData *data = dyn_cast<llvm::ConstantData>(kval)) {
+  if (isa<llvm::ConstantData>(kval)) {
     // FIXME should never happen -- all subcases handled before
     LLVM_DEBUG(Logger->logInfo("Extract value from llvm::ConstantData not implemented yet"));
     return nullptr;
   }
   if (const llvm::ConstantExpr *cexp_i = dyn_cast<llvm::ConstantExpr>(kval)) {
-    if (cexp_i->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(cexp_i)) {
       llvm::Value *pointer_op = cexp_i->getOperand(0U);
       llvm::Type *source_element_type =
-          llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getElementType();
+          llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getPointerElementType();
       llvm::SmallVector<unsigned, 1U> offset;
       if (extractGEPOffset(source_element_type,
                            llvm::iterator_range<llvm::User::const_op_iterator>(cexp_i->op_begin() + 1,
@@ -530,11 +532,11 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
     }
     return nullptr;
   }
-  if (const llvm::BlockAddress *block_i = dyn_cast<llvm::BlockAddress>(kval)) {
+  if (isa<llvm::BlockAddress>(kval)) {
     LLVM_DEBUG(Logger->logInfo("Could not fetch range from llvm::BlockAddress"));
     return nullptr;
   }
-  if (const llvm::GlobalValue *gv_i = dyn_cast<llvm::GlobalValue>(kval)) {
+  if (isa<llvm::GlobalValue>(kval)) {
     if (const llvm::GlobalVariable *gvar_i = dyn_cast<llvm::GlobalVariable>(kval)) {
       if (gvar_i->hasInitializer()) {
         const llvm::Constant *init_val = gvar_i->getInitializer();
@@ -550,11 +552,11 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
       const llvm::Constant *aliasee = alias_i->getAliasee();
       return (aliasee) ? fetchConstant(aliasee) : nullptr;
     }
-    if (const llvm::Function *f = dyn_cast<llvm::Function>(kval)) {
+    if (isa<llvm::Function>(kval)) {
       LLVM_DEBUG(Logger->logInfo("Could not derive range from a Constant Function"));
       return nullptr;
     }
-    if (const llvm::GlobalIFunc *fun_decl = dyn_cast<llvm::GlobalIFunc>(kval)) {
+    if (isa<llvm::GlobalIFunc>(kval)) {
       LLVM_DEBUG(Logger->logInfo("Could not derive range from a Function declaration"));
       return nullptr;
     }

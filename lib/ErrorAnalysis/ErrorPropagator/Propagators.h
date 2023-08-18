@@ -20,6 +20,8 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/IR/Instruction.h"
 
+#define DEBUG_TYPE "errorprop"
+
 namespace ErrorProp
 {
 
@@ -139,5 +141,7 @@ public:
 };
 
 } // end of namespace ErrorProp
+
+#undef DEBUG_TYPE // "errorprop"
 
 #endif

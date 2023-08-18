@@ -18,6 +18,8 @@ using namespace flttofix;
 using namespace mdutils;
 using namespace taffo;
 
+#define DEBUG_TYPE "taffo-conversion"
+
 
 void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &variables, bool functionAnnotation)
 {
@@ -99,10 +101,15 @@ void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res
 
 bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *raw, Value *instr)
 {
-  LLVM_DEBUG(dbgs() << "Collecting metadata for:";);
-  LLVM_DEBUG(instr->print(dbgs()););
-  LLVM_DEBUG(dbgs() << "\n";);
+  if (hasInfo(instr)) {
+    auto existing = valueInfo(instr);  
+    if (existing->isArgumentPlaceholder) {
+      LLVM_DEBUG(dbgs() << "Skipping MD collection for " << *instr << " because it's a placeholder and has fake metadata anyway\n");
+      return false;
+    }
+  }
 
+  LLVM_DEBUG(dbgs() << "Collecting metadata for: " << *instr << "\n");
 
   ValueInfo vi;
 
@@ -114,14 +121,21 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
     if (!fpInfo->IEnableConversion)
       return false;
     if (!instr->getType()->isVoidTy()) {
-      assert(!(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
-             "input info / actual type mismatch");
       TType *fpt = dyn_cast_or_null<TType>(fpInfo->IType.get());
       if (!fpt) {
-        LLVM_DEBUG(dbgs() << "Failed to get Metadata.\n");
-        return false;
+        LLVM_DEBUG(dbgs() << "Type in metadata is null! ");
+        if (isKnownConvertibleWithIncompleteMetadata(instr)) {
+          LLVM_DEBUG(dbgs() << "Since I like this instruction I'm going to give it the benefit of the doubt.\n");
+          vi.fixpType = FixedPointType();
+        } else {
+          LLVM_DEBUG(dbgs() << "Ignoring metadata for this instruction.\n");
+          return false;
+        }
+      } else {
+        assert(!(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
+          "input info / actual type mismatch");
+        vi.fixpType = FixedPointType(fpt);
       }
-      vi.fixpType = FixedPointType(fpt);
     } else {
       vi.fixpType = FixedPointType();
     }
