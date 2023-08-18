@@ -28,51 +28,44 @@ Value *PositBuilder::getAlloc(unsigned idx, const FixedPointType &target) {
 }
 
 Value *PositBuilder::CreateConstructor(Value *arg1, const FixedPointType *srcMetadata) {
+  if (srcMetadata && srcMetadata->isPosit()) {
+    return PositBuilder(pass, builder, *srcMetadata).CreateConv(arg1, llvmType, &metadata);
+  }
+
   const char* mangledName;
+  char nameBuf[256];
   Type* srcType = arg1->getType();
   const bool isSrcFixpt = srcMetadata && srcMetadata->isFixedPoint() && srcMetadata->scalarFracBitsAmt() > 0;
-  const bool isSrcPosit = srcMetadata && srcMetadata->isPosit();
 
   switch (metadata.scalarBitsAmt()) {
   case 32:
-    if (isSrcPosit) {
-      switch (srcMetadata->scalarBitsAmt()) {
-      case 16:
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1IsLi16ELi2EtLS0_1EEERKS_IT_XT0_EXT1_ET2_XT3_EE";
-        break;
-      case 8:
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1IaLi8ELi2EhLS0_1EEERKS_IT_XT0_EXT1_ET2_XT3_EE";
-        break;
-      default:
-        llvm_unreachable("Unsupported Posit to Posit size");
-      }
-    } else if (srcType->isFloatTy()) {
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ef";
+    if (srcType->isFloatTy()) {
+      mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEC1Ef";
     } else if (srcType->isDoubleTy()) {
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ed";
+      mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEC1Ed";
     } else if (srcType->isFloatingPointTy()) {
       arg1 = builder.CreateFPCast(arg1, Type::getDoubleTy(C));
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ed";
+      mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEC1Ed";
     } else if (srcType->isIntegerTy(64)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Eli";
-      else
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1El";
+      if (isSrcFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEElLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEC1El";
+      }
     } else if (srcType->isIntegerTy(32)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Eii";
-      else
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ei";
-    } else if (srcType->isIntegerTy(16)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Esi";
-      else
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Es";
-    } else if (srcType->isIntegerTy(8)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Eai";
-      else
-        mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1Ea";
+      if (isSrcFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEEiLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEC1Ei";
+      }
+    } else if (srcType->isIntegerTy(16) && isSrcFixpt) {
+      snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEEsLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+      mangledName = nameBuf;
+    } else if (srcType->isIntegerTy(8) && isSrcFixpt) {
+      snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEEaLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+      mangledName = nameBuf;
     } else if (srcType->isIntegerTy()) {
       assert(!isSrcFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit constructor from this integer size, passing through int64...");
@@ -80,50 +73,39 @@ Value *PositBuilder::CreateConstructor(Value *arg1, const FixedPointType *srcMet
         arg1 = builder.CreateSExtOrTrunc(arg1, Type::getInt64Ty(C));
       else
         arg1 = builder.CreateZExtOrTrunc(arg1, Type::getInt64Ty(C));
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEC1El";
+      mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEC1El";
     } else {
       llvm_unreachable("Unimplemented constructor from source type");
     }
     break;
   case 16:
-    if (isSrcPosit) {
-      switch (srcMetadata->scalarBitsAmt()) {
-      case 32:
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1IiLi32ELi2EjLS0_1EEERKS_IT_XT0_EXT1_ET2_XT3_EE";
-        break;
-      case 8:
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1IaLi8ELi2EhLS0_1EEERKS_IT_XT0_EXT1_ET2_XT3_EE";
-        break;
-      default:
-        llvm_unreachable("Unsupported Posit to Posit size");
-      }
-    } else if (srcType->isFloatTy()) {
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Ef";
+    if (srcType->isFloatTy()) {
+      mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEC1Ef";
     } else if (srcType->isDoubleTy()) {
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Ed";
+      mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEC1Ed";
     } else if (srcType->isFloatingPointTy()) {
       arg1 = builder.CreateFPCast(arg1, Type::getDoubleTy(C));
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Ed";
+      mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEC1Ed";
     } else if (srcType->isIntegerTy(64)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Eli";
-      else
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1El";
+      if (isSrcFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEElLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEC1El";
+      }
     } else if (srcType->isIntegerTy(32)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Eii";
-      else
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Ei";
-    } else if (srcType->isIntegerTy(16)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Esi";
-      else
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Es";
-    } else if (srcType->isIntegerTy(8)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Eai";
-      else
-        mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1Ea";
+      if (isSrcFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEEiLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEC1Ei";
+      }
+    } else if (srcType->isIntegerTy(16) && isSrcFixpt) {
+      snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEEsLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+      mangledName = nameBuf;
+    } else if (srcType->isIntegerTy(8) && isSrcFixpt) {
+      snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEEaLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+      mangledName = nameBuf;
     } else if (srcType->isIntegerTy()) {
       assert(!isSrcFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit constructor from this integer size, passing through int64...");
@@ -131,50 +113,39 @@ Value *PositBuilder::CreateConstructor(Value *arg1, const FixedPointType *srcMet
         arg1 = builder.CreateSExtOrTrunc(arg1, Type::getInt64Ty(C));
       else
         arg1 = builder.CreateZExtOrTrunc(arg1, Type::getInt64Ty(C));
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEC1El";
+      mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEC1El";
     } else {
       llvm_unreachable("Unimplemented constructor from source type");
     }
     break;
   case 8:
-    if (isSrcPosit) {
-      switch (srcMetadata->scalarBitsAmt()) {
-      case 32:
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1IiLi32ELi2EjLS0_1EEERKS_IT_XT0_EXT1_ET2_XT3_EE";
-        break;
-      case 16:
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1IsLi16ELi2EtLS0_1EEERKS_IT_XT0_EXT1_ET2_XT3_EE";
-        break;
-      default:
-        llvm_unreachable("Unsupported Posit to Posit size");
-      }
-    } else if (srcType->isFloatTy()) {
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Ef";
+    if (srcType->isFloatTy()) {
+      mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEC1Ef";
     } else if (srcType->isDoubleTy()) {
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Ed";
+      mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEC1Ed";
     } else if (srcType->isFloatingPointTy()) {
       arg1 = builder.CreateFPCast(arg1, Type::getDoubleTy(C));
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Ed";
+      mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEC1Ed";
     } else if (srcType->isIntegerTy(64)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Eli";
-      else
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1El";
+      if (isSrcFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEElLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEC1El";
+      }
     } else if (srcType->isIntegerTy(32)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Eii";
-      else
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Ei";
-    } else if (srcType->isIntegerTy(16)) {
-      if (isSrcFixpt)
-        mangledName = "__ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Esi";
-      else
-        mangledName = "__ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Es";
-    } else if (srcType->isIntegerTy(8)) {
-      if (isSrcFixpt)
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Eai";
-      else
-        mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1Ea";
+      if (isSrcFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEEiLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEC1Ei";
+      }
+    } else if (srcType->isIntegerTy(16) && isSrcFixpt) {
+      snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEEsLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+      mangledName = nameBuf;
+    } else if (srcType->isIntegerTy(8) && isSrcFixpt) {
+      snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit10from_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEEaLi%dEEEvPT_T0_", srcMetadata->scalarFracBitsAmt());
+      mangledName = nameBuf;
     } else if (srcType->isIntegerTy()) {
       assert(!isSrcFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit constructor from this integer size, passing through int64...");
@@ -182,7 +153,7 @@ Value *PositBuilder::CreateConstructor(Value *arg1, const FixedPointType *srcMet
         arg1 = builder.CreateSExtOrTrunc(arg1, Type::getInt64Ty(C));
       else
         arg1 = builder.CreateZExtOrTrunc(arg1, Type::getInt64Ty(C));
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEC1El";
+      mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEC1El";
     } else {
       llvm_unreachable("Unimplemented constructor from source type");
     }
@@ -191,29 +162,15 @@ Value *PositBuilder::CreateConstructor(Value *arg1, const FixedPointType *srcMet
     llvm_unreachable("Unimplemented Posit size");
   }
 
-  if (isSrcPosit) {
-    Value *otherPosit = getAlloc(0, *srcMetadata);
-    builder.CreateStore(arg1, otherPosit);
-    arg1 = otherPosit;
-  }
-
-  std::vector<Type*> argTypes = { llvmType->getPointerTo(), arg1->getType() };
-  if (isSrcFixpt)
-    argTypes.push_back(Type::getInt32Ty(C));
-
   FunctionType *fnType = FunctionType::get(
       Type::getVoidTy(C), /* Return type */
-      argTypes, /* Arguments... */
+      { llvmType->getPointerTo(), arg1->getType() }, /* Arguments... */
       false /* isVarArg */
   );
   FunctionCallee ctorFun = M->getOrInsertFunction(mangledName, fnType);
   Value *dst = getAlloc(0);
 
-  std::vector<Value*> args = {dst, arg1};
-  if (isSrcFixpt)
-    args.push_back(ConstantInt::get(Type::getInt32Ty(C), srcMetadata->scalarFracBitsAmt()));
-
-  builder.CreateCall(ctorFun, args);
+  builder.CreateCall(ctorFun, {dst, arg1});
   return builder.CreateLoad(llvmType, dst);
 }
 
@@ -236,16 +193,16 @@ Value *PositBuilder::CreateBinOp(int opcode, Value *arg1, Value *arg2) {
   case 32:
     switch (opcode) {
     case Instruction::FAdd:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEplERKS1_";
+      mangledName = "_ZN5positplIiLi32ELi2EjLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FSub:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEmiERKS1_";
+      mangledName = "_ZN5positmiIiLi32ELi2EjLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FMul:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEmlERKS1_";
+      mangledName = "_ZN5positmlIiLi32ELi2EjLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FDiv:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEdvERKS1_";
+      mangledName = "_ZN5positdvIiLi32ELi2EjLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     default:
       llvm_unreachable("Unimplemented Posit binary operation");
@@ -254,16 +211,16 @@ Value *PositBuilder::CreateBinOp(int opcode, Value *arg1, Value *arg2) {
   case 16:
     switch (opcode) {
     case Instruction::FAdd:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEplERKS1_";
+      mangledName = "_ZN5positplIsLi16ELi2EtLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FSub:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEmiERKS1_";
+      mangledName = "_ZN5positmiIsLi16ELi2EtLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FMul:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEmlERKS1_";
+      mangledName = "_ZN5positmlIsLi16ELi2EtLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FDiv:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEdvERKS1_";
+      mangledName = "_ZN5positdvIsLi16ELi2EtLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     default:
       llvm_unreachable("Unimplemented Posit binary operation");
@@ -272,16 +229,16 @@ Value *PositBuilder::CreateBinOp(int opcode, Value *arg1, Value *arg2) {
   case 8:
     switch (opcode) {
     case Instruction::FAdd:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEplERKS1_";
+      mangledName = "_ZN5positplIaLi8ELi2EhLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FSub:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEmiERKS1_";
+      mangledName = "_ZN5positmiIaLi8ELi2EhLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FMul:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEmlERKS1_";
+      mangledName = "_ZN5positmlIaLi8ELi2EhLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     case Instruction::FDiv:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEdvERKS1_";
+      mangledName = "_ZN5positdvIaLi8ELi2EhLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_";
       break;
     default:
       llvm_unreachable("Unimplemented Posit binary operation");
@@ -321,7 +278,7 @@ Value *PositBuilder::CreateUnaryOp(int opcode, Value *arg1) {
   case 32:
     switch (opcode) {
     case Instruction::FNeg:
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEngEv";
+      mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEngEv";
       break;
     default:
       llvm_unreachable("Unimplemented Posit unary operation");
@@ -330,7 +287,7 @@ Value *PositBuilder::CreateUnaryOp(int opcode, Value *arg1) {
   case 16:
     switch (opcode) {
     case Instruction::FNeg:
-      mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEngEv";
+      mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEngEv";
       break;
     default:
       llvm_unreachable("Unimplemented Posit unary operation");
@@ -339,7 +296,7 @@ Value *PositBuilder::CreateUnaryOp(int opcode, Value *arg1) {
   case 8:
     switch (opcode) {
     case Instruction::FNeg:
-      mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEngEv";
+      mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEngEv";
       break;
     default:
       llvm_unreachable("Unimplemented Posit unary operation");
@@ -369,22 +326,22 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
   case 32:
     switch (pred) {
     case CmpInst::ICMP_EQ:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEeqERKS1_";
+      mangledName = "_ZN5positeqIiLi32ELi2EjLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_NE:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEneERKS1_";
+      mangledName = "_ZN5positneIiLi32ELi2EjLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SGT:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEgtERKS1_";
+      mangledName = "_ZN5positgtIiLi32ELi2EjLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SGE:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEgeERKS1_";
+      mangledName = "_ZN5positgeIiLi32ELi2EjLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SLT:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEltERKS1_";
+      mangledName = "_ZN5positltIiLi32ELi2EjLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SLE:
-      mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EEleERKS1_";
+      mangledName = "_ZN5positleIiLi32ELi2EjLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     default:
       llvm_unreachable("Unimplemented Posit comparison operation");
@@ -393,22 +350,22 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
   case 16:
     switch (pred) {
     case CmpInst::ICMP_EQ:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEeqERKS1_";
+      mangledName = "_ZN5positeqIsLi16ELi2EtLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_NE:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEneERKS1_";
+      mangledName = "_ZN5positneIsLi16ELi2EtLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SGT:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEgtERKS1_";
+      mangledName = "_ZN5positgtIsLi16ELi2EtLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SGE:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEgeERKS1_";
+      mangledName = "_ZN5positgeIsLi16ELi2EtLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SLT:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEltERKS1_";
+      mangledName = "_ZN5positltIsLi16ELi2EtLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SLE:
-      mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EEleERKS1_";
+      mangledName = "_ZN5positleIsLi16ELi2EtLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     default:
       llvm_unreachable("Unimplemented Posit comparison operation");
@@ -417,22 +374,22 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
   case 8:
     switch (pred) {
     case CmpInst::ICMP_EQ:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEeqERKS1_";
+      mangledName = "_ZN5positeqIaLi8ELi2EhLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_NE:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEneERKS1_";
+      mangledName = "_ZN5positneIaLi8ELi2EhLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SGT:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEgtERKS1_";
+      mangledName = "_ZN5positgtIaLi8ELi2EhLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SGE:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEgeERKS1_";
+      mangledName = "_ZN5positgeIaLi8ELi2EhLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SLT:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEltERKS1_";
+      mangledName = "_ZN5positltIaLi8ELi2EhLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     case CmpInst::ICMP_SLE:
-      mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EEleERKS1_";
+      mangledName = "_ZN5positleIaLi8ELi2EhLNS_9PositSpecE1EEEbRKNS_5PositIT_XT0_EXT1_ET2_XT3_EEES7_";
       break;
     default:
       llvm_unreachable("Unimplemented Posit comparison operation");
@@ -457,9 +414,6 @@ Value *PositBuilder::CreateCmp(CmpInst::Predicate pred, Value *arg1, Value *arg2
 }
 
 Value *PositBuilder::CreateConv(Value *from, Type *dstType, const FixedPointType *dstMetadata) {
-  if (dstMetadata && dstMetadata->isPosit())
-    return PositBuilder(pass, builder, *dstMetadata).CreateConstructor(from, &metadata);
-
   if (Constant *c = dyn_cast<Constant>(from)) {
     LLVM_DEBUG(dbgs() << "Attempting to fold constant Posit conversion\n");
     Constant *res = PositConstant::FoldConv(C, &M->getDataLayout(), metadata, c, dstType);
@@ -472,113 +426,171 @@ Value *PositBuilder::CreateConv(Value *from, Type *dstType, const FixedPointType
   }
 
   const char* mangledName;
+  char nameBuf[256];
   Type* callDstType = dstType;
   const bool isDstFixpt = dstMetadata && dstMetadata->isFixedPoint() && dstMetadata->scalarFracBitsAmt() > 0;
+  const bool isDstPosit = dstMetadata && dstMetadata->isPosit();
 
-  // TODO implement casting to bigger or smaller Posit
   switch (metadata.scalarBitsAmt()) {
   case 32:
-    if (dstType->isFloatTy()) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvfEv";
+    if (isDstPosit) {
+      switch (dstMetadata->scalarBitsAmt()) {
+      case 16:
+        mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EE8to_positINS0_IsLi16ELi2EtLS1_1EEEEET_v";
+        break;
+      case 8:
+        mangledName = "_ZN5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EE8to_positINS0_IaLi8ELi2EhLS1_1EEEEET_v";
+        break;
+      default:
+        llvm_unreachable("Unsupported Posit to Posit size");
+      }
+    } else if (dstType->isFloatTy()) {
+      mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvfEv";
     } else if (dstType->isDoubleTy()) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvdEv";
+      mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvdEv";
     } else if (dstType->isFloatingPointTy()) {
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvdEv";
+      mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvdEv";
       callDstType = Type::getDoubleTy(C);
     } else if (dstType->isIntegerTy(64)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE9toFixed64Ei";
-      else
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvlEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEElLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvlEv";
+      }
     } else if (dstType->isIntegerTy(32)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE9toFixed32Ei";
-      else
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcviEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEEiLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcviEv";
+      }
     } else if (dstType->isIntegerTy(16)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE9toFixed16Ei";
-      else
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvsEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEEsLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvsEv";
+      }
     } else if (dstType->isIntegerTy(8)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EE8toFixed8Ei";
-      else
-        mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvaEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIiLi32ELi2EjLNS_9PositSpecE1EEEaLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvaEv";
+      }
     } else if (dstType->isIntegerTy()) {
       assert(!isDstFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit conversion to this integer size, passing through int64...");
-      mangledName = "_ZNK5PositIiLi32ELi2EjL9PositSpec1EEcvlEv";
+      mangledName = "_ZNK5posit5PositIiLi32ELi2EjLNS_9PositSpecE1EEcvlEv";
       callDstType = Type::getInt64Ty(C);
     } else {
       llvm_unreachable("Unimplemented conversion from Posit to other numeric type");
     }
     break;
   case 16:
-    if (dstType->isFloatTy()) {
-      mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvfEv";
+    if (isDstPosit) {
+      switch (dstMetadata->scalarBitsAmt()) {
+      case 32:
+        mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EE8to_positINS0_IiLi32ELi2EjLS1_1EEEEET_v";
+        break;
+      case 8:
+        mangledName = "_ZN5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EE8to_positINS0_IaLi8ELi2EhLS1_1EEEEET_v";
+        break;
+      default:
+        llvm_unreachable("Unsupported Posit to Posit size");
+      }
+    } else if (dstType->isFloatTy()) {
+      mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvfEv";
     } else if (dstType->isDoubleTy()) {
-      mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvdEv";
+      mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvdEv";
     } else if (dstType->isFloatingPointTy()) {
-      mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvdEv";
+      mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvdEv";
       callDstType = Type::getDoubleTy(C);
     } else if (dstType->isIntegerTy(64)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EE9toFixed64Ei";
-      else
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvlEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEElLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvlEv";
+      }
     } else if (dstType->isIntegerTy(32)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EE9toFixed32Ei";
-      else
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcviEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEEiLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcviEv";
+      }
     } else if (dstType->isIntegerTy(16)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EE9toFixed16Ei";
-      else
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvsEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEEsLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvsEv";
+      }
     } else if (dstType->isIntegerTy(8)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EE8toFixed8Ei";
-      else
-        mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvaEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIsLi16ELi2EtLNS_9PositSpecE1EEEaLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvaEv";
+      }
     } else if (dstType->isIntegerTy()) {
       assert(!isDstFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit conversion to this integer size, passing through int64...");
-      mangledName = "_ZNK5PositIsLi16ELi2EtL9PositSpec1EEcvlEv";
+      mangledName = "_ZNK5posit5PositIsLi16ELi2EtLNS_9PositSpecE1EEcvlEv";
       callDstType = Type::getInt64Ty(C);
     } else {
       llvm_unreachable("Unimplemented conversion from Posit to other numeric type");
     }
     break;
   case 8:
-    if (dstType->isFloatTy()) {
-      mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcvfEv";
+    if (isDstPosit) {
+      switch (dstMetadata->scalarBitsAmt()) {
+      case 32:
+        mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EE8to_positINS0_IiLi32ELi2EjLS1_1EEEEET_v";
+        break;
+      case 16:
+        mangledName = "_ZN5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EE8to_positINS0_IsLi16ELi2EtLS1_1EEEEET_v";
+        break;
+      default:
+        llvm_unreachable("Unsupported Posit to Posit size");
+      }
+    } else if (dstType->isFloatTy()) {
+      mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcvfEv";
     } else if (dstType->isDoubleTy()) {
-      mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcvdEv";
+      mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcvdEv";
     } else if (dstType->isFloatingPointTy()) {
-      mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcvdEv";
+      mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcvdEv";
       callDstType = Type::getDoubleTy(C);
     } else if (dstType->isIntegerTy(64)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EE9toFixed64Ei";
-      else
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcvlEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEElLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcvlEv";
+      }
     } else if (dstType->isIntegerTy(32)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EE9toFixed32Ei";
-      else
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcviEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEEiLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcviEv";
+      }
     } else if (dstType->isIntegerTy(16)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EE9toFixed16Ei";
-      else
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcvsEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEEsLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcvsEv";
+      }
     } else if (dstType->isIntegerTy(8)) {
-      if (isDstFixpt)
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EE8toFixed8Ei";
-      else
-        mangledName = "_ZNK5PositIaLi8ELi2EhL9PositSpec1EEcvaEv";
+      if (isDstFixpt) {
+        snprintf(nameBuf, sizeof(nameBuf), "_ZN5posit8to_fixedINS_5PositIaLi8ELi2EhLNS_9PositSpecE1EEEaLi%dEEET0_PT_", dstMetadata->scalarFracBitsAmt());
+        mangledName = nameBuf;
+      } else {
+        mangledName = "_ZNK5posit5PositIaLi8ELi2EhLNS_9PositSpecE1EEcvaEv";
+      }
     } else if (dstType->isIntegerTy()) {
       assert(!isDstFixpt && "Unsupported fixed point size");
       LLVM_DEBUG(dbgs() << "Unimplemented Posit conversion to this integer size, passing through int64...");
@@ -592,24 +604,16 @@ Value *PositBuilder::CreateConv(Value *from, Type *dstType, const FixedPointType
     llvm_unreachable("Unimplemented Posit size");
   }
 
-  std::vector<Type*> argTypes = { llvmType->getPointerTo() };
-  if (isDstFixpt)
-    argTypes.push_back(Type::getInt32Ty(C));
-
   FunctionType *fnType = FunctionType::get(
     callDstType, /* Return type */
-    argTypes, /* Arguments... */
+    { llvmType->getPointerTo() }, /* Arguments... */
     false /* isVarArg */
   );
   FunctionCallee convFun = M->getOrInsertFunction(mangledName, fnType);
   Value *src1 = getAlloc(0);
   builder.CreateStore(from, src1);
 
-  std::vector<Value*> args = { src1 };
-  if (isDstFixpt)
-    args.push_back(ConstantInt::get(Type::getInt32Ty(C), dstMetadata->scalarFracBitsAmt()));
-
-  Value *ret = builder.CreateCall(convFun, args);
+  Value *ret = builder.CreateCall(convFun, { src1 });
 
   if (dstType->isFloatingPointTy() && dstType != callDstType) {
     ret = builder.CreateFPCast(ret, dstType);
@@ -627,13 +631,13 @@ Value *PositBuilder::CreateFMA(Value *arg1, Value *arg2, Value *arg3) {
   const char* mangledName;
   switch (metadata.scalarBitsAmt()) {
   case 32:
-    mangledName = "_ZN5PositIiLi32ELi2EjL9PositSpec1EE3fmaERKS1_S3_";
+    mangledName = "_ZN5posit3fmaIiLi32ELi2EjLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_S7_";
     break;
   case 16:
-    mangledName = "_ZN5PositIsLi16ELi2EtL9PositSpec1EE3fmaERKS1_S3_";
+    mangledName = "_ZN5posit3fmaIsLi16ELi2EtLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_S7_";
     break;
   case 8:
-    mangledName = "_ZN5PositIaLi8ELi2EhL9PositSpec1EE3fmaERKS1_S3_";
+    mangledName = "_ZN5posit3fmaIaLi8ELi2EhLNS_9PositSpecE1EEENS_5PositIT_XT0_EXT1_ET2_XT3_EEERKS5_S7_S7_";
     break;
   default:
     llvm_unreachable("Unimplemented Posit size");

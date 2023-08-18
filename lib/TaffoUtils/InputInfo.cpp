@@ -23,6 +23,7 @@ namespace mdutils
 {
 
 using namespace llvm;
+using namespace posit;
 
 std::unique_ptr<TType> TType::createFromMetadata(MDNode *MDN)
 {
@@ -485,14 +486,14 @@ int PositType::getMinFracBits(const Range &range) const
 {
 #define CASE_POSIT(N) case N: \
   { \
-    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> min(range.Min); \
-    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> max(range.Max); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> min(range.Min); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> max(range.Max); \
     if (min == max) \
       return N; \
     /* Heuristic: workaround the fact that the accuracy goes to zero when the posit tends to zero */ \
     /* otherwise we would discard any range that includes zero as insufficient */ \
-    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> pointOne(0.1); \
-    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithInf> zero(0); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> pointOne(0.1); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> zero(0); \
     if (min >= -pointOne && min <= zero && max >= pointOne) \
       min = -pointOne; \
     if (max >= zero && max <= pointOne && min <= -pointOne) \

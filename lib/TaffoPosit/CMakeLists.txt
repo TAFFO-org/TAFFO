@@ -3,7 +3,7 @@ set(SELF TaffoPosit)
 add_library(obj.${SELF} OBJECT
     TaffoPosit.cpp)
 
-target_include_directories(obj.${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(obj.${SELF} PUBLIC include)
 set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 ### Also build as a shared library

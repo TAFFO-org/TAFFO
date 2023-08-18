@@ -1,18 +1,19 @@
 /**
- * Copyright (C) 2017-2019 Emanuele Ruffaldi
+ * Copyright (C) 2017-2023 Emanuele Ruffaldi, Federico Rossi
+ * 
  * Distributed under the terms of the BSD 3-Clause License.  
  * 
  * (See accompanying file LICENSE)
  * 
  * --
  */
-/**
- * Emanuele Ruffaldi (C) 2017-2018
- *
- * My personal bit hip pop using BMI extensions and a bit of constexpr!
- */
-#pragma once
 
+#pragma once
+#include <stdint.h>
+#include <bitset>
+#include <typeinfo>  //for 'typeid' to work  
+
+//#include  <type_traits>
 /// detection of FPGA Vivado Xilinx
 #if defined(__SDSVHLS__) && !defined(FPGAHLS)
 #define FPGAHLS
@@ -21,9 +22,6 @@
 #if defined(__llvm__) && __clang_major__ > 3
 #define HAS_bextr_u64
 #endif
-
-#include <stdint.h>
-#include <bitset>
 
 // CPU detection x86
 #if defined(__x86_64) || defined(_M_X64) || defined(_M_IX86) || defined(__i386__)
@@ -57,22 +55,36 @@
 #endif
 #endif
 
-// C version of bitmask (better remove it)
+#define  BRANCHLESS_IF_ELSE(f,x,y)  ( ((x) & -( (decltype(x)) (!!(f)) )) |  ((y) & -((decltype(y)) (!(f)))) )
+#define  BRANCHLESS_MAX(a,b) BRANCHLESS_IF_ELSE((a >= b), a, b)
+#define  BRANCHLESS_MIN(a,b) BRANCHLESS_IF_ELSE((a <= b), a, b)
+
+#define OF_FLAG(a,b,s) ((a<0)&&(b<0)&&(s>=0)) || ((a>0)&&(b>0)&&(s<=0))
+
+template <typename T>
+constexpr T bitwise_ite(bool test,T iftrue,T iffalse) {
+        return ( (-T(test)) & iftrue ) | ( (-T(!test)) & iffalse );
+}
+
+/// C version of bitmask (better remove it)
 #define BIT_MASK(__TYPE__, __ONE_COUNT__) \
 	((__TYPE__)(-((__ONE_COUNT__) != 0))) & (((__TYPE__)-1) >> ((sizeof(__TYPE__) * 8) - (__ONE_COUNT__)))
 
+/// computes bitmask of given bits for type R
 template <typename R>
 constexpr R bitmask(unsigned int const onecount)
 {
 	return static_cast<R>(-(onecount != 0)) & (static_cast<R>(-1) >> ((sizeof(R) * 8) - onecount));
 }
 
+/// cleanup type
 template <typename T>
 constexpr typename std::remove_reference<T>::type makeprval(T &&t)
 {
 	return t;
 }
 
+/// macro for checking if expression is constant
 #define isprvalconstexpr(e) noexcept(makeprval(e))
 
 #ifdef _MSC_VER
@@ -117,6 +129,12 @@ CLZCONSTEXPR inline int findbitleftmostC(uint16_t input)
 CLZCONSTEXPR inline int findbitleftmostC(uint8_t input)
 {
 	return __builtin_clz((uint32_t)input) - 24;
+}
+
+// for unsigned value
+template <class T> bool is_power_of_two(T v)
+{
+	return v && !(v & (v - 1));
 }
 
 #if 0
@@ -274,6 +292,8 @@ constexpr T pcabs(T x)
 {
 	return x < 0 ? -x : x;
 }
+
+
 
 /// absolute value of signed integer without branching...helps lazy compilers
 template <class T> // ,typename std::enable_if<std::is_integral<T>::value ,int>::type* = nullptr>
