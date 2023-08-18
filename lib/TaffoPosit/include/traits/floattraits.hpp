@@ -1,21 +1,32 @@
 /**
- * Copyright (C) 2017-2019 Emanuele Ruffaldi
+ * Copyright (C) 2017-2023 Emanuele Ruffaldi, Federico Rossi
+ * 
  * Distributed under the terms of the BSD 3-Clause License.  
  * 
  * (See accompanying file LICENSE)
  * 
  * --
  */
+
 #pragma once
 #include <limits>
 #include <cstdint>
 #include "bithippop.hpp"
 
+// detect Xilinx compiler automatically
 #if defined(__SDSVHLS__) && !defined(FPGAHLS)
 #define FPGAHLS
 #endif
 
-// wrapper for custom floats holdi
+/**
+ * # Template Declaration
+ */
+
+/**
+ * @brief Value wrapper that initializes to zero. This is used to derive from
+ * 
+ * @tparam T 
+ */
 template <class T>
 struct valuewrap
 {
@@ -24,24 +35,41 @@ struct valuewrap
     constexpr valuewrap() : what(0) {}
 };
 
+/// wrapper for singlefloat IEEE
+struct singlefloat : public valuewrap<uint32_t>
+{
+	using valuewrap<uint32_t>::valuewrap;
+};
+
+/// wrapper for halffloat IEEE
 struct halffloat : public valuewrap<uint16_t>
 {
 	using valuewrap<uint16_t>::valuewrap;
 };
 
+/// wrapper for halffloat IEEE modified
 struct halffloatalt : public valuewrap<uint16_t>
 {
 	using valuewrap<uint16_t>::valuewrap;
 };
 
+/// wrapper for 8-bit float
 struct microfloat : public valuewrap<uint8_t>
 {
 	using valuewrap<uint8_t>::valuewrap;
 };
 
-
-/// holder_T is an unsigned integer capable of storing 1+exp_bits+frac_bits exactly
-/// value_T  is the struct or native type used for this 
+/**
+ * @brief Trait for any floating point type based on IEEE standard
+ * 
+ * @tparam exp_bits  positive number of exponent bits
+ * @tparam frac_bits positive number of fractional bits
+ * @tparam value_T	is the struct or native type used for this (float,double or any valuewrap<T>)
+ * @tparam holder_T usinged integer capable of storing 1+exp_bits+frac_bits exactly
+ * @tparam with_denorm_ marks if denorm missing (e.g BFLOAT by Intel)
+ * 
+ * @see https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+ */
 template <int exp_bits, int frac_bits, class value_T, class holder_T, bool with_denorm_ = true>
 struct any_floattrait
 {
@@ -49,7 +77,6 @@ struct any_floattrait
     using holder_t = holder_T;
 
     static_assert(exp_bits+1+frac_bits == sizeof(holder_t)*8,"holding size");
-    //static_assert<!std::is_signed<holder_t> >;
 
     static constexpr int data_bits = exp_bits+frac_bits+1;
     static constexpr int exponent_bits =  exp_bits;
@@ -76,18 +103,24 @@ struct any_floattrait
  };
 };
 
+/**
+ * # Specific Floating point Traits
+ */
 
-// pulp8 alternative
+/// pulp8 alternative
 using microfloat_trait =  any_floattrait<5,2,microfloat,uint8_t>;
 
-
-// PULP 8E,7M vs classic 5E,10P
+/// PULP 8E,7M vs classic 5E,10P
 using half_traitalt =  any_floattrait<8,7,halffloatalt,uint16_t>;
 
-// Intel bfloat16 as 8,7 without denormals
+/// Intel bfloat16 as 8,7 without denormals
 using bfloat16_trait = any_floattrait<8,7,halffloatalt,uint16_t, false>;
+using bfloat8_trait = any_floattrait<5,2,microfloat,uint16_t, false>;
 
-// https://en.wikipedia.org/wiki/16-bit
+/**
+ * @brief IEEE float16 trait specialized
+ * \todo replace it with any_floattrait<5,10,halffloat,uint16_t>
+ */
 struct half_trait // : public any_floattrait<5,10,halffloat,uint16_t>
 {
     using value_t = halffloat;
@@ -113,7 +146,12 @@ struct half_trait // : public any_floattrait<5,10,halffloat,uint16_t>
     static constexpr uint32_t exponent_mask = (1<<exponent_bits)-1; // TODO make it from exponent_bits
 };
 
-// https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+
+
+/**
+ * @brief IEEE float32 trait specialized
+ * \todo replace it with any_floattrait<8,23,float,uint32_t> BUT no double mention in FPGAHLS
+ */
 struct single_trait
 {
 #ifndef FPGAHLS
@@ -147,7 +185,11 @@ struct single_trait
 	static constexpr uint32_t exponent_mask = (1<<exponent_bits)-1; // TODO make it from exponent_bits
 };
 
-// https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+
+/**
+ * @brief IEEE float64 trait specialized
+ * \todo replace it with any_floattrait<11,52,double,uint64_t> BUT no double mention in FPGAHLS
+ */
 struct double_trait
 {
 #ifndef FPGAHLS
@@ -179,8 +221,11 @@ struct double_trait
 };
 
 #ifdef FLT128_MAX
-// https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
-// https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html
+/**
+ * @brief IEEE float128 trait specialized ONLY if natively supported (e.g. __int128 constants)
+ * @see https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
+* @see https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html
+*/
 struct float128_trait
 {
 #ifndef FPGAHLS
@@ -215,6 +260,7 @@ struct float128_trait
 #endif
 
 /**
+ * \section Casting Between Floats
  Casting between differently arbitrary floats requires:
 
  - exponent:
@@ -233,12 +279,16 @@ struct float128_trait
 
  */
 
-
-
+/**
+ * @brief Maps native floating points to traits
+ * 
+ * @tparam T native type
+ */
 template <class T>
 struct float2trait
 {};
 
+/// specialization for float
 template <>
 struct float2trait<float>
 {
@@ -246,6 +296,7 @@ struct float2trait<float>
 	using trait = single_trait;
 };
 
+/// specialization for double
 template <>
 struct float2trait<double>
 {
@@ -253,6 +304,7 @@ struct float2trait<double>
 	using trait = double_trait;
 };
 
+/// specialization for float16
 template <>
 struct float2trait<halffloat>
 {
@@ -260,6 +312,7 @@ struct float2trait<halffloat>
 	using trait = half_trait;
 };
 
+/// specialization for float16alt
 template <>
 struct float2trait<halffloatalt>
 {
@@ -268,6 +321,7 @@ struct float2trait<halffloatalt>
 };
 
 #ifdef FLT128_MAX
+/// specialization for float128
 template <>
 struct float2trait<__float128>
 {
@@ -341,5 +395,21 @@ namespace std
 
 	};
 
+}
+#endif
+
+
+#ifndef FPGAHLS
+/**
+ * Casts a uint32 to float
+ */
+inline float uint32_to_float(uint32_t i)
+{
+	union {
+		float f;
+		uint32_t i;
+	} x;
+	x.i = i;
+	return x.f;
 }
 #endif

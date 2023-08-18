@@ -6,6 +6,9 @@
 
 using namespace llvm;
 using namespace flttofix;
+using namespace posit;
+
+namespace impl {
 
 template <class T,int totalbits, int esbits, class FT, PositSpec positspec>
 static Constant *get(LLVMContext &C, const FixedPointType &fixpt, Posit<T,totalbits,esbits,FT,positspec> posit) {
@@ -88,22 +91,24 @@ static Constant *FoldConv(LLVMContext &C, const DataLayout *dl, const FixedPoint
   }
 }
 
+} // namespace impl
+
 Constant *PositConstant::get(LLVMContext &C, const FixedPointType &fixpt, double floatVal) {
   switch (fixpt.scalarBitsAmt()) {
   case 32:
     {
-      Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> posit(floatVal);
-      return get(C, fixpt, posit);
+      Posit<int32_t, 32, 2, uint32_t, PositSpec::WithNan> posit(floatVal);
+      return impl::get(C, fixpt, posit);
     }
   case 16:
     {
-      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> posit(floatVal);
-      return get(C, fixpt, posit);
+      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithNan> posit(floatVal);
+      return impl::get(C, fixpt, posit);
     }
   case 8:
     {
-      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> posit(floatVal);
-      return get(C, fixpt, posit);
+      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithNan> posit(floatVal);
+      return impl::get(C, fixpt, posit);
     }
   default:
     llvm_unreachable("Unimplemented Posit size");
@@ -118,33 +123,27 @@ Constant *PositConstant::FoldBinOp(LLVMContext &C, const FixedPointType &fixpt, 
   switch (fixpt.scalarBitsAmt()) {
   case 32:
     {
-      Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> x(
-          Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int32_t, 32, 2, uint32_t, PositSpec::WithNan>::from_sraw(
           (int32_t)v1->getSExtValue());
-      Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> y(
-          Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf>::DeepInit(),
+      auto y = Posit<int32_t, 32, 2, uint32_t, PositSpec::WithNan>::from_sraw(
           (int32_t)v2->getSExtValue());
-      return FoldBinOp(C, fixpt, opcode, x, y);
+      return impl::FoldBinOp(C, fixpt, opcode, x, y);
     }
   case 16:
     {
-      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> x(
-          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int16_t, 16, 2, uint16_t, PositSpec::WithNan>::from_sraw(
           (int16_t)v1->getSExtValue());
-      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> y(
-          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+      auto y = Posit<int16_t, 16, 2, uint16_t, PositSpec::WithNan>::from_sraw(
           (int16_t)v2->getSExtValue());
-      return FoldBinOp(C, fixpt, opcode, x, y);
+      return impl::FoldBinOp(C, fixpt, opcode, x, y);
     }
   case 8:
     {
-      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> x(
-          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int8_t, 8, 2, uint8_t, PositSpec::WithNan>::from_sraw(
           (int8_t)v1->getSExtValue());
-      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> y(
-          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+      auto y = Posit<int8_t, 8, 2, uint8_t, PositSpec::WithNan>::from_sraw(
           (int8_t)v2->getSExtValue());
-      return FoldBinOp(C, fixpt, opcode, x, y);
+      return impl::FoldBinOp(C, fixpt, opcode, x, y);
     }
   default:
     llvm_unreachable("Unimplemented Posit size");
@@ -158,24 +157,21 @@ Constant *PositConstant::FoldUnaryOp(LLVMContext &C, const FixedPointType &fixpt
   switch (fixpt.scalarBitsAmt()) {
   case 32:
     {
-      Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> x(
-          Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int32_t, 32, 2, uint32_t, PositSpec::WithNan>::from_sraw(
           (int32_t)v->getSExtValue());
-      return FoldUnaryOp(C, fixpt, opcode, x);
+      return impl::FoldUnaryOp(C, fixpt, opcode, x);
     }
   case 16:
     {
-      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> x(
-          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int16_t, 16, 2, uint16_t, PositSpec::WithNan>::from_sraw(
           (int16_t)v->getSExtValue());
-      return FoldUnaryOp(C, fixpt, opcode, x);
+      return impl::FoldUnaryOp(C, fixpt, opcode, x);
     }
   case 8:
     {
-      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> x(
-          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int8_t, 8, 2, uint8_t, PositSpec::WithNan>::from_sraw(
           (int8_t)v->getSExtValue());
-      return FoldUnaryOp(C, fixpt, opcode, x);
+      return impl::FoldUnaryOp(C, fixpt, opcode, x);
     }
   default:
     llvm_unreachable("Unimplemented Posit size");
@@ -189,24 +185,21 @@ Constant *PositConstant::FoldConv(LLVMContext &C, const DataLayout *dl, const Fi
   switch (fixpt.scalarBitsAmt()) {
   case 32:
     {
-      Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf> x(
-          Posit<int32_t, 32, 2, uint32_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int32_t, 32, 2, uint32_t, PositSpec::WithNan>::from_sraw(
           (int32_t)v->getSExtValue());
-      return FoldConv(C, dl, fixpt, x, dstType);
+      return impl::FoldConv(C, dl, fixpt, x, dstType);
     }
   case 16:
     {
-      Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf> x(
-          Posit<int16_t, 16, 2, uint16_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int16_t, 16, 2, uint16_t, PositSpec::WithNan>::from_sraw(
           (int16_t)v->getSExtValue());
-      return FoldConv(C, dl, fixpt, x, dstType);
+      return impl::FoldConv(C, dl, fixpt, x, dstType);
     }
   case 8:
     {
-      Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf> x(
-          Posit<int8_t, 8, 2, uint8_t, PositSpec::WithInf>::DeepInit(),
+      auto x = Posit<int8_t, 8, 2, uint8_t, PositSpec::WithNan>::from_sraw(
           (int8_t)v->getSExtValue());
-      return FoldConv(C, dl, fixpt, x, dstType);
+      return impl::FoldConv(C, dl, fixpt, x, dstType);
     }
   default:
     llvm_unreachable("Unimplemented Posit size");
