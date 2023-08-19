@@ -21,6 +21,7 @@ set(LLVM_LINK_COMPONENTS
   Passes
   )
 
+SET(LLVM_LIBRARY_OUTPUT_INTDIR "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}")  
 add_llvm_tool(${SELF}
   taffo-mlfeat.cpp
   TaffoMLFeaturesAnalysis.cpp

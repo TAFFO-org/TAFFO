@@ -22,6 +22,7 @@ set(LLVM_LINK_COMPONENTS
 #InstructionMix
   )
 
+SET(LLVM_LIBRARY_OUTPUT_INTDIR "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}")  
 add_llvm_tool(${SELF}
   taffo-instmix.cpp
   )
