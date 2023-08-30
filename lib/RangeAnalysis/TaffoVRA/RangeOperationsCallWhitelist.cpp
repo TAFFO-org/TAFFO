@@ -148,7 +148,7 @@ handleCallToSin(const std::list<range_ptr_t> &operands)
     return make_range(std::sin(op->min()), std::sin(op->max()));
   }
 
-  return make_range(-1.0, 1.0);
+  return make_range(-1, 1);
 }
 
 static range_ptr_t
@@ -168,7 +168,7 @@ handleCallToCos(const std::list<range_ptr_t> &operands)
     return make_range(std::cos(op->max()), std::cos(op->min()));
   }
 
-  return make_range(-1.0, 1.0);
+  return make_range(-1, 1);
 }
 
 static range_ptr_t
@@ -179,8 +179,11 @@ handleCallToAcos(const std::list<range_ptr_t> &operands)
   if (!op) {
     return nullptr;
   }
-  return make_range(std::acos(std::max(op->min(), -1.0)),
-                    std::acos(std::min(op->max(), 1.0)));
+  // return make_range(std::acos(std::max(op->min(), -1.0)),
+  //                   std::acos(std::min(op->max(), 1.0)));
+
+  return make_range(0, 3.141593);
+
 }
 
 static range_ptr_t
@@ -191,8 +194,9 @@ handleCallToAsin(const std::list<range_ptr_t> &operands)
   if (!op) {
     return nullptr;
   }
-  return make_range(std::asin(std::max(op->min(), -1.0)),
-                    std::asin(std::min(op->max(), 1.0)));
+  // return make_range(std::asin(st d::max(op->min(), -1.0)),
+  //                   std::asin(std::min(op->max(), 1.0)));
+  return make_range(-1.57, 1.57);
 }
 
 static range_ptr_t

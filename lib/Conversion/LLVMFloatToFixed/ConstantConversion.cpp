@@ -72,7 +72,7 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
     }
 
     ArrayRef<Constant *> idxlist(vals);
-    return ConstantExpr::getInBoundsGetElementPtr(nullptr, newconst, idxlist);
+    return ConstantExpr::getInBoundsGetElementPtr(newconst->getType()->getPointerElementType(), newconst, idxlist);
 
   } else {
     LLVM_DEBUG(dbgs() << "constant expression " << *cexp << " is not handled explicitly yet\n");

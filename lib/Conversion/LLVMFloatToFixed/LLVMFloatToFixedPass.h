@@ -5,6 +5,7 @@
 #include "InputInfo.h"
 #include "Metadata.h"
 #include "TypeUtils.h"
+#include "WriteModule.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -12,16 +13,21 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "WriteModule.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #define DEBUG_TYPE "taffo-conversion"
 extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
 extern llvm::cl::opt<unsigned int> MinQuotientFrac;
+extern llvm::cl::opt<int> MathZ;
+extern llvm::cl::opt<bool> MathZFlag;
+extern llvm::cl::opt<bool> Fixm;
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "
@@ -210,6 +216,10 @@ struct FloatToFixed {
   bool isSupportedMathIntrinsicFunction(llvm::Function *F);
   llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);
 
+  /* libm support */
+  bool convertLibmFunction(llvm::Function *oldf, llvm::Function* newfs);
+  
+
   /** Returns if a function is a library function which shall not
    *  be cloned.
    *  @param f The function to check */
@@ -365,15 +375,15 @@ struct FloatToFixed {
       return cvtfallval;
 
     if (!ip) {
-      if ((ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval))){
+      if ((ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval))) {
         ip->getNextNode();
       }
       // argument is not an instruction, insert it's convertion in the first basic block
-      if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)){
+      if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)) {
         auto arg = llvm::cast<llvm::Argument>(cvtfallval);
         ip = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
       }
-      
+
       assert(ip && "ip mandatory for non-instruction values");
     }
     /*Nel caso in cui la chiave (valore rimosso in precedenze) è un float

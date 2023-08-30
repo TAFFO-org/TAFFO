@@ -1,6 +1,7 @@
 #include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
 #include "Metadata.h"
+#include "TaffoMathUtil.h"
+#include "TypeUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
@@ -27,13 +28,22 @@ using namespace flttofix;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
+
+llvm::cl::opt<int> MathZ("sLUT",
+                         llvm::cl::desc("Enable Lut table"), llvm::cl::init(2048));
+
+llvm::cl::opt<bool> MathZFlag("LUT",
+                              llvm::cl::desc("Lut table Size"), llvm::cl::init(false));
+
+llvm::cl::opt<bool> Fixm("fixm",
+                         llvm::cl::desc("Enable Fixm (handling of libm functions)"), llvm::cl::init(false));
+
 llvm::cl::opt<unsigned int> MaxTotalBitsConv("maxtotalbitsconv", llvm::cl::value_desc("bits"),
-                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(128));
+                                             llvm::cl::desc("Maximum amount of bits used in fmul and fdiv conversion."), llvm::cl::init(128));
 
 
 llvm::cl::opt<unsigned int> MinQuotientFrac("minquotientfrac", llvm::cl::value_desc("bits"),
-                             llvm::cl::desc("minimum number of quotient fractional preserved"), llvm::cl::init(5));
-
+                                            llvm::cl::desc("minimum number of quotient fractional preserved"), llvm::cl::init(5));
 
 
 PreservedAnalyses Conversion::run(Module &M, ModuleAnalysisManager &AM)
@@ -136,10 +146,10 @@ Value *flttofix::adjustBufferSize(Value *OrigSize, Type *OldTy, Type *NewTy, Ins
   if (int_const == nullptr) {
     IRBuilder<> builder(IP);
     Res = builder.CreateMul(OrigSize, ConstantInt::get(OrigSize->getType(), Num));
-    Res = builder.CreateAdd(Res, ConstantInt::get(OrigSize->getType(), Den-1));
+    Res = builder.CreateAdd(Res, ConstantInt::get(OrigSize->getType(), Den - 1));
     Res = builder.CreateUDiv(Res, ConstantInt::get(OrigSize->getType(), Den));
   } else {
-    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den-1)).udiv(Den));
+    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den - 1)).udiv(Den));
   }
 
   LLVM_DEBUG(dbgs() << "Buffer size adjusted to " << *Res << "\n");
@@ -291,7 +301,7 @@ bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
     if (isSupportedOpenCLFunction(F))
       return true;
     if (isSupportedCudaFunction(F))
-      return true;  
+      return true;
   }
   return false;
 }
@@ -508,6 +518,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     LLVM_DEBUG(dbgs() << "Converting function " << oldF->getName() << " : " << *oldF->getType()
                       << " into " << newF->getName() << " : " << *newF->getType() << "\n");
 
+
     ValueToValueMapTy origValToCloned; // Create Val2Val mapping and clone function
     Function::arg_iterator newIt = newF->arg_begin();
     Function::arg_iterator oldIt = oldF->arg_begin();
@@ -518,115 +529,122 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     SmallVector<ReturnInst *, 100> returns;
     CloneFunctionInto(newF, oldF, origValToCloned, CloneFunctionChangeType::GlobalChanges, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
+    if (TaffoMath::isSupportedLibmFunction(oldF, Fixm)) {
+      LLVM_DEBUG(dbgs() << "Handling Libm function " << oldF->getName() << "\n");
+      convertLibmFunction(oldF, newF);
+      LLVM_DEBUG(dbgs() << "Finish handling of Libm function " << oldF->getName() << "\n");
+    } else {
+      /* CloneFunctionInto also fixes the attributes of the arguments.
+       * This is not exactly what we want for OpenCL kernels because the alignment
+       * after the conversion is not defined by us but by the OpenCL runtime.
+       * So we need to compensate for this. */
+      if (newF->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, oldF)) {
+        /* OpenCL spec says the alignment is equal to the size of the type */
+        SmallVector<AttributeSet, 4> NewAttrs(newF->arg_size());
+        AttributeList OldAttrs = newF->getAttributes();
+        for (unsigned ArgId = 0; ArgId < newF->arg_size(); ArgId++) {
+          Argument *Arg = newF->getArg(ArgId);
+          if (!Arg->getType()->isPointerTy())
+            continue;
+          Type *ArgTy = fullyUnwrapPointerOrArrayType(Arg->getType());
+          Align align(ArgTy->getScalarSizeInBits() / 8);
+          AttributeSet OldArgAttrs = OldAttrs.getParamAttrs(ArgId);
+          AttributeSet NewArgAttrs = OldArgAttrs.addAttributes(newF->getContext(), AttributeSet::get(newF->getContext(), {Attribute::getWithAlignment(newF->getContext(), align)}));
+          NewAttrs[ArgId] = NewArgAttrs;
+          LLVM_DEBUG(dbgs() << "Fixed align of arg " << ArgId << " (" << *Arg << ") to " << align.value() << "\n");
+        }
+        newF->setAttributes(AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
+        LLVM_DEBUG(dbgs() << "Set new attributes, hopefully without breaking anything\n");
+      }
+      LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n"
+                        << *newF << "\n");
 
-    /* CloneFunctionInto also fixes the attributes of the arguments.
-     * This is not exactly what we want for OpenCL kernels because the alignment
-     * after the conversion is not defined by us but by the OpenCL runtime.
-     * So we need to compensate for this. */
-    if (newF->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, oldF)) {
-      /* OpenCL spec says the alignment is equal to the size of the type */
-      SmallVector<AttributeSet, 4> NewAttrs(newF->arg_size());
-      AttributeList OldAttrs = newF->getAttributes();
-      for (unsigned ArgId = 0; ArgId < newF->arg_size(); ArgId++) {
-        Argument *Arg = newF->getArg(ArgId);
-        if (!Arg->getType()->isPointerTy())
+      SmallVector<mdutils::MDInfo *, 4> ArgsII;
+      MM.retrieveArgumentInputInfo(*oldF, ArgsII);
+
+      std::vector<Value *> newVals; // propagate fixp conversion
+      oldIt = oldF->arg_begin();
+      newIt = newF->arg_begin();
+      for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
+        if (oldIt->getType() != newIt->getType()) {
+          FixedPointType fixtype = valueInfo(oldIt)->fixpType;
+
+          // append fixp info to arg name
+          newIt->setName(newIt->getName() + "." + fixtype.toString());
+
+          /* Create a fake value to maintain type consistency because
+           * createFixFun has RAUWed all arguments
+           * FIXME: is there a cleaner way to do this? */
+          std::string name("placeholder");
+          if (newIt->hasName()) {
+            name += "." + newIt->getName().str();
+          }
+          Value *placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
+          /* Reimplement RAUW to defeat the same-type check (which is ironic because
+           * we are attempting to fix a type mismatch here) */
+          while (!newIt->materialized_use_empty()) {
+            Use &U = *(newIt->uses().begin());
+            U.set(placehValue);
+          }
+          *(newValueInfo(placehValue)) = *(valueInfo(oldIt));
+          operandPool[placehValue] = newIt;
+
+          valueInfo(placehValue)->isArgumentPlaceholder = true;
+          newVals.push_back(placehValue);
+
+          /* Copy input info to the placeholder because it's the only place where+
+           * ranges are stored */
+          mdutils::InputInfo *II = dyn_cast_or_null<mdutils::InputInfo>(ArgsII[i]);
+          if (II) {
+            MM.setInputInfoMetadata(*(dyn_cast<Instruction>(placehValue)), *II);
+          }
+
+          /* No need to mark the argument itself, readLocalMetadata will
+           * do it in a bit as its metadata has been cloned as well */
+        }
+      }
+
+      newVals.insert(newVals.end(), global.begin(), global.end());
+      SmallPtrSet<Value *, 32> localFix;
+      readLocalMetadata(*newF, localFix);
+      newVals.insert(newVals.end(), localFix.begin(), localFix.end());
+
+      /* Make sure that the new arguments have correct ValueInfo */
+      oldIt = oldF->arg_begin();
+      newIt = newF->arg_begin();
+      for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
+        if (oldIt->getType() != newIt->getType()) {
+          *(valueInfo(newIt)) = *(valueInfo(oldIt));
+        }
+      }
+
+      /* Copy the return type on the call instruction to all the return
+       * instructions */
+      for (ReturnInst *v : returns) {
+        if (!hasInfo(call))
           continue;
-        Type *ArgTy = fullyUnwrapPointerOrArrayType(Arg->getType());
-        Align align(ArgTy->getScalarSizeInBits() / 8);
-        AttributeSet OldArgAttrs = OldAttrs.getParamAttrs(ArgId);
-        AttributeSet NewArgAttrs = OldArgAttrs.addAttributes(newF->getContext(), AttributeSet::get(newF->getContext(), {Attribute::getWithAlignment(newF->getContext(), align)}));
-        NewAttrs[ArgId] = NewArgAttrs;
-        LLVM_DEBUG(dbgs() << "Fixed align of arg " << ArgId << " (" << *Arg << ") to " << align.value() << "\n");
+        newVals.push_back(v);
+        demandValueInfo(v)->fixpType = valueInfo(call)->fixpType;
+        valueInfo(v)->origType = nullptr;
+        valueInfo(v)->fixpTypeRootDistance = 0;
       }
-      newF->setAttributes(AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
-      LLVM_DEBUG(dbgs() << "Set new attributes, hopefully without breaking anything\n");
-    }
-    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF << "\n");
 
-    SmallVector<mdutils::MDInfo *, 4> ArgsII;
-    MM.retrieveArgumentInputInfo(*oldF, ArgsII);
+      LLVM_DEBUG(dbgs() << "Sorting queue of new function " << newF->getName() << "\n");
+      sortQueue(newVals);
 
-    std::vector<Value *> newVals; // propagate fixp conversion
-    oldIt = oldF->arg_begin();
-    newIt = newF->arg_begin();
-    for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
-      if (oldIt->getType() != newIt->getType()) {
-        FixedPointType fixtype = valueInfo(oldIt)->fixpType;
 
-        // append fixp info to arg name
-        newIt->setName(newIt->getName() + "." + fixtype.toString());
-
-        /* Create a fake value to maintain type consistency because
-         * createFixFun has RAUWed all arguments
-         * FIXME: is there a cleaner way to do this? */
-        std::string name("placeholder");
-        if (newIt->hasName()) {
-          name += "." + newIt->getName().str();
+      /* Put the instructions from the new function in */
+      for (Value *val : newVals) {
+        if (Instruction *inst = dyn_cast<Instruction>(val)) {
+          if (inst->getFunction() == newF) {
+            vals.push_back(val);
+          }
         }
-        Value *placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
-        /* Reimplement RAUW to defeat the same-type check (which is ironic because
-         * we are attempting to fix a type mismatch here) */
-        while (!newIt->materialized_use_empty()) {
-          Use &U = *(newIt->uses().begin());
-          U.set(placehValue);
-        }
-        *(newValueInfo(placehValue)) = *(valueInfo(oldIt));
-        operandPool[placehValue] = newIt;
-
-        valueInfo(placehValue)->isArgumentPlaceholder = true;
-        newVals.push_back(placehValue);
-
-        /* Copy input info to the placeholder because it's the only place where+
-         * ranges are stored */
-        mdutils::InputInfo *II = dyn_cast_or_null<mdutils::InputInfo>(ArgsII[i]);
-        if (II) {
-          MM.setInputInfoMetadata(*(dyn_cast<Instruction>(placehValue)), *II);
-        }
-
-        /* No need to mark the argument itself, readLocalMetadata will
-         * do it in a bit as its metadata has been cloned as well */
       }
     }
-
-    newVals.insert(newVals.end(), global.begin(), global.end());
-    SmallPtrSet<Value *, 32> localFix;
-    readLocalMetadata(*newF, localFix);
-    newVals.insert(newVals.end(), localFix.begin(), localFix.end());
-
-    /* Make sure that the new arguments have correct ValueInfo */
-    oldIt = oldF->arg_begin();
-    newIt = newF->arg_begin();
-    for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
-      if (oldIt->getType() != newIt->getType()) {
-        *(valueInfo(newIt)) = *(valueInfo(oldIt));
-      }
-    }
-
-    /* Copy the return type on the call instruction to all the return
-     * instructions */
-    for (ReturnInst *v : returns) {
-      if (!hasInfo(call))
-        continue;
-      newVals.push_back(v);
-      demandValueInfo(v)->fixpType = valueInfo(call)->fixpType;
-      valueInfo(v)->origType = nullptr;
-      valueInfo(v)->fixpTypeRootDistance = 0;
-    }
-
-    LLVM_DEBUG(dbgs() << "Sorting queue of new function " << newF->getName() << "\n");
-    sortQueue(newVals);
-
     oldFuncs.insert(oldF);
-
-    /* Put the instructions from the new function in */
-    for (Value *val : newVals) {
-      if (Instruction *inst = dyn_cast<Instruction>(val)) {
-        if (inst->getFunction() == newF) {
-          vals.push_back(val);
-        }
-      }
-    }
   }
+
 
   /* Remove instructions of the old functions from the queue */
   size_t removei, removej;
@@ -657,7 +675,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
   LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
   Function *oldF = call->getCalledFunction();
   assert(oldF && "bitcasted function pointers and such not handled atm");
-  if (isSpecialFunction(oldF))
+  if (isSpecialFunction(oldF) && !TaffoMath::isSupportedLibmFunction(oldF, Fixm))
     return nullptr;
 
   if (!oldF->getMetadata(SOURCE_FUN_METADATA)) {
@@ -719,7 +737,8 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
   });
 
   newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
-  LLVM_DEBUG(dbgs() << "created function\n" << *newF << "\n");
+  LLVM_DEBUG(dbgs() << "created function\n"
+                    << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;
   return newF;

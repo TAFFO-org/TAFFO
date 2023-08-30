@@ -17,7 +17,7 @@ def read_data(path: Path):
 def compute_error(fix_data, flt_data):
   n = 0
   accerr = Decimal(0)
-  accval = Decimal(0)
+  accmeanerr = Decimal(0)
   fix_nofl = 0
   flo_nofl = 0
 
@@ -35,9 +35,12 @@ def compute_error(fix_data, flt_data):
     else:
       n += 1
       accerr += (vflo - vfix).copy_abs()
-      accval += vflo
-      
-  e_perc = (accerr / accval * 100) if accval != 0 and n > 0 else -1
+      if vflo == 0:
+        accmeanerr += 100 if vfix != 0 else 0
+      else:
+        accmeanerr += min(Decimal(100), ((vflo - vfix) / vflo * 100).copy_abs())
+
+  e_perc = (accmeanerr / n) if n > 0 else -1
   e_abs = (accerr / n) if n > 0 else -1
       
   return {'fix_nofl': fix_nofl,

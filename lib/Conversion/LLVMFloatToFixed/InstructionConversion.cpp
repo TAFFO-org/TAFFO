@@ -18,6 +18,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
 #include <cmath>
+#include "TaffoMathUtil.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -381,12 +382,12 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
     return convertOpenCLCall(call);
   /* Special-case known Cuda API calls */
   if (isSupportedCudaFunction(oldF))
-    return convertCudaCall(call);  
+    return convertCudaCall(call);
   /* Special-case known math intrinsics */
   if (isSupportedMathIntrinsicFunction(oldF))
     return convertMathIntrinsicFunction(call, fixpt);
   /* Special case function prototypes and all other intrinsics */
-  if (isSpecialFunction(oldF))
+  if (isSpecialFunction(oldF) && !TaffoMath::isSupportedLibmFunction(oldF, Fixm))
     return Unsupported;
   Function *newF = functionPool[oldF];
   if (!newF) {
@@ -439,7 +440,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
                         << ") converted but not actual argument\n");
       LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
                            "because mem2reg can interfere\n");
-      if (call_arg->get()->getType()->isPointerTy()) {
+      if (call_arg->get()->getType()->isPointerTy() && !isa<Constant>(call_arg->get())) {
         LLVM_DEBUG(dbgs() << "DANGER!! To make things worse, the problematic argument is a POINTER. Introducing a bitcast to try to salvage the mess.\n");
         Type *BCType = funfpt.toLLVMType(call_arg->get()->getType(), nullptr);
         thisArgument = new BitCastInst(call_arg->get(), BCType, call_arg->get()->getName() + ".salvaged", call);
@@ -544,7 +545,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       valueInfo(instr)->noTypeConversion)
     return Unsupported;
 
-  int opc = instr->getOpcode();
+  int opc = (int)instr->getOpcode();
   if (opc == Instruction::FAdd || opc == Instruction::FSub ||
       opc == Instruction::FRem) {
     LLVM_DEBUG(instr->getOperand(0)->print(dbgs()););
@@ -774,15 +775,14 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
         Size = fixpt.scalarBitsAmt();
         unsigned target = fixpt.scalarFracBitsAmt();
 
-        //  we want fixpt fixpt.scalarFracBitsAmt() = Ext1Exp - Ext2Exp        
+        //  we want fixpt fixpt.scalarFracBitsAmt() = Ext1Exp - Ext2Exp
         if (Ext1Exp < Ext2Exp) {
           Ext2Exp = Ext1Exp;
         }
-        if (Ext1Exp - Ext2Exp < target){
-           int diff = fixpt.scalarFracBitsAmt() - (int)target;
-           Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
+        if (Ext1Exp - Ext2Exp < target) {
+          int diff = fixpt.scalarFracBitsAmt() - (int)target;
+          Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
         }
-
       }
 
       /* Extend first operand */

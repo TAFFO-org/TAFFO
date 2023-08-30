@@ -7,4 +7,5 @@ taffo_add_unittest(${SELF} ${SELF}
         )
 
 include_directories(${CMAKE_SOURCE_DIR}/lib/Initializer)
-target_link_libraries(${SELF} PRIVATE TaffoUtils TestUtils obj.TaffoInitializer)
+# we also include conversion because the FixM command line option is defined there (thank you Gabriele)
+target_link_libraries(${SELF} PRIVATE TaffoUtils TestUtils obj.TaffoInitializer obj.LLVMFloatToFixed)
