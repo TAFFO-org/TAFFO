@@ -170,19 +170,21 @@ template <class T>
 Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *cds, const FixedPointType &fixpt)
 {
   std::vector<T> newConsts;
+  Type *dstType = fixpt.scalarToLLVMType(cds->getContext());
 
   for (unsigned int i = 0; i < cds->getNumElements(); i++) {
     bool dontCare;
 
     APFloat thiselem = cds->getElementAsAPFloat(i);
-    thiselem.convert(APFloat::IEEEdouble(), APFloatBase::rmTowardZero, &dontCare);
-    newConsts.push_back(thiselem.convertToDouble());
+    thiselem.convert(dstType->getFltSemantics(), APFloatBase::rmTowardPositive, &dontCare);
+    T byteRepr = thiselem.bitcastToAPInt().getLimitedValue();
+    newConsts.push_back(byteRepr);
   }
 
   if (isa<ConstantDataArray>(cds)) {
-    return ConstantDataArray::get(cds->getContext(), newConsts);
+    return ConstantDataArray::getFP(dstType, newConsts);
   }
-  return ConstantDataVector::get(cds->getContext(), newConsts);
+  return ConstantDataVector::getFP(dstType, newConsts);
 }
 
 
@@ -204,15 +206,14 @@ Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cd
 
   if (fixpt.isFloatingPoint()) {
     if (fixpt.getFloatingPointStandard() == FixedPointType::Float_float) {
-      return createConstantDataSequentialFP<float>(cds, fixpt);
+      return createConstantDataSequentialFP<uint32_t>(cds, fixpt);
     }
 
     if (fixpt.getFloatingPointStandard() == FixedPointType::Float_double) {
-      return createConstantDataSequentialFP<double>(cds, fixpt);
+      return createConstantDataSequentialFP<uint64_t>(cds, fixpt);
     }
-    // As the sequential data does not accept anything different from float or double, we are doomed.
-    // It's better to crash, so we see this kind of error. Maybe we can modify something at program source code level?
-    llvm_unreachable("You cannot have anything different from float or double here, my friend!");
+
+    llvm_unreachable("Unsupported float constant conversion");
   }
 
   LLVM_DEBUG(dbgs() << fixpt << " too big for ConstantDataArray/Vector; 64 bit max\n");
