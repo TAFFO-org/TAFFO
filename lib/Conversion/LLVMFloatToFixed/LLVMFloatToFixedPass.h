@@ -347,12 +347,16 @@ struct FloatToFixed {
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
                                   llvm::Instruction *ip = nullptr)
   {
-    LLVM_DEBUG(llvm::dbgs() << "[alr. in.] " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "  [alr. in.]   " << !(operandPool.find(fallval) == operandPool.end());
+               if (fallval) {
+                 llvm::dbgs() << "<--" << *fallval;
+               } llvm::dbgs()
+               << "\n");
     llvm::Value *cvtfallval = operandPool[fallval];
 
     LLVM_DEBUG({
-      llvm::dbgs() << "[prev ver] "
-                   << *fallval << "\n[new  ver] ";
+      llvm::dbgs() << "  [prev ver] "
+                   << *fallval << "\n  [new  ver] ";
       if (cvtfallval == nullptr) {
         llvm::dbgs() << "nullptr"
                      << "\n";
@@ -368,15 +372,20 @@ struct FloatToFixed {
     }
 
     LLVM_DEBUG(
-        llvm::dbgs() << "[has info] " << hasInfo(cvtfallval);
+        llvm::dbgs() << "  [has info]   " << hasInfo(cvtfallval);
         if (cvtfallval) {
-          llvm::dbgs() << *cvtfallval;
+          llvm::dbgs() << " <--" << *cvtfallval;
         } llvm::dbgs()
         << "\n";);
     if (!hasInfo(cvtfallval))
       return cvtfallval;
-    LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << valueInfo(cvtfallval)->noTypeConversion << "\n";);
-    if (valueInfo(cvtfallval)->noTypeConversion)
+    auto no_ty_conv = valueInfo(cvtfallval)->noTypeConversion;
+    LLVM_DEBUG(llvm::dbgs() << "  [noTyConv]   " << no_ty_conv;
+               if (cvtfallval) {
+                 llvm::dbgs() << " <--" << *cvtfallval;
+               } llvm::dbgs()
+               << "\n";);
+    if (no_ty_conv)
       return cvtfallval;
 
     if (!ip) {
