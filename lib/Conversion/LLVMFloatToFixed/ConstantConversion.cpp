@@ -213,6 +213,14 @@ Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cd
       return createConstantDataSequentialFP<uint64_t>(cds, fixpt);
     }
 
+    if (fixpt.getFloatingPointStandard() == FixedPointType::Float_half) {
+      return createConstantDataSequentialFP<uint16_t>(cds, fixpt);
+    }
+
+    if (fixpt.getFloatingPointStandard() == FixedPointType::Float_bfloat) {
+      return createConstantDataSequentialFP<uint16_t>(cds, fixpt);
+    }
+
     llvm_unreachable("Unsupported float constant conversion");
   }
 
