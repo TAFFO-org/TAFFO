@@ -217,8 +217,8 @@ struct FloatToFixed {
   llvm::Value *convertMathIntrinsicFunction(llvm::CallBase *C, FixedPointType &fixpt);
 
   /* libm support */
-  bool convertLibmFunction(llvm::Function *oldf, llvm::Function* newfs);
-  
+  bool convertLibmFunction(llvm::Function *oldf, llvm::Function *newfs);
+
 
   /** Returns if a function is a library function which shall not
    *  be cloned.
@@ -347,12 +347,12 @@ struct FloatToFixed {
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
                                   llvm::Instruction *ip = nullptr)
   {
-    LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "[alr. in.] " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
     llvm::Value *cvtfallval = operandPool[fallval];
 
     LLVM_DEBUG({
-      llvm::dbgs() << "check\n"
-                   << *fallval << "\nwas converted\n";
+      llvm::dbgs() << "[prev ver] "
+                   << *fallval << "\n[new  ver] ";
       if (cvtfallval == nullptr) {
         llvm::dbgs() << "nullptr"
                      << "\n";
@@ -367,7 +367,12 @@ struct FloatToFixed {
       return nullptr;
     }
 
-    LLVM_DEBUG(llvm::dbgs() << "hasInfo " << hasInfo(cvtfallval) << "\n";);
+    LLVM_DEBUG(
+        llvm::dbgs() << "[has info] " << hasInfo(cvtfallval);
+        if (cvtfallval) {
+          llvm::dbgs() << *cvtfallval;
+        } llvm::dbgs()
+        << "\n";);
     if (!hasInfo(cvtfallval))
       return cvtfallval;
     LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << valueInfo(cvtfallval)->noTypeConversion << "\n";);
