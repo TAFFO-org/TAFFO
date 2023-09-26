@@ -254,7 +254,7 @@ for opt in $raw_opts; do
         *.c | *.ll)
           input_files+=( "$opt" );
           ;;
-        *.cpp | *.cc)
+        *.cpp | *.cc | *.cxx)
           input_files+=( "$opt" );
           AUTO_CLANGXX=$CLANGXX
           ;;
