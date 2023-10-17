@@ -45,6 +45,9 @@ llvm::cl::opt<unsigned int> MaxTotalBitsConv("maxtotalbitsconv", llvm::cl::value
 llvm::cl::opt<unsigned int> MinQuotientFrac("minquotientfrac", llvm::cl::value_desc("bits"),
                                             llvm::cl::desc("minimum number of quotient fractional preserved"), llvm::cl::init(5));
 
+llvm::cl::opt<bool> UseRiscvPPU("riscv-ppu",
+                                llvm::cl::desc("Emit assembly for the RISC-V Posit extension"),
+                                llvm::cl::init(false));
 
 PreservedAnalyses Conversion::run(Module &M, ModuleAnalysisManager &AM)
 {

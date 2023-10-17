@@ -147,6 +147,10 @@ for opt in $raw_opts; do
           dta_flags="$dta_flags -useposit"
           positlink="-lTaffoPosit"
           ;;
+        -hardposit)
+          dta_flags="$dta_flags -useposit"
+          conversion_flags="$conversion_flags -riscv-ppu"
+          ;;
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
             parse_state=1;

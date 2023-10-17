@@ -28,6 +28,7 @@ extern llvm::cl::opt<unsigned int> MinQuotientFrac;
 extern llvm::cl::opt<int> MathZ;
 extern llvm::cl::opt<bool> MathZFlag;
 extern llvm::cl::opt<bool> Fixm;
+extern llvm::cl::opt<bool> UseRiscvPPU;
 
 
 STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point "
