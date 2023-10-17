@@ -1,3 +1,6 @@
+#ifndef POSIT_BUILDER
+#define POSIT_BUILDER
+
 #include "FixedPointType.h"
 #include "LLVMFloatToFixedPass.h"
 
@@ -22,19 +25,16 @@ public:
     , llvmType(llvm::cast<llvm::StructType>(this->metadata.scalarToLLVMType(builder.getContext())))
   {}
 
-  llvm::Value *CreateConstructor(llvm::Value *arg1, const FixedPointType *srcMetadata = nullptr);
-  llvm::Value *CreateConv(llvm::Value *from, llvm::Type *dstType, const FixedPointType *dstMetadata = nullptr);
-  llvm::Value *CreateBinOp(int opcode, llvm::Value *arg1, llvm::Value *arg2);
-  llvm::Value *CreateUnaryOp(int opcode, llvm::Value *arg1);
-  llvm::Value *CreateCmp(llvm::CmpInst::Predicate pred, llvm::Value *arg1, llvm::Value *arg2);
-  llvm::Value *CreateFMA(llvm::Value *arg1, llvm::Value *arg2, llvm::Value *arg3);
+  virtual llvm::Value *CreateConstructor(llvm::Value *arg1, const FixedPointType *srcMetadata = nullptr) = 0;
+  virtual llvm::Value *CreateConv(llvm::Value *from, llvm::Type *dstType, const FixedPointType *dstMetadata = nullptr) = 0;
+  virtual llvm::Value *CreateBinOp(int opcode, llvm::Value *arg1, llvm::Value *arg2) = 0;
+  virtual llvm::Value *CreateUnaryOp(int opcode, llvm::Value *arg1) = 0;
+  virtual llvm::Value *CreateCmp(llvm::CmpInst::Predicate pred, llvm::Value *arg1, llvm::Value *arg2) = 0;
+  virtual llvm::Value *CreateFMA(llvm::Value *arg1, llvm::Value *arg2, llvm::Value *arg3) = 0;
 
-private:
-  llvm::Value *getAlloc(unsigned idx) {
-    return getAlloc(idx, metadata);
-  }
-  llvm::Value *getAlloc(unsigned idx, const FixedPointType &target);
+  static std::unique_ptr<PositBuilder> get(FloatToFixed *pass, llvm::IRBuilderBase &builder, const FixedPointType &metadata);
 
+protected:
   llvm::IRBuilderBase &builder;
   llvm::LLVMContext &C;
   llvm::Module *M;
@@ -45,3 +45,5 @@ private:
 };
 
 }
+
+#endif
