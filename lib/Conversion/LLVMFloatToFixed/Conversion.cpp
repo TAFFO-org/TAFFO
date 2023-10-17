@@ -303,7 +303,7 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const FixedPointType &fixp
 
   /* insert new instructions before ip */
   if (fixpt.isPosit()) {
-    Value *posit = PositBuilder(this, builder, fixpt).CreateConstructor(flt);
+    Value *posit = PositBuilder::get(this, builder, fixpt)->CreateConstructor(flt);
     return cpMetaData(posit, flt, ip);
   }
   if (!destt->isFloatingPointTy()) {
@@ -417,7 +417,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
   IRBuilder<NoFolder> builder(ip);
   if (srct.isPosit()) {
     return cpMetaData(
-        PositBuilder(this, builder, srct).CreateConv(fix, llvmdestt, &destt),
+        PositBuilder::get(this, builder, srct)->CreateConv(fix, llvmdestt, &destt),
         fix);
   } // otherwise srct.isFixedPoint()
 
@@ -426,7 +426,7 @@ Value *FloatToFixed::genConvertFixedToFixed(Value *fix, const FixedPointType &sr
 
   if (destt.isPosit()) {
     return cpMetaData(
-        PositBuilder(this, builder, destt).CreateConstructor(fix, &srct),
+        PositBuilder::get(this, builder, destt)->CreateConstructor(fix, &srct),
         fix);
   }
 
@@ -551,7 +551,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
 
     if (fixpt.isPosit()) {
       return cpMetaData(
-        PositBuilder(this, builder, fixpt).CreateConv(fix, destt),
+        PositBuilder::get(this, builder, fixpt)->CreateConv(fix, destt),
         fix);
     } // otherwise fixpt.isFixedPoint()
 

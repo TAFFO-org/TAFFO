@@ -525,7 +525,7 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
     } else if (fixpt.isFloatingPoint()) {
       fixop = builder.CreateFNeg(val1);
     } else if (fixpt.isPosit()) {
-      fixop = PositBuilder(this, builder, fixpt).CreateUnaryOp(Instruction::FNeg, val1);
+      fixop = PositBuilder::get(this, builder, fixpt)->CreateUnaryOp(Instruction::FNeg, val1);
     } else {
       llvm_unreachable("Unknown variable type. Are you trying to implement a "
                        "new datatype?");
@@ -568,7 +568,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       } else if (fixpt.isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FAdd, val1, val2);
       } else if (fixpt.isPosit()) {
-        fixop = PositBuilder(this, builder, fixpt).CreateBinOp(Instruction::FAdd, val1, val2);
+        fixop = PositBuilder::get(this, builder, fixpt)->CreateBinOp(Instruction::FAdd, val1, val2);
       } else {
         llvm_unreachable("Unknown variable type. Are you trying to implement a "
                          "new datatype?");
@@ -587,7 +587,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       } else if (fixpt.isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FSub, val1, val2);
       } else if (fixpt.isPosit()) {
-        fixop = PositBuilder(this, builder, fixpt).CreateBinOp(Instruction::FSub, val1, val2);
+        fixop = PositBuilder::get(this, builder, fixpt)->CreateBinOp(Instruction::FSub, val1, val2);
       } else {
         llvm_unreachable("Unknown variable type. Are you trying to implement a "
                          "new datatype?");
@@ -601,7 +601,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       } else if (fixpt.isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FRem, val1, val2);
       } else if (fixpt.isPosit()) {
-        fixop = PositBuilder(this, builder, fixpt).CreateBinOp(Instruction::FRem, val1, val2);
+        fixop = PositBuilder::get(this, builder, fixpt)->CreateBinOp(Instruction::FRem, val1, val2);
       } else {
         llvm_unreachable("Unknown variable type. Are you trying to implement a "
                          "new datatype?");
@@ -756,7 +756,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       if (fixpt.isFloatingPoint())
         return builder.CreateFMul(val1, val2);
       else // fixpt.isPosit()
-        return PositBuilder(this, builder, fixpt).CreateBinOp(Instruction::FMul, val1, val2);
+        return PositBuilder::get(this, builder, fixpt)->CreateBinOp(Instruction::FMul, val1, val2);
     } else {
       llvm_unreachable(
           "Unknown variable type. Are you trying to implement a new datatype?");
@@ -833,7 +833,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
       if (fixpt.isFloatingPoint())
         return builder.CreateFDiv(val1, val2);
       else // fixpt.isPosit()
-        return PositBuilder(this, builder, fixpt).CreateBinOp(Instruction::FDiv, val1, val2);
+        return PositBuilder::get(this, builder, fixpt)->CreateBinOp(Instruction::FDiv, val1, val2);
     } else {
       llvm_unreachable(
           "Unknown variable type. Are you trying to implement a new datatype?");
@@ -926,7 +926,7 @@ Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
     }
 
     if (cmptype.isPosit())
-      return val1 && val2 ? PositBuilder(this, builder, cmptype).CreateCmp(ty, val1, val2) : nullptr;
+      return val1 && val2 ? PositBuilder::get(this, builder, cmptype)->CreateCmp(ty, val1, val2) : nullptr;
     return val1 && val2 ? builder.CreateICmp(ty, val1, val2) : nullptr;
   } else {
     // Handling the presence of at least one float:

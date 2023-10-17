@@ -15,6 +15,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   TAFFOMath.cpp
   ArcSinCos.cpp
   PositBuilder.cpp
+  PositBuilderSoftware.cpp
   PositConstant.cpp
 
 
