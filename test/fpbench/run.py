@@ -12,6 +12,7 @@ import gmpy2
 from gmpy2 import mpfr, trunc, log2
 import platform
 import scipy as sc
+import scipy.stats
 import warnings
 gmpy2.get_context().precision=100
 
