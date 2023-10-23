@@ -16,6 +16,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   ArcSinCos.cpp
   PositBuilder.cpp
   PositBuilderSoftware.cpp
+  PositBuilderRISCV.cpp
   PositConstant.cpp
 
 
