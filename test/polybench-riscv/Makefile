@@ -77,6 +77,9 @@ double_configurations_file = $(BUILD_DIR)/double_configurations.csv
 .PHONY: all
 all: $(clean_configurations) ${double_jobs} ${stats_jobs} ${jobs} summary ; echo $@ Success
 
+.PHONY: stats
+stats: ${stats_jobs} ; echo $@ Success
+
 .PHONY: clean
 clean:
 	rm -r $(BUILD_DIR)
@@ -160,6 +163,7 @@ define build_fixed
 		-emit-llvm \
 		-temp-dir $(job_dir) \
 		-lm \
+		-time-profile-file $(job_file_base).compile_time.csv \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
@@ -179,6 +183,7 @@ define build_mixed
 		-emit-llvm \
 		-temp-dir $(job_dir) \
 		-lm \
+		-time-profile-file $(job_file_base).compile_time.csv \
 		$(DEBUG_TAFFO) \
 		-mixedmode \
 		-costmodel $(costmodel) \
@@ -201,6 +206,7 @@ define stats_build
 		-o $(stats_job_file_base).out \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
+		$(CFLAGS_DOUBLE) \
 		$(POLYBENCH_DATA_FLAGS) \
 		-DCOLLECT_STATS \
 		-DSCALING_FACTOR=$(scaling) \
@@ -225,6 +231,7 @@ define stats_build_tracing
 		-dynamic-instrument \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
+		$(CFLAGS_DOUBLE) \
 		$(POLYBENCH_DATA_FLAGS) \
 		-DSCALING_FACTOR=$(scaling) \
 		2> $(stats_job_file_base).dynamic_instrumented.log

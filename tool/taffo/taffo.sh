@@ -99,6 +99,7 @@ dontlink=
 AUTO_CLANGXX=$CLANG
 feedback=0
 pe_model_file=
+time_profile_file=
 temporary_dir=$(mktemp -d)
 del_temporary_dir=1
 help=0
@@ -224,6 +225,9 @@ for opt in $raw_opts; do
         -dynamic-trace)
             parse_state=14
             ;;
+        -time-profile-file)
+            parse_state=99
+            ;;
         -help | -h | -version | -v | --help | --version)
           help=1
           ;;
@@ -300,6 +304,10 @@ for opt in $raw_opts; do
       dynamic_trace="$opt";
       parse_state=0;
       ;;
+    99)
+      time_profile_file="$opt";
+      parse_state=0;
+      ;;
   esac;
 done
 
@@ -338,6 +346,8 @@ Options:
   -no-mem2reg           Disable scheduling of the mem2reg pass.
   -float-output <file>  Also compile the files without using TAFFO and store
                         the output to the specified location.
+  -time-profile-file <file> Outputs information about the execution time of
+                        the various TAFFO passes into the specified file
   -Xinit <option>       Pass the specified option to the Initializer pass of
                         TAFFO
   -Xvra <option>        Pass the specified option to the VRA pass of TAFFO
@@ -367,6 +377,33 @@ fi
 if [[ $LOG != /dev/null ]]; then
   set -x
 fi
+
+if [[ $( uname -s ) == 'Darwin' ]]; then
+  time_command='date +%s'
+else
+  time_command='date +%s.%N'
+fi
+time_string_header=
+time_string=
+append_time_string () {
+  if [[ -z ${time_string_header} ]]; then
+    time_string_header+="${1}"
+  else
+    time_string_header+=",${1}"
+  fi
+  if [[ -z ${time_string} ]]; then
+    time_string+=$($time_command)
+  else
+    time_string+=,$($time_command)
+  fi
+}
+output_time_string () {
+  if [[ ! ( -z ${time_profile_file} ) ]]; then
+    printf '%s\n%s\n' ${time_string_header} ${time_string} > ${time_profile_file}
+  fi
+}
+
+append_time_string "taffo_start"
 
 ###
 ###  Produce base .ll
@@ -410,6 +447,7 @@ if [[ $dynamic_instrument -eq 0 ]] && [ -z "$dynamic_trace" ]; then
 ###
 ###  TAFFO initialization
 ###
+append_time_string "init_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
@@ -419,6 +457,7 @@ ${OPT} \
 ###
 ###  TAFFO Value Range Analysis
 ###
+append_time_string "vra_start"
 if [[ $disable_vra -eq 0 ]]; then
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
@@ -439,6 +478,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   ###  TAFFO Data Type Allocation
   ###
+  append_time_string "dta_start"
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,taffodta,globaldce" \
@@ -448,6 +488,7 @@ while [[ $feedback_stop -eq 0 ]]; do
   ###
   ###  TAFFO Conversion
   ###
+  append_time_string "conversion_start"
   ${OPT} \
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoconv,globaldce,dce' \
@@ -549,7 +590,7 @@ fi
 ###
 ###  Backend
 ###
-
+append_time_string "backend_start"
 # Produce the requested output file
 if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
   ${CLANG} \
@@ -590,4 +631,7 @@ fi
 if [[ $del_temporary_dir -ne 0 ]]; then
   rm -rf "${temporary_dir}"
 fi
+
+append_time_string "taffo_end"
+output_time_string
 

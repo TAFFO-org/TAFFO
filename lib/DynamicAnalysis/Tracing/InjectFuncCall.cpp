@@ -53,10 +53,14 @@ bool InjectFuncCall::runOnModule(Module &M) {
   // STEP 2: Inject a global variable that will hold the printf format string
   // ------------------------------------------------------------------------
   llvm::Constant *PrintfFormatStr = llvm::ConstantDataArray::getString(CTX, "\nTAFFO_TRACE %s %A %s %s\n");
+  llvm::Constant *PrintfTimerStr = llvm::ConstantDataArray::getString(CTX, "\nTRACE_TIMER %s\n");
 
   Constant *PrintfFormatStrVar =
       M.getOrInsertGlobal("PrintfFormatStr", PrintfFormatStr->getType());
   dyn_cast<GlobalVariable>(PrintfFormatStrVar)->setInitializer(PrintfFormatStr);
+  Constant *PrintfTimerStrVar =
+      M.getOrInsertGlobal("PrintfTimerStr", PrintfTimerStr->getType());
+  dyn_cast<GlobalVariable>(PrintfTimerStrVar)->setInitializer(PrintfTimerStr);
 
   // STEP 3: For each function in the module, inject a call to printf
   // ----------------------------------------------------------------
@@ -72,6 +76,21 @@ bool InjectFuncCall::runOnModule(Module &M) {
   for (auto &F : M) {
     if (!F.hasName() || F.isDeclaration())
       continue;
+
+    if (F.getName() == "timer_start" || F.getName() == "timer_stop") {
+      auto &BB = F.getEntryBlock();
+//      auto &InstList = BB.getInstList();
+//      auto current = InstList.getNextNode(InstList.front());
+      llvm::Value *FormatStrPtr = Builder.CreatePointerCast(PrintfTimerStrVar, PrintfArgTy, "timerStr");
+      Builder.SetInsertPoint(&BB.front());
+      auto InstName = Builder.CreateGlobalStringPtr(F.getName());
+      Builder.CreateCall(Printf, {
+                                     FormatStrPtr,
+                                     InstName
+                                 });
+      InsertedAtLeastOnePrintf = true;
+      continue;
+    }
 
     for (auto &BB: F.getBasicBlockList()) {
       auto &InstList = BB.getInstList();
