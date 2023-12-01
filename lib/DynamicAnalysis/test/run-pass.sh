@@ -1,4 +1,4 @@
-export LLVM_DIR=export LLVM_DIR=/home/denisovlev/Data/llvm-12-debug/bin/
+export LLVM_DIR=export LLVM_DIR=/home/denisovlev/Data/llvm-15-debug/bin/
 # Generate an LLVM file to analyze
 "$LLVM_DIR"clang -D__TAFFO__ -O0 -Xclang -disable-O0-optnone -emit-llvm -S ./input.c -o input.ll
 # Run the pass through opt - New PM
