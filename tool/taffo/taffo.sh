@@ -107,6 +107,7 @@ help=0
 print_version=0
 dynamic_instrument=0
 dynamic_trace=
+annot_log_file=
 for opt in $raw_opts; do
   case $parse_state in
     0)
@@ -224,6 +225,9 @@ for opt in $raw_opts; do
         -dynamic-trace)
             parse_state=20
             ;;
+        -annot-log-file)
+            parse_state=21
+            ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
           ;;
@@ -334,6 +338,10 @@ for opt in $raw_opts; do
       ;;
     20)
       dynamic_trace="$dynamic_trace -trace_file $opt";
+      parse_state=0;
+      ;;
+    21)
+      annot_log_file="$annot_log_file -annot_log_file $opt";
       parse_state=0;
       ;;
   esac;
@@ -631,6 +639,16 @@ else
       "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" \
       -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
   fi
+fi
+
+if [ -n "$annot_log_file" ]; then
+  ${OPT} \
+        -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+        --passes='no-op-module,taffo-log-annotations' \
+        $annot_log_file \
+        $compat_flags_opt \
+        "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
+        -S -o /dev/null || exit $?
 fi
 
 ###

@@ -10,6 +10,7 @@
 #include "DynamicAnalysis/Tracing/ReadTrace.h"
 #include "DynamicAnalysis/Tracing/NameVariables.h"
 #include "DynamicAnalysis/Tracing/StripAnnotations.h"
+#include "DynamicAnalysis/Tracing/LogAnnotations.h"
 #include "TaffoMem2Reg/Mem2Reg.h"
 
 using namespace llvm;
@@ -50,6 +51,9 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
                 return true;
               } else if (Name == "taffo-strip-annotations") {
                 PM.addPass(StripAnnotations());
+                return true;
+              } else if (Name == "taffo-log-annotations") {
+                PM.addPass(LogAnnotations());
                 return true;
               }
               return false;

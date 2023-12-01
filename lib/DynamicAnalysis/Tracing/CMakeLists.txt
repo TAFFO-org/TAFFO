@@ -9,6 +9,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     ExpandEqualValue.cpp
     TracingUtils.cpp
     StripAnnotations.cpp
+    LogAnnotations.cpp
 
     ADDITIONAL_HEADERS
     InjectFuncCall.h
@@ -19,6 +20,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     ExpandEqualValue.h
     TracingUtils.h
     StripAnnotations.h
+    LogAnnotations.h
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
