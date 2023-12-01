@@ -104,7 +104,7 @@ int BENCH_MAIN()
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),M,M,m,m);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar(range(0, 12) final)"))),M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar(range(-256, 255) final)"))),M,N,m,n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
      /* Initialize array(s). */
