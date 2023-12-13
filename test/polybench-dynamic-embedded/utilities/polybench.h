@@ -199,7 +199,7 @@
 
 /* Dead-code elimination macros. Use argc/argv for the run-time check. */
 # ifndef POLYBENCH_DUMP_ARRAYS
-#  define POLYBENCH_DCE_ONLY_CODE
+#  define POLYBENCH_DCE_ONLY_CODE     if (argc > 42 && ! strcmp(argv[0], ""))
 # else
 #  define POLYBENCH_DCE_ONLY_CODE
 # endif
@@ -432,6 +432,41 @@ void* polybench_alloc_data(unsigned long long int n, int elt_size)
   return ret;
 }
 
+#ifndef SCALING_FACTOR
+#define SCALING_FACTOR 1
+#endif
+
+#if SCALING_FACTOR!=1
+void scale_scalar(DATA_TYPE* val, int factor) {
+  //  scalars should probably not be scaled
+  //  *val = *val * factor;
+}
+
+void scale_1d(int n, DATA_TYPE val[n], int factor) {
+  for (int i = 0; i < n; i++) {
+    val[i] = val[i] * factor;
+  }
+}
+
+void scale_2d(int n, int m, DATA_TYPE val[n][m], int factor) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      val[i][j] = val[i][j] * factor;
+    }
+  }
+}
+
+void scale_3d(int n, int m, int p, DATA_TYPE val[n][m][p], int factor) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      for (int k = 0; k < p; k++) {
+        val[i][j][k] = val[i][j][k] * factor;
+      }
+    }
+  }
+}
+#endif
+
 #ifdef COLLECT_STATS
 
 void stats_header() {
@@ -507,6 +542,7 @@ void stats_3d(char* name, int n, int m, int p, DATA_TYPE val[n][m][p]) {
 }
 
 #endif
+
 
 
 #endif /* !POLYBENCH_H */
