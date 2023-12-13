@@ -6,6 +6,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Debug.h"
+#include <llvm/Support/raw_ostream.h>
 
 #include "TaffoUtils/Metadata.h"
 #include "TaffoUtils/InputInfo.h"
@@ -31,7 +32,8 @@ bool LogAnnotations::runOnModule(llvm::Module &M)
   bool Changed = false;
   auto &CTX = M.getContext();
   IRBuilder<> Builder(CTX);
-  std::stringstream sstm;
+  std::string str;
+  llvm::raw_string_ostream sstm(str);
 
   for (auto &F : M) {
     if (!F.hasName() || F.isDeclaration())
@@ -43,10 +45,23 @@ bool LogAnnotations::runOnModule(llvm::Module &M)
         if (ii) {
           auto range = ii->IRange;
           if (range) {
-            sstm << F.getName().str() << ","
-                << Inst.getName().str() << ","
-                << toIntValue(range->Min) << ","
-                << toIntValue(range->Max) << std::endl;
+            if (DILocation *Loc = Inst.getDebugLoc()) { // Here I is an LLVM instruction
+              unsigned Line = Loc->getLine();
+              StringRef File = Loc->getFilename();
+              StringRef Dir = Loc->getDirectory();
+              bool ImplicitCode = Loc->isImplicitCode();
+              sstm << F.getName().str() << ";"
+                   << Inst << ";"
+                   << toIntValue(range->Min) << ";"
+                   << toIntValue(range->Max)  << ";"
+                   << Line  << ";"
+                   << File.str()  << ";"
+                   << Dir.str()  << ";"
+                   << ImplicitCode  << ";"
+                   << "\n"
+                  ;
+            }
+
           }
         }
       }
@@ -58,10 +73,10 @@ bool LogAnnotations::runOnModule(llvm::Module &M)
     if (ii) {
       auto range = ii->IRange;
       if (range) {
-        sstm << "GLOBAL" << ","
-             << G.getName().str() << ","
-             << toIntValue(range->Min) << ","
-             << toIntValue(range->Max) << std::endl;
+        sstm << "GLOBAL" << ";"
+             << G.getName().str() << ";"
+             << toIntValue(range->Min) << ";"
+             << toIntValue(range->Max) << ";;;;;\n";
       }
     }
   }
