@@ -7,7 +7,7 @@ CC :=
 TAFFO := $(shell eval which taffo)
 TAFFO_PREFIX := $(dir $(TAFFO))/..
 TAFFO_INSTMIX := $(shell eval which taffo-instmix)
-DEBUG := 0
+DEBUG := 1
 ifeq ($(DEBUG), 1)
 	DEBUG_TAFFO := -debug-taffo
 else
@@ -25,14 +25,14 @@ embedded_triple := arm-none-eabi
 embedded_cpu := cortex-m0plus+nofp
 STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI
 
-CFLAGS := -g0 -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
+CFLAGS := -g -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
 CFLAGS_DOUBLE := -g0 -O3 -lm
 POLYBENCH_SHARED_FLAGS :=  -DPOLYBENCH_STACK_ARRAYS
 POLYBENCH_PC_FLAGS := -DBENCH_NUM_ITERATIONS=1000
 POLYBENCH_EMBEDDED_FLAGS := -DBENCH_NUM_ITERATIONS=10
 POLYBENCH_BENCH_FLAGS := -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_TIME
-POLYBENCH_DATASET_FLAGS := -DMINI_DATASET
-#POLYBENCH_DATASET_FLAGS := -DSMALL_DATASET
+#POLYBENCH_DATASET_FLAGS := -DMINI_DATASET
+POLYBENCH_DATASET_FLAGS := -DSMALL_DATASET
 POLYBENCH_DATA_FLAGS :=  -DDATA_TYPE_IS_FLOAT
 POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
 PC_OPT_FLAGS :=
@@ -45,10 +45,10 @@ EMBEDDED_OPT_FLAGS := -m32 \
 
 modes := float fixed dynamic
 archs := PC EMBEDDED
-benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+#benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-#benchmarks := 2mm
+benchmarks := 3mm
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -84,7 +84,7 @@ double_configurations_file = $(BUILD_DIR)/double_configurations.csv
 
 .PHONY: all
 #all: $(clean_configurations) ${double_jobs} ${stats_jobs} ${jobs} summary ; echo $@ Success
-all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ${jobs_run} summary ; echo $@ Success
+all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ; echo $@ Success
 .PHONY: run
 run: ${jobs_run}
 
