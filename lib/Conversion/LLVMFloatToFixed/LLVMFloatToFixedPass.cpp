@@ -1,4 +1,5 @@
 #include "LLVMFloatToFixedPass.h"
+#include "DebugUtils.h"
 #include "Metadata.h"
 #include "TaffoMathUtil.h"
 #include "TypeUtils.h"
@@ -272,16 +273,15 @@ void FloatToFixed::closePhiLoops()
     PHINode *origphi = data.first;
     PHIInfo &info = data.second;
     Value *substphi = operandPool[origphi];
-
     LLVM_DEBUG(dbgs() << "restoring data flow of phi " << *origphi << "\n");
-    if (info.placeh_noconv != info.placeh_conv)
+    if (info.placeh_noconv != info.placeh_conv) {
       info.placeh_noconv->replaceAllUsesWith(origphi);
+    }
     if (!substphi) {
       LLVM_DEBUG(dbgs() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
       substphi = translateOrMatchAnyOperandAndType(origphi, fixPType(origphi));
       assert(substphi && "phi conversion has failed");
     }
-
     info.placeh_conv->replaceAllUsesWith(substphi);
     LLVM_DEBUG(
         dbgs() << "restored data flow of original phi " << *origphi << " to new value " << *substphi << "\n");

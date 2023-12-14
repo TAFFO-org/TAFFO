@@ -1,10 +1,12 @@
 #include "DataTypeAlloc/TaffoDTA/DTAConfig.h"
 #include "LLVMFloatToFixedPass.h"
+#include "TaffoMathUtil.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -18,7 +20,6 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
 #include <cmath>
-#include "TaffoMathUtil.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -308,7 +309,7 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
 
 Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
 {
-  if (!phi->getType()->isFloatingPointTy() ||
+  if (!(phi->getType()->isFloatingPointTy() || (phi->getType()->isPointerTy() && cast<PointerType>(phi->getType())->getPointerElementType()->isFloatingPointTy())) ||
       valueInfo(phi)->noTypeConversion) {
     /* in the conversion chain the floating point number was converted to
      * an int at some point; we just upgrade the incoming values in place */
@@ -317,6 +318,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
      * the phi is converted as well; otherwise it is not. */
     bool donesomething = false;
     for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
+      LLVM_DEBUG(llvm::dbgs() << "  [phi argn]   " << i << "\n");
       Value *thisval = phi->getIncomingValue(i);
       Value *newval = fallbackMatchValue(thisval, thisval->getType(), phi);
       if (newval && newval != ConversionError) {
@@ -329,17 +331,29 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
   /* if we have to do a type change, create a new phi node. The new type is for
    * sure that of a fixed point value; because the original type was a float
    * and thus all of its incoming values were floats */
-  PHINode *newphi = PHINode::Create(fixpt.scalarToLLVMType(phi->getContext()),
+  auto fixpt_llvm_type = fixpt.scalarToLLVMType(phi->getContext());
+  auto is_phi_pointer = phi->getType()->isPointerTy();
+  if (is_phi_pointer) {
+    fixpt_llvm_type = fixpt_llvm_type->getPointerTo();
+  }
+  PHINode *newphi = PHINode::Create(fixpt_llvm_type,
                                     phi->getNumIncomingValues());
+  LLVM_DEBUG(llvm::dbgs() << "  [newphi  ]" << *newphi << "\n");
   for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
+    LLVM_DEBUG(llvm::dbgs() << "  [phi argn]   " << i << "\n");
     Value *thisval = phi->getIncomingValue(i);
     BasicBlock *thisbb = phi->getIncomingBlock(i);
-    Value *newval =
-        translateOrMatchOperandAndType(thisval, fixpt, thisbb->getTerminator());
+    Value *newval = nullptr;
+    if (is_phi_pointer) {
+      newval = matchOp(thisval);
+    } else {
+      newval = translateOrMatchOperandAndType(thisval, fixpt, thisbb->getTerminator());
+    }
     if (!newval) {
       delete newphi;
       return nullptr;
     }
+    LLVM_DEBUG(llvm::dbgs() << "  [con phia]" << *newval);
     Instruction *inst2 = dyn_cast<Instruction>(newval);
     if (inst2) {
       LLVM_DEBUG(dbgs() << "warning: new phi value " << *inst2

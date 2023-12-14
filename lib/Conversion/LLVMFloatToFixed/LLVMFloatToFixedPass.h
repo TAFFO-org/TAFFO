@@ -389,9 +389,6 @@ struct FloatToFixed {
       return cvtfallval;
 
     if (!ip) {
-      if ((ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval))) {
-        ip->getNextNode();
-      }
       // argument is not an instruction, insert it's convertion in the first basic block
       if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)) {
         auto arg = llvm::cast<llvm::Argument>(cvtfallval);
