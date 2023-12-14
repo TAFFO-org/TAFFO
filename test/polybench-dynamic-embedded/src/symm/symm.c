@@ -106,18 +106,18 @@ void kernel_symm(int m, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int m = M;
   int n = N;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar()"))),M,N,m,n);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),M,M,m,m);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),M,N,m,n);
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_alpha_MIN) "," PB_XSTR(VAR_alpha_MAX) "))"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_beta_MIN) "," PB_XSTR(VAR_beta_MAX) "))"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(" PB_XSTR(VAR_C_MIN) "," PB_XSTR(VAR_C_MAX) "))"))),M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))),M,M,m,m);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) "))"))),M,N,m,n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
      /* Initialize array(s). */
@@ -132,6 +132,23 @@ int BENCH_MAIN()
      randomize_2d(M, N, C, POLYBENCH_RANDOMIZE_RANGE);
      randomize_2d(M, M, A, POLYBENCH_RANDOMIZE_RANGE);
      randomize_2d(M, N, B, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_scalar(&alpha, SCALING_FACTOR);
+  scale_scalar(&beta, SCALING_FACTOR);
+  scale_2d(M,N, POLYBENCH_ARRAY(C), SCALING_FACTOR);
+  scale_2d(M,M, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(M,N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("alpha", alpha);
+  stats_scalar("beta", beta);
+  stats_2d("C", M,N, POLYBENCH_ARRAY(C));
+  stats_2d("A", M,M, POLYBENCH_ARRAY(A));
+  stats_2d("B", M,N, POLYBENCH_ARRAY(B));
+#endif
 
      /* Start timer. */
      polybench_start_instruments;

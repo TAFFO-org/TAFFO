@@ -87,15 +87,15 @@ void kernel_trisolv(int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE __attribute__((annotate("scalar(range(-1,3) final)"))), N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(-1, 400) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_2D_ARRAY_DECL(L, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_L_MIN) "," PB_XSTR(VAR_L_MAX) "))"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(" PB_XSTR(VAR_x_MIN) "," PB_XSTR(VAR_x_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_b_MIN) "," PB_XSTR(VAR_b_MAX) "))"))), N, n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
       /* Initialize array(s). */
@@ -105,6 +105,19 @@ int BENCH_MAIN()
       randomize_2d(N, N, L, POLYBENCH_RANDOMIZE_RANGE);
       randomize_1d(N, x, POLYBENCH_RANDOMIZE_RANGE);
       randomize_1d(N, b, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_2d(N, N, POLYBENCH_ARRAY(L), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(b), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("L", N, N, POLYBENCH_ARRAY(L));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("b", N, POLYBENCH_ARRAY(b));
+#endif
 
       /* Start timer. */
       polybench_start_instruments;

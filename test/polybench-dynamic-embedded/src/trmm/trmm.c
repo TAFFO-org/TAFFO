@@ -95,16 +95,16 @@ void kernel_trmm(int m, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int m = M;
   int n = N;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),M,M,m,m);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar(range(-256, 255) final)"))),M,N,m,n);
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_alpha_MIN) "," PB_XSTR(VAR_alpha_MAX) "))"))) alpha;
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))),M,M,m,m);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) "))"))),M,N,m,n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
      /* Initialize array(s). */
@@ -114,6 +114,19 @@ int BENCH_MAIN()
 //     randomize_scalar(&alpha, POLYBENCH_RANDOMIZE_RANGE);
      randomize_2d(M, M, A, POLYBENCH_RANDOMIZE_RANGE);
      randomize_2d(M, N, B, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_scalar(&alpha, SCALING_FACTOR);
+  scale_2d(M,M, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(M,N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("alpha", alpha);
+  stats_2d("A", M,M, POLYBENCH_ARRAY(A));
+  stats_2d("B", M,N, POLYBENCH_ARRAY(B));
+#endif
 
      /* Start timer. */
      polybench_start_instruments;

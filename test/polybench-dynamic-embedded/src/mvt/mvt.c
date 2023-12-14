@@ -97,17 +97,17 @@ void kernel_mvt(int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(x1, DATA_TYPE __attribute__((annotate("target('x1') scalar(range(-256, 255) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(x2, DATA_TYPE __attribute__((annotate("target('x2') scalar(range(-256, 255) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y_1, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y_2, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(x1, DATA_TYPE __attribute__((annotate("target('x1') scalar(range(" PB_XSTR(VAR_x1_MIN) "," PB_XSTR(VAR_x1_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x2, DATA_TYPE __attribute__((annotate("target('x2') scalar(range(" PB_XSTR(VAR_x2_MIN) "," PB_XSTR(VAR_x2_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y_1, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_y_1_MIN) "," PB_XSTR(VAR_y_1_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y_2, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_y_2_MIN) "," PB_XSTR(VAR_y_2_MAX) "))"))), N, n);
 
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
@@ -125,6 +125,23 @@ int BENCH_MAIN()
     randomize_1d(N, y_1, POLYBENCH_RANDOMIZE_RANGE);
     randomize_1d(N, y_2, POLYBENCH_RANDOMIZE_RANGE);
     randomize_2d(N, N, A, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+    scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+    scale_1d(N, POLYBENCH_ARRAY(x1), SCALING_FACTOR);
+    scale_1d(N, POLYBENCH_ARRAY(x2), SCALING_FACTOR);
+    scale_1d(N, POLYBENCH_ARRAY(y_1), SCALING_FACTOR);
+    scale_1d(N, POLYBENCH_ARRAY(y_2), SCALING_FACTOR);
+#endif
+
+  #ifdef COLLECT_STATS
+    stats_header();
+    stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+    stats_1d("x1", N, POLYBENCH_ARRAY(x1));
+    stats_1d("x2", N, POLYBENCH_ARRAY(x2));
+    stats_1d("y_1", N, POLYBENCH_ARRAY(y_1));
+    stats_1d("y_2", N, POLYBENCH_ARRAY(y_2));
+  #endif
 
     /* Start timer. */
     polybench_start_instruments;

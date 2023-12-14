@@ -140,16 +140,16 @@ void kernel_ludcmp(int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final)"))), N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))), N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_b_MIN) "," PB_XSTR(VAR_b_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar(range(" PB_XSTR(VAR_x_MIN) "," PB_XSTR(VAR_x_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_y_MIN) "," PB_XSTR(VAR_y_MAX) "))"))), N, n);
 
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
@@ -165,6 +165,21 @@ int BENCH_MAIN()
      randomize_1d(N, b, POLYBENCH_RANDOMIZE_RANGE);
      randomize_1d(N, x, POLYBENCH_RANDOMIZE_RANGE);
      randomize_1d(N, y, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(b), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(x), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_1d("b", N, POLYBENCH_ARRAY(b));
+  stats_1d("x", N, POLYBENCH_ARRAY(x));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
      /* Start timer. */
      polybench_start_instruments;

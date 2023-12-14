@@ -27,9 +27,9 @@ void init_array (int n,
 		 DATA_TYPE POLYBENCH_3D(A,N,N,N,n,n,n),
 		 DATA_TYPE POLYBENCH_3D(B,N,N,N,n,n,n))
 {
-  int i __attribute__((annotate("scalar(range(0, 10) final)")));
-  int j __attribute__((annotate("scalar(range(0, 10) final)")));
-  int k __attribute__((annotate("scalar(range(0, 10) final)")));
+  int i __attribute__((annotate("scalar()")));
+  int j __attribute__((annotate("scalar()")));
+  int k __attribute__((annotate("scalar()")));
 
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
@@ -98,15 +98,15 @@ void kernel_heat_3d(int tsteps,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_3D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), N, N, N, n, n, n);
-  POLYBENCH_3D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, N, n, n, n);
+  POLYBENCH_3D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))), N, N, N, n, n, n);
+  POLYBENCH_3D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) "))"))), N, N, N, n, n, n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
        /* Initialize array(s). */
@@ -115,6 +115,17 @@ int BENCH_MAIN()
        srand(POLYBENCH_RANDOM_SEED);
        randomize_3d(N, N, N, A, POLYBENCH_RANDOMIZE_RANGE);
        randomize_3d(N, N, N, B, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+       scale_3d(N, N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+       scale_3d(N, N, N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+       stats_header();
+       stats_3d("A", N, N, N, POLYBENCH_ARRAY(A));
+       stats_3d("B", N, N, N, POLYBENCH_ARRAY(B));
+#endif
 
        /* Start timer. */
        polybench_start_instruments;

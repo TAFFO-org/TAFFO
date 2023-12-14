@@ -112,14 +112,14 @@ void kernel_nussinov(int n, base POLYBENCH_1D(seq,N,n),
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
   POLYBENCH_1D_ARRAY_DECL(seq, base, N, n);
-  POLYBENCH_2D_ARRAY_DECL(table, DATA_TYPE __attribute__((annotate("target('table') scalar(range(0, 30))"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(table, DATA_TYPE __attribute__((annotate("target('table') scalar(range(" PB_XSTR(VAR_table_MIN) "," PB_XSTR(VAR_table_MAX) "))"))), N, N, n, n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
   /* Initialize array(s). */
@@ -128,6 +128,15 @@ int BENCH_MAIN()
   srand(POLYBENCH_RANDOM_SEED);
 //  randomize_1d(N, seq, POLYBENCH_RANDOMIZE_RANGE);
 //  randomize_2d(N, N, table, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_2d(N, N, POLYBENCH_ARRAY(table), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("table", N, N, POLYBENCH_ARRAY(table));
+#endif
 
   /* Start timer. */
   polybench_start_instruments;

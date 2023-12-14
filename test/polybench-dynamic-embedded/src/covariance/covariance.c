@@ -97,16 +97,16 @@ void kernel_covariance(int m, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int m = M;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(2, 3000))"))) float_n;
-  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("target('data') scalar(range(-2097152, 2097151) final)"))),N,M,n,m);
-  POLYBENCH_2D_ARRAY_DECL(cov,DATA_TYPE __attribute((annotate("target('cov') scalar(range(-2097152, 2097151) final)"))),M,M,m,m);
+  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(" PB_XSTR(VAR_floatn_MIN) "," PB_XSTR(VAR_floatn_MAX) "))"))) float_n;
+  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("target('data') scalar(range(" PB_XSTR(VAR_data_MIN) "," PB_XSTR(VAR_data_MAX) "))"))),N,M,n,m);
+  POLYBENCH_2D_ARRAY_DECL(cov,DATA_TYPE __attribute((annotate("target('cov') scalar()"))),M,M,m,m);
   POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("target('mean') scalar()"))),M,m);
 
 
@@ -115,6 +115,17 @@ int BENCH_MAIN()
       init_array(m, n, &float_n, POLYBENCH_ARRAY(data));
       srand(POLYBENCH_RANDOM_SEED);
       randomize_2d(n, m, data, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+      scale_scalar(&float_n, SCALING_FACTOR);
+      scale_2d(N, M, POLYBENCH_ARRAY(data), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+      stats_header();
+      stats_scalar("floatn", float_n);
+      stats_2d("data", N, M, POLYBENCH_ARRAY(data));
+#endif
 
       /* Start timer. */
       polybench_start_instruments;

@@ -94,17 +94,17 @@ void kernel_syrk(int n, int m,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int m = M;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar()"))),N,N,n,n);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(-256, 255) final)"))),N,M,n,m);
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_alpha_MIN) "," PB_XSTR(VAR_alpha_MAX) "))"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_beta_MIN) "," PB_XSTR(VAR_beta_MAX) "))"))) beta;
+  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar(range(" PB_XSTR(VAR_C_MIN) "," PB_XSTR(VAR_C_MAX) "))"))),N,N,n,n);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))),N,M,n,m);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
     /* Initialize array(s). */
@@ -115,6 +115,21 @@ int BENCH_MAIN()
     randomize_scalar(&beta, POLYBENCH_RANDOMIZE_RANGE);
     randomize_2d(N, N, C, POLYBENCH_RANDOMIZE_RANGE);
     randomize_2d(N, M, A, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_scalar(&alpha, SCALING_FACTOR);
+  scale_scalar(&beta, SCALING_FACTOR);
+  scale_2d(N,N, POLYBENCH_ARRAY(C), SCALING_FACTOR);
+  scale_2d(N,M, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("alpha", alpha);
+  stats_scalar("beta", beta);
+  stats_2d("C", N,N, POLYBENCH_ARRAY(C));
+  stats_2d("A", N,M, POLYBENCH_ARRAY(A));
+#endif
 
     /* Start timer. */
     polybench_start_instruments;

@@ -81,15 +81,15 @@ void kernel_jacobi_1d(int tsteps,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_1D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) "))"))), N, n);
 
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
@@ -99,6 +99,17 @@ int BENCH_MAIN()
       srand(POLYBENCH_RANDOM_SEED);
       randomize_1d(N, A, POLYBENCH_RANDOMIZE_RANGE);
       randomize_1d(N, B, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+      scale_1d(N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+      scale_1d(N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+      stats_header();
+      stats_1d("A", N, POLYBENCH_ARRAY(A));
+      stats_1d("B", N, POLYBENCH_ARRAY(B));
+#endif
 
       /* Start timer. */
       polybench_start_instruments;

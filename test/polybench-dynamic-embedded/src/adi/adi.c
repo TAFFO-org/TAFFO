@@ -131,17 +131,17 @@ void kernel_adi(int tsteps, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE __attribute__((annotate("target('u') scalar(range(-60,60) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE __attribute__((annotate("scalar(range(-2,2) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar(range(-1,1) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar(range(-500,500) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE __attribute__((annotate("target('u') scalar(range(" PB_XSTR(VAR_u_MIN) "," PB_XSTR(VAR_u_MAX) "))"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
     /* Initialize array(s). */
@@ -149,6 +149,15 @@ int BENCH_MAIN()
 
     srand(POLYBENCH_RANDOM_SEED);
     randomize_2d(N, N, u, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+    scale_2d(N, N, POLYBENCH_ARRAY(u), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+    stats_header();
+    stats_2d("u", N, N, POLYBENCH_ARRAY(u));
+#endif
 
     /* Start timer. */
     polybench_start_instruments;

@@ -95,14 +95,14 @@ void kernel_durbin(int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-2, 2) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_r_MIN) "," PB_XSTR(VAR_r_MAX) "))"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar())"))), N, n);
 
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
@@ -111,6 +111,17 @@ int BENCH_MAIN()
 
    srand(POLYBENCH_RANDOM_SEED);
    randomize_1d(N, r, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_1d(N, POLYBENCH_ARRAY(r), SCALING_FACTOR);
+  scale_1d(N, POLYBENCH_ARRAY(y), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_1d("r", N, POLYBENCH_ARRAY(r));
+  stats_1d("y", N, POLYBENCH_ARRAY(y));
+#endif
 
    /* Start timer. */
    polybench_start_instruments;

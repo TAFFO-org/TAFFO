@@ -71,10 +71,10 @@ void kernel_deriche(int w, int h, DATA_TYPE alpha,
        DATA_TYPE POLYBENCH_2D(y1, W, H, w, h),
        DATA_TYPE POLYBENCH_2D(y2, W, H, w, h)) {
     int i,j;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) xm1, tm1, ym1, ym2;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) xp1, xp2;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) tp1, tp2;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) yp1, yp2;
+    DATA_TYPE __attribute__((annotate("scalar()"))) xm1, tm1, ym1, ym2;
+    DATA_TYPE __attribute__((annotate("scalar()"))) xp1, xp2;
+    DATA_TYPE __attribute__((annotate("scalar()"))) tp1, tp2;
+    DATA_TYPE __attribute__((annotate("scalar()"))) yp1, yp2;
 
     DATA_TYPE __attribute__((annotate("scalar()"))) k;
     DATA_TYPE __attribute__((annotate("scalar()"))) a1, a2, a3, a4, a5, a6, a7, a8;
@@ -156,16 +156,16 @@ void kernel_deriche(int w, int h, DATA_TYPE alpha,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int w = W;
   int h = H;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  POLYBENCH_2D_ARRAY_DECL(imgIn, DATA_TYPE  __attribute__((annotate("scalar()"))), W, H, w, h);
-  POLYBENCH_2D_ARRAY_DECL(imgOut, DATA_TYPE __attribute__((annotate("target('imgOut') scalar()"))), W, H, w, h);
+  DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_alpha_MIN) "," PB_XSTR(VAR_alpha_MAX) "))"))) alpha;
+  POLYBENCH_2D_ARRAY_DECL(imgIn, DATA_TYPE  __attribute__((annotate("scalar(range(" PB_XSTR(VAR_imgIn_MIN) "," PB_XSTR(VAR_imgIn_MAX) "))"))), W, H, w, h);
+  POLYBENCH_2D_ARRAY_DECL(imgOut, DATA_TYPE __attribute__((annotate("target('imgOut') scalar(range(" PB_XSTR(VAR_imgOut_MIN) "," PB_XSTR(VAR_imgOut_MAX) "))"))), W, H, w, h);
   POLYBENCH_2D_ARRAY_DECL(y1, DATA_TYPE __attribute__((annotate("scalar()"))), W, H, w, h);
   POLYBENCH_2D_ARRAY_DECL(y2, DATA_TYPE __attribute__((annotate("scalar()"))), W, H, w, h);
 
@@ -177,6 +177,19 @@ int BENCH_MAIN()
 //        randomize_scalar(&alpha, POLYBENCH_RANDOMIZE_RANGE);
         randomize_2d(W, H, imgIn, POLYBENCH_RANDOMIZE_RANGE);
         randomize_2d(W, H, imgOut, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+        scale_scalar(&alpha, SCALING_FACTOR);
+        scale_2d(W, H, POLYBENCH_ARRAY(imgIn), SCALING_FACTOR);
+        scale_2d(W, H, POLYBENCH_ARRAY(imgOut), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+        stats_header();
+        stats_scalar("alpha", alpha);
+        stats_2d("imgIn", W, H, POLYBENCH_ARRAY(imgIn));
+        stats_2d("imgOut", W, H, POLYBENCH_ARRAY(imgOut));
+#endif
 
         /* Start timer. */
         polybench_start_instruments;

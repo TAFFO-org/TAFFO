@@ -112,16 +112,16 @@ void kernel_gramschmidt(int m, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int m = M;
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000))"))),M,N,m,n);
-  POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) final)"))),N,N,n,n);
-  POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) final)"))),M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))),M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(" PB_XSTR(VAR_R_MIN) "," PB_XSTR(VAR_R_MAX) "))"))),N,N,n,n);
+  POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(" PB_XSTR(VAR_Q_MIN) "," PB_XSTR(VAR_Q_MAX) "))"))),M,N,m,n);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
         /* Initialize array(s). */
@@ -134,6 +134,19 @@ int BENCH_MAIN()
         randomize_2d(M, N, A, POLYBENCH_RANDOMIZE_RANGE);
         randomize_2d(N, N, R, POLYBENCH_RANDOMIZE_RANGE);
         randomize_2d(M, N, Q, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_2d(M,N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(N,N, POLYBENCH_ARRAY(R), SCALING_FACTOR);
+  scale_2d(M,N, POLYBENCH_ARRAY(Q), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("A", M,N, POLYBENCH_ARRAY(A));
+  stats_2d("R", N,N, POLYBENCH_ARRAY(R));
+  stats_2d("Q", M,N, POLYBENCH_ARRAY(Q));
+#endif
 
         /* Start timer. */
         polybench_start_instruments;

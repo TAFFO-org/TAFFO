@@ -120,7 +120,7 @@ void kernel_fdtd_2d(int tmax,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int tmax = TMAX;
@@ -128,10 +128,10 @@ int BENCH_MAIN()
   int ny = NY;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(ex,DATA_TYPE __attribute__((annotate("target('ex') scalar()"))),NX,NY,nx,ny);
-  POLYBENCH_2D_ARRAY_DECL(ey,DATA_TYPE __attribute__((annotate("target('ey') scalar()"))),NX,NY,nx,ny);
-  POLYBENCH_2D_ARRAY_DECL(hz,DATA_TYPE __attribute__((annotate("target('hz') scalar()"))),NX,NY,nx,ny);
-  POLYBENCH_1D_ARRAY_DECL(_fict_,DATA_TYPE __attribute__((annotate("scalar()"))),TMAX,tmax);
+  POLYBENCH_2D_ARRAY_DECL(ex,DATA_TYPE __attribute__((annotate("target('ex') scalar(range(" PB_XSTR(VAR_ex_MIN) "," PB_XSTR(VAR_ex_MAX) "))"))),NX,NY,nx,ny);
+  POLYBENCH_2D_ARRAY_DECL(ey,DATA_TYPE __attribute__((annotate("target('ey') scalar(range(" PB_XSTR(VAR_ey_MIN) "," PB_XSTR(VAR_ey_MAX) "))"))),NX,NY,nx,ny);
+  POLYBENCH_2D_ARRAY_DECL(hz,DATA_TYPE __attribute__((annotate("target('hz') scalar(range(" PB_XSTR(VAR_hz_MIN) "," PB_XSTR(VAR_hz_MAX) "))"))),NX,NY,nx,ny);
+  POLYBENCH_1D_ARRAY_DECL(_fict_,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_fict_MIN) "," PB_XSTR(VAR_fict_MAX) "))"))),TMAX,tmax);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
       /* Initialize array(s). */
@@ -146,6 +146,21 @@ int BENCH_MAIN()
       randomize_2d(NX, NY, ey, POLYBENCH_RANDOMIZE_RANGE);
       randomize_2d(NX, NY, hz, POLYBENCH_RANDOMIZE_RANGE);
 //      randomize_1d(TMAX, _fict_, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+      scale_2d(NX, NY, POLYBENCH_ARRAY(ex), SCALING_FACTOR);
+      scale_2d(NX, NY, POLYBENCH_ARRAY(ey), SCALING_FACTOR);
+      scale_2d(NX, NY, POLYBENCH_ARRAY(hz), SCALING_FACTOR);
+      scale_1d(TMAX, POLYBENCH_ARRAY(_fict_), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+      stats_header();
+      stats_2d("ex", NX, NY, POLYBENCH_ARRAY(ex));
+      stats_2d("ey", NX, NY, POLYBENCH_ARRAY(ey));
+      stats_2d("hz", NX, NY, POLYBENCH_ARRAY(hz));
+      stats_1d("fict", TMAX, POLYBENCH_ARRAY(_fict_));
+#endif
 
       /* Start timer. */
       polybench_start_instruments;

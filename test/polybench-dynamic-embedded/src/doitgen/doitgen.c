@@ -87,7 +87,7 @@ void kernel_doitgen(int nr, int nq, int np,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int nr = NR;
@@ -95,9 +95,9 @@ int BENCH_MAIN()
   int np = NP;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(-32, 31) final)"))),NR,NQ,NP,nr,nq,np);
-  POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar(range(-32, 31) final)"))),NP,np);
-  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar()"))),NP,NP,np,np);
+  POLYBENCH_3D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))),NR,NQ,NP,nr,nq,np);
+  POLYBENCH_1D_ARRAY_DECL(sum,DATA_TYPE __attribute__((annotate("scalar()"))),NP,np);
+  POLYBENCH_2D_ARRAY_DECL(C4,DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_C4_MIN) "," PB_XSTR(VAR_C4_MAX) "))"))),NP,NP,np,np);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
     /* Initialize array(s). */
@@ -108,6 +108,19 @@ int BENCH_MAIN()
     srand(POLYBENCH_RANDOM_SEED);
     randomize_3d(NR, NQ, NP, A, POLYBENCH_RANDOMIZE_RANGE);
     randomize_2d(NP, NP, C4, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+  scale_3d(NR,NQ,NP, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_1d(NP, POLYBENCH_ARRAY(sum), SCALING_FACTOR);
+  scale_2d(NP,NP, POLYBENCH_ARRAY(C4), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_3d("A", NR, NQ, NP, POLYBENCH_ARRAY(A));
+  stats_1d("sum", NP, POLYBENCH_ARRAY(sum));
+  stats_2d("C4", NP, NP, POLYBENCH_ARRAY(C4));
+#endif
 
     /* Start timer. */
     polybench_start_instruments;

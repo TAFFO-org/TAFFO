@@ -125,18 +125,18 @@ void kernel_correlation(int m, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int m = M;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute((annotate("scalar(range(1, 3000))"))) float_n;
-  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(-512, 512) final)"))),N,M,n,m);
+  DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_floatn_MIN) "," PB_XSTR(VAR_floatn_MAX) "))"))) float_n;
+  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_data_MIN) "," PB_XSTR(VAR_data_MAX) "))"))),N,M,n,m);
   POLYBENCH_2D_ARRAY_DECL(corr,DATA_TYPE __attribute((annotate("target('corr') scalar()"))),M,M,m,m);
   POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("scalar()"))),M,m);
-  POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(1,4096) final)"))),M,m);
+  POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar()"))),M,m);
 
   for (int benchmark_i = 0; benchmark_i < BENCH_NUM_ITERATIONS; benchmark_i++) {
         /* Initialize array(s). */
@@ -144,6 +144,17 @@ int BENCH_MAIN()
 
         srand(POLYBENCH_RANDOM_SEED);
         randomize_2d(N, M, data, POLYBENCH_RANDOMIZE_RANGE);
+
+#if SCALING_FACTOR!=1
+        scale_scalar(&float_n, SCALING_FACTOR);
+        scale_2d(N, M, POLYBENCH_ARRAY(data), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+        stats_header();
+        stats_scalar("floatn", float_n);
+        stats_2d("data", N, M, POLYBENCH_ARRAY(data));
+#endif
 
         /* Start timer. */
         polybench_start_instruments;

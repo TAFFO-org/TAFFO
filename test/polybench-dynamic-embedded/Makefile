@@ -36,7 +36,7 @@ POLYBENCH_DATASET_FLAGS := -DMINI_DATASET
 POLYBENCH_DATA_FLAGS :=  -DDATA_TYPE_IS_FLOAT
 POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
 POLYBENCH_TRACING_FLAGS := -DPOLYBENCH_RANDOMIZE_ENABLED=1 -DPOLYBENCH_RANDOM_SEED=1 -DPOLYBENCH_RANDOMIZE_RANGE=0
-POLYBENCH_EVAL_FLAGS := -DPOLYBENCH_RANDOM_SEED=2 -DPOLYBENCH_RANDOMIZE_RANGE=0
+POLYBENCH_EVAL_FLAGS := -DPOLYBENCH_RANDOMIZE_ENABLED=1 -DPOLYBENCH_RANDOM_SEED=2 -DPOLYBENCH_RANDOMIZE_RANGE=0
 PC_OPT_FLAGS :=
 PC_FLAGS :=
 EMBEDDED_OPT_FLAGS := -m32 \
@@ -46,13 +46,13 @@ EMBEDDED_OPT_FLAGS := -m32 \
 						-fshort-enums
 
 modes := float fixed dynamic
-#archs := PC EMBEDDED
-archs := PC
-benchmarks := deriche adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+archs := PC EMBEDDED
+#archs := PC
+#benchmarks := deriche adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-#benchmarks := trisolv
+benchmarks := seidel-2d
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -120,6 +120,8 @@ ${double_jobs}: double-job-%:
 .PHONY: ${stats_jobs}
 ${stats_jobs}: stats-job-%:
 	@mkdir -p $(stats_job_dir)
+	$(call stats_build)
+	$(call stats_build_run)
 	$(call stats_build_tracing)
 	$(call stats_build_tracing_run)
 	$(call stats_build_tracing_compress)
@@ -156,6 +158,7 @@ define build_pc_timer
 		$(POLYBENCH_PC_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
 		$(POLYBENCH_DOUBLE_DATA_FLAGS) \
+		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(deps_pc_dir)/timer.log
 endef
@@ -175,18 +178,21 @@ define double_build
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
         $(POLYBENCH_DOUBLE_DATA_FLAGS) \
+        -DSCALING_FACTOR=1 \
         $(POLYBENCH_DATASET_FLAGS) \
         2> $(double_job_file_base).log
 endef
 
 define build_float
     @echo float $(bench) $(arch)
+    export VAR_RANGES="$$($(call read_stats))"; \
     $(CLANG) \
         -o $(job_file_base).out.ll \
         -S -emit-llvm \
         $(bench_src) \
         -I$(HEADERS_DIR) \
         -I$(bench_src_h) \
+        $$VAR_RANGES \
         $($(arch)_OPT_FLAGS) \
         $(CFLAGS) \
         $(POLYBENCH_EVAL_FLAGS) \
@@ -194,12 +200,14 @@ define build_float
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
         $(POLYBENCH_DATA_FLAGS) \
+        -DSCALING_FACTOR=1 \
         $(POLYBENCH_DATASET_FLAGS) \
         2> $(job_file_base).log
 endef
 
 define build_fixed
     @echo fixed $(bench) $(arch)
+    export VAR_RANGES="$$($(call read_stats))"; \
     $(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
@@ -208,6 +216,7 @@ define build_fixed
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
+		$$VAR_RANGES \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
 		$(POLYBENCH_EVAL_FLAGS) \
@@ -215,12 +224,14 @@ define build_fixed
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
+		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(job_file_base).log
 endef
 
 define build_dynamic
     @echo mixed $(bench) $(arch)
+    export VAR_RANGES="$$($(call read_stats))"; \
 	$(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
@@ -230,6 +241,7 @@ define build_dynamic
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
+		$$VAR_RANGES \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
 		$(POLYBENCH_EVAL_FLAGS) \
@@ -238,8 +250,22 @@ define build_dynamic
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
+		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(job_file_base).log
+endef
+
+define stats_build
+	$(CLANG) \
+		-o $(stats_job_file_base).out \
+		$(bench_src) \
+		-I$(HEADERS_DIR) \
+		$(CFLAGS_DOUBLE) \
+		$(POLYBENCH_DATA_FLAGS) \
+		-DSCALING_FACTOR=1 \
+		-DCOLLECT_STATS \
+		-DSCALING_FACTOR=1 \
+		2> $(stats_job_file_base).log
 endef
 
 define stats_build_tracing
@@ -258,8 +284,13 @@ define stats_build_tracing
 		$(POLYBENCH_TRACING_FLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
+		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(stats_job_file_base).dynamic_instrumented.log
+endef
+
+define stats_build_run
+	@$(stats_job_file_base).out 2> $(stats_job_file_base).csv
 endef
 
 define stats_build_tracing_run
@@ -331,4 +362,8 @@ define call_binary_EMBEDDED
 
 	awk '/==BEGIN_DUMP_ARRAYS==/,/==END_DUMP_ARRAYS==/' $(job_file_base).output.txt > $(job_file_base).csv
 	awk '/EXECUTION_TIME:/' $(job_file_base).output.txt > $(job_file_base).time.txt
+endef
+
+define read_stats
+  python3 ./stats_to_opts.py $(stats_job_file_base).csv
 endef
