@@ -145,7 +145,8 @@ for opt in $raw_opts; do
           ;; 
         -posit)
           dta_flags="$dta_flags -useposit"
-          positlink="-lTaffoPosit"
+          posit_libdir=$(realpath $(dirname $(taffo_setenv_find $TAFFO_PREFIX 'lib' 'libTaffoPosit')))
+          positlink="-Wl,-rpath,${posit_libdir} -L${posit_libdir} -lTaffoPosit"
           ;;
         -hardposit)
           dta_flags="$dta_flags -useposit"
