@@ -26,6 +26,9 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-dta"
 
 STATISTIC(FixCast, "Number of fixed point format cast");
+STATISTIC(StatPosit8, "Number of Posit8 inserted");
+STATISTIC(StatPosit16, "Number of Posit16 inserted");
+STATISTIC(StatPosit32, "Number of Posit32 inserted");
 
 
 PreservedAnalyses TaffoTuner::run(Module &m, ModuleAnalysisManager &AM)
@@ -299,6 +302,11 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
     if (res.getWidth() == 0) {
       LLVM_DEBUG(dbgs() << "[Info] Error when generating posit type\n");
     } else {
+      if (!V->getType()->isPointerTy()) {
+        if      (res.getWidth() == 8) StatPosit8++;
+        else if (res.getWidth() == 16) StatPosit16++;
+        else if (res.getWidth() == 32) StatPosit32++;
+      }
       II.IType.reset(res.clone());
       return true;
     }
