@@ -122,12 +122,12 @@ int Image::saveRgbImage(std::string outFilename,
 			int green = (int)(this->pixels[h][w].g * scale) ;
 			int blue  = (int)(this->pixels[h][w].b * scale) ;
 
-			//if ( red > 255 )
-		//		red = 255 ;
-		//	if ( green > 255 )
-		//		green = 255 ;
-		///	if ( blue > 255 )
-			//	blue = 255 ;
+			if ( red > 255 )
+				red = 255 ;
+			if ( green > 255 )
+				green = 255 ;
+			if ( blue > 255 )
+				blue = 255 ;
 			outFile << red << "," ;
 			// Write Green
 			outFile << green << "," ;
@@ -138,7 +138,12 @@ int Image::saveRgbImage(std::string outFilename,
 		int red   = (int)(this->pixels[h][this->width - 1].r * scale) ;
 		int green = (int)(this->pixels[h][this->width - 1].g * scale);
 		int blue  = (int)(this->pixels[h][this->width - 1].b * scale) ;
-
+		if ( red > 255 )
+			red = 255 ;
+		if ( green > 255 )
+			green = 255 ;
+		if ( blue > 255 )
+			blue = 255 ;
 
 		// Write Red
 		outFile << red  << "," ;
