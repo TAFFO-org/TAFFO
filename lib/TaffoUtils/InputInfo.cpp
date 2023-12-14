@@ -492,12 +492,12 @@ int PositType::getMinFracBits(const Range &range) const
       return N; \
     /* Heuristic: workaround the fact that the accuracy goes to zero when the posit tends to zero */ \
     /* otherwise we would discard any range that includes zero as insufficient */ \
-    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> pointOne(0.1); \
+    Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> epsilon(0.01); \
     Posit<int##N##_t, N, 2, uint##N##_t, PositSpec::WithNan> zero(0); \
-    if (min >= -pointOne && min <= zero && max >= pointOne) \
-      min = -pointOne; \
-    if (max >= zero && max <= pointOne && min <= -pointOne) \
-      max = pointOne; \
+    if (min >= -epsilon && min <= zero && max >= epsilon) \
+      min = -epsilon; \
+    if (max >= zero && max <= epsilon && min <= -epsilon) \
+      max = epsilon; \
     return std::min(getPositFracBits(min), getPositFracBits(max)); \
   }
 
