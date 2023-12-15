@@ -172,7 +172,7 @@ def plot_error(results_path, stats_summary_full):
     fig.set_size_inches(16, 8, forward=True)
 
     plot_error_single(stats_summary_full, 'PC', axd['pc_error'])
-    plot_error_single(stats_summary_full, 'EMBEDDED', axd['embedded_error'])
+    # plot_error_single(stats_summary_full, 'EMBEDDED', axd['embedded_error'])
 
     fig.savefig(f'{file_base}_relative.png', dpi=fig.dpi)
     fig.savefig(f'{file_base}_relative.pdf', dpi=fig.dpi)
@@ -190,7 +190,8 @@ def plot_error_bar(results_path, stats_summary_full):
     #                               constrained_layout=True)
     # fig.suptitle(f'Relative error')
     # fig.set_size_inches(14, 14, forward=True)
-    for (arch, metric) in [('PC', 'error'), ('EMBEDDED', 'error'), ('PC', 'speedup'), ('EMBEDDED', 'speedup')]:
+    # for (arch, metric) in [('PC', 'error'), ('EMBEDDED', 'error'), ('PC', 'speedup'), ('EMBEDDED', 'speedup')]:
+    for (arch, metric) in [('PC', 'error'), ('PC', 'speedup')]:
         fig, axd = plt.subplot_mosaic([[f'{arch}_{metric}']], constrained_layout=True)
         fig.set_size_inches(6, 7, forward=True)
         if metric == 'error':
@@ -213,7 +214,7 @@ def plot_error_bar_single(stats_summary_full, arch, axd):
     df = df.sort_values('bench', ascending=False)
     df.plot.barh(x='bench', y=['fixed', 'dynamic'],
                  ax=axd, log=True)
-    axd.axvline(x=10**-1,linewidth=2, color='r')
+    axd.axvline(x=10**-2,linewidth=2, color='r')
     axd.set_axisbelow(True)
     axd.grid(color='gray', linestyle='dashed')
     axd.legend(loc='lower right')
@@ -241,7 +242,8 @@ def plot_mode(results_path, stats_summary_full):
     # print((stats_summary_full['mode'] == mode) & (stats_summary_full['scale'] == 1))
     # stats_summary = stats_summary_full
     stats_summary = stats_summary_full[
-        (stats_summary_full['arch'] == 'EMBEDDED')
+        # (stats_summary_full['arch'] == 'EMBEDDED')
+        (stats_summary_full['arch'] == 'PC')
         ]
 
     fig, ax = plt.subplots(2, 2, constrained_layout=True)
