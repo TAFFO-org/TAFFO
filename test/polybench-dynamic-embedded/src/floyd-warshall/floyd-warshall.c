@@ -87,7 +87,7 @@ void kernel_floyd_warshall(int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;

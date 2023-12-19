@@ -120,7 +120,7 @@ void kernel_fdtd_2d(int tmax,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int tmax = TMAX;

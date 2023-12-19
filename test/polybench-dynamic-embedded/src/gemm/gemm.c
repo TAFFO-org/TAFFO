@@ -100,7 +100,7 @@ void kernel_gemm(int ni, int nj, int nk,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int ni = NI;

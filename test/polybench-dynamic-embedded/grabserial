@@ -1,0 +1,1101 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# vim: set ts=4 sw=4 et :
+# pylint: disable=C0302
+#
+# grabserial - program to read a serial port and send the data to stdout
+#
+# Copyright 2006,2020 Sony Corporation
+#
+# This program is provided under the Gnu General Public License (GPL)
+# version 2 ONLY. This program is distributed WITHOUT ANY WARRANTY.
+# See the LICENSE file, which should have accompanied this program,
+# for the text of the license.
+#
+# 2020-02-08 by Tim Bird <tim.bird@sony.com>
+# Started 2006-09-07 by Tim Bird
+#
+# To do:
+#  * support interrupting capture with Ctrl-C
+#    * somewhere along the line, this feature got lost
+#    * (maybe check the exception handler and threading in the main loop?)
+#  * buffer output chars??
+#  * add optional value to -a to limit number of restarts?
+#  * restart based on received bytes?
+#
+# CHANGELOG:
+#  2023.01.13 - Version 2.1.9
+#   - add --hexascii option, and use of date and time options on log output
+#     directories
+#  2021.01.13 - Version 2.1.6
+#   - make it so that --nodelta applies to regular timing as well
+#  2021.01.12 - Version 2.1.5
+#   - fixed issue with possibly flushing the wrong output file
+#  2021.01.12 - Version 2.1.4
+#   - add support for hex output
+#  2020.05.22 - Version 2.1.3
+#   - remove delay_start feature (not needed by user using rotation rounding)
+#  2020.05.14 - Version 2.1.2
+#   - add rotation time rounding feature.  If a units suffix is added
+#     to the rotation time, then rotate on an even multiple of that time.
+#  2020.05.04 - Version 2.1.1
+#   - add split-lines feature (-z)
+#  2020.05.01 - Version 2.1.0
+#   - add explicit log rotation feature (-R).  This should help
+#     avoid data loss when doing a log rotation.  Previous method using
+#     a restart (e.g. 'e 3600 -a') closed and reopend the serial port.
+#  2020.02.08 - Version 2.0.4
+#   - de-reference symlinks in device_exists()
+#   - use stderr for error output, handle more errors, don't show usage on
+#     errors (it's too big now)
+#   - fix byte-string conversion bug introduced by command_mode changes
+#     (Dang this unicode/bytecode handling in Python 3.0 is a pain!)
+#   - rename instantpat to inlinepat (all logic is the same)
+#     - preserve old --instantpat argument name for compatibility
+#  2020.02.07 - Version 2.0.0
+#   - add command mode (-C) to support using grabserial for showing
+#     output from executing a single command over the serial port
+#  2019.09.03 - Version 1.9.9
+#   - fixed a bunch of pylint errors, and disabled some false positives
+#    with inline pylint directives
+#     - this included replacing some bare exceptions with UnicodeEncodeError
+#  2018.08.20 - Version 1.9.8
+#   - try to fix unicode handling (yet again)
+#     - some work based on pull request submitted by 'modbw' on github
+#   - handle EOFError during read_input, in case of pipe closure
+#  2018.01.03 - Version 1.9.6
+#   - add patches from Ilya Kuzmich to fix python3 issues,
+#   - update test.sh with python linters and other improvements
+#   - fix code to remove flake8 and pylint issues
+#  2017.06.13 - Version 1.9.5 - add -a to restart after time expired or
+#                               pattern matched.
+#                             - add strftime arguments to -o.
+#                             - add -Q to silence stdout when -o is active.
+#  2016.09.29 - Version 1.9.4 - add thread for sending user input to target
+#    by zqb-all on github
+#  2016.09.06 - clean up tabs, and add vim modeline for 4-column tabs
+#               grabserial should always run with python -tt grabserial
+#  2016.08.31 - add microsecond precision when using system Time (-T) option
+#  2016.08.30 - Version 1.9.3 - allow forcing the baudrate with -B
+#  2016.07.01 - Version 1.9.2 - change how version is stored
+#  2016.05.10 - Version 1.9.1 - allow skipping the tty check with -S
+#  2016.05.10 - Version 1.9.0 - support use as a python module
+#    Note that the main module routine will be grabserial.grab(args,[outputfd])
+#      where args is a list of command-line-style args
+#      as they would be passed using the standalone program.  e.g.
+#      grabserial.grab(None, ["-d", "/dev/ttyUSB0", "-v"])
+#      output from the serial port (with timing data) is sent to outputfd
+#  2015.04.23 - Version 1.8.1 - remove instructions for applying LICENSE text
+#    to new files, and add no-warranty language to grabserial.
+#  2015.03.10 - Version 1.8.0 - add -o option for saving output to a file
+#    add -T option for absolute times. Both contributed by ramaxlo
+#  2015.03.10 - Version 1.7.1 - add line feed to inlinepat result line
+#  2014.09.28 - Version 1.7.0 - add option for force reset for USB serial
+#    contributed by John Mehaffey <mehaf@gedanken.com>
+#  2014.01.07 - Version 1.6.0 - add option for exiting based on a
+#    mid-line pattern (quitpat). Simeon Miteff <simeon.miteff@gmail.com>
+#  2013.12.19 - Version 1.5.2 - verify Windows ports w/ serial.tools.list_ports
+#   (thanks to Yegor Yefromov for the idea and code)
+#  2013.12.16 - Version 1.5.1 - Change my e-mail address
+#  2011.12.19 - Version 1.5.0 - add options for mid-line time capture
+#    (inlinepat) and base time from launch of program instead of
+#    first char seen (launchtime) - contributed by Kent Borg
+#  2011-09-24 - better time output and time delta
+#    Constantine Shulyupin <const@makelinux.com>
+#  2008-06-02 - Version 1.1.0 add support for sending a command to
+#    the serial port before grabbing output
+
+
+# Use the module docstring as the usage text for the program
+"""Grabserial reads data from a serial port, processes it, and outputs it.
+
+It is much more flexible than a simple 'cat' command.
+It keeps track of timing data, and can record when a pattern is seen
+in the data. It can show timing data for every line received.
+It can save the data to a file and can quit or restart based on a
+timeout or when a pattern is seen.  It can split the data into multiple
+files based on timeout or a pattern.
+
+It supports interactive writing to the serial port during data collection.
+
+It is useful for things like:
+ 1. capturing and annotating data from a serial port
+ 2. logging data to multiple files
+ 3. timing events in a stream of data
+    (such as how long it takes a Linux kernel to boot)
+ 4. executing commands to a serial console.
+
+Options:
+    -h, --help             Print this message
+    -d, --device=<devpath> Set the device to read (default '/dev/ttyS0')
+    -b, --baudrate=<val>   Set the baudrate (default 115200)
+    -B <val>               Force the baudrate to the indicated value
+                             (grabserial won't check if the baudrate is legal)
+    -w, --width=<val>      Set the data bit width (default 8)
+    -p, --parity=<val>     Set the parity (default N)
+    -s, --stopbits=<val>   Set the stopbits (default 1)
+    -x, --xonxoff          Enable software flow control (default off)
+    -r, --rtscts           Enable RTS/CTS flow control (default off)
+        --rts=<val>        Explicitly set RTS to 'True' (default) or 'False'
+        --dtr=<val>        Explicitly set DTR to 'True' (default) or 'False'
+    -f, --force-reset      Force pyserial to reset device parameters
+    -e, --endtime=<secs>   End the program after the specified seconds have
+                           elapsed.
+    -c, --command=<cmd>    Send a command to the port before reading
+    -t, --time             Print time for each line received.  The time is
+                           when the first character of each line is
+                           received by grabserial.
+    -a, --again            Restart application after -e expires, -q is
+                           triggered, or the serial device is disconnected.
+    -R, --rotate=<time>    Rotate logs every <time> period. Time is in seconds.
+                           If time is suffixed with 's', 'm', or 'h', then
+                           value is in the indicated units (seconds, minutes
+                           or hours), and the rotation time is rounded to the
+                           nearest multiple of that time. eg '-R 30m' will
+                           rotate the logs every half hour, at xx:00 and xx:30
+    -z, --split-lines      Allow log rotation to split a line of input.  By
+                           default, program only rotates logs on line breaks.
+    -T, --systime          Print system time for each line received. The time
+                           is the absolute local time when the first character
+                           of each line is received by grabserial.
+    -F, --timeformat=<val> Specifies system time format for each received line
+                           e.g. -F \"%Y-%m-%d %H:%M:%S.%f\"
+                           (default \"%H:%M:%S.%f\")
+    -m, --match=<pat>      Specify a regular expression pattern to match to
+                           set a base time.  Time values for lines after the
+                           line matching the pattern will be relative to
+                           this base time.
+    -i, --inlinepat=<pat>  Specify one (or more) regular expression pattern to
+                           have its time reported at end of run.  It works
+                           mid-line.
+    -q, --quitpat=<pat>    Specify a regular expression pattern to end the
+                           program.  It works mid-line.
+    -l, --launchtime       Set base time from launch of program.
+    -o, --output=<name>    Output data to the named file.  If name is
+                           "%" it is replaced with %Y-%m_%dT%H-%M-%S.
+                           (or with %Y-%m-%d_%H:%M:%S for Linux), otherwise
+                           standard strftime() format strings can be used.
+    -A, --append           Append (rather than overwrite) output data to the
+                           file specifed with -o option
+    -Q, --quiet            Silent on stdout, serial port data is only written
+                           to file, if specified.
+    -v, --verbose          Show verbose runtime messages
+    -V, --version          Show version number and exit
+    -S, --skip             Skip sanity checking of the serial device.
+                           May be needed for some devices.
+                           This option is required if you want grabserial to
+                           continue running and attemp re-connections after
+                           the serial device has been disconnected.
+    -n, --nodelta          Skip printing delta between read lines.
+        --crtonewline      Promote a carriage return to be treated as a
+                           newline
+    -C, --command-mode     Perform a single command on the serial port, and
+                           omit command echo and shell prompt from output.
+                           Must be used with -c and -q options, with the
+                           argument to -q being interpreted as the prompt
+                           returned after the command completes.
+    --hex-output           Show data as hexadecimal codes, instead of
+                           characters.  Also output the data as hexadecimal
+                           codes to the output file.
+    --hex-ascii            Show data as hexadecimal codes and ascii characters.
+                           Also output the data as hexadecimal codes and ascii
+                           characters to the output file.
+    --hex-size=<val>       Sets the size for a output hex string.
+                           Default value is 16.
+
+Ex: grabserial -e 30 -t -m "^Linux version.*"
+This will grab serial input for 30 seconds, displaying the time for
+each line, and re-setting the base time when the line starting with
+"Linux version" is seen.
+"""
+
+
+import os
+import sys
+import getopt
+import time
+import datetime
+import re
+import errno
+
+try:
+    import thread
+except ImportError:
+    import _thread as thread
+
+import serial
+
+VERSION = (2, 1, 9)
+
+verbose = 0         # pylint: disable=I0011,C0103
+cmdinput = u""      # pylint: disable=I0011,C0103
+
+
+def str_to_bool(value):
+    """Convert string to python boolean type"""
+    if value.lower() == "false" or value == "0":
+        return False
+    return True
+
+
+def vprint(message):
+    """Print message if in verbose mode."""
+    if verbose:
+        print(message)
+
+
+def eprint(message):
+    """Print message to standard error."""
+    sys.stderr.write(message+'\n')
+
+
+def usage():
+    """Show grabserial usage help."""
+    print("Usage: grabserial -d <device> [options]\n")
+    print(__doc__)
+    sys.exit(0)
+
+
+def mkdir_p(path):
+    if not path:
+        return
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno != errno.EEXIST or not os.path.isdir(path):
+            raise
+
+
+def device_exists(device):
+    """Check that the specified serial device exists."""
+    if os.path.islink(device):
+        device = os.path.realpath(device)
+
+    try:
+        from serial.tools import list_ports   # pylint: disable=C0415
+
+        for port in list_ports.comports():
+            if port[0] == device:
+                return True
+
+        return False
+    except serial.SerialException:
+        return os.path.exists(device)
+
+
+def read_input():
+    """Read input from stdin in a thread separate from the grab routine."""
+    global cmdinput     # pylint: disable=I0011,C0103,W0603
+
+    # NOTE: cmdinput is in unicode (to make handling similar between
+    # python2 and python3)
+
+    while 1:
+        if sys.version_info < (3, 0):
+            try:
+                # raw_input in python 2.x returns byte string
+                # decode to unicode
+                # pylint: disable=E0602
+                cmdinput = raw_input().decode(sys.stdin.encoding)
+            except EOFError:
+                # if we're piping input, we want to stop trying to read
+                # it when the pipe closes, or the file ends
+                break
+        else:
+            # raw_input is gone in python3
+            # https://www.python.org/dev/peps/pep-3111/
+            # input() returns string in unicode already
+            try:
+                cmdinput = input()      # pylint: disable=I0011
+            except EOFError:
+                break
+
+    # OK - no more user input, just wait for program exit
+    while 1:
+        time.sleep(1)
+
+
+def round_time(timestamp, round_to=60):
+    """Round a timestamp up to any time lapse in seconds
+
+    timestamp: time in seconds since the epoch
+    round_to: Closest number of seconds to round to, default 1 minute
+
+    based on code from:
+    Author: Thierry Husson 2012 - Use it as you want but don't blame me
+    from https://stackoverflow.com/questions/3463930/
+       how-to-round-the-minute-of-a-datetime-object-python
+    """
+
+    dt = datetime.datetime.fromtimestamp(timestamp)
+    seconds = (dt.replace(tzinfo=None) - dt.min).seconds
+    rounding = (seconds + round_to) // round_to * round_to
+    dt += datetime.timedelta(0, rounding - seconds, -dt.microsecond)
+    return time.mktime(dt.timetuple())
+
+
+# grab - main routine to grab a serial port and time the output of each line
+# takes a list of arguments, as they would have been passed in sys.argv
+# that is, a list of strings.
+# also can take an optional file descriptor for where to send the data
+# by default, data read from the serial port is sent to sys.stdout, but
+# you can specify your own (already open) file descriptor, or None.  This
+# would only make sense if you specified another out_filename with
+#    "-o","myoutputfilename"
+# Return value: True if we should 'restart' the program
+def grab(arglist, outputfd=sys.stdout):
+    """Grab data from a serial port and produce formatted output.
+
+    Arguments:
+      arglist             : the list of arguments to configure the serial
+                            port and control output and processing
+                            (see usage help).
+      outputfd (optional) : a file stream to which output should be sent.
+                            Defaults to sys.stdout.
+
+    Returns True if the grab should be restarted.  This may be the
+    case if the connection was broken due to a timeout or an error
+    on the serial port, and continuous recording is requested.
+    """
+    global verbose      # pylint: disable=I0011,C0103,W0603
+    global cmdinput     # pylint: disable=I0011,C0103,W0603
+
+    # parse the command line options
+    try:
+        opts, args = getopt.getopt(
+            arglist,
+            "hli:d:b:B:w:p:s:xrfc:taTF:m:e:o:AR:QvVq:nSCz", [
+                "help",
+                "launchtime",
+                "inlinepat=",
+                "instantpat=",
+                "device=",
+                "baudrate=",
+                "width=",
+                "parity=",
+                "stopbits=",
+                "xonxoff",
+                "rtscts",
+                "rts=",
+                "dtr=",
+                "force-reset",
+                "command=",
+                "time",
+                "again",
+                "systime",
+                "timeformat=",
+                "match=",
+                "endtime=",
+                "output=",
+                "append",
+                "rotate=",
+                "quiet",
+                "verbose",
+                "version",
+                "quitpat=",
+                "nodelta",
+                "skip",
+                "crtonewline",
+                "command-mode",
+                "split-lines",
+                "hex-output",
+                "hex-ascii",
+                "hex-size=",
+            ])
+    except getopt.GetoptError as err:
+        # print help info and exit
+        eprint("Error parsing command line options:")
+        eprint(str(err))
+        eprint("Use 'grabserial -h' to get usage help")
+        sys.exit(2)
+
+    sd = serial.Serial()
+    sd.port = ""
+    sd.baudrate = 115200
+    sd.bytesize = serial.EIGHTBITS
+    sd.parity = serial.PARITY_NONE
+    sd.stopbits = serial.STOPBITS_ONE
+    sd.xonxoff = False
+    sd.rtscts = False
+    sd.dsrdtr = False
+    sd.rts = True
+    sd.dtr = True
+    # specify a read timeout of 1 second
+    sd.timeout = 1
+    force = False
+    show_time = 0
+    show_systime = 0
+    basepat = ""
+    inlinepats = []
+    quitpat = ''
+    basetime = 0
+    inlinetime = dict()
+    endtime = 0
+    out_filename = None
+    out_filepath = None
+    out = None
+    out_permissions = "wb"
+    append = False
+    command = ""
+    command_mode = False
+    skip_device_check = 0
+    cr_to_nl = 0
+    restart = False
+    rotate_interval = 0.0
+    rotate_time = 0.0
+    split_lines = False
+    quiet = False
+    systime_format = "%H:%M:%S.%f"
+    use_delta = True
+    out_filenamehasdate = 0
+    hex_output = False
+    hex_ascii = False
+    max_bytes_per_line = 16
+
+    for opt, arg in opts:
+        if opt in ["-h", "--help"]:
+            usage()
+        if opt in ["-d", "--device"]:
+            device = arg
+            if not skip_device_check and not device_exists(device):
+                eprint("""Error: serial device '%s' does not exist, aborting.
+If you think this port really exists, then try using the -S option
+to skip the serial device check. (put it before the -d argument)
+
+Use 'grabserial -h' for usage help."""
+                       % device)
+                sd.close()
+                sys.exit(2)
+            sd.port = device
+        if opt in ["-b", "--baudrate"]:
+            baud = int(arg)
+            if baud not in sd.BAUDRATES:
+                eprint("Error: invalid baud rate '%d' specified" % baud)
+                eprint("Valid baud rates are: %s" % str(sd.BAUDRATES))
+                eprint("You can force the baud rate using the -B option")
+                sd.close()
+                sys.exit(3)
+            sd.baudrate = baud
+        if opt == "-B":
+            sd.baudrate = int(arg)
+        if opt in ["-p", "--parity"]:
+            par = arg.upper()
+            if par not in sd.PARITIES:
+                eprint("Error: invalid parity '%s' specified" % par)
+                eprint("Valid parities are: %s" % str(sd.PARITIES))
+                sd.close()
+                sys.exit(3)
+            sd.parity = par
+        if opt in ["-w", "--width"]:
+            width = int(arg)
+            if width not in sd.BYTESIZES:
+                eprint("Error: invalid data bit width '%d' specified" % width)
+                eprint("Valid data bit widths are: %s" % str(sd.BYTESIZES))
+                sd.close()
+                sys.exit(3)
+            sd.bytesize = width
+        if opt in ["-s", "--stopbits"]:
+            stop = int(arg)
+            if stop not in sd.STOPBITS:
+                eprint("Error: invalid stopbits '%d' specified" % stop)
+                eprint("Valid stopbits are: %s" % str(sd.STOPBITS))
+                sd.close()
+                sys.exit(3)
+            sd.stopbits = stop
+        if opt in ["-c", "--command"]:
+            command = arg
+        if opt in ["-C", "--command-mode"]:
+            command_mode = True
+        if opt in ["-x", "--xonxoff"]:
+            sd.xonxoff = True
+        if opt in ["-r", "--rtscts"]:
+            sd.rtscts = True
+        if opt in ["--rts"]:
+            sd.rts = str_to_bool(arg)
+        if opt in ["--dtr"]:
+            sd.dtr = str_to_bool(arg)
+        if opt in ["-f", "--force-set"]:
+            force = True
+        if opt in ["-t", "--time"]:
+            show_time = 1
+        if opt in ["-a", "--again"]:
+            restart = True
+        if opt in ["-T", "--systime"]:
+            show_systime = 1
+        if opt in ["-F", "--timeformat"]:
+            systime_format = arg
+        if opt in ["-m", "--match"]:
+            basepat = arg
+        if opt in ["-i", "--inlinepat", "--instantpat"]:
+            # --instantpat is supported for backwards compatibility
+            inlinepats.append(arg)
+        if opt in ["-q", "--quitpat"]:
+            quitpat = arg
+        if opt in ["-l", "--launchtime"]:
+            vprint('Setting basetime to time of program launch')
+            basetime = time.time()
+        if opt in ["-e", "--endtime"]:
+            endstr = arg
+            try:
+                endtime = time.time()+float(endstr)
+            except ValueError:
+                eprint("Error: invalid endtime %s specified" % arg)
+                sd.close()
+                sys.exit(3)
+        if opt in ["-o", "--output"]:
+            out_dirname = os.path.dirname(arg)
+            out_pattern = os.path.basename(arg)
+            if out_pattern == "%":
+                if os.name == "posix":
+                    out_pattern = "%Y-%m-%d_%H:%M:%S"
+                else:
+                    out_pattern = "%Y-%m-%d_%H-%M-%S"
+            if "%d" in out_pattern or "%F" in out_pattern:
+                out_filenamehasdate = 1
+            out_filename = datetime.datetime.now().strftime(out_pattern)
+            out_dirname = datetime.datetime.now().strftime(out_dirname)
+            mkdir_p(out_dirname)
+            out_filepath = os.path.join(out_dirname, out_filename)
+
+        if opt in ["-A", "--append"]:
+            out_permissions = "a+b"
+            append = True
+        if opt in ["-R", "--rotate"]:
+            round_rotate_time = False
+            rotate_interval_units = arg[-1]
+            if rotate_interval_units in ['s', 'm', 'h']:
+                arg = arg[:-1]
+                round_rotate_time = True
+
+            try:
+                rotate_interval = float(arg)
+            except ValueError:
+                eprint("Error: invalid rotation time %s specified" % arg)
+                sd.close()
+                sys.exit(3)
+
+            now = time.time()
+            rotate_time = now + rotate_interval
+            if round_rotate_time:
+                if rotate_interval_units == 's':
+                    rotate_time = round_time(now, rotate_interval)
+                if rotate_interval_units == 'm':
+                    rotate_interval = rotate_interval * 60
+                    rotate_time = round_time(now, rotate_interval)
+                if rotate_interval_units == 'h':
+                    rotate_interval = rotate_interval * 3600
+                    rotate_time = round_time(now, rotate_interval)
+        if opt in ["-z", "--split-lines"]:
+            split_lines = True
+        if opt in ["-Q", "--quiet"]:
+            quiet = True
+        if opt in ["-v", "--verbose"]:
+            verbose = 1
+        if opt in ["-V", "--version"]:
+            print("grabserial version %d.%d.%d" % VERSION)
+            sd.close()
+            sys.exit(0)
+        if opt in ["-S", "--skip"]:
+            skip_device_check = 1
+        if opt in ["-n", "--nodelta"]:
+            use_delta = False
+        if opt in ["--crtonewline"]:
+            cr_to_nl = 1
+        if opt in ["--hex-output"]:
+            hex_output = True
+        if opt in ["--hex-ascii"]:
+            hex_ascii = True
+        if opt in ["--hex-size"]:
+            try:
+                max_bytes_per_line = int(arg)
+                if max_bytes_per_line < 1: max_bytes_per_line = 16
+            except ValueError:
+                eprint("Error: invalid hex-size %s specified" % arg)
+                eprint("       Using default value 16")
+                max_bytes_per_line = 16
+
+    if args:
+        eprint("Error: unrecognized argument '%s'" % args[0])
+        eprint("Use 'grabserial -h' to get usage help")
+        eprint("")
+        sys.exit(2)
+
+    if command_mode:
+        if not command:
+            eprint("Error: Must specify a command in command-mode")
+            sd.close()
+            sys.exit(3)
+        if not quitpat:
+            eprint("Error: Must specify a quit pattern in command-mode")
+            sd.close()
+            sys.exit(3)
+        cmd_index = 0
+        cmd_done = False
+        quit_index = 0
+        quit_done = False
+        vprint("Executing command '%s', and terminating on '%s'" %
+               (command, quitpat))
+
+    # if verbose, show what our settings are
+    if sd.port:
+        vprint("Opening serial port %s" % sd.port)
+        vprint("%d:%d%s%s:xonxoff=%d:rtscts=%d:rts=%d:dtr=%d" %
+               (sd.baudrate, sd.bytesize, sd.parity, sd.stopbits,
+                sd.xonxoff, sd.rtscts, sd.rts, sd.dtr))
+    else:
+        eprint("Error: Missing serial port to read from.")
+        eprint("Use 'grabserial -h' to get usage help")
+        sys.exit(2)
+
+    if endtime and not restart:
+        vprint("Program set to end in %s seconds" % endstr)
+    if endtime and restart:
+        vprint("Program set to restart after %s seconds." % endstr)
+    if show_time:
+        vprint("Printing timing information for each line")
+    if show_systime:
+        vprint("Printing absolute timing information for each line")
+    if basepat:
+        vprint("Using pattern '%s' to set base time" % basepat)
+    if inlinepats:
+        vprint("Using inline pattern(s) '%s' to report time of at end of run"
+               % inlinepats)
+    if quitpat and not restart:
+        vprint("Using pattern '%s' to exit program" % quitpat)
+    if quitpat and restart:
+        vprint("Using pattern '%s' to restart program" % quitpat)
+    if skip_device_check:
+        vprint("Skipping check of serial device")
+    if out_filepath:
+        try:
+            # open in binary mode, to pass through data as unmodified
+            # as possible
+            out = open(out_filepath, out_permissions)
+            if out_filenamehasdate:
+                out_opendate = datetime.date.today()
+        except IOError:
+            print("Can't open output file '%s'" % out_filepath)
+            sys.exit(1)
+        if append:
+            vprint("Appending data to '%s'" % out_filepath)
+        else:
+            vprint("Saving data to '%s'" % out_filepath)
+
+    if rotate_time:
+        if out_filepath:
+            vprint("Rotate output file every %s seconds" % rotate_interval)
+        else:
+            eprint("Error: Missing output filename")
+            eprint("Must use -o if using a rotate interval (-R)")
+            eprint("Use 'grabserial -h' to get usage help")
+            sys.exit(2)
+    if quiet:
+        vprint("Keeping quiet on stdout")
+
+    prev1 = 0
+    linetime = 0
+    newline = 1
+    curline = ""
+    xline = b""
+    outline_bytecount = 0
+    vprint("Use Control-C to stop...")
+
+    try:
+        # pyserial does not reconfigure the device if the settings
+        # don't change from the previous ones.  This causes issues
+        # with (at least) some USB serial converters
+        # Allow user to force device reconfiguration
+        if force:
+            toggle = sd.xonxoff
+            sd.xonxoff = not toggle
+            sd.open()
+            sd.close()
+            sd.xonxoff = toggle
+
+        sd.open()
+        sd.flushInput()
+        sd.flushOutput()
+
+        if command:
+            command += u"\n"
+            sd.write(command.encode("utf8"))
+            sd.flush()
+    except serial.serialutil.SerialException:
+        # This is the exception which is raised when you unplug the USB UART.
+        # Applies to both python 2 and 3 on Linux and Windows.
+        stop_reason = "grabserial stopped due to a SerialException"
+
+    # capture stdin to send to serial port
+    try:
+        thread.start_new_thread(read_input, ())
+    except thread.error:
+        print("Error starting thread for read input\n")
+
+    # use stdout encoding, or "utf8" for output
+    out_encoding = sys.stdout.encoding
+    if out_encoding is None:
+        out_encoding = "utf8"  # pylint: disable=I0011
+
+    stop_reason = "grabserial stopped for an unknown reason"
+
+    # read from the serial port until something stops the program
+    while 1:
+        try:
+            if cmdinput:
+                sd.write((cmdinput + u"\n").encode("utf8"))
+                cmdinput = u""
+
+            # read exactly 1 byte (for up to one second, based on
+            # timeout set above)
+            # NOTE: x should be a byte string in both python 2 and 3
+            x = sd.read(1)
+
+            # see if we're supposed to stop yet
+            if endtime and time.time() > endtime:
+                stop_reason = "grabserial stopped due to time expiration"
+                break
+
+            # check for log rotation
+            if split_lines and rotate_time and time.time() > rotate_time:
+                vprint("Time for log rotation at %s" %
+                       datetime.datetime.now().strftime("%H:%M:%S.%f"))
+
+                vprint("Closing output file: '%s'" % out_filepath)
+                out.close()
+                out_filename = datetime.datetime.now().strftime(out_pattern)
+                out_dirname = datetime.datetime.now().strftime(out_dirname)
+                mkdir_p(out_dirname)
+                out_filepath = os.path.join(out_dirname, out_filename)
+                vprint("Opening new output file: '%s'" % out_filepath)
+                try:
+                    out = open(out_filepath, out_permissions)
+                    out_opendate = datetime.date.today()
+                except IOError:
+                    print("Can't open output file '%s'" % out_filepath)
+                    sys.exit(1)
+
+                # set up for next rotation
+                rotate_time += rotate_interval
+
+            # if we didn't read anything, loop
+            if len(x) == 0:
+                continue
+
+            # convert carriage returns to newlines.
+            if x == b"\r" and not hex_output:
+                if cr_to_nl:
+                    x = b"\n"
+                else:
+                    continue
+
+            # set basetime to when first char is received
+            if not basetime:
+                basetime = time.time()
+
+            # if outputting data to a file with a date in its name and the
+            # date has changed, then close it and open a new file.
+            if (out_filepath
+                    and out_filenamehasdate
+                    and newline
+                    and datetime.date.today() > out_opendate
+                    and not endtime):
+                vprint("Closing output file: '%s'" % out_filepath)
+                out.close()
+                out_filename = datetime.datetime.now().strftime(out_pattern)
+                out_dirname = datetime.datetime.now().strftime(out_dirname)
+                mkdir_p(out_dirname)
+                out_filepath = os.path.join(out_dirname, out_filename)
+                vprint("Opening new output file: '%s'" % out_filepath)
+                try:
+                    out = open(out_filepath, out_permissions)
+                    out_opendate = datetime.date.today()
+                except IOError:
+                    print("Can't open output file '%s'" % out_filepath)
+                    sys.exit(1)
+
+            if show_time and show_systime and newline:
+                linetime = time.time()
+                linetimestr = datetime.datetime.now().strftime(systime_format)
+                elapsed = linetime-basetime
+                if use_delta:
+                    delta = elapsed-prev1
+                    msg = "[%s %4.6f %2.6f] " % (linetimestr, elapsed, delta)
+                else:
+                    msg = "[%s %4.6f] " % elapsed
+                if not quiet:
+                    if outputfd:
+                        outputfd.write(msg)
+                if out:
+                    try:
+                        out.write(msg.encode(out_encoding))
+                    except UnicodeEncodeError:
+                        try:
+                            out.write(msg.encode("utf8"))
+                        except UnicodeEncodeError:
+                            out.write(msg)
+
+                prev1 = elapsed
+                newline = 0
+
+            if show_time and newline:
+                linetime = time.time()
+                elapsed = linetime-basetime
+                if use_delta:
+                    delta = elapsed-prev1
+                    msg = "[%4.6f %2.6f] " % (elapsed, delta)
+                else:
+                    msg = "[%4.6f] " % elapsed
+                if not quiet:
+                    if outputfd:
+                        outputfd.write(msg)
+                if out:
+                    try:
+                        out.write(msg.encode(out_encoding))
+                    except UnicodeEncodeError:
+                        try:
+                            out.write(msg.encode("utf8"))
+                        except UnicodeEncodeError:
+                            out.write(msg)
+
+                prev1 = elapsed
+                newline = 0
+
+            if show_systime and newline:
+                linetime = time.time()
+                linetimestr = datetime.datetime.now().strftime(systime_format)
+                elapsed = linetime-basetime
+                if use_delta:
+                    delta = elapsed-prev1
+                    msg = "[%s %2.6f] " % (linetimestr, delta)
+                else:
+                    msg = "[%s] " % (linetimestr)
+                if not quiet:
+                    outputfd.write(msg)
+                if out:
+                    try:
+                        out.write(msg.encode(out_encoding))
+                    except UnicodeEncodeError:
+                        try:
+                            out.write(msg.encode("utf8"))
+                        except UnicodeEncodeError:
+                            out.write(msg)
+
+                prev1 = elapsed
+                newline = 0
+
+            out_char = x.decode("utf8", "ignore")
+            # You sometimes get a decoding error if the serial port gives
+            # you garbage data.  This can happen, for instance, when
+            # the uart changes line speed during bootup.
+            #
+            # NOTE: I chose 'ignore' for decoding errors
+            # because I believe the most common use case is
+            # a user watching stdout from grabserial in a terminal
+            # window.  You don't want to emit weird characters
+            # in that case.  However, this will end up losing
+            # characters that can't be decoded.  Another option
+            # is 'replace', with its own set of issues.
+            #
+            # Note that the exact data from the serial port is
+            # preserved in an output file (specified with the -o
+            # parameter), so you can use that to diagnose weird
+            # uart problems, if needed.
+
+            # curline is in unicode
+            curline += out_char
+            xline += x
+
+            # this is tricky! Enjoy.
+            if command_mode:
+                # check for data to suppress
+                if not cmd_done and cmd_index == len(curline)-1:
+                    if curline[cmd_index] == command[cmd_index]:
+                        cmd_index += 1
+                        out_char = None
+                        if cmd_index >= len(command):
+                            cmd_done = True
+                    else:
+                        # mis-match, output partial match, if any
+                        # FIXTHIS - only look at first line returned by port
+                        # (maybe set cmd_done when first \n is detected??)
+                        if cmd_index:
+                            if not quiet:
+                                outputfd.write(curline)
+                            if out:
+                                out.write(xline)
+                            # we just wrote it out, no need to do it later
+                            out_char = None
+                        cmd_index = 0
+
+                if not quit_done and quit_index == len(curline)-1:
+                    if curline[quit_index] == quitpat[quit_index]:
+                        quit_index += 1
+                        out_char = None
+                        if quit_index >= len(quitpat):
+                            quit_done = True
+                    else:
+                        # mis-match
+                        if quit_index:
+                            if not quiet:
+                                outputfd.write(curline)
+                            if out:
+                                out.write(xline)
+                            out_char = None
+                        quit_index = 0
+
+            # hex_output uses the byte 'x' rather than the string 'out_char'
+            if hex_output or hex_ascii:
+                outline_bytecount += 1
+                outputstring = "%02X " % ord(x)
+                if not quiet:
+                    # outputfd.write wants a string
+                    outputfd.write(outputstring)
+                    if outline_bytecount >= max_bytes_per_line:
+                        if hex_ascii and x != b"\n":
+                            x = b"\n"
+                            curline += '\n'
+                        else: outputfd.write("\n")
+
+                if out:
+                    # out.write wants a byte object, so we encode
+                    out.write(outputstring.encode("utf8"))
+                    if outline_bytecount >= max_bytes_per_line:
+                        if hex_ascii and x != b"\n":
+                            x = b"\n"
+                            if quiet: curline += '\n'
+                        else: out.write(b"\n")
+            else:
+                # FIXTHIS - should I buffer the output here??
+                if not quiet and out_char:
+                    # out_char is a character
+                    outputfd.write(out_char)
+
+                if out and out_char:
+                    # save bytestring data exactly as received from serial port
+                    # (ie there is no 'decode' here)
+                    out.write(x)
+
+            # watch for patterns
+            for pat in inlinepats:
+                if re.search(pat, curline):
+                    inlinetime[pat] = time.time() - basetime
+
+            # Exit the loop if quitpat matches
+            if quitpat and re.search(quitpat, curline):
+                stop_reason = "grabserial stopped because quit pattern '" + \
+                    quitpat + "' was found"
+                break
+
+            if (x == b"\n" and not hex_output) or \
+                    ((hex_output) and outline_bytecount >= max_bytes_per_line):
+                if hex_ascii:
+                    if not quiet: outputfd.write('> ' + '\33[96m' + curline + '\33[m')
+                    if out: out.write('> ' +curline)
+
+                newline = 1
+                if basepat and re.match(basepat, curline):
+                    basetime = linetime
+                    elapsed = 0
+                    prev1 = 0
+                curline = ""
+                xline = b""
+                outline_bytecount = 0
+
+            outputfd.flush()
+            if out:
+                out.flush()
+                # check for log rotation
+                if newline and rotate_time and time.time() > rotate_time:
+                    vprint("Time for log rotation at %s" %
+                           datetime.datetime.now().strftime("%H:%M:%S.%f"))
+
+                    vprint("Closing output file: '%s'" % out_filepath)
+                    out.close()
+                    out_filename = \
+                        datetime.datetime.now().strftime(out_pattern)
+                    out_dirname = datetime.datetime.now().strftime(out_dirname)
+                    mkdir_p(out_dirname)
+                    out_filepath = os.path.join(out_dirname, out_filename)
+                    vprint("Opening new output file: '%s'" % out_filepath)
+                    try:
+                        out = open(out_filepath, out_permissions)
+                        out_opendate = datetime.date.today()
+                    except IOError:
+                        print("Can't open output file '%s'" % out_filepath)
+                        sys.exit(1)
+
+                    # set up for next rotation
+                    rotate_time += rotate_interval
+
+        except serial.serialutil.SerialException:
+            # This is the exception which is raised when you unplug the USB
+            # UART.  Applies to both python 2 and 3 on Linux and Windows.
+
+            stop_reason = "grabserial stopped due to a SerialException"
+
+            # We might get a Ctrl+C while we are sleeping, so catch that
+            try:
+                # Wait a second so we don't use excessive CPU to spin in a loop
+                # when the serial device is disconnected.
+                time.sleep(1)
+            except KeyboardInterrupt:
+                stop_reason = "grabserial stopped due to keyboard interrupt"
+
+                # An actual error, don't restart.
+                restart = False
+            break
+        except EnvironmentError:
+            stop_reason = "grabserial stopped due to some external error"
+
+            # An actual error.  We don't want to restart the program in this
+            # case, so this function will return false.
+            restart = False
+            break
+        except KeyboardInterrupt:
+            stop_reason = "grabserial stopped due to keyboard interrupt"
+
+            # An actual error, don't restart.
+            restart = False
+            break
+
+    sd.close()
+    if inlinetime:
+        msg = "\n\n"
+        for pat in inlinetime:
+            msg += 'The inlinepat: "%s" was matched at %4.6f\n' % \
+                    (pat, inlinetime[pat])
+        if not quiet:
+            outputfd.write(msg)
+            outputfd.flush()
+        if out:
+            try:
+                out.write(msg.encode(out_encoding))
+            except UnicodeEncodeError:
+                try:
+                    out.write(msg.encode("utf8"))
+                except UnicodeEncodeError:
+                    out.write(msg)
+            out.flush()
+
+    if out:
+        out.close()
+
+    vprint(stop_reason)
+
+    return restart
+
+
+if __name__ == "__main__":
+    while True:
+        restart_requested = grab(sys.argv[1:])  # pylint: disable=I0011,C0103
+
+        if restart_requested:
+            vprint(
+                "Restarting %s\n" %
+                datetime.datetime.now().strftime("%H:%M:%S.%f"))
+        else:
+            break
+
+# emacs custom variables for using tabs
+# indent-tabs-mode: nil
+# tab-width: 4

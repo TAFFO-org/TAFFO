@@ -7,7 +7,8 @@ STM32_Programmer_CLI ?= STM32_Programmer_CLI
 OBJ_DIR ?= ./obj
 BENCH_OBJ ?=
 OUTPUT ?= embedded_main
-TARGET ?= stm32l101
+#TARGET ?= stm32l101
+TARGET ?= stm32f446
 
 OUTPUT_ELF = $(OUTPUT).elf
 OUTPUT_BIN = $(OUTPUT).bin
