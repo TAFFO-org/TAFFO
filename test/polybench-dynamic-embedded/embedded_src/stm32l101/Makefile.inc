@@ -10,7 +10,7 @@ SERIAL_DEVICE?=$(wildcard /dev/ttyACM*)
 EMBEDDED_OUTPUT?=monitor.txt
 TIMEOUT_SECONDS=300
 
-.PHONY: flash monitor cpuflags costmodel
+.PHONY: flash monitor cpuflags
 
 flash:
 	$(STM32_Programmer_CLI) -c port=SWD -w $(OUTPUT_BIN) 0x08000000 -v

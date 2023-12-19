@@ -94,7 +94,7 @@ void kernel_syrk(int n, int m,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;

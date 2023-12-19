@@ -19,11 +19,14 @@ SRC_DIR := $(abspath ./src)
 EMBEDDED_SRC_DIR := $(abspath ./embedded_src)
 HEADERS_DIR := $(abspath ./utilities/.)
 
-TARGET := 'stm32l101'
+#TARGET := 'stm32l101'
+TARGET := 'stm32f446'
 embedded_sysroot := /lib/arm-none-eabi
 embedded_triple := arm-none-eabi
-embedded_cpu := cortex-m0plus+nofp
-STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI
+#embedded_cpu := cortex-m0plus+nofp
+embedded_cpu := cortex-m4
+embedded_additional := -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer-v2_15/bin/STM32_Programmer_CLI
 
 CFLAGS := -g -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
 CFLAGS_DOUBLE := -g0 -O3 -lm
@@ -41,14 +44,15 @@ EMBEDDED_OPT_FLAGS := -m32 \
 						--target=$(embedded_triple) \
 						-mcpu=$(embedded_cpu) \
 						--sysroot=$(embedded_sysroot) \
+						$(embedded_additional) \
 						-fshort-enums
 
 modes := float fixed dynamic
 archs := PC EMBEDDED
-#benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-benchmarks := 2mm
+#benchmarks := 2mm
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
@@ -84,7 +88,7 @@ double_configurations_file = $(BUILD_DIR)/double_configurations.csv
 
 .PHONY: all
 #all: $(clean_configurations) ${double_jobs} ${stats_jobs} ${jobs} summary ; echo $@ Success
-all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ; echo $@ Success
+all: $(clean_configurations) build_deps ${double_jobs} ${stats_jobs} ${jobs} ${jobs_run} summary ; echo $@ Success
 .PHONY: run
 run: ${jobs_run}
 
@@ -116,8 +120,6 @@ ${double_jobs}: double-job-%:
 .PHONY: ${stats_jobs}
 ${stats_jobs}: stats-job-%:
 	@mkdir -p $(stats_job_dir)
-	$(call stats_build)
-	$(call stats_build_run)
 	$(call stats_build_tracing)
 	$(call stats_build_tracing_run)
 	$(call stats_build_tracing_compress)
@@ -154,7 +156,6 @@ define build_pc_timer
 		$(POLYBENCH_PC_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
 		$(POLYBENCH_DOUBLE_DATA_FLAGS) \
-		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(deps_pc_dir)/timer.log
 endef
@@ -173,35 +174,30 @@ define double_build
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
         $(POLYBENCH_DOUBLE_DATA_FLAGS) \
-        -DSCALING_FACTOR=1 \
         $(POLYBENCH_DATASET_FLAGS) \
         2> $(double_job_file_base).log
 endef
 
 define build_float
     @echo float $(bench) $(arch)
-    export VAR_RANGES="$$($(call read_stats))"; \
     $(CLANG) \
         -o $(job_file_base).out.ll \
         -S -emit-llvm \
         $(bench_src) \
         -I$(HEADERS_DIR) \
         -I$(bench_src_h) \
-        $$VAR_RANGES \
         $($(arch)_OPT_FLAGS) \
         $(CFLAGS) \
         $(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
         $(POLYBENCH_DATA_FLAGS) \
-        -DSCALING_FACTOR=1 \
         $(POLYBENCH_DATASET_FLAGS) \
         2> $(job_file_base).log
 endef
 
 define build_fixed
     @echo fixed $(bench) $(arch)
-    export VAR_RANGES="$$($(call read_stats))"; \
     $(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
@@ -211,21 +207,18 @@ define build_fixed
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
-		$$VAR_RANGES \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
-		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(job_file_base).log
 endef
 
 define build_dynamic
     @echo mixed $(bench) $(arch)
-    export VAR_RANGES="$$($(call read_stats))"; \
 	$(TAFFO) \
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
@@ -236,29 +229,14 @@ define build_dynamic
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
-		$$VAR_RANGES \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
-		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(job_file_base).log
-endef
-
-define stats_build
-	$(CLANG) \
-		-o $(stats_job_file_base).out \
-		$(bench_src) \
-		-I$(HEADERS_DIR) \
-		$(CFLAGS_DOUBLE) \
-		$(POLYBENCH_DATA_FLAGS) \
-		-DSCALING_FACTOR=1 \
-		-DCOLLECT_STATS \
-		-DSCALING_FACTOR=1 \
-		2> $(stats_job_file_base).log
 endef
 
 define stats_build_tracing
@@ -274,13 +252,8 @@ define stats_build_tracing
 		-I$(bench_src_h) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
-		-DSCALING_FACTOR=1 \
 		$(POLYBENCH_DATASET_FLAGS) \
 		2> $(stats_job_file_base).dynamic_instrumented.log
-endef
-
-define stats_build_run
-	@$(stats_job_file_base).out 2> $(stats_job_file_base).csv
 endef
 
 define stats_build_tracing_run
@@ -352,8 +325,4 @@ define call_binary_EMBEDDED
 
 	awk '/==BEGIN_DUMP_ARRAYS==/,/==END_DUMP_ARRAYS==/' $(job_file_base).output.txt > $(job_file_base).csv
 	awk '/EXECUTION_TIME:/' $(job_file_base).output.txt > $(job_file_base).time.txt
-endef
-
-define read_stats
-  python3 ./stats_to_opts.py $(stats_job_file_base).csv
 endef

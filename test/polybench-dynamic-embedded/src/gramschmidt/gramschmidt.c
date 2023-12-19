@@ -112,7 +112,7 @@ void kernel_gramschmidt(int m, int n,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int m = M;

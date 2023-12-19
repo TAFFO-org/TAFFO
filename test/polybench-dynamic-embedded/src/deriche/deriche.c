@@ -156,7 +156,7 @@ void kernel_deriche(int w, int h, DATA_TYPE alpha,
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int w = W;

@@ -112,7 +112,7 @@ void kernel_nussinov(int n, base POLYBENCH_1D(seq,N,n),
 }
 
 
-int BENCH_MAIN()
+int BENCH_MAIN(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
