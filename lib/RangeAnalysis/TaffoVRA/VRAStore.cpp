@@ -110,8 +110,10 @@ VRAStore::loadNode(const NodePtrT Node,
     return nullptr;
   switch (Node->getKind()) {
   case VRANode::VRAScalarNodeK:
+    LLVM_DEBUG(dbgs() << "(VRAScalarNodeK) ");
     return Node;
   case VRANode::VRAStructNodeK:
+    LLVM_DEBUG(dbgs() << "(VRAStructNodeK) ");
     if (Offset.empty()) {
       return Node;
     } else {
@@ -125,6 +127,7 @@ VRAStore::loadNode(const NodePtrT Node,
         return loadNode(Field, Offset);
     }
   case VRANode::VRAGEPNodeK: {
+    LLVM_DEBUG(dbgs() << "(VRAGEPNodeK) ");
     std::shared_ptr<VRAGEPNode> GEPNode =
         std::static_ptr_cast<VRAGEPNode>(Node);
     const llvm::ArrayRef<unsigned> GEPOffset = GEPNode->getOffset();
@@ -132,6 +135,7 @@ VRAStore::loadNode(const NodePtrT Node,
     return loadNode(GEPNode->getParent(), Offset);
   }
   case VRANode::VRAPtrNodeK: {
+    LLVM_DEBUG(dbgs() << "(VRAPtrNodeK) ");
     std::shared_ptr<VRAPtrNode> PtrNode =
         std::static_ptr_cast<VRAPtrNode>(Node);
     return PtrNode->getParent();
@@ -295,23 +299,37 @@ bool VRAStore::extractGEPOffset(const llvm::Type *source_element_type,
                                 llvm::SmallVectorImpl<unsigned> &offset)
 {
   assert(source_element_type != nullptr);
-  LLVM_DEBUG(dbgs() << "indices: ");
-  for (auto idx_it = indices.begin() + 1; // skip first index
-       idx_it != indices.end(); ++idx_it) {
-    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type))
-      continue;
-    const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
-    if (int_i) {
-      int n = static_cast<int>(int_i->getSExtValue());
-      offset.push_back(n);
-      source_element_type =
-          cast<StructType>(source_element_type)->getTypeAtIndex(n);
-      LLVM_DEBUG(dbgs() << n << " ");
+  LLVM_DEBUG(dbgs() << "initial elem type = " << *source_element_type << ", indices: [");
+  for (auto idx_it = indices.begin(); idx_it != indices.end(); ++idx_it) {
+    if (const PointerType *Ty = dyn_cast<PointerType>(source_element_type)) {
+      LLVM_DEBUG(dbgs() << "pointer");
+      source_element_type = Ty->getPointerElementType();
+    } else if (const ArrayType *Ty = dyn_cast<ArrayType>(source_element_type)) {
+      source_element_type = Ty->getArrayElementType();
+      LLVM_DEBUG(dbgs() << "array");
+    } else if (const VectorType *Ty = dyn_cast<VectorType>(source_element_type)) {
+      source_element_type = Ty->getElementType();
+      LLVM_DEBUG(dbgs() << "vector");
+    } else if (const StructType *Ty = dyn_cast<StructType>(source_element_type)) {
+      const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
+      if (int_i) {
+        int n = static_cast<int>(int_i->getSExtValue());
+        offset.push_back(n);
+        source_element_type = Ty->getTypeAtIndex(n);
+        LLVM_DEBUG(dbgs() << "struct field " << n);
+      } else {
+        LLVM_DEBUG(dbgs() << "unknown struct field, ...]\n");
+        LLVM_DEBUG(Logger->logErrorln("Could not determine which struct field is being accessed"));
+        return false;
+      }
     } else {
-      LLVM_DEBUG(Logger->logErrorln("Index of GEP not constant"));
+      LLVM_DEBUG(dbgs() << "???, ...]\n");
+      LLVM_DEBUG(Logger->logErrorln("Unknown pointer type passed to GEP"));
       return false;
     }
+    if (idx_it+1 != indices.end())
+      LLVM_DEBUG(dbgs() << ", ");
   }
-  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "] \n");
   return true;
 }

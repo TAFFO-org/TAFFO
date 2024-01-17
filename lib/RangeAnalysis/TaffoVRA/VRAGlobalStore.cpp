@@ -502,10 +502,8 @@ VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
   if (const llvm::ConstantExpr *cexp_i = dyn_cast<llvm::ConstantExpr>(kval)) {
     if (isa<GEPOperator>(cexp_i)) {
       llvm::Value *pointer_op = cexp_i->getOperand(0U);
-      llvm::Type *source_element_type =
-          llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getPointerElementType();
       llvm::SmallVector<unsigned, 1U> offset;
-      if (extractGEPOffset(source_element_type,
+      if (extractGEPOffset(pointer_op->getType(),
                            llvm::iterator_range<llvm::User::const_op_iterator>(cexp_i->op_begin() + 1,
                                                                                cexp_i->op_end()),
                            offset)) {

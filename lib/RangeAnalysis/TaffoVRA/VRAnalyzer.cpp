@@ -432,10 +432,18 @@ void VRAnalyzer::handleLoadInstr(llvm::Instruction *I)
   LLVM_DEBUG(Logger->logInstruction(I));
   const llvm::Value *PointerOp = Load->getPointerOperand();
 
-  NodePtrT Loaded = loadNode(getNode(PointerOp));
+  NodePtrT Raw = getNode(PointerOp);
+  if (Raw)
+    LLVM_DEBUG(dbgs() << "we have a node for the pointer, ");
+  else
+    LLVM_DEBUG(dbgs() << "we don't have a node for the pointer, ");
+  NodePtrT Loaded = loadNode(Raw);
+  if (Loaded)
+    LLVM_DEBUG(dbgs() << "we have a loaded node for the pointer, ");
+  else
+    LLVM_DEBUG(dbgs() << "we don't have a loaded node for the pointer, ");
 
-  if (std::shared_ptr<VRAScalarNode> Scalar =
-          std::dynamic_ptr_cast_or_null<VRAScalarNode>(Loaded)) {
+  if (std::shared_ptr<VRAScalarNode> Scalar = std::dynamic_ptr_cast_or_null<VRAScalarNode>(Loaded)) {
     auto &FAM = CodeInt.getMAM().getResult<FunctionAnalysisManagerModuleProxy>(*I->getFunction()->getParent()).getManager();
     auto *SSARes = &(FAM.getResult<MemorySSAAnalysis>(*I->getFunction()));
     MemorySSA &memssa = SSARes->getMSSA();
@@ -470,10 +478,11 @@ void VRAnalyzer::handleGEPInstr(const llvm::Instruction *I)
     return;
   }
   llvm::SmallVector<unsigned, 1U> Offset;
-  if (!extractGEPOffset(Gep->getSourceElementType(),
+  if (!extractGEPOffset(Gep->getPointerOperandType(),
                         iterator_range<User::const_op_iterator>(Gep->idx_begin(),
                                                                 Gep->idx_end()),
                         Offset)) {
+    LLVM_DEBUG(dbgs() << "(extractGEPOffset could not extract index)");
     return;
   }
   Node = std::make_shared<VRAGEPNode>(getNode(Gep->getPointerOperand()), Offset);
