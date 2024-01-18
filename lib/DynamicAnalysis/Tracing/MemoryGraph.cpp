@@ -1,10 +1,13 @@
 #include "MemoryGraph.h"
 
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "TracingUtils.h"
+#include "TypeUtils.h"
 
 namespace taffo
 {
@@ -58,10 +61,21 @@ std::shared_ptr<ValueWrapper> MemoryGraph::queuePop()
   return V;
 }
 
+void MemoryGraph::queuePushStruct(Value* V) {
+  auto* structType = fullyUnwrapPointerOrArrayType(V->getType());
+  for (unsigned int i = 0; i < structType->getStructNumElements(); i++) {
+    queuePush(ValueWrapper::wrapStructElem(V, i));
+  }
+}
+
 void MemoryGraph::seedRoots()
 {
   for (llvm::GlobalVariable &V : M.globals()) {
-    queuePush(ValueWrapper::wrapValue(&V));
+    if (isStructType(V.getValueType())) {
+      queuePushStruct(&V);
+    } else {
+      queuePush(ValueWrapper::wrapValue(&V));
+    }
   }
 
   for (auto &F : M) {
@@ -78,18 +92,38 @@ void MemoryGraph::seedRoots()
     ) {
       continue ;
     }
+
     for (auto &BB : F.getBasicBlockList()) {
       for (auto &Inst : BB.getInstList()) {
         if (Inst.isDebugOrPseudoInst()) {
           continue;
         }
         if (auto *allocaInst = dyn_cast<AllocaInst>(&Inst)) {
-          queuePush(ValueWrapper::wrapValue(allocaInst));
+          if (isStructType(allocaInst->getAllocatedType())) {
+            queuePushStruct(allocaInst);
+          } else {
+            queuePush(ValueWrapper::wrapValue(allocaInst));
+          }
         } else if (TracingUtils::isMallocLike(&Inst)) {
-          queuePush(ValueWrapper::wrapValue(&Inst));
+          // find the type of malloc from the bitcast
+          llvm::Type *bitcastType = nullptr;
+          for (auto &UseObject : Inst.uses()) {
+            if (auto *bitcastInst = dyn_cast<BitCastInst>(UseObject)) {
+              bitcastType = bitcastInst->getDestTy();
+              break;
+            }
+          }
+          if (bitcastType) {
+            if (isStructType(bitcastType)) {
+              queuePushStruct(&Inst);
+            } else {
+              queuePush(ValueWrapper::wrapValue(&Inst));
+            }
+          }
         }
       }
     }
+
   }
 }
 
@@ -123,102 +157,120 @@ void MemoryGraph::makeGraph()
     if (isVisited(wrappedInst)) {
       continue ;
     }
-    if (auto *allocaInst = dyn_cast<AllocaInst>(Inst)) {
-      handleAllocaInst(allocaInst);
-    } else if (TracingUtils::isMallocLike(Inst)) {
-      handleMallocLikeInst(dyn_cast<CallInst>(Inst));
-    } else if (auto *globalVar = dyn_cast<GlobalVariable>(Inst)) {
-      handleGlobalVar(globalVar);
-    } else if (auto *storeInst = dyn_cast<StoreInst>(Inst)) {
-      handleStoreInst(storeInst);
-    } else if (auto *loadInst = dyn_cast<LoadInst>(Inst)) {
-      handleLoadInst(loadInst);
-    } else if (auto *gepInst = dyn_cast<GetElementPtrInst>(Inst)) {
-      handleGEPInst(gepInst);
-    } else if (auto *castInst = dyn_cast<CastInst>(Inst)) {
-      if (castInst->getDestTy()->isPointerTy()) {
-        handlePointerCastInst(castInst);
-      } else if (auto *ptrToIntCastInst = dyn_cast<PtrToIntInst>(Inst)) {
-        handlePtrToIntCast(ptrToIntCastInst);
+
+    for (auto &UseObject : Inst->uses()) {
+      auto *UserInst = UseObject.getUser();
+      if (auto *storeInst = dyn_cast<StoreInst>(UserInst)) {
+        handleStoreInst(wrappedInst, storeInst, &UseObject);
+      } else if (auto *gepInst = dyn_cast<GetElementPtrInst>(UserInst)) {
+        handleGEPInst(wrappedInst, gepInst, &UseObject);
+      } else if (auto *ptrToIntCastInst = dyn_cast<PtrToIntInst>(UserInst)) {
+        handlePtrToIntCast(wrappedInst, ptrToIntCastInst, &UseObject);
+      } else if (isa<CallInst, InvokeInst>(UserInst)) {
+        auto *callSite = dyn_cast<CallBase>(UserInst);
+        handleFuncArg(wrappedInst, callSite, &UseObject);
+      } else {
+        handleGenericInst(wrappedInst, UserInst, &UseObject);
       }
-    } else if (auto *funArg = dyn_cast<Argument>(Inst)) {
-      addUsesToGraph(funArg);
-    } else {
-      addUsesToGraph(Inst);
     }
+
     markVisited(wrappedInst);
   }
 }
 
-void MemoryGraph::addUsesToGraph(llvm::Value *V)
-{
-  auto srcWrapper = ValueWrapper::wrapValue(V);
-  for (auto &Inst: V->uses()) {
-    auto *dstInst = Inst.getUser();
-    // passing as an argument to a function is fine for both pointers and values
-    if (isa<CallInst, InvokeInst>(dstInst)) {
-      auto *callSite = dyn_cast<CallBase>(dstInst);
-      auto argNo = callSite->getArgOperandNo(&Inst);
-      auto *fun = callSite->getCalledFunction();
-      if (fun && !fun->getBasicBlockList().empty() && !fun->isVarArg()) {
-        llvm::dbgs() << "Arg: " << *V << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
-        auto *formalArg = fun->getArg(argNo);
-        auto dstArgWrapper = ValueWrapper::wrapValue(formalArg);
-        addToGraph(srcWrapper, dstArgWrapper);
-        queuePush(dstArgWrapper);
-      }
-    // the rest of uses only are fine if it's a pointer or a store
-    } else if (V->getType()->isPointerTy() || isa<StoreInst>(dstInst)) {
-      auto dstWrapper = ValueWrapper::wrapValueUse(&Inst);
-      queuePush(dstWrapper);
-      addToGraph(srcWrapper, dstWrapper);
-    }
+unsigned int getStructElemArgPos(const std::shared_ptr<ValueWrapper>& srcWrapper) {
+  if (srcWrapper->isStructElem()) {
+    auto *structElemWrapper = static_cast<taffo::StructElemWrapper *>(&(*srcWrapper));
+    return structElemWrapper->argPos;
+  } else if (srcWrapper->isStructElemFunCall()) {
+    auto *structElemWrapper = static_cast<taffo::StructElemFunCallArgWrapper *>(&(*srcWrapper));
+    return structElemWrapper->argPos;
+  } else {
+    llvm::dbgs() << "Not a struct element: " << *(srcWrapper->value)
+                 << "\n";
+    return 999999;
   }
 }
 
-void MemoryGraph::handleAllocaInst(llvm::AllocaInst *allocaInst)
-{
-  addUsesToGraph(allocaInst);
+std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst) {
+  std::shared_ptr<ValueWrapper> dstWrapper;
+  if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
+    dstWrapper = ValueWrapper::wrapStructElem(UseInst, getStructElemArgPos(srcWrapper));
+  } else {
+    dstWrapper = ValueWrapper::wrapValue(UseInst);
+  }
+  return dstWrapper;
 }
 
-void MemoryGraph::handleMallocLikeInst(llvm::CallInst *mallocLikeInst)
-{
-  addUsesToGraph(mallocLikeInst);
+void MemoryGraph::handleGenericInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst, llvm::Use* UseObject) {
+  if (UseInst->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
+    auto dstWrapper = matchSrcWrapper(srcWrapper, UseInst);
+    queuePush(dstWrapper);
+    addToGraph(srcWrapper, dstWrapper);
+  }
 }
 
-void MemoryGraph::handleGlobalVar(llvm::GlobalVariable *globalVariable)
+void MemoryGraph::handleStoreInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::StoreInst *storeInst, llvm::Use* UseObject)
 {
-  addUsesToGraph(globalVariable);
-}
+  // first, store the link between the source and the store
+  handleGenericInst(srcWrapper, storeInst, UseObject);
+  // second, store the link between the store and the stored value because it is not a use
 
-void MemoryGraph::handleStoreInst(llvm::StoreInst *storeInst)
-{
   auto *dstInst = storeInst->getValueOperand();
-  auto srcWrapper = ValueWrapper::wrapValue(storeInst);
-  auto dstWrapper = ValueWrapper::wrapValue(dstInst);
+  auto dstWrapper = matchSrcWrapper(srcWrapper, dstInst);
+  if(srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
+    if (dyn_cast<Constant>(storeInst->getPointerOperand())) {
+      // llvm currently doesn't support getting a GEP instance out of a ConstantExpr
+      llvm::dbgs() << "!Constant in store destination!: " << *(storeInst->getPointerOperand())
+                   << ", cannot analyze GEP destination (possibly writing struct field)"
+                   << "\n";
+    }
+  }
   addToGraph(srcWrapper, dstWrapper);
   queuePush(dstWrapper);
 }
 
-void MemoryGraph::handleLoadInst(llvm::LoadInst *loadInst)
+void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::CallBase *callSite, llvm::Use* UseObject)
 {
-  addUsesToGraph(loadInst);
+  auto argNo = callSite->getArgOperandNo(UseObject);
+  auto *fun = callSite->getCalledFunction();
+  if (fun && !fun->getBasicBlockList().empty() && !fun->isVarArg()) {
+    llvm::dbgs() << "Arg: " << *callSite << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
+    std::shared_ptr<ValueWrapper> dstArgWrapper;
+    if (srcWrapper->isStructElem() || srcWrapper->isFunCallArg()) {
+      dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite, getStructElemArgPos(srcWrapper), argNo);
+    } else {
+      dstArgWrapper = ValueWrapper::wrapFunCallArg(callSite, argNo);
+    }
+    addToGraph(srcWrapper, dstArgWrapper);
+    queuePush(dstArgWrapper);
+  }
 }
 
-void MemoryGraph::handleGEPInst(llvm::GetElementPtrInst *gepInst)
+void MemoryGraph::handleGEPInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::GetElementPtrInst *gepInst, llvm::Use* UseObject)
 {
-  addUsesToGraph(gepInst);
+  if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
+    if (gepInst->getResultElementType()->isPointerTy()) {
+      // we are not yet accessing struct fields
+      handleGenericInst(srcWrapper, gepInst, UseObject);
+    } else {
+      // we are accessing a struct field, only match the field, not the whole struct
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(gepInst->getOperand(2))) {
+        uint64_t Idx = CI->getZExtValue();
+        if (Idx == getStructElemArgPos(srcWrapper)) {
+          auto dstWrapper = matchSrcWrapper(srcWrapper, gepInst);
+          queuePush(dstWrapper);
+          addToGraph(srcWrapper, dstWrapper);
+        }
+      }
+    }
+  } else {
+    handleGenericInst(srcWrapper, gepInst, UseObject);
+  }
 }
 
-void MemoryGraph::handlePointerCastInst(llvm::CastInst *castInst)
+void MemoryGraph::handlePtrToIntCast(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::PtrToIntInst *ptrToIntInst, llvm::Use* UseObject)
 {
-  addUsesToGraph(castInst);
-}
-
-void MemoryGraph::handlePtrToIntCast(llvm::PtrToIntInst *ptrToIntInst)
-{
-  auto srcWrapper = ValueWrapper::wrapValue(ptrToIntInst);
-
   std::list<llvm::Value*> localQueue;
   std::unordered_map<llvm::Value*, bool> localVisited;
   localQueue.push_back(ptrToIntInst);
@@ -232,7 +284,8 @@ void MemoryGraph::handlePtrToIntCast(llvm::PtrToIntInst *ptrToIntInst)
     for (auto &Inst: localInst->uses()) {
       auto *dstInst = Inst.getUser();
       if (auto *intToPtrInst = dyn_cast<IntToPtrInst>(dstInst)) {
-        auto dstWrapper = ValueWrapper::wrapValue(intToPtrInst);
+        auto dstWrapper = matchSrcWrapper(srcWrapper, intToPtrInst);
+        queuePush(dstWrapper);
         addToGraph(srcWrapper, dstWrapper);
       } else if (localVisited.count(dstInst) == 0) {
         localQueue.push_back(dstInst);

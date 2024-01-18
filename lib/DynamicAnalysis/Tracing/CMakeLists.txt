@@ -6,7 +6,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     NameVariables.cpp
     MemoryGraph.cpp
     ConnectedComponents.cpp
-    ExpandEqualValue.cpp
     TracingUtils.cpp
     StripAnnotations.cpp
     LogAnnotations.cpp
@@ -17,7 +16,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     NameVariables.h
     MemoryGraph.h
     ConnectedComponents.h
-    ExpandEqualValue.h
     TracingUtils.h
     StripAnnotations.h
     LogAnnotations.h

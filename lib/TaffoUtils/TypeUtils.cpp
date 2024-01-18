@@ -25,6 +25,11 @@ bool taffo::isFloatType(Type *srct)
   return fullyUnwrapPointerOrArrayType(srct)->isFloatingPointTy();
 }
 
+bool taffo::isStructType(Type *srct)
+{
+  return fullyUnwrapPointerOrArrayType(srct)->isStructTy();
+}
+
 
 bool taffo::typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II)
 {

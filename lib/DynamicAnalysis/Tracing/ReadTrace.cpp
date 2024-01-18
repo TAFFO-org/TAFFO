@@ -15,7 +15,6 @@
 #include "TaffoUtils/TypeUtils.h"
 #include "MemoryGraph.h"
 #include "ConnectedComponents.h"
-#include "ExpandEqualValue.h"
 #include "RangeAnalysis/TaffoVRA/VRAGlobalStore.hpp"
 
 using namespace llvm;
@@ -57,8 +56,6 @@ bool ReadTrace::runOnModule(Module &M) {
 //    llvm::dbgs() << "-----\n";
   }
 
-  taffo::ExpandEqualValue expand{ccValues};
-//  auto &expandedCCValues = expand.getResult();
   auto &expandedCCValues = ccValues;
 
   // read the trace file

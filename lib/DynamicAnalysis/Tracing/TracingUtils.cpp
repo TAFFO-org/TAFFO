@@ -9,20 +9,27 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapValue(llvm::Value *V)
   return std::make_shared<InstWrapper>(V);
 }
 
-std::shared_ptr<ValueWrapper> ValueWrapper::wrapValueUse(llvm::Use *V)
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapFunCallArg(llvm::CallBase *callInst, unsigned int argNo)
 {
-  std::shared_ptr<ValueWrapper> wrapper;
-  if (isa<CallInst, InvokeInst>(V->getUser()) && !TracingUtils::isMallocLike(V->getUser())) {
-    auto *callInst = dyn_cast<llvm::CallBase>(V->getUser());
-    wrapper = std::make_shared<FunCallArgWrapper>(
-        callInst, V->getOperandNo(),
-        TracingUtils::isExternalCallWithPointer(callInst, V->getOperandNo())
-    );
-  } else {
-    wrapper = std::make_shared<InstWrapper>(V->getUser());
-  }
-  return wrapper;
+  return std::make_shared<FunCallArgWrapper>(
+    callInst, argNo,
+    TracingUtils::isExternalCallWithPointer(callInst, argNo)
+  );
 }
+
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElem(llvm::Value *V, unsigned int ArgPos)
+{
+  return std::make_shared<StructElemWrapper>(V, ArgPos);
+}
+
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElemFunCallArg(llvm::CallBase *callInst, unsigned int ArgPos, unsigned int FunArgPos)
+{
+  return std::make_shared<StructElemFunCallArgWrapper>(
+      callInst, ArgPos,
+      FunArgPos, TracingUtils::isExternalCallWithPointer(callInst, FunArgPos)
+      );
+}
+
 
 bool TracingUtils::isMallocLike(const llvm::Function *F)
 {
@@ -40,7 +47,7 @@ bool TracingUtils::isMallocLike(const llvm::Value *Inst)
   return false;
 }
 
-bool TracingUtils::isExternalCallWithPointer(const CallBase *callInst, int argNo)
+bool TracingUtils::isExternalCallWithPointer(const CallBase *callInst, unsigned int argNo)
 {
   auto &argType = callInst->getOperandUse(argNo);
   auto *fun = callInst->getCalledFunction();

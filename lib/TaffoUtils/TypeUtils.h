@@ -18,6 +18,13 @@ namespace taffo
  *           floating point types. */
 bool isFloatType(llvm::Type *srct);
 
+/** Same as llvm::Type::isStructTy() but considers the pointer
+ *  element type in case of pointers/arrays/pointers to pointers/arrays of
+ *  arrays.
+ *  @param scrt Source type
+ *  @returns True if the pointer element type is of struct type. */
+bool isStructType(llvm::Type *srct);
+
 /** Finds the pointer element type of pointers to pointers and 
  *  of arrays of arrays.
  *  @param scrt Source type

@@ -19,16 +19,13 @@ SRC_DIR := $(abspath ./src)
 EMBEDDED_SRC_DIR := $(abspath ./embedded_src)
 HEADERS_DIR := $(abspath ./utilities/.)
 
-#TARGET := 'stm32l101'
-TARGET := 'stm32f446'
+TARGET := 'stm32l101'
 embedded_sysroot := /lib/arm-none-eabi
 embedded_triple := arm-none-eabi
-#embedded_cpu := cortex-m0plus+nofp
-embedded_cpu := cortex-m4
-embedded_additional := -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer-v2_15/bin/STM32_Programmer_CLI
+embedded_cpu := cortex-m0plus+nofp
+STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI
 
-CFLAGS := -g -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
+CFLAGS := -g0 -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
 CFLAGS_DOUBLE := -g0 -O3 -lm
 POLYBENCH_SHARED_FLAGS :=  -DPOLYBENCH_STACK_ARRAYS
 POLYBENCH_PC_FLAGS := -DBENCH_NUM_ITERATIONS=1000
@@ -38,6 +35,8 @@ POLYBENCH_DATASET_FLAGS := -DMINI_DATASET
 #POLYBENCH_DATASET_FLAGS := -DSMALL_DATASET
 POLYBENCH_DATA_FLAGS :=  -DDATA_TYPE_IS_FLOAT
 POLYBENCH_DOUBLE_DATA_FLAGS := -DDATA_TYPE_IS_DOUBLE
+POLYBENCH_TRACING_FLAGS := -DPOLYBENCH_RANDOMIZE_ENABLED=1 -DPOLYBENCH_RANDOM_SEED=1 -DPOLYBENCH_RANDOMIZE_RANGE=0
+POLYBENCH_EVAL_FLAGS := -DPOLYBENCH_RANDOM_SEED=2 -DPOLYBENCH_RANDOMIZE_RANGE=0
 PC_OPT_FLAGS :=
 PC_FLAGS :=
 EMBEDDED_OPT_FLAGS := -m32 \
@@ -147,7 +146,7 @@ summary:
 
 define build_pc_timer
     $(CLANGXX) \
-		-o $(deps_pc_dir)/timer.so \
+		-o $(deps_pc_dir)/timer.o \
 		-c \
 		$(HEADERS_DIR)/timer.cpp  \
 		-I$(HEADERS_DIR) \
@@ -165,10 +164,11 @@ define double_build
     $(CLANG) \
         -o $(double_job_file_base).out \
         $(bench_src)  \
-        $(deps_pc_dir)/timer.so \
+        $(deps_pc_dir)/timer.o \
         -I$(HEADERS_DIR) \
         -I$(bench_src_h) \
         $(CFLAGS_DOUBLE) \
+        $(POLYBENCH_EVAL_FLAGS) \
         $(POLYBENCH_SHARED_FLAGS) \
         $(POLYBENCH_PC_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
@@ -188,6 +188,7 @@ define build_float
         -I$(bench_src_h) \
         $($(arch)_OPT_FLAGS) \
         $(CFLAGS) \
+        $(POLYBENCH_EVAL_FLAGS) \
         $(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
         $(POLYBENCH_BENCH_FLAGS) \
@@ -202,13 +203,13 @@ define build_fixed
 		-o $(job_file_base).out.ll \
 		-emit-llvm \
 		-temp-dir $(job_dir) \
-		-annot-log-file $(job_file_base).annotations.csv \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
+		$(POLYBENCH_EVAL_FLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
@@ -224,13 +225,14 @@ define build_dynamic
 		-emit-llvm \
 		-temp-dir $(job_dir) \
 		-dynamic-trace $(stats_job_file_base).instrumented.trace \
-		-annot-log-file $(job_file_base).annotations.csv \
 		$(DEBUG_TAFFO) \
 		$(bench_src) \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
 		$($(arch)_OPT_FLAGS) \
 		$(CFLAGS) \
+		$(POLYBENCH_EVAL_FLAGS) \
+		-DPOLYBENCH_RANDOMIZE_ENABLED=1 \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_$(arch)_FLAGS) \
 		$(POLYBENCH_BENCH_FLAGS) \
@@ -248,8 +250,11 @@ define stats_build_tracing
 		$(DEBUG_TAFFO) \
 		-dynamic-instrument \
 		$(bench_src) \
+		$(deps_pc_dir)/timer.o \
 		-I$(HEADERS_DIR) \
 		-I$(bench_src_h) \
+		$(CFLAGS) \
+		$(POLYBENCH_TRACING_FLAGS) \
 		$(POLYBENCH_SHARED_FLAGS) \
 		$(POLYBENCH_DATA_FLAGS) \
 		$(POLYBENCH_DATASET_FLAGS) \
@@ -280,7 +285,7 @@ define compile_binary_PC
 		-O3 \
 		$($(arch)_OPT_FLAGS) \
 		$(job_file_base).o \
-		$(deps_pc_dir)/timer.so \
+		$(deps_pc_dir)/timer.o \
 		-o $(job_file_base).out.bin
 endef
 

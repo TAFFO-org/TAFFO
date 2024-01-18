@@ -3,9 +3,11 @@
 
 #include <list>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/Type.h>
 #include <memory>
 #include <unordered_map>
 
+#include "TypeUtils.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
@@ -19,7 +21,7 @@ struct TracingUtils
 
   static bool isMallocLike(const llvm::Value *Inst);
 
-  static bool isExternalCallWithPointer(const llvm::CallBase *callInst, int argNo);
+  static bool isExternalCallWithPointer(const llvm::CallBase *callInst, unsigned int argNo);
 
   static bool isSafeExternalFunction(const llvm::Function *F);
 };
@@ -29,7 +31,9 @@ class ValueWrapper
 public:
   enum class ValueType {
     ValInst,
-    ValFunCallArg
+    ValFunCallArg,
+    ValStructElem,
+    ValStructElemFunCall
   };
 
 protected:
@@ -43,8 +47,22 @@ public:
     return type == other.type && value == other.value;
   }
 
+  bool isStructElem() const {
+    return type == ValueType::ValStructElem;
+  }
+
+  bool isStructElemFunCall() const {
+    return type == ValueType::ValStructElemFunCall;
+  }
+
+  bool isFunCallArg() const {
+    return type == ValueType::ValFunCallArg || type == ValueType::ValStructElemFunCall;
+  }
+
   static std::shared_ptr<ValueWrapper> wrapValue(llvm::Value *V);
-  static std::shared_ptr<ValueWrapper> wrapValueUse(llvm::Use *V);
+  static std::shared_ptr<ValueWrapper> wrapFunCallArg(llvm::CallBase *callInst, unsigned int argNo);
+  static std::shared_ptr<ValueWrapper> wrapStructElem(llvm::Value *V, unsigned int ArgPos);
+  static std::shared_ptr<ValueWrapper> wrapStructElemFunCallArg(llvm::CallBase *callInst, unsigned int ArgPos, unsigned int FunArgPos);
 };
 
 class InstWrapper : public ValueWrapper
@@ -66,6 +84,53 @@ public:
       return argPos == static_cast<const FunCallArgWrapper *>(&other)->argPos;
     }
     return false;
+  }
+};
+
+class StructElemWrapper : public ValueWrapper
+{
+public:
+  StructElemWrapper(llvm::Value *V, unsigned int ArgPos)
+      : ValueWrapper{ValueType::ValStructElem, V}, argPos{ArgPos}{}
+  const unsigned int argPos;
+  bool operator==(const ValueWrapper &other) const override
+  {
+    if (ValueWrapper::operator==(other)) {
+      return argPos == static_cast<const StructElemWrapper *>(&other)->argPos;
+    }
+    return false;
+  }
+
+  llvm::Type* argType() {
+    auto* structType = fullyUnwrapPointerOrArrayType(value->getType());
+    auto t = structType->getStructElementType(argPos);
+    return t;
+  }
+};
+
+class StructElemFunCallArgWrapper : public ValueWrapper
+{
+public:
+  StructElemFunCallArgWrapper(llvm::Value *V, unsigned int ArgPos, int FunArgPos, bool FunExternal)
+      : ValueWrapper{ValueType::ValStructElemFunCall, V}, argPos{ArgPos}, funArgPos{FunArgPos}, funExternal{FunExternal} {}
+  const unsigned int argPos;
+  const int funArgPos;
+  const bool funExternal;
+  bool operator==(const ValueWrapper &other) const override
+  {
+    if (ValueWrapper::operator==(other)) {
+      const StructElemFunCallArgWrapper *castedWrapper = static_cast<const StructElemFunCallArgWrapper *>(&other);
+      return (argPos == castedWrapper->argPos) &&
+             (funArgPos == castedWrapper->funArgPos)  &&
+             (funExternal == castedWrapper->funExternal);
+    }
+    return false;
+  }
+
+  llvm::Type* argType() {
+    auto* structType = fullyUnwrapPointerOrArrayType(value->getType());
+    auto t = structType->getStructElementType(argPos);
+    return t;
   }
 };
 
