@@ -9,7 +9,7 @@ namespace TaffoMath
 
 // FIXME: better find libm function
 //  with this code even a function like cosplayer is matched
-static bool isSupportedLibmFunction(llvm::Function *F, bool enabled = false)
+static bool isSupportedLibmFunction(const llvm::Function *F, bool enabled = false)
 {
   static const auto names = llvm::SmallVector<std::string, 7>({"sin", "cos", "_ZSt3cos", "_ZSt3sin", "asin", "acos", "abs"});
   for (auto &name : names) {

@@ -52,6 +52,10 @@ void MemoryGraph::queuePush(std::shared_ptr<ValueWrapper> V)
 {
   if (!isVisited(V)) {
     queue.push_back(V);
+//    llvm::dbgs() << "-------:" << "\n";
+    llvm::dbgs() << "queue push: ";
+    V->print_debug(llvm::dbgs()) << "\n";
+//    llvm::dbgs() << "-------:" << "\n";
   }
 }
 
@@ -59,6 +63,10 @@ std::shared_ptr<ValueWrapper> MemoryGraph::queuePop()
 {
   auto V = queue.front();
   queue.pop_front();
+//  llvm::dbgs() << "-------:" << "\n";
+  llvm::dbgs() << "queue pop: ";
+  V->print_debug(llvm::dbgs()) << "\n";
+//  llvm::dbgs() << "-------:" << "\n";
   return V;
 }
 
@@ -130,10 +138,13 @@ void MemoryGraph::seedRoots()
 
 void MemoryGraph::addToGraph(std::shared_ptr<ValueWrapper> src, std::shared_ptr<ValueWrapper> dst)
 {
-//  llvm::dbgs() << "adding to graph:" << "\n";
 //  llvm::dbgs() << "-------:" << "\n";
-//  llvm::dbgs() << *src->value << "\n";
-//  llvm::dbgs() << *dst->value << "\n";
+  llvm::dbgs() << "adding to graph:" << "\n";
+  llvm::dbgs() << "src: ";
+  src->print_debug(llvm::dbgs()) << "\n";
+  llvm::dbgs() << "dst: ";
+  dst->print_debug(llvm::dbgs()) << "\n";
+//  llvm::dbgs() << "-------:" << "\n";
   auto srcIndex = assignOrGetIndex(src);
   auto dstIndex = assignOrGetIndex(dst);
   edges.emplace_back(srcIndex, dstIndex);
@@ -153,13 +164,19 @@ void MemoryGraph::makeGraph()
 {
   while (!queue.empty()) {
     auto wrappedInst = queuePop();
-    auto* Inst = wrappedInst->value;
 
     if (isVisited(wrappedInst)) {
       continue ;
     }
 
-    for (auto &UseObject : Inst->uses()) {
+//    iterator_range<Value::use_iterator> usesList = wrappedInst->uses();
+//    if (wrappedInst->isFunCallArg()) {
+//      usesList = static_cast<taffo::FunCallArgWrapper *>(&(*wrappedInst))->uses();
+//    } else if (wrappedInst->isStructElemFunCall()) {
+//      usesList = static_cast<taffo::StructElemFunCallArgWrapper *>(&(*wrappedInst))->uses();
+//    }
+
+    for (auto &UseObject : wrappedInst->uses()) {
       auto *UserInst = UseObject.getUser();
       if (auto *storeInst = dyn_cast<StoreInst>(UserInst)) {
         handleStoreInst(wrappedInst, storeInst, &UseObject);
@@ -170,15 +187,12 @@ void MemoryGraph::makeGraph()
       } else if (isa<CallInst, InvokeInst>(UserInst)) {
         auto *callSite = dyn_cast<CallBase>(UserInst);
         handleFuncArg(wrappedInst, callSite, &UseObject);
+      } else if (auto *castInst = dyn_cast<CastInst>(UserInst)) {
+        handleCastInst(wrappedInst, castInst, &UseObject);
       } else {
         handleGenericInst(wrappedInst, UserInst, &UseObject);
       }
     }
-
-//    else if (castInst->getDestTy()->isFloatingPointTy() || castInst->getDestTy()->isIntegerTy()) {
-//      addUsesToGraph(Inst);
-//    }
-
     markVisited(wrappedInst);
   }
 }
@@ -208,10 +222,26 @@ std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper
 }
 
 void MemoryGraph::handleGenericInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst, llvm::Use* UseObject) {
-  if (UseInst->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
+  if (srcWrapper->value->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
     auto dstWrapper = matchSrcWrapper(srcWrapper, UseInst);
-    queuePush(dstWrapper);
+    llvm::dbgs() << "-------:" << "\n";
+    llvm::dbgs() << "handleGenericInst" << "\n";
     addToGraph(srcWrapper, dstWrapper);
+    queuePush(dstWrapper);
+    llvm::dbgs() << "-------:" << "\n";
+  }
+}
+
+void MemoryGraph::handleCastInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::CastInst *castInst, llvm::Use* UseObject) {
+  if (castInst->getDestTy()->isFloatingPointTy() || castInst->getDestTy()->isIntegerTy()) {
+    auto dstWrapper = matchSrcWrapper(srcWrapper, castInst);
+    llvm::dbgs() << "-------:" << "\n";
+    llvm::dbgs() << "handleCastInst" << "\n";
+    addToGraph(srcWrapper, dstWrapper);
+    queuePush(dstWrapper);
+    llvm::dbgs() << "-------:" << "\n";
+  } else {
+    handleGenericInst(srcWrapper, castInst, UseObject);
   }
 }
 
@@ -231,54 +261,35 @@ void MemoryGraph::handleStoreInst(const std::shared_ptr<ValueWrapper>& srcWrappe
                    << "\n";
     }
   }
-  addToGraph(srcWrapper, dstWrapper);
+  auto storeWrapper = matchSrcWrapper(srcWrapper, storeInst);
+  llvm::dbgs() << "-------:" << "\n";
+  llvm::dbgs() << "handleStoreInst" << "\n";
+  addToGraph(dstWrapper, storeWrapper);
   queuePush(dstWrapper);
+  llvm::dbgs() << "-------:" << "\n";
 }
 
 void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::CallBase *callSite, llvm::Use* UseObject)
 {
   auto argNo = callSite->getArgOperandNo(UseObject);
   auto *fun = callSite->getCalledFunction();
-  if (fun && !fun->getBasicBlockList().empty() && !fun->isVarArg()) {
+  if (fun &&
+   (!fun->getBasicBlockList().empty() || TaffoMath::isSupportedLibmFunction(fun, Fixm)) &&
+   !fun->isVarArg()) {
     llvm::dbgs() << "Arg: " << *callSite << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
     std::shared_ptr<ValueWrapper> dstArgWrapper;
-    if (srcWrapper->isStructElem() || srcWrapper->isFunCallArg()) {
+    if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
       dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite, getStructElemArgPos(srcWrapper), argNo);
     } else {
       dstArgWrapper = ValueWrapper::wrapFunCallArg(callSite, argNo);
     }
+    llvm::dbgs() << "-------:" << "\n";
+    llvm::dbgs() << "handleFuncArg" << "\n";
     addToGraph(srcWrapper, dstArgWrapper);
     queuePush(dstArgWrapper);
+    llvm::dbgs() << "-------:" << "\n";
   }
 }
-
-//void MemoryGraph::addUsesToGraph(llvm::Value *V)
-//{
-//  auto srcWrapper = ValueWrapper::wrapValue(V);
-//  for (auto &Inst: V->uses()) {
-//    auto *dstInst = Inst.getUser();
-//    // passing as an argument to a function is fine for both pointers and values
-//    if (isa<CallInst, InvokeInst>(dstInst)) {
-//      auto *callSite = dyn_cast<CallBase>(dstInst);
-//      auto argNo = callSite->getArgOperandNo(&Inst);
-//      auto *fun = callSite->getCalledFunction();
-//      if (fun &&
-//          (!fun->getBasicBlockList().empty() || TaffoMath::isSupportedLibmFunction(fun, Fixm)) &&
-//          !fun->isVarArg()) {
-//        llvm::dbgs() << "Arg: " << *V << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
-//        auto *formalArg = fun->getArg(argNo);
-//        auto dstArgWrapper = ValueWrapper::wrapValue(formalArg);
-//        addToGraph(srcWrapper, dstArgWrapper);
-//        queuePush(dstArgWrapper);
-//      }
-//      // the rest of uses only are fine if it's a pointer or a store or a cast
-//    } else if (V->getType()->isPointerTy() || isa<StoreInst>(dstInst) || isa<CastInst>(dstInst)) {
-//      auto dstWrapper = ValueWrapper::wrapValueUse(&Inst);
-//      queuePush(dstWrapper);
-//      addToGraph(srcWrapper, dstWrapper);
-//    }
-//  }
-//}
 
 
 void MemoryGraph::handleGEPInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::GetElementPtrInst *gepInst, llvm::Use* UseObject)
@@ -293,8 +304,11 @@ void MemoryGraph::handleGEPInst(const std::shared_ptr<ValueWrapper>& srcWrapper,
         uint64_t Idx = CI->getZExtValue();
         if (Idx == getStructElemArgPos(srcWrapper)) {
           auto dstWrapper = matchSrcWrapper(srcWrapper, gepInst);
-          queuePush(dstWrapper);
+          llvm::dbgs() << "-------:" << "\n";
+          llvm::dbgs() << "handleGEPInst" << "\n";
           addToGraph(srcWrapper, dstWrapper);
+          queuePush(dstWrapper);
+          llvm::dbgs() << "-------:" << "\n";
         }
       }
     }
@@ -319,8 +333,11 @@ void MemoryGraph::handlePtrToIntCast(const std::shared_ptr<ValueWrapper>& srcWra
       auto *dstInst = Inst.getUser();
       if (auto *intToPtrInst = dyn_cast<IntToPtrInst>(dstInst)) {
         auto dstWrapper = matchSrcWrapper(srcWrapper, intToPtrInst);
-        queuePush(dstWrapper);
+        llvm::dbgs() << "-------:" << "\n";
+        llvm::dbgs() << "handlePtrToIntCast" << "\n";
         addToGraph(srcWrapper, dstWrapper);
+        queuePush(dstWrapper);
+        llvm::dbgs() << "-------:" << "\n";
       } else if (localVisited.count(dstInst) == 0) {
         localQueue.push_back(dstInst);
       }

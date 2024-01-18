@@ -33,6 +33,31 @@ public:
     return indexToInst.at(i);
   }
 
+  void print_graph() {
+    llvm::dbgs() << "MEMORY GRAPH BEGIN" << "\n";
+    for (auto x : edges) {
+      llvm::dbgs() << "-------:" << "\n";
+      llvm::dbgs() << "src: ";
+      getNode(x.first)->print_debug(llvm::dbgs()) << "\n";
+      llvm::dbgs() << "dst: ";
+      getNode(x.second)->print_debug(llvm::dbgs()) << "\n";
+    }
+    llvm::dbgs() << "MEMORY GRAPH END" << "\n";
+  }
+
+  void print_connected_components(const std::unordered_map<int, std::list<int>>& cc) {
+    llvm::dbgs() << "CONNECTED COMPONENTS BEGIN" << "\n";
+    for (auto &it : cc) {
+      std::list<int> l = it.second;
+      llvm::dbgs() << "-------:" << "\n";
+      llvm::dbgs() << "CONNECTED COMPONENT " << it.first << "\n";
+      for (auto x : l) {
+        getNode(x)->print_debug(llvm::dbgs()) << "\n";
+      }
+    }
+    llvm::dbgs() << "CONNECTED COMPONENTS END" << "\n";
+  }
+
 private:
   llvm::Module &M;
 
@@ -61,6 +86,7 @@ private:
   void handlePtrToIntCast(const std::shared_ptr<ValueWrapper>& src, llvm::PtrToIntInst* ptrToIntInst, llvm::Use* UseObject);
   void handleGenericInst(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::Value *UseInst, llvm::Use *UseObject);
   void handleFuncArg(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::CallBase *callSite, llvm::Use *UseObject);
+  void handleCastInst(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::CastInst *castInst, llvm::Use *UseObject);
 };
 
 } // namespace taffo

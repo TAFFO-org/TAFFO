@@ -30,11 +30,21 @@ class ValueWrapper
 {
 public:
   enum class ValueType {
-    ValInst,
+    ValInst = 0,
     ValFunCallArg,
     ValStructElem,
     ValStructElemFunCall
   };
+
+  // since C++11
+  const char * const ValueTypes[4] =
+  {
+      "ValInst",
+      "ValFunCallArg",
+      "ValStructElem",
+      "ValStructElemFunCall"
+  };
+
 
 protected:
   ValueWrapper(ValueType T, llvm::Value *V) : type{T}, value{V} {}
@@ -45,6 +55,16 @@ public:
   virtual bool operator==(const ValueWrapper &other) const
   {
     return type == other.type && value == other.value;
+  }
+
+  virtual llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const
+  {
+    return dbg << ValueTypes[(int)type] << ": " << *value;
+  }
+
+  virtual llvm::iterator_range<llvm::Value::use_iterator> uses() const
+  {
+    return value->uses();
   }
 
   bool isStructElem() const {
@@ -85,6 +105,13 @@ public:
     }
     return false;
   }
+
+//  llvm::iterator_range<llvm::Value::use_iterator> uses() const override
+//  {
+//    auto *callSite = llvm::dyn_cast<llvm::CallBase>(value);
+//    auto* arg = callSite->getOperand(argPos);
+//    return arg->uses();
+//  }
 };
 
 class StructElemWrapper : public ValueWrapper
@@ -132,6 +159,13 @@ public:
     auto t = structType->getStructElementType(argPos);
     return t;
   }
+
+//  llvm::iterator_range<llvm::Value::use_iterator> uses() const override
+//  {
+//    auto *callSite = llvm::dyn_cast<llvm::CallBase>(value);
+//    auto* arg = callSite->getOperand(funArgPos);
+//    return arg->uses();
+//  }
 };
 
 } // namespace taffo

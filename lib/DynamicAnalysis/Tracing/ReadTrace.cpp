@@ -39,11 +39,13 @@ bool ReadTrace::runOnModule(Module &M) {
 
   // calculate connected components on the memory operations
   taffo::MemoryGraph graph{M};
+  graph.print_graph();
   const std::list<std::pair<int, int>> &edges = graph.getEdges();
   int instCount = graph.getNodeCount();
   llvm::dbgs() << "Nodes in memory graph: " << instCount << "\n";
   taffo::ConnectedComponents ccAlg{instCount, edges};
   const std::unordered_map<int, std::list<int>> &cc = ccAlg.getResult();
+  graph.print_connected_components(cc);
   std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
   std::unordered_map<int, std::pair<double, double>> ccRanges;
 
@@ -107,8 +109,8 @@ bool ReadTrace::runOnModule(Module &M) {
     bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
       if(item->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCall = static_cast<const taffo::FunCallArgWrapper *>(&(*item));
-        auto *funCallValue = static_cast<const CallBase *>(funCall->value);
-        auto * fun = funCallValue->getCalledFunction();
+//        auto *funCallValue = static_cast<const Argument *>(funCall->value)->getParent();
+        auto * fun = static_cast<const Argument *>(funCall->value)->getParent();
         if (funCall->isExternalFunc && !(fun && TaffoMath::isSupportedLibmFunction(fun, Fixm))) {
           return true;
         }
@@ -237,8 +239,8 @@ void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<std::s
       Value *valueInst;
       if (value->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCallWrapper = static_cast<taffo::FunCallArgWrapper *>(&(*value));
-        auto *callSite = dyn_cast<CallBase>(funCallWrapper->value);
-        valueInst = callSite->getArgOperand(funCallWrapper->argPos);
+//        auto *callSite = dyn_cast<CallBase>(funCallWrapper->value);
+        valueInst = funCallWrapper->value;
       } else {
         valueInst = value->value;
       }

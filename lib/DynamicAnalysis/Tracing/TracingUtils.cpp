@@ -11,8 +11,10 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapValue(llvm::Value *V)
 
 std::shared_ptr<ValueWrapper> ValueWrapper::wrapFunCallArg(llvm::CallBase *callInst, unsigned int argNo)
 {
+  auto *fun = callInst->getCalledFunction();
+  auto *formalArg = fun->getArg(argNo);
   return std::make_shared<FunCallArgWrapper>(
-    callInst, argNo,
+      formalArg, argNo,
     TracingUtils::isExternalCallWithPointer(callInst, argNo)
   );
 }
@@ -24,8 +26,10 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElem(llvm::Value *V, unsig
 
 std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElemFunCallArg(llvm::CallBase *callInst, unsigned int ArgPos, unsigned int FunArgPos)
 {
+  auto *fun = callInst->getCalledFunction();
+  auto *formalArg = fun->getArg(FunArgPos);
   return std::make_shared<StructElemFunCallArgWrapper>(
-      callInst, ArgPos,
+      formalArg, ArgPos,
       FunArgPos, TracingUtils::isExternalCallWithPointer(callInst, FunArgPos)
       );
 }
