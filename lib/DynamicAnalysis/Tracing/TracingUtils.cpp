@@ -9,13 +9,12 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapValue(llvm::Value *V)
   return std::make_shared<InstWrapper>(V);
 }
 
-std::shared_ptr<ValueWrapper> ValueWrapper::wrapFunCallArg(llvm::CallBase *callInst, unsigned int argNo)
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapFunCallArg(llvm::Function *fun, unsigned int argNo)
 {
-  auto *fun = callInst->getCalledFunction();
   auto *formalArg = fun->getArg(argNo);
   return std::make_shared<FunCallArgWrapper>(
       formalArg, argNo,
-    TracingUtils::isExternalCallWithPointer(callInst, argNo)
+    TracingUtils::isExternalCallWithPointer(fun, argNo)
   );
 }
 
@@ -24,13 +23,12 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElem(llvm::Value *V, unsig
   return std::make_shared<StructElemWrapper>(V, ArgPos);
 }
 
-std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElemFunCallArg(llvm::CallBase *callInst, unsigned int ArgPos, unsigned int FunArgPos)
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElemFunCallArg(llvm::Function *fun, unsigned int ArgPos, unsigned int FunArgPos)
 {
-  auto *fun = callInst->getCalledFunction();
   auto *formalArg = fun->getArg(FunArgPos);
   return std::make_shared<StructElemFunCallArgWrapper>(
       formalArg, ArgPos,
-      FunArgPos, TracingUtils::isExternalCallWithPointer(callInst, FunArgPos)
+      FunArgPos, TracingUtils::isExternalCallWithPointer(fun, FunArgPos)
       );
 }
 
@@ -51,15 +49,14 @@ bool TracingUtils::isMallocLike(const llvm::Value *Inst)
   return false;
 }
 
-bool TracingUtils::isExternalCallWithPointer(const CallBase *callInst, unsigned int argNo)
+bool TracingUtils::isExternalCallWithPointer(const Function *fun, unsigned int argNo)
 {
-  auto &argType = callInst->getOperandUse(argNo);
-  auto *fun = callInst->getCalledFunction();
+  auto argType = fun->getArg(argNo)->getType();
   if (!fun) {
     // conservatively consider all unknown functions with pointer arg as external
-    return argType->getType()->isPointerTy();
+    return argType->isPointerTy();
   }
-  if (argType->getType()->isPointerTy() && fun->getBasicBlockList().empty()) {
+  if (argType->isPointerTy() && fun->getBasicBlockList().empty()) {
     return !isSafeExternalFunction(fun);
   }
   return false;

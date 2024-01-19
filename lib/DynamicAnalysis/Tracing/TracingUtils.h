@@ -21,9 +21,10 @@ struct TracingUtils
 
   static bool isMallocLike(const llvm::Value *Inst);
 
-  static bool isExternalCallWithPointer(const llvm::CallBase *callInst, unsigned int argNo);
+  static bool isExternalCallWithPointer(const llvm::Function *fun, unsigned int argNo);
 
   static bool isSafeExternalFunction(const llvm::Function *F);
+
 };
 
 class ValueWrapper
@@ -80,9 +81,9 @@ public:
   }
 
   static std::shared_ptr<ValueWrapper> wrapValue(llvm::Value *V);
-  static std::shared_ptr<ValueWrapper> wrapFunCallArg(llvm::CallBase *callInst, unsigned int argNo);
+  static std::shared_ptr<ValueWrapper> wrapFunCallArg(llvm::Function *fun, unsigned int argNo);
   static std::shared_ptr<ValueWrapper> wrapStructElem(llvm::Value *V, unsigned int ArgPos);
-  static std::shared_ptr<ValueWrapper> wrapStructElemFunCallArg(llvm::CallBase *callInst, unsigned int ArgPos, unsigned int FunArgPos);
+  static std::shared_ptr<ValueWrapper> wrapStructElemFunCallArg(llvm::Function *fun, unsigned int ArgPos, unsigned int FunArgPos);
 };
 
 class InstWrapper : public ValueWrapper
@@ -106,12 +107,17 @@ public:
     return false;
   }
 
-//  llvm::iterator_range<llvm::Value::use_iterator> uses() const override
-//  {
-//    auto *callSite = llvm::dyn_cast<llvm::CallBase>(value);
-//    auto* arg = callSite->getOperand(argPos);
-//    return arg->uses();
-//  }
+  llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const override
+  {
+    std::string s = "";
+    if (isExternalFunc) {
+      s = " [disabled]: ";
+    }
+    return dbg << ValueTypes[(int)type]
+               << s
+               << ", arg<" << argPos << ">: "
+               << *value;
+  }
 };
 
 class StructElemWrapper : public ValueWrapper
@@ -132,6 +138,11 @@ public:
     auto* structType = fullyUnwrapPointerOrArrayType(value->getType());
     auto t = structType->getStructElementType(argPos);
     return t;
+  }
+
+  llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const override
+  {
+    return dbg << ValueTypes[(int)type] << ", field<" << argPos << ">: " << *value;
   }
 };
 
@@ -160,12 +171,18 @@ public:
     return t;
   }
 
-//  llvm::iterator_range<llvm::Value::use_iterator> uses() const override
-//  {
-//    auto *callSite = llvm::dyn_cast<llvm::CallBase>(value);
-//    auto* arg = callSite->getOperand(funArgPos);
-//    return arg->uses();
-//  }
+  llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const override
+  {
+    std::string s = "";
+    if (funExternal) {
+      s = " [disabled]: ";
+    }
+    return dbg << ValueTypes[(int)type]
+               << s
+               << ", arg<" << funArgPos << "> "
+               << ", field<" << argPos << ">: "
+               << *value;
+  }
 };
 
 } // namespace taffo

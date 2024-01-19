@@ -11,6 +11,7 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
     LogAnnotations.cpp
 
     ADDITIONAL_HEADERS
+    ConstantsContext.h
     InjectFuncCall.h
     ReadTrace.h
     NameVariables.h

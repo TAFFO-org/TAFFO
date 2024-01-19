@@ -71,16 +71,8 @@ bool ReadTrace::runOnModule(Module &M) {
     const auto range = it.second;
     const auto l = expandedCCValues[it.first];
     for (auto &x : l) {
-      llvm::dbgs() << typeName(*(x->value)) << ": ";
-      llvm::dbgs() << "[" << range.first << ", " << range.second << "]: ";
-      if(x->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
-        auto *funCall = static_cast<taffo::FunCallArgWrapper *>(&(*x));
-        if (funCall->isExternalFunc) {
-          llvm::dbgs() << "[disabled]: ";
-        }
-        llvm::dbgs() << "[arg: " << funCall->argPos << "]: ";
-      }
-      llvm::dbgs() << *(x->value) << "\n";
+      llvm::dbgs() << "[" << range.first << ", " << range.second << "] ";
+      x->print_debug(llvm::dbgs()) << "\n";
     }
     llvm::dbgs() << "-----\n";
   }

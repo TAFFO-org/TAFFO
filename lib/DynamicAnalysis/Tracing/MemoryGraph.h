@@ -82,11 +82,12 @@ private:
   void markVisited(std::shared_ptr<ValueWrapper> V);
   bool isVisited(std::shared_ptr<ValueWrapper> V);
   void handleStoreInst(const std::shared_ptr<ValueWrapper>& src, llvm::StoreInst* storeInst, llvm::Use* UseObject);
-  void handleGEPInst(const std::shared_ptr<ValueWrapper>& src, llvm::GetElementPtrInst* gepInst, llvm::Use* UseObject);
   void handlePtrToIntCast(const std::shared_ptr<ValueWrapper>& src, llvm::PtrToIntInst* ptrToIntInst, llvm::Use* UseObject);
   void handleGenericInst(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::Value *UseInst, llvm::Use *UseObject);
   void handleFuncArg(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::CallBase *callSite, llvm::Use *UseObject);
   void handleCastInst(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::CastInst *castInst, llvm::Use *UseObject);
+  void handleGEPInst(const std::shared_ptr<ValueWrapper> &srcWrapper, llvm::Value *gepInst, llvm::Use *UseObject);
+  void handleGenericWrapper(const std::shared_ptr<ValueWrapper> &srcWrapper, const std::shared_ptr<ValueWrapper> &dstWrapper);
 };
 
 } // namespace taffo

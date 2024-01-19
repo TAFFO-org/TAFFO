@@ -3,6 +3,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Constant.h"
+#include "ConstantsContext.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -169,19 +170,12 @@ void MemoryGraph::makeGraph()
       continue ;
     }
 
-//    iterator_range<Value::use_iterator> usesList = wrappedInst->uses();
-//    if (wrappedInst->isFunCallArg()) {
-//      usesList = static_cast<taffo::FunCallArgWrapper *>(&(*wrappedInst))->uses();
-//    } else if (wrappedInst->isStructElemFunCall()) {
-//      usesList = static_cast<taffo::StructElemFunCallArgWrapper *>(&(*wrappedInst))->uses();
-//    }
-
     for (auto &UseObject : wrappedInst->uses()) {
       auto *UserInst = UseObject.getUser();
       if (auto *storeInst = dyn_cast<StoreInst>(UserInst)) {
         handleStoreInst(wrappedInst, storeInst, &UseObject);
-      } else if (auto *gepInst = dyn_cast<GetElementPtrInst>(UserInst)) {
-        handleGEPInst(wrappedInst, gepInst, &UseObject);
+      } else if (isa<GetElementPtrInst, GetElementPtrConstantExpr>(UserInst)) {
+        handleGEPInst(wrappedInst, UserInst, &UseObject);
       } else if (auto *ptrToIntCastInst = dyn_cast<PtrToIntInst>(UserInst)) {
         handlePtrToIntCast(wrappedInst, ptrToIntCastInst, &UseObject);
       } else if (isa<CallInst, InvokeInst>(UserInst)) {
@@ -214,7 +208,12 @@ unsigned int getStructElemArgPos(const std::shared_ptr<ValueWrapper>& srcWrapper
 std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst) {
   std::shared_ptr<ValueWrapper> dstWrapper;
   if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-    dstWrapper = ValueWrapper::wrapStructElem(UseInst, getStructElemArgPos(srcWrapper));
+    if (!isa<Argument>(UseInst)) {
+      dstWrapper = ValueWrapper::wrapStructElem(UseInst, getStructElemArgPos(srcWrapper));
+    } else {
+      auto *argument = dyn_cast<Argument>(UseInst);
+      dstWrapper = ValueWrapper::wrapStructElemFunCallArg(argument->getParent(), getStructElemArgPos(srcWrapper), argument->getArgNo());
+    }
   } else {
     dstWrapper = ValueWrapper::wrapValue(UseInst);
   }
@@ -222,14 +221,33 @@ std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper
 }
 
 void MemoryGraph::handleGenericInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst, llvm::Use* UseObject) {
-  if (srcWrapper->value->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
-    auto dstWrapper = matchSrcWrapper(srcWrapper, UseInst);
+  if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
+    auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
+    auto dstBaseType = fullyUnwrapPointerOrArrayType(UseInst->getType());
+    if (srcBaseType == dstBaseType) {
+      // we are not yet accessing struct fields, just unwrapping pointers
+      // this will fail on recursive structs
+      auto dstWrapper = matchSrcWrapper(srcWrapper, UseInst);
+      handleGenericWrapper(srcWrapper, dstWrapper);
+    }
+  } else if (srcWrapper->value->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
+    auto dstWrapper = ValueWrapper::wrapValue(UseInst);
     llvm::dbgs() << "-------:" << "\n";
     llvm::dbgs() << "handleGenericInst" << "\n";
     addToGraph(srcWrapper, dstWrapper);
     queuePush(dstWrapper);
     llvm::dbgs() << "-------:" << "\n";
   }
+}
+
+void MemoryGraph::handleGenericWrapper(const std::shared_ptr<ValueWrapper>& srcWrapper, const std::shared_ptr<ValueWrapper>& dstWrapper) {
+//  if (srcWrapper->value->getType()->isPointerTy()) {
+    llvm::dbgs() << "-------:" << "\n";
+    llvm::dbgs() << "handleGenericWrapper" << "\n";
+    addToGraph(srcWrapper, dstWrapper);
+    queuePush(dstWrapper);
+    llvm::dbgs() << "-------:" << "\n";
+//  }
 }
 
 void MemoryGraph::handleCastInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::CastInst *castInst, llvm::Use* UseObject) {
@@ -247,25 +265,27 @@ void MemoryGraph::handleCastInst(const std::shared_ptr<ValueWrapper>& srcWrapper
 
 void MemoryGraph::handleStoreInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::StoreInst *storeInst, llvm::Use* UseObject)
 {
-  // first, store the link between the source and the store
-  handleGenericInst(srcWrapper, storeInst, UseObject);
-  // second, store the link between the store and the stored value because it is not a use
-
-  auto *dstInst = storeInst->getValueOperand();
-  auto dstWrapper = matchSrcWrapper(srcWrapper, dstInst);
-  if(srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-    if (dyn_cast<Constant>(storeInst->getPointerOperand())) {
-      // llvm currently doesn't support getting a GEP instance out of a ConstantExpr
-      llvm::dbgs() << "!Constant in store destination!: " << *(storeInst->getPointerOperand())
-                   << ", cannot analyze GEP destination (possibly writing struct field)"
-                   << "\n";
-    }
+  auto *storeValueInst = storeInst->getValueOperand();
+  if (storeValueInst == srcWrapper->value && !(srcWrapper->isFunCallArg() || srcWrapper->isStructElemFunCall())) {
+    // prevent double-adding store from different paths
+    return;
   }
+  // first, store the link between the source and the store
   auto storeWrapper = matchSrcWrapper(srcWrapper, storeInst);
+  handleGenericWrapper(srcWrapper, storeWrapper);
+  // second, store the link between the store and the stored value because it is not a use
+  std::shared_ptr<ValueWrapper> storeValueWrapper;
+  if (storeValueInst->getType()->isPointerTy()) {
+    // try to detect when we store structs
+    storeValueWrapper = matchSrcWrapper(srcWrapper, storeValueInst);
+  } else {
+    storeValueWrapper = ValueWrapper::wrapValue(storeValueInst);
+  }
+
   llvm::dbgs() << "-------:" << "\n";
   llvm::dbgs() << "handleStoreInst" << "\n";
-  addToGraph(dstWrapper, storeWrapper);
-  queuePush(dstWrapper);
+  addToGraph(storeValueWrapper, storeWrapper);
+  queuePush(storeValueWrapper);
   llvm::dbgs() << "-------:" << "\n";
 }
 
@@ -279,9 +299,9 @@ void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper,
     llvm::dbgs() << "Arg: " << *callSite << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
     std::shared_ptr<ValueWrapper> dstArgWrapper;
     if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-      dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite, getStructElemArgPos(srcWrapper), argNo);
+      dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite->getCalledFunction(), getStructElemArgPos(srcWrapper), argNo);
     } else {
-      dstArgWrapper = ValueWrapper::wrapFunCallArg(callSite, argNo);
+      dstArgWrapper = ValueWrapper::wrapFunCallArg(callSite->getCalledFunction(), argNo);
     }
     llvm::dbgs() << "-------:" << "\n";
     llvm::dbgs() << "handleFuncArg" << "\n";
@@ -292,15 +312,29 @@ void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper,
 }
 
 
-void MemoryGraph::handleGEPInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::GetElementPtrInst *gepInst, llvm::Use* UseObject)
+void MemoryGraph::handleGEPInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *gepInst, llvm::Use* UseObject)
 {
   if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-    if (gepInst->getResultElementType()->isPointerTy()) {
-      // we are not yet accessing struct fields
-      handleGenericInst(srcWrapper, gepInst, UseObject);
+    llvm::dbgs() << "GEP>>>>>>>>>>\nGEP inst type: " << "\n" <<
+        *fullyUnwrapPointerOrArrayType(gepInst->getType()) << "\n" <<
+        *fullyUnwrapPointerOrArrayType(srcWrapper->value->getType()) <<
+        "\n";
+    auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
+    auto dstBaseType = fullyUnwrapPointerOrArrayType(gepInst->getType());
+    if (srcBaseType == dstBaseType) {
+      // we are not yet accessing struct fields, just unwrapping pointers
+      // this will fail on recursive structs
+      auto gepWrapper = matchSrcWrapper(srcWrapper, gepInst);
+      handleGenericWrapper(srcWrapper, gepWrapper);
     } else {
       // we are accessing a struct field, only match the field, not the whole struct
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(gepInst->getOperand(2))) {
+      ConstantInt *CI;
+      if (auto *gep = dyn_cast<GetElementPtrConstantExpr>(gepInst)) {
+        CI = dyn_cast<ConstantInt>(gep->getOperand(2));
+      } else if (auto *gep = dyn_cast<GetElementPtrInst>(gepInst)) {
+        CI = dyn_cast<ConstantInt>(gep->getOperand(2));
+      }
+      if (CI) {
         uint64_t Idx = CI->getZExtValue();
         if (Idx == getStructElemArgPos(srcWrapper)) {
           auto dstWrapper = matchSrcWrapper(srcWrapper, gepInst);
