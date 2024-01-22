@@ -206,8 +206,14 @@ unsigned int getStructElemArgPos(const std::shared_ptr<ValueWrapper>& srcWrapper
 }
 
 std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst) {
+  auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
+  llvm::dbgs() << "MatchSrcWrapper>>>>>>>>>>\nMatchSrcWrapper type: " << "\n" <<
+      *fullyUnwrapPointerOrArrayType(UseInst->getType()) << "\n" <<
+      *fullyUnwrapPointerOrArrayType(srcWrapper->value->getType()) <<
+      "\n";
   std::shared_ptr<ValueWrapper> dstWrapper;
-  if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
+  if (srcBaseType->isStructTy() &&
+      (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall())) {
     if (!isa<Argument>(UseInst)) {
       dstWrapper = ValueWrapper::wrapStructElem(UseInst, getStructElemArgPos(srcWrapper));
     } else {
@@ -215,20 +221,30 @@ std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper
       dstWrapper = ValueWrapper::wrapStructElemFunCallArg(argument->getParent(), getStructElemArgPos(srcWrapper), argument->getArgNo());
     }
   } else {
+    // src is not a struct, so create a plain value
     dstWrapper = ValueWrapper::wrapValue(UseInst);
   }
   return dstWrapper;
 }
 
 void MemoryGraph::handleGenericInst(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst, llvm::Use* UseObject) {
-  if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-    auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
-    auto dstBaseType = fullyUnwrapPointerOrArrayType(UseInst->getType());
+  auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
+  auto dstBaseType = fullyUnwrapPointerOrArrayType(UseInst->getType());
+  llvm::dbgs() << "handleGenericInst>>>>>>>>>>\nhandleGenericInst type: " << "\n" <<
+      *fullyUnwrapPointerOrArrayType(UseInst->getType()) << "\n" <<
+      *fullyUnwrapPointerOrArrayType(srcWrapper->value->getType()) <<
+      "\n";
+  if (srcBaseType->isStructTy() && (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall())) {
+    // checking this because gep accessing fields will have a StructElemWrapper but not a struct register type as it
+    // gets a field of a struct which is not itself a struct
     if (srcBaseType == dstBaseType) {
-      // we are not yet accessing struct fields, just unwrapping pointers
+      // we are not yet accessing struct fields, just unwrapping pointersss
       // this will fail on recursive structs
       auto dstWrapper = matchSrcWrapper(srcWrapper, UseInst);
       handleGenericWrapper(srcWrapper, dstWrapper);
+    } else {
+      // no else because it means a nested struct, which is not supported
+      llvm::dbgs() << "Unsupported case: Nested struct?" << "\n";
     }
   } else if (srcWrapper->value->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
     auto dstWrapper = ValueWrapper::wrapValue(UseInst);
