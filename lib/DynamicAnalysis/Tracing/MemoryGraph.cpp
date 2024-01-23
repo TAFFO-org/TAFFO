@@ -74,7 +74,7 @@ std::shared_ptr<ValueWrapper> MemoryGraph::queuePop()
 void MemoryGraph::queuePushStruct(Value* V) {
   auto* structType = fullyUnwrapPointerOrArrayType(V->getType());
   for (unsigned int i = 0; i < structType->getStructNumElements(); i++) {
-    queuePush(ValueWrapper::wrapStructElem(V, i));
+    queuePush(ValueWrapper::wrapStructElem(V, i, structType));
   }
 }
 
@@ -82,7 +82,9 @@ void MemoryGraph::seedRoots()
 {
   for (llvm::GlobalVariable &V : M.globals()) {
     if (isStructType(V.getValueType())) {
-      queuePushStruct(&V);
+      if (V.hasInitializer()) {
+        queuePushStruct(&V);
+      }
     } else {
       queuePush(ValueWrapper::wrapValue(&V));
     }
@@ -205,6 +207,20 @@ unsigned int getStructElemArgPos(const std::shared_ptr<ValueWrapper>& srcWrapper
   }
 }
 
+Type* getStructElemStructType(const std::shared_ptr<ValueWrapper>& srcWrapper) {
+  if (srcWrapper->isStructElem()) {
+    auto *structElemWrapper = static_cast<taffo::StructElemWrapper *>(&(*srcWrapper));
+    return structElemWrapper->structType;
+  } else if (srcWrapper->isStructElemFunCall()) {
+    auto *structElemWrapper = static_cast<taffo::StructElemFunCallArgWrapper *>(&(*srcWrapper));
+    return structElemWrapper->structType;
+  } else {
+    llvm::dbgs() << "Not a struct element: " << *(srcWrapper->value)
+                 << "\n";
+    return nullptr;
+  }
+}
+
 std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst) {
   auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
   llvm::dbgs() << "MatchSrcWrapper>>>>>>>>>>\nMatchSrcWrapper type: " << "\n" <<
@@ -215,10 +231,10 @@ std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper
   if (srcBaseType->isStructTy() &&
       (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall())) {
     if (!isa<Argument>(UseInst)) {
-      dstWrapper = ValueWrapper::wrapStructElem(UseInst, getStructElemArgPos(srcWrapper));
+      dstWrapper = ValueWrapper::wrapStructElem(UseInst, getStructElemArgPos(srcWrapper), getStructElemStructType(srcWrapper));
     } else {
       auto *argument = dyn_cast<Argument>(UseInst);
-      dstWrapper = ValueWrapper::wrapStructElemFunCallArg(argument->getParent(), getStructElemArgPos(srcWrapper), argument->getArgNo());
+      dstWrapper = ValueWrapper::wrapStructElemFunCallArg(argument->getParent(), getStructElemArgPos(srcWrapper), argument->getArgNo(), getStructElemStructType(srcWrapper));
     }
   } else {
     // src is not a struct, so create a plain value
@@ -315,7 +331,7 @@ void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper,
     llvm::dbgs() << "Arg: " << *callSite << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
     std::shared_ptr<ValueWrapper> dstArgWrapper;
     if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-      dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite->getCalledFunction(), getStructElemArgPos(srcWrapper), argNo);
+      dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite->getCalledFunction(), getStructElemArgPos(srcWrapper), argNo, getStructElemStructType(srcWrapper));
     } else {
       dstArgWrapper = ValueWrapper::wrapFunCallArg(callSite->getCalledFunction(), argNo);
     }

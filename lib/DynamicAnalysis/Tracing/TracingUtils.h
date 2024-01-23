@@ -68,6 +68,10 @@ public:
     return value->uses();
   }
 
+  bool isSimpleValue() const {
+    return type == ValueType::ValInst;
+  }
+
   bool isStructElem() const {
     return type == ValueType::ValStructElem;
   }
@@ -82,8 +86,8 @@ public:
 
   static std::shared_ptr<ValueWrapper> wrapValue(llvm::Value *V);
   static std::shared_ptr<ValueWrapper> wrapFunCallArg(llvm::Function *fun, unsigned int argNo);
-  static std::shared_ptr<ValueWrapper> wrapStructElem(llvm::Value *V, unsigned int ArgPos);
-  static std::shared_ptr<ValueWrapper> wrapStructElemFunCallArg(llvm::Function *fun, unsigned int ArgPos, unsigned int FunArgPos);
+  static std::shared_ptr<ValueWrapper> wrapStructElem(llvm::Value *V, unsigned int ArgPos, llvm::Type *StructType);
+  static std::shared_ptr<ValueWrapper> wrapStructElemFunCallArg(llvm::Function *fun, unsigned int ArgPos, unsigned int FunArgPos, llvm::Type *StructType);
 };
 
 class InstWrapper : public ValueWrapper
@@ -123,9 +127,10 @@ public:
 class StructElemWrapper : public ValueWrapper
 {
 public:
-  StructElemWrapper(llvm::Value *V, unsigned int ArgPos)
-      : ValueWrapper{ValueType::ValStructElem, V}, argPos{ArgPos}{}
+  StructElemWrapper(llvm::Value *V, unsigned int ArgPos, llvm::Type *StructType)
+      : ValueWrapper{ValueType::ValStructElem, V}, argPos{ArgPos}, structType{StructType}{}
   const unsigned int argPos;
+  llvm::Type* structType;
   bool operator==(const ValueWrapper &other) const override
   {
     if (ValueWrapper::operator==(other)) {
@@ -134,26 +139,32 @@ public:
     return false;
   }
 
-  llvm::Type* argType() {
-    auto* structType = fullyUnwrapPointerOrArrayType(value->getType());
-    auto t = structType->getStructElementType(argPos);
-    return t;
+  bool isGEPFromStructToSimple() {
+    return llvm::isa<llvm::GetElementPtrInst>(value) &&
+        taffo::fullyUnwrapPointerOrArrayType(
+               llvm::dyn_cast<llvm::GetElementPtrInst>(value)->getResultElementType()) != structType;
   }
 
   llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const override
   {
-    return dbg << ValueTypes[(int)type] << ", field<" << argPos << ">: " << *value;
+    return dbg << ValueTypes[(int)type]
+               << ", field<"
+               << argPos << ">: "
+               << *value << " @ "
+               << *structType;
   }
 };
 
 class StructElemFunCallArgWrapper : public ValueWrapper
 {
 public:
-  StructElemFunCallArgWrapper(llvm::Value *V, unsigned int ArgPos, int FunArgPos, bool FunExternal)
-      : ValueWrapper{ValueType::ValStructElemFunCall, V}, argPos{ArgPos}, funArgPos{FunArgPos}, funExternal{FunExternal} {}
+  StructElemFunCallArgWrapper(llvm::Value *V, unsigned int ArgPos, int FunArgPos, bool FunExternal, llvm::Type *StructType)
+      : ValueWrapper{ValueType::ValStructElemFunCall, V},
+        argPos{ArgPos}, funArgPos{FunArgPos}, funExternal{FunExternal}, structType{StructType} {}
   const unsigned int argPos;
   const int funArgPos;
   const bool funExternal;
+  llvm::Type* structType;
   bool operator==(const ValueWrapper &other) const override
   {
     if (ValueWrapper::operator==(other)) {
@@ -163,12 +174,6 @@ public:
              (funExternal == castedWrapper->funExternal);
     }
     return false;
-  }
-
-  llvm::Type* argType() {
-    auto* structType = fullyUnwrapPointerOrArrayType(value->getType());
-    auto t = structType->getStructElementType(argPos);
-    return t;
   }
 
   llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const override
@@ -181,7 +186,8 @@ public:
                << s
                << ", arg<" << funArgPos << "> "
                << ", field<" << argPos << ">: "
-               << *value;
+               << *value << " @ "
+               << *structType;
   }
 };
 

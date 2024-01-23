@@ -46,8 +46,6 @@ bool ReadTrace::runOnModule(Module &M) {
   taffo::ConnectedComponents ccAlg{instCount, edges};
   const std::unordered_map<int, std::list<int>> &cc = ccAlg.getResult();
   graph.print_connected_components(cc);
-  std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
-  std::unordered_map<int, std::pair<double, double>> ccRanges;
 
   for (auto &it : cc) {
     std::list<int> l = it.second;
@@ -59,17 +57,15 @@ bool ReadTrace::runOnModule(Module &M) {
 //    llvm::dbgs() << "-----\n";
   }
 
-  auto &expandedCCValues = ccValues;
-
   // read the trace file
   parseTraceFiles(minVals, maxVals, valTypes);
 
   // calculate value ranges for every component
-  calculateCCRanges(expandedCCValues, minVals, maxVals, ccRanges);
+  calculateCCRanges(ccValues, minVals, maxVals, ccRanges);
 
   for (const auto &it : ccRanges) {
     const auto range = it.second;
-    const auto l = expandedCCValues[it.first];
+    const auto l = ccValues[it.first];
     for (auto &x : l) {
       llvm::dbgs() << "[" << range.first << ", " << range.second << "] ";
       x->print_debug(llvm::dbgs()) << "\n";
@@ -78,30 +74,36 @@ bool ReadTrace::runOnModule(Module &M) {
   }
 
   // assign calculated intervals to the metadata
-  std::unordered_map<Value*, std::shared_ptr<DynamicValueInfo>> valuesRanges;
-
+// loose nodes
   for (auto &F : M) {
     if (!F.hasName() || F.isDeclaration()) continue;
     for (auto &BB : F.getBasicBlockList()) {
       for (auto &Inst : BB.getInstList()) {
         if (Inst.isDebugOrPseudoInst()) continue;
-        taffo::VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager::getMetadataManager(), Inst);
+        auto CInfoOption = taffo::VRAGlobalStore::computeConstRangeMetadata(
+            mdutils::MetadataManager::getMetadataManager(), Inst);
+        if (CInfoOption.hasValue()) {
+          constInfo[&Inst] = CInfoOption.value();
+        }
+//        taffo::VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager::getMetadataManager(), Inst);
         auto InstName = Inst.getName().str();
         if (minVals.count(InstName) > 0) {
-          valuesRanges[&Inst] = std::make_shared<DynamicValueInfo>(
-              minVals.at(InstName), maxVals.at(InstName), false);
+          auto instType = std::shared_ptr<mdutils::FloatType>{};
+          auto instRange = std::make_shared<mdutils::Range>(minVals.at(InstName), maxVals.at(InstName));
+          auto instError = std::shared_ptr<double>{};
+          valuesInfo[&Inst] = std::make_shared<mdutils::InputInfo>(instType, instRange, instError, true, true);
         }
-      } // instructions
-    } // basic blocks
-  } // functions
+      }
+    }
+  }
 
+//  nodes from memory graph
   for (const auto &it : ccRanges) {
     const auto range = it.second;
-    const auto l = expandedCCValues[it.first];
+    const auto l = ccValues[it.first];
     bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
       if(item->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCall = static_cast<const taffo::FunCallArgWrapper *>(&(*item));
-//        auto *funCallValue = static_cast<const Argument *>(funCall->value)->getParent();
         auto * fun = static_cast<const Argument *>(funCall->value)->getParent();
         if (funCall->isExternalFunc && !(fun && TaffoMath::isSupportedLibmFunction(fun, Fixm))) {
           return true;
@@ -109,11 +111,44 @@ bool ReadTrace::runOnModule(Module &M) {
       }
       return false;
     });
-    for (auto &value : l) {
-      valuesRanges[value->value] = std::make_shared<DynamicValueInfo>(
-          range.first, range.second, disableConversion);
+    for (auto &valueWrapper : l) {
+      if (valueWrapper->isSimpleValue() ||
+          (valueWrapper->isStructElem() &&
+           std::static_pointer_cast<taffo::StructElemWrapper>(valueWrapper)->isGEPFromStructToSimple())) {
+        auto instType = std::shared_ptr<mdutils::FloatType>{};
+        auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+        auto instError = std::shared_ptr<double>{};
+        valuesInfo[valueWrapper->value] = std::make_shared<mdutils::InputInfo>(
+            instType, instRange, instError, !disableConversion, true);
+      } else if (valueWrapper->isStructElem()) {
+        addStructInfo(valueWrapper, range, disableConversion);
+      } else if (valueWrapper->isFunCallArg() || valueWrapper->isStructElemFunCall()) {
+        std::shared_ptr<mdutils::MDInfo> argInfo;
+        auto* Arg = dyn_cast<Argument>(valueWrapper->value);
+        auto* F = Arg->getParent();
+        auto fInfoP = functionsInfo.find(F);
+        std::shared_ptr<llvm::SmallVector<std::shared_ptr<mdutils::MDInfo>>> fInfo;
+        if (fInfoP == functionsInfo.end()) {
+          fInfo = std::make_shared<llvm::SmallVector<std::shared_ptr<mdutils::MDInfo>>>(F->getFunctionType()->getNumParams());
+        } else {
+          fInfo = fInfoP->second;
+        }
+        if (valueWrapper->isStructElemFunCall()) {
+          argInfo = addStructInfo(valueWrapper, range, disableConversion);
+        } else {
+          auto instType = std::shared_ptr<mdutils::FloatType>{};
+          auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+          auto instError = std::shared_ptr<double>{};
+          argInfo = std::make_shared<mdutils::InputInfo>(
+              instType, instRange, instError, !disableConversion, true);
+        }
+        (*fInfo)[Arg->getArgNo()] = argInfo;
+        functionsInfo[F] = fInfo;
+      }
     }
   }
+
+  setAllMetadata(M);
 
   // annotate global variables
 //  for (llvm::GlobalVariable &v : M.globals()) {
@@ -136,58 +171,58 @@ bool ReadTrace::runOnModule(Module &M) {
 //    }
 //  }
 
-  for (const auto &it: valuesRanges) {
-    auto value = it.first;
-    auto range = it.second;
-    if (auto *Inst = dyn_cast<Instruction>(value)) {
-      auto instType = std::shared_ptr<mdutils::FloatType>{};
-      auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
-      auto instError = std::shared_ptr<double>{};
-      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
-      mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
-//      llvm::dbgs() << "annotate inst:\n " << *Inst
-//             << ", metadata:\n " << ii.toString()
-//             << "\n";
-      Changed = true;
-    }
-    if (auto *Arg = dyn_cast<Argument>(value)) {
-      auto F = Arg->getParent();
-      auto instType = std::shared_ptr<mdutils::FloatType>{};
-      auto instRange = std::make_shared<mdutils::Range>(range->min , range->max);
-      auto instError = std::shared_ptr<double>{};
-      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
-      llvm::SmallVector<mdutils::MDInfo *> FunMD;
-      mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, FunMD);
-      if (!Arg->getType()->isStructTy()) {
-        auto ArgMD = FunMD[Arg->getArgNo()];
-        if (!ArgMD) {
-          FunMD[Arg->getArgNo()] = new mdutils::InputInfo(ii);
-        } else {
-          auto *ArgII = dyn_cast<mdutils::InputInfo>(ArgMD->clone());
-          *ArgII = ii;
-          FunMD[Arg->getArgNo()] = ArgII;
-        }
-        llvm::dbgs() << "annotate arg:\n " << *Arg
-               << ", metadata:\n " << dyn_cast<mdutils::InputInfo>(FunMD[Arg->getArgNo()])->toString()
-               << "\n";
-        mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
-        Changed = true;
-      }
-    }
+//  for (const auto &it: valuesRanges) {
+//    auto value = it.first;
+//    auto range = it.second;
+//    if (auto *Inst = dyn_cast<Instruction>(value)) {
+//      auto instType = std::shared_ptr<mdutils::FloatType>{};
+//      auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
+//      auto instError = std::shared_ptr<double>{};
+//      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
+//      mdutils::MetadataManager::setInputInfoMetadata(*Inst, ii);
+////      llvm::dbgs() << "annotate inst:\n " << *Inst
+////             << ", metadata:\n " << ii.toString()
+////             << "\n";
+//      Changed = true;
+//    }
+//    if (auto *Arg = dyn_cast<Argument>(value)) {
+//      auto F = Arg->getParent();
+//      auto instType = std::shared_ptr<mdutils::FloatType>{};
+//      auto instRange = std::make_shared<mdutils::Range>(range->min , range->max);
+//      auto instError = std::shared_ptr<double>{};
+//      mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
+//      llvm::SmallVector<mdutils::MDInfo *> FunMD;
+//      mdutils::MetadataManager::getMetadataManager().retrieveArgumentInputInfo(*F, FunMD);
+//      if (!Arg->getType()->isStructTy()) {
+//        auto ArgMD = FunMD[Arg->getArgNo()];
+//        if (!ArgMD) {
+//          FunMD[Arg->getArgNo()] = new mdutils::InputInfo(ii);
+//        } else {
+//          auto *ArgII = dyn_cast<mdutils::InputInfo>(ArgMD->clone());
+//          *ArgII = ii;
+//          FunMD[Arg->getArgNo()] = ArgII;
+//        }
+//        llvm::dbgs() << "annotate arg:\n " << *Arg
+//               << ", metadata:\n " << dyn_cast<mdutils::InputInfo>(FunMD[Arg->getArgNo()])->toString()
+//               << "\n";
+//        mdutils::MetadataManager::setArgumentInputInfoMetadata(*F, FunMD);
+//        Changed = true;
+//      }
+//    }
 
-    if (auto *GlobalVal = dyn_cast<GlobalVariable>(value)) {
-      if (GlobalVal->hasInitializer()) {
-        auto instType = std::shared_ptr<mdutils::FloatType>{};
-        auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
-        auto instError = std::shared_ptr<double>{};
-        mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
-        mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
-        llvm::dbgs() << "annotate global:\n " << *GlobalVal
-                     << ", metadata:\n " << ii.toString()
-                     << "\n";
-        Changed = true;
-      }
-    }
+//    if (auto *GlobalVal = dyn_cast<GlobalVariable>(value)) {
+//      if (GlobalVal->hasInitializer()) {
+//        auto instType = std::shared_ptr<mdutils::FloatType>{};
+//        auto instRange = std::make_shared<mdutils::Range>(range->min, range->max);
+//        auto instError = std::shared_ptr<double>{};
+//        mdutils::InputInfo ii{instType, instRange, instError, !range->disableConversion, true};
+//        mdutils::MetadataManager::setInputInfoMetadata(*GlobalVal, ii);
+//        llvm::dbgs() << "annotate global:\n " << *GlobalVal
+//                     << ", metadata:\n " << ii.toString()
+//                     << "\n";
+//        Changed = true;
+//      }
+//    }
 //    if (auto *ConstVal = dyn_cast<Constant>(value)) {
 //      auto instType = std::shared_ptr<mdutils::FloatType>{};
 //      auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
@@ -215,9 +250,50 @@ bool ReadTrace::runOnModule(Module &M) {
 //      }
 //      Changed = true;
 //    }
-  }
+//  }
 
-  return Changed;
+  return true;
+}
+
+std::shared_ptr<mdutils::StructInfo> ReadTrace::addStructInfo(std::shared_ptr<taffo::ValueWrapper> valueWrapper,
+                                                              const std::pair<double, double> &range,
+                                                              bool disableConversion)
+{
+  Type *structType;
+  unsigned int structFieldPos;
+  if (valueWrapper->isStructElem()) {
+    auto *structElemWrapper = static_cast<taffo::StructElemWrapper *>(&(*valueWrapper));
+    structType = structElemWrapper->structType;
+    structFieldPos = structElemWrapper->argPos;
+  } else {
+    auto *structElemWrapper = static_cast<taffo::StructElemFunCallArgWrapper *>(&(*valueWrapper));
+    structType = structElemWrapper->structType;
+    structFieldPos = structElemWrapper->argPos;
+  }
+  auto sInfoP = structsInfo.find(structType);
+  std::shared_ptr<mdutils::StructInfo> sInfo;
+  if (sInfoP == structsInfo.end()) {
+    sInfo = std::make_shared<mdutils::StructInfo>(structType->getStructNumElements());
+  } else {
+    sInfo = sInfoP->second;
+  }
+  auto* fieldType = structType->getStructElementType(structFieldPos);
+  if (taffo::isFloatType(fieldType)) {
+          std::shared_ptr<mdutils::MDInfo> fieldInfo = sInfo->getField(structFieldPos);
+          auto instType = std::shared_ptr<mdutils::FloatType>{};
+          auto instRange = std::make_shared<mdutils::Range>(range.first, range.second);
+          auto instError = std::shared_ptr<double>{};
+          if (!fieldInfo.get()) {
+            fieldInfo = std::make_shared<mdutils::InputInfo>(instType, instRange, instError, !disableConversion, true);
+          } else {
+            auto fieldII = std::static_pointer_cast<mdutils::InputInfo>(fieldInfo);
+            fieldII->IRange->Min = std::min(instRange->Min, fieldII->IRange->Min);
+            fieldII->IRange->Max = std::max(instRange->Max, fieldII->IRange->Max);
+          }
+          sInfo->setField(structFieldPos, fieldInfo);
+  }
+  structsInfo[structType] = sInfo;
+  return sInfo;
 }
 
 void ReadTrace::calculateCCRanges(const std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>>& ccValues,
@@ -352,4 +428,61 @@ PreservedAnalyses ReadTrace::run(llvm::Module &M,
 
   return (Changed ? llvm::PreservedAnalyses::none()
                   : llvm::PreservedAnalyses::all());
+}
+void ReadTrace::setAllMetadata(llvm::Module &M)
+{
+  llvm::dbgs() << "SETTING CONST METADATA\n";
+  for (const auto& item: constInfo) {
+    llvm::dbgs() << *item.first << "\n";
+    for (auto cInfo: item.second) {
+      if (cInfo) {
+        llvm::dbgs() << cInfo->toString() << "\n";
+      }
+    }
+    mdutils::MetadataManager::setConstInfoMetadata(*dyn_cast<Instruction>(item.first), item.second);
+  }
+  llvm::dbgs() << "SETTING VARIABLES METADATA\n";
+  for (const auto& item: valuesInfo) {
+    llvm::dbgs() << *item.first << "\n";
+    if (auto *value = dyn_cast<Instruction>(item.first)) {
+      llvm::dbgs() << item.second->toString() << "\n";
+      mdutils::MetadataManager::setInputInfoMetadata(*value, *item.second);
+    } else if (auto *value = dyn_cast<GlobalObject>(item.first)) {
+      llvm::dbgs() << item.second->toString() << "\n";
+      mdutils::MetadataManager::setInputInfoMetadata(*value, *item.second);
+    }
+  }
+  llvm::dbgs() << "SETTING STRUCTS METADATA\n";
+  for (const auto& cc: ccValues) {
+    auto wrapperList = cc.second;
+    for (const auto& item: wrapperList) {
+      if (item->isStructElem()) {
+        auto *structWrapper = static_cast<taffo::StructElemWrapper *>(&(*item));
+        auto sInfo = structsInfo[structWrapper->structType];
+        structWrapper->print_debug(llvm::dbgs()) << "\n";
+
+        llvm::dbgs() << sInfo->toString();
+        if (auto *value = dyn_cast<Instruction>(item->value)) {
+          if (structWrapper->isGEPFromStructToSimple()) {
+            continue;
+          }
+          mdutils::MetadataManager::setStructInfoMetadata(*value, *sInfo);
+        } else if (auto *value = dyn_cast<GlobalObject>(item->value)) {
+          mdutils::MetadataManager::setStructInfoMetadata(*value, *sInfo);
+        }
+      }
+    }
+  }
+  llvm::dbgs() << "SETTING FUNCTIONS METADATA\n";
+  for (const auto& item: functionsInfo) {
+    auto fInfo = llvm::SmallVector<mdutils::MDInfo*>();
+    llvm::dbgs() << *item.first << "\n";
+    for (const auto& argInfoPtr: *item.second) {
+      fInfo.push_back(argInfoPtr.get());
+      if (argInfoPtr.get()) {
+        llvm::dbgs() << argInfoPtr->toString();
+      }
+    }
+    mdutils::MetadataManager::setArgumentInputInfoMetadata(*item.first, fInfo);
+  }
 }

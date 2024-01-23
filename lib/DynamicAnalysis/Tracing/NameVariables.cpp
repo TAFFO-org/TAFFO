@@ -30,7 +30,7 @@ bool NameVariables::runOnModule(Module &M) {
     auto *Fptr = funcs.front();
     auto &F = *Fptr;
     funcs.pop_front();
-    if (!F.hasName() || F.isDeclaration() || !isFPFunction(&F)
+    if (!F.hasName() || F.isDeclaration() //|| !isFPFunction(&F)
 //        || !(
 //               F.getName() == "_Z19BlkSchlsEqEuroNoDivfffffifPfS_"
 //            || F.getName() == "_Z4CNDFf"

@@ -42,6 +42,9 @@ public:
   void updateMDInfo(std::shared_ptr<mdutils::MDInfo> mdi, const RangeNodePtrT r);
   static void setConstRangeMetadata(mdutils::MetadataManager &MDManager,
                                     llvm::Instruction &i);
+  static llvm::Optional<llvm::SmallVector<mdutils::InputInfo*>> computeConstRangeMetadata(
+      mdutils::MetadataManager &MDManager,
+      llvm::Instruction &i);
 
   const range_ptr_t fetchRange(const llvm::Value *V) override;
   using VRAStore::fetchRange;

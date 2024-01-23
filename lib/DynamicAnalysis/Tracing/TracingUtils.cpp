@@ -18,17 +18,18 @@ std::shared_ptr<ValueWrapper> ValueWrapper::wrapFunCallArg(llvm::Function *fun, 
   );
 }
 
-std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElem(llvm::Value *V, unsigned int ArgPos)
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElem(llvm::Value *V, unsigned int ArgPos, llvm::Type *StructType)
 {
-  return std::make_shared<StructElemWrapper>(V, ArgPos);
+  return std::make_shared<StructElemWrapper>(V, ArgPos, StructType);
 }
 
-std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElemFunCallArg(llvm::Function *fun, unsigned int ArgPos, unsigned int FunArgPos)
+std::shared_ptr<ValueWrapper> ValueWrapper::wrapStructElemFunCallArg(llvm::Function *fun, unsigned int ArgPos, unsigned int FunArgPos, llvm::Type *StructType)
 {
   auto *formalArg = fun->getArg(FunArgPos);
   return std::make_shared<StructElemFunCallArgWrapper>(
       formalArg, ArgPos,
-      FunArgPos, TracingUtils::isExternalCallWithPointer(fun, FunArgPos)
+      FunArgPos, TracingUtils::isExternalCallWithPointer(fun, FunArgPos),
+      StructType
       );
 }
 

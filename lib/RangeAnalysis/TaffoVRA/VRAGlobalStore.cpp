@@ -334,13 +334,12 @@ void VRAGlobalStore::updateMDInfo(std::shared_ptr<mdutils::MDInfo> mdi,
   }
 }
 
-void VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager &MDManager,
-                                           llvm::Instruction &i)
+llvm::Optional<llvm::SmallVector<mdutils::InputInfo *>> VRAGlobalStore::computeConstRangeMetadata(mdutils::MetadataManager &MDManager, Instruction &i)
 {
   using namespace mdutils;
   unsigned opCode = i.getOpcode();
   if (!(i.isBinaryOp() || i.isUnaryOp() || opCode == Instruction::Store || opCode == Instruction::Call || opCode == Instruction::Invoke))
-    return;
+    return {};
 
   bool hasConstOp = false;
   for (const Value *op : i.operands()) {
@@ -349,26 +348,30 @@ void VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager &MDManager,
       break;
     }
   }
+  if (!hasConstOp) { return {}; }
 
-  SmallVector<std::unique_ptr<InputInfo>, 2U> CInfoPtr;
-  SmallVector<InputInfo *, 2U> CInfo;
+  SmallVector<InputInfo *> CInfo;
   CInfo.reserve(i.getNumOperands());
-  if (hasConstOp) {
-    for (const Value *op : i.operands()) {
-      if (const ConstantFP *c = dyn_cast<ConstantFP>(op)) {
-        APFloat apf = c->getValueAPF();
-        bool discard;
-        apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToAway, &discard);
-        double value = apf.convertToDouble();
-        CInfoPtr.push_back(std::unique_ptr<InputInfo>(new InputInfo(nullptr,
-                                                                    std::make_shared<Range>(value, value),
-                                                                    nullptr)));
-        CInfo.push_back(CInfoPtr.back().get());
-      } else {
-        CInfo.push_back(nullptr);
-      }
+  for (const Value *op : i.operands()) {
+    if (const auto *c = dyn_cast<ConstantFP>(op)) {
+      APFloat apf = c->getValueAPF();
+      bool discard;
+      apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToAway, &discard);
+      double value = apf.convertToDouble();
+      CInfo.push_back(new InputInfo(nullptr, std::make_shared<Range>(value, value),nullptr));
+    } else {
+      CInfo.push_back(nullptr);
     }
-    MDManager.setConstInfoMetadata(i, CInfo);
+  }
+  return {CInfo};
+}
+
+void VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager &MDManager,
+                                           llvm::Instruction &i)
+{
+  auto CInfoOption = computeConstRangeMetadata(MDManager, i);
+  if (CInfoOption.hasValue()) {
+    MDManager.setConstInfoMetadata(i, CInfoOption.value());
   }
 }
 

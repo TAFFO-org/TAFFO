@@ -29,6 +29,13 @@ private:
         : min(Min), max(Max), disableConversion(DisableConversion) {}
   };
 
+  std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>> ccValues;
+  std::unordered_map<int, std::pair<double, double>> ccRanges;
+  std::unordered_map<llvm::Value*, llvm::SmallVector<mdutils::InputInfo *>> constInfo;
+  std::unordered_map<llvm::Value*, std::shared_ptr<mdutils::InputInfo>> valuesInfo;
+  std::unordered_map<llvm::Type*, std::shared_ptr<mdutils::StructInfo>> structsInfo;
+  std::unordered_map<llvm::Function*, std::shared_ptr<llvm::SmallVector<std::shared_ptr<mdutils::MDInfo>>>> functionsInfo;
+
   std::string typeName(const llvm::Value& val);
 
   void calculateCCRanges(const std::unordered_map<int, std::list<std::shared_ptr<taffo::ValueWrapper>>>& ccValues,
@@ -36,17 +43,16 @@ private:
                                     const std::unordered_map<std::string, double>& maxVals,
                                     std::unordered_map<int, std::pair<double, double>>& ccRanges);
 
-  int buildMemEdgesList(llvm::Module &M, std::unordered_map<llvm::Value*, int>& instToIndex,
-                         std::unordered_map<int, llvm::Value*>& indexToInst,
-                         std::list<std::pair<int, int>>& edges);
-
-  void connectedComponents(const int count, const std::list<std::pair<int, int>>& edges,
-                           std::unordered_map<int, std::list<int>>& cc);
-
   void
   parseTraceFiles(std::unordered_map<std::string, double>& minVals, std::unordered_map<std::string, double>& maxVals,
                   std::unordered_map<std::string, mdutils::FloatType::FloatStandard>& valTypes) const;
-  bool disableConversionForExternalFun(const llvm::Value* v);
+
+  std::shared_ptr<mdutils::StructInfo> addStructInfo(
+      std::shared_ptr<taffo::ValueWrapper> valueWrapper,
+      const std::pair<double, double> &range,
+      bool disableConversion);
+
+  void setAllMetadata(llvm::Module &M);
 };
 
 #endif
