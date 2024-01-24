@@ -284,7 +284,8 @@ struct FloatToFixed {
   {
     llvm::Value *res;
     if (val->getType()->getNumContainedTypes() > 0) {
-      if (llvm::Constant *cst = llvm::dyn_cast<llvm::Constant>(val)) {
+      llvm::Constant *cst = llvm::dyn_cast<llvm::Constant>(val);
+      if (cst && !llvm::isa<llvm::GlobalVariable>(val)) {
         res = convertConstant(cst, iofixpt, typepol);
       } else {
         res = matchOp(val);

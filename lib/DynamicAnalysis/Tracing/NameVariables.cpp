@@ -6,6 +6,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/Debug.h"
+#include "ConstantsContext.h"
 
 #include "TaffoUtils/TypeUtils.h"
 
@@ -87,6 +88,14 @@ bool NameVariables::runOnModule(Module &M) {
       while (current != nullptr) {
         auto &Inst = *current;
         auto next = InstList.getNextNode(*current);
+        if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
+          auto *pointerInst = storeInst->getPointerOperand();
+          if (auto *gepConstExpr = dyn_cast<GetElementPtrConstantExpr>(pointerInst)) {
+            auto *gepInst = gepConstExpr->getAsInstruction(current);
+            storeInst->setOperand(1, gepInst);
+            ChangedVarNames = true;
+          }
+        }
         if (!Inst.isDebugOrPseudoInst() && Inst.getType()->isFloatingPointTy()) {
           Inst.setName(getVarName(counter));
           counter++;
