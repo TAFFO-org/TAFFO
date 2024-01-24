@@ -9,6 +9,8 @@
 #include "ConstantsContext.h"
 
 #include "TaffoUtils/TypeUtils.h"
+#include <unordered_map>
+
 
 using namespace llvm;
 
@@ -72,9 +74,10 @@ bool NameVariables::runOnModule(Module &M) {
   }
 
   long counter = 0;
-  auto moduleName = "a";
+  auto h1 = (std::hash<std::string>{}("MyString")) % 97;
+  auto moduleName = "a" + std::to_string(h1);
 
-  auto getVarName = [&moduleName](long counter) -> std::string {
+  auto getVarName = [moduleName](long counter) -> std::string {
     return (Twine(moduleName) + Twine("::var") + Twine(counter)).str();
   };
 
