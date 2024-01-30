@@ -92,6 +92,7 @@ disable_vra=0
 dta_flags=
 dta_inst_set=
 conversion_flags=
+read_trace_flags=
 enable_errorprop=0
 errorprop_flags=
 errorprop_out=
@@ -141,6 +142,7 @@ for opt in $raw_opts; do
         -fixm)
           init_flags="$init_flags -fixm"
           conversion_flags="$conversion_flags -fixm"
+          read_trace_flags="$read_trace_flags -fixm"
           ;; 
         -o*)
           if [[ ${#opt} -eq 2 ]]; then
@@ -597,6 +599,7 @@ else
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoinit' \
     ${init_flags} \
+    -taffo_init_no_annotations \
     $compat_flags_opt  \
     "${temporary_dir}/${output_basename}.cleaned.taffotmp.ll" \
     -S -o "${temporary_dir}/${output_basename}.taffoinit.taffotmp.ll" || exit $?
@@ -621,6 +624,7 @@ else
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
       --passes='no-op-module,taffo-read-trace' \
       $dynamic_trace \
+      $read_trace_flags \
       $compat_flags_opt  \
       "${temporary_dir}/${output_basename}.named.taffotmp.ll" \
       -S -o "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" || exit $?

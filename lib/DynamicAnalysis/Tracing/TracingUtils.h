@@ -55,7 +55,8 @@ public:
   llvm::Value *value;
   virtual bool operator==(const ValueWrapper &other) const
   {
-    return type == other.type && value == other.value;
+    // constants even when equal do not mean the same node in memory graph
+    return type == other.type && value == other.value && !llvm::isa<llvm::ConstantData>(value);
   }
 
   virtual llvm::raw_ostream& print_debug(llvm::raw_ostream &dbg) const

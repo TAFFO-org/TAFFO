@@ -3,6 +3,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/ReplaceConstant.h"
 
 #include <iostream>
 #include <fstream>
@@ -36,6 +37,28 @@ bool ReadTrace::runOnModule(Module &M) {
   std::unordered_map<std::string, double> minVals, maxVals;
   std::unordered_map<std::string, mdutils::FloatType::FloatStandard> valTypes;
   std::unordered_map<Instruction*, double> derivedMinVals, derivedMaxVals;
+
+  for (auto &F : M) {
+    if (!F.hasName() || F.isDeclaration())
+      continue;
+    for (auto &BB : F.getBasicBlockList()) {
+      for (auto &Inst : BB.getInstList()) {
+        if (Inst.isDebugOrPseudoInst())
+          continue;
+        SmallVector<ConstantExpr *> replaceOperands = {};
+        for (auto &i : Inst.operands()) {
+          if (auto *constExpr = dyn_cast<ConstantExpr>(&i)) {
+            replaceOperands.push_back(constExpr);
+          }
+        }
+        for (auto *i : replaceOperands) {
+          // we have to do that because LLVM sometimes just folds gep into constexpr and it messes up the analysis
+          convertConstantExprsToInstructions(&Inst, i);
+        }
+        replaceOperands.clear();
+      }
+    }
+  }
 
   // calculate connected components on the memory operations
   taffo::MemoryGraph graph{M};
@@ -101,13 +124,15 @@ bool ReadTrace::runOnModule(Module &M) {
   for (const auto &it : ccRanges) {
     const auto range = it.second;
     const auto l = ccValues[it.first];
-    bool disableConversion = std::any_of(l.begin(), l.end(), [&](const auto& item){
+    bool disableConversion = std::any_of(l.begin(), l.end(), [&](const std::shared_ptr<taffo::ValueWrapper>& item){
       if(item->type == taffo::ValueWrapper::ValueType::ValFunCallArg) {
         auto *funCall = static_cast<const taffo::FunCallArgWrapper *>(&(*item));
         auto * fun = static_cast<const Argument *>(funCall->value)->getParent();
         if (funCall->isExternalFunc && !(fun && TaffoMath::isSupportedLibmFunction(fun, Fixm))) {
           return true;
         }
+      } else if (auto *globalVarInst = dyn_cast<GlobalVariable>(item->value)) {
+        return !globalVarInst->hasInitializer();
       }
       return false;
     });
@@ -269,6 +294,10 @@ std::shared_ptr<mdutils::StructInfo> ReadTrace::addStructInfo(std::shared_ptr<ta
     auto *structElemWrapper = static_cast<taffo::StructElemFunCallArgWrapper *>(&(*valueWrapper));
     structType = structElemWrapper->structType;
     structFieldPos = structElemWrapper->argPos;
+    if(structElemWrapper->value->getType()->isPointerTy()) {
+      llvm::dbgs() << "DISABLING STRUCT" << *structType << "\n";
+      disableConversion = true;
+    }
   }
   auto sInfoP = structsInfo.find(structType);
   std::shared_ptr<mdutils::StructInfo> sInfo;
@@ -289,6 +318,9 @@ std::shared_ptr<mdutils::StructInfo> ReadTrace::addStructInfo(std::shared_ptr<ta
             auto fieldII = std::static_pointer_cast<mdutils::InputInfo>(fieldInfo);
             fieldII->IRange->Min = std::min(instRange->Min, fieldII->IRange->Min);
             fieldII->IRange->Max = std::max(instRange->Max, fieldII->IRange->Max);
+            if (disableConversion) {
+              fieldII->IEnableConversion = false;
+            }
           }
           sInfo->setField(structFieldPos, fieldInfo);
   }
@@ -460,15 +492,16 @@ void ReadTrace::setAllMetadata(llvm::Module &M)
         auto *structWrapper = static_cast<taffo::StructElemWrapper *>(&(*item));
         auto sInfo = structsInfo[structWrapper->structType];
         structWrapper->print_debug(llvm::dbgs()) << "\n";
-
-        llvm::dbgs() << sInfo->toString();
-        if (auto *value = dyn_cast<Instruction>(item->value)) {
-          if (structWrapper->isGEPFromStructToSimple()) {
-            continue;
+        if (sInfo) {
+          llvm::dbgs() << sInfo->toString();
+          if (auto *value = dyn_cast<Instruction>(item->value)) {
+            if (structWrapper->isGEPFromStructToSimple()) {
+              continue;
+            }
+            mdutils::MetadataManager::setStructInfoMetadata(*value, *sInfo);
+          } else if (auto *value = dyn_cast<GlobalObject>(item->value)) {
+            mdutils::MetadataManager::setStructInfoMetadata(*value, *sInfo);
           }
-          mdutils::MetadataManager::setStructInfoMetadata(*value, *sInfo);
-        } else if (auto *value = dyn_cast<GlobalObject>(item->value)) {
-          mdutils::MetadataManager::setStructInfoMetadata(*value, *sInfo);
         }
       }
     }

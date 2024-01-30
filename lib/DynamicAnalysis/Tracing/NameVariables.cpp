@@ -3,6 +3,7 @@
 #include "Metadata.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/ReplaceConstant.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/Debug.h"
@@ -87,29 +88,32 @@ bool NameVariables::runOnModule(Module &M) {
 
     for (auto &BB: F.getBasicBlockList()) {
       auto &InstList = BB.getInstList();
-      auto current = InstList.getNextNode(InstList.front());
+      auto *current = InstList.getNextNode(InstList.front());
       while (current != nullptr) {
         auto &Inst = *current;
-        auto next = InstList.getNextNode(*current);
-        if (auto *storeInst = dyn_cast<StoreInst>(&Inst)) {
-          auto *pointerInst = storeInst->getPointerOperand();
-          if (auto *gepConstExpr = dyn_cast<GetElementPtrConstantExpr>(pointerInst)) {
-            auto *gepInst = gepConstExpr->getAsInstruction(current);
-            storeInst->setOperand(1, gepInst);
-            ChangedVarNames = true;
-          }
-        }
+        auto *next = InstList.getNextNode(*current);
         if (!Inst.isDebugOrPseudoInst() && Inst.getType()->isFloatingPointTy()) {
           Inst.setName(getVarName(counter));
           counter++;
           ChangedVarNames = true;
         }
+        SmallVector<ConstantExpr*> replaceOperands = {};
+        for (auto &i: Inst.operands()) {
+          if (auto *constExpr = dyn_cast<ConstantExpr>(&i)) {
+            replaceOperands.push_back(constExpr);
+          }
+        }
+        for (auto *i: replaceOperands) {
+          convertConstantExprsToInstructions(&Inst, i);
+        }
+        replaceOperands.clear();
+
         current = next;
       }
     }
   }
 
-  return ChangedVarNames;
+  return true;
 }
 
 bool NameVariables::isFPFunction(llvm::Function *F)

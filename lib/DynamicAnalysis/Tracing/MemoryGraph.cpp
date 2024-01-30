@@ -223,6 +223,9 @@ Type* getStructElemStructType(const std::shared_ptr<ValueWrapper>& srcWrapper) {
 
 std::shared_ptr<ValueWrapper> matchSrcWrapper(const std::shared_ptr<ValueWrapper>& srcWrapper, llvm::Value *UseInst) {
   auto srcBaseType = fullyUnwrapPointerOrArrayType(srcWrapper->value->getType());
+  if (auto * storeInst = dyn_cast<StoreInst>(srcWrapper->value)) {
+    srcBaseType = fullyUnwrapPointerOrArrayType(storeInst->getPointerOperandType());
+  }
   llvm::dbgs() << "MatchSrcWrapper>>>>>>>>>>\nMatchSrcWrapper type: " << "\n" <<
       *fullyUnwrapPointerOrArrayType(UseInst->getType()) << "\n" <<
       *fullyUnwrapPointerOrArrayType(srcWrapper->value->getType()) <<
@@ -262,7 +265,7 @@ void MemoryGraph::handleGenericInst(const std::shared_ptr<ValueWrapper>& srcWrap
       // no else because it means a nested struct, which is not supported
       llvm::dbgs() << "Unsupported case: Nested struct?" << "\n";
     }
-  } else if (srcWrapper->value->getType()->isPointerTy() || isa<StoreInst>(UseInst)) {
+  } else if (srcWrapper->value->getType()->isPointerTy() || isa<StoreInst>(UseInst) || isa<ReturnInst>(UseInst)) {
     auto dstWrapper = ValueWrapper::wrapValue(UseInst);
     llvm::dbgs() << "-------:" << "\n";
     llvm::dbgs() << "handleGenericInst" << "\n";
@@ -331,7 +334,7 @@ void MemoryGraph::handleFuncArg(const std::shared_ptr<ValueWrapper>& srcWrapper,
     llvm::dbgs() << "Arg: " << *callSite << "\nfunction: " << fun->getName() << "\nargNo: " << argNo << "\n";
     std::shared_ptr<ValueWrapper> dstArgWrapper;
     if (srcWrapper->isStructElem() || srcWrapper->isStructElemFunCall()) {
-      dstArgWrapper = ValueWrapper::wrapStructElemFunCallArg(callSite->getCalledFunction(), getStructElemArgPos(srcWrapper), argNo, getStructElemStructType(srcWrapper));
+      dstArgWrapper = matchSrcWrapper(srcWrapper, callSite->getCalledFunction()->getArg(argNo));
     } else {
       dstArgWrapper = ValueWrapper::wrapFunCallArg(callSite->getCalledFunction(), argNo);
     }

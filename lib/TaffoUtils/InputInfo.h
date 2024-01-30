@@ -407,14 +407,14 @@ private:
       if (StructInfo *si = llvm::dyn_cast<StructInfo>(field.get())) {
         if (visited.count(si) > 0)
           continue;
-        if (si->_getEnableConversion(visited))
-          return true;
+        if (!si->_getEnableConversion(visited))
+          return false;
       } else {
-        if (field->getEnableConversion())
-          return true;
+        if (!field->getEnableConversion())
+          return false;
       }
     }
-    return false;
+    return true;
   };
 
 public:
@@ -527,6 +527,11 @@ public:
       first = false;
     }
     sstm << ")";
+    if (!getEnableConversion()) {
+      if (!first)
+        sstm << " ";
+      sstm << "disabled ";
+    }
     return sstm.str();
   };
 

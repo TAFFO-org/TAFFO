@@ -25,7 +25,7 @@ embedded_triple := arm-none-eabi
 embedded_cpu := cortex-m0plus+nofp
 STM32_Programmer_CLI := ~/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI
 
-CFLAGS := -g0 -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize
+CFLAGS := -g0 -Xclang -disable-O0-optnone -lm -fno-unroll-loops -fno-slp-vectorize -fno-vectorize -ffp-contract=off
 CFLAGS_DOUBLE := -g0 -O3 -lm
 POLYBENCH_SHARED_FLAGS :=  -DPOLYBENCH_STACK_ARRAYS
 POLYBENCH_PC_FLAGS := -DBENCH_NUM_ITERATIONS=1000
@@ -48,10 +48,10 @@ EMBEDDED_OPT_FLAGS := -m32 \
 
 modes := float fixed dynamic
 archs := PC EMBEDDED
-#benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
+benchmarks := deriche floyd-warshall nussinov adi fdtd-2d heat-3d jacobi-1d jacobi-2d seidel-2d correlation covariance 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
-benchmarks := 2mm
+#benchmarks := 2mm
 
 double_jobs := $(foreach bench, $(benchmarks), \
 				double-job-$(bench) )
