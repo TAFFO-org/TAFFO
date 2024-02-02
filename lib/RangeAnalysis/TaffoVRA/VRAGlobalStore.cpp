@@ -142,18 +142,24 @@ void VRAGlobalStore::harvestMetadata(Module &M)
         if (!root)
           continue;
         LLVM_DEBUG(Logger->lineHead();
-                   dbgs() << " Considering input metadata of " << i << " (weight=" << weight << ")\n");
+                   dbgs() << " Considering input metadata of " << i << " (weight=" << weight << "); ");
         if (InputInfo *II = dyn_cast<InputInfo>(MDI)) {
           if (isValidRange(II->IRange.get())) {
             const llvm::Value *i_ptr = &i;
             UserInput[i_ptr] = std::make_shared<VRAScalarNode>(
                 make_range(II->IRange->Min, II->IRange->Max, II->isFinal()));
+            LLVM_DEBUG(dbgs() << "creating node for '" << *i_ptr << "'\n");
+          } else {
+            LLVM_DEBUG(dbgs() << "invalid range, ignoring\n");
           }
         } else if (StructInfo *SI = dyn_cast<StructInfo>(MDI)) {
           if (!i.getType()->isVoidTy()) {
             const llvm::Value *i_ptr = &i;
             UserInput[i_ptr] = std::static_ptr_cast<VRARangeNode>(
                 harvestStructMD(SI, fullyUnwrapPointerOrArrayType(i_ptr->getType())));
+            LLVM_DEBUG(dbgs() << "creating node for '" << *i_ptr << "'\n");
+          } else {
+            LLVM_DEBUG(dbgs() << "void type, ignoring\n");
           }
         }
       }

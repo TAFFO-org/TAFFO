@@ -53,13 +53,12 @@ public:
 
 #ifdef UNITTESTS
 public:
-  NodePtrT getNode(const llvm::Value *v) override;
-  void setNode(const llvm::Value *V, NodePtrT Node) override;
 #else
 private:
-  NodePtrT getNode(const llvm::Value *v) override;
-  void setNode(const llvm::Value *V, NodePtrT Node) override;
 #endif
+  NodePtrT getNode(const llvm::Value *v) override;
+  std::pair<NodePtrT, bool> getNodeAndUserInputFlag(const llvm::Value *v);
+  void setNode(const llvm::Value *V, NodePtrT Node) override;
 
 private:
   // Instruction Handlers

@@ -311,14 +311,28 @@ void VRAnalyzer::handleMallocCall(const llvm::CallBase *CB)
 {
   LLVM_DEBUG(Logger->logInfo("malloc-like"));
   const llvm::Type *AllocatedType = nullptr;
+  const llvm::BitCastInst *BCI;
   for (const llvm::Value *User : CB->users()) {
-    if (const llvm::BitCastInst *BCI = llvm::dyn_cast<llvm::BitCastInst>(User)) {
+    if ((BCI = llvm::dyn_cast<llvm::BitCastInst>(User))) {
+      LLVM_DEBUG(dbgs() << "BCI=" << BCI->getNameOrAsOperand() << ", ");
       AllocatedType = BCI->getDestTy()->getPointerElementType();
       break;
     }
   }
+  if (AllocatedType)
+    LLVM_DEBUG(dbgs() << "peltype=" << *AllocatedType << ", ");
+  else
+    LLVM_DEBUG(dbgs() << "peltype=(unknown), ");
 
-  const RangeNodePtrT InputRange = getGlobalStore()->getUserInput(CB);
+  RangeNodePtrT InputRange = getGlobalStore()->getUserInput(CB);
+  if (!InputRange) {
+    if (BCI) {
+      LLVM_DEBUG(dbgs() << "no node on CallBase - using bitcast, ");
+      InputRange = getGlobalStore()->getUserInput(BCI);
+    } else {
+      LLVM_DEBUG(dbgs() << "no node on CallBase and no bitcast - this is going **GREAT**, ");
+    }
+  }
   if (AllocatedType && AllocatedType->isStructTy()) {
     if (InputRange && std::isa_ptr<VRAStructNode>(InputRange)) {
       DerivedRanges[CB] = InputRange;
@@ -329,17 +343,24 @@ void VRAnalyzer::handleMallocCall(const llvm::CallBase *CB)
   } else {
     if (!(AllocatedType && AllocatedType->isPointerTy())) {
       if (InputRange && std::isa_ptr<VRAScalarNode>(InputRange)) {
+        LLVM_DEBUG(dbgs() << "with scalar range type, ");
         DerivedRanges[CB] = std::make_shared<VRAPtrNode>(InputRange);
       } else if (isCallocLike(CB->getCalledFunction())) {
+        LLVM_DEBUG(dbgs() << "range from calloc, ");
         DerivedRanges[CB] =
             std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(make_range(0, 0)));
       } else {
+        if (InputRange)
+          LLVM_DEBUG(dbgs() << "unknown range (isa=" << InputRange->getKind() << "), ");
+        else
+          LLVM_DEBUG(dbgs() << "null range, ");
         DerivedRanges[CB] = std::make_shared<VRAPtrNode>();
       }
+      LLVM_DEBUG(Logger->logInfoln("pointer to array"));
     } else {
+      LLVM_DEBUG(dbgs() << "unknown range, pointer to pointer");
       DerivedRanges[CB] = std::make_shared<VRAPtrNode>();
     }
-    LLVM_DEBUG(Logger->logInfoln("pointer"));
   }
 }
 
@@ -492,21 +513,38 @@ void VRAnalyzer::handleGEPInstr(const llvm::Instruction *I)
 void VRAnalyzer::handleBitCastInstr(const llvm::Instruction *I)
 {
   LLVM_DEBUG(Logger->logInstruction(I));
-  if (NodePtrT Node = getNode(I->getOperand(0U))) {
-    llvm::Type *InputT = I->getOperand(0U)->getType();
-    llvm::Type *OutputT = I->getType();
-    bool InputIsStruct = fullyUnwrapPointerOrArrayType(InputT)->isStructTy();
-    bool OutputIsStruct = fullyUnwrapPointerOrArrayType(OutputT)->isStructTy();
-    if (!InputIsStruct && !OutputIsStruct) {
-      setNode(I, Node);
-      LLVM_DEBUG(Logger->logRangeln(Node));
-    } else {
-      LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
-      LLVM_DEBUG(dbgs() << "This instruction is converting to/from a struct type. Ignoring to avoid generating invalid metadata\n");
-    }
-  } else {
+  NodePtrT Node = getNode(I->getOperand(0U));
+  if (!Node) {
     LLVM_DEBUG(Logger->logInfoln("no node"));
+    return;
   }
+
+  llvm::Type *InputT = I->getOperand(0U)->getType();
+  llvm::Type *OutputT = I->getType();
+  bool InputIsStruct = fullyUnwrapPointerOrArrayType(InputT)->isStructTy();
+  bool OutputIsStruct = fullyUnwrapPointerOrArrayType(OutputT)->isStructTy();
+  if (InputIsStruct || OutputIsStruct) {
+    LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
+    LLVM_DEBUG(dbgs() << "This instruction is converting to/from a struct type. Ignoring to avoid generating invalid metadata\n");
+    return;
+  }
+
+  if (isa<VRAPtrNode>(Node.get()) && isa<CallBase>(I->getOperand(0U))) {
+    CallBase *CB = dyn_cast<CallBase>(I->getOperand(0U));
+    llvm::Function *Called = CB->getCalledFunction();
+    if (isMallocLike(Called)) {
+      LLVM_DEBUG(dbgs() << " BitCast of malloc, ");
+      NodePtrT tmp = DerivedRanges[I->getOperand(0U)];
+      if (!tmp) {
+        LLVM_DEBUG(dbgs() << "no derived range, ");
+      } else {
+        LLVM_DEBUG(dbgs() << "using derived range, ");
+        Node = tmp;
+      }
+    }
+  }
+  setNode(I, Node);
+  LLVM_DEBUG(Logger->logRangeln(Node));
 }
 
 void VRAnalyzer::handleCmpInstr(const llvm::Instruction *cmp)
@@ -608,9 +646,10 @@ VRAnalyzer::fetchRangeNode(const llvm::Value *V)
   return nullptr;
 }
 
-NodePtrT
-VRAnalyzer::getNode(const llvm::Value *v)
+std::pair<NodePtrT, bool>
+VRAnalyzer::getNodeAndUserInputFlag(const llvm::Value *v)
 {
+  bool userInput = false;
   NodePtrT Node = VRAStore::getNode(v);
 
   if (!Node) {
@@ -625,10 +664,17 @@ VRAnalyzer::getNode(const llvm::Value *v)
         std::dynamic_ptr_cast_or_null<VRAScalarNode>(getGlobalStore()->getUserInput(v));
     if (UserInput && UserInput->isFinal()) {
       Node = UserInput;
+      userInput = true;
     }
   }
 
-  return Node;
+  return std::pair<NodePtrT, bool>(Node, userInput);
+}
+
+NodePtrT
+VRAnalyzer::getNode(const llvm::Value *v)
+{
+  return getNodeAndUserInputFlag(v).first;
 }
 
 void VRAnalyzer::setNode(const llvm::Value *V, NodePtrT Node)
