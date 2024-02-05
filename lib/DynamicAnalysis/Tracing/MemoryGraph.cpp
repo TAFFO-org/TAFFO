@@ -132,6 +132,13 @@ void MemoryGraph::seedRoots()
               queuePush(ValueWrapper::wrapValue(&Inst));
             }
           }
+        } else if (isa<CallInst, InvokeInst>(&Inst)) {
+          auto *callSite = dyn_cast<CallBase>(&Inst);
+          for (auto &arg: callSite->args()) {
+            if (taffo::isFloatType(arg->getType())) {
+              queuePush(ValueWrapper::wrapValue(arg.get()));
+            }
+          }
         }
       }
     }
