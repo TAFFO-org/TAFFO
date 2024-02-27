@@ -1,4 +1,5 @@
 #include <fenv.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #define TRUE 1
@@ -7,23 +8,6 @@
 #ifndef M
 #define M 10000
 #endif
-
-
-#ifdef APP_MFUNC
-double msin(double x)
-{
-  return x - ((x * x * x) / 6.0f);
-}
-
-double cos(double x)
-{
-  return 1.0f - (x * x * 0.25f);
-}
-
-#else
-#include <math.h>
-#endif
-
 
 float ex0(float t, float resistance, float frequency, float inductance,
           float maxVoltage)

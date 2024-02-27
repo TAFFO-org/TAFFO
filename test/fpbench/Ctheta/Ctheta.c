@@ -1,4 +1,5 @@
 #include <fenv.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #define TRUE 1
@@ -6,25 +7,6 @@
 #include "data.h"
 #ifndef M
 #define M 10000
-#endif
-
-#ifdef APP_MFUNC
-double sin(double x)
-{
-  return x - ((x * x * x) / 6.0f);
-}
-
-double cos(double x)
-{
-  return 1.0f - (x * x * 0.25f);
-}
-
-double atan(double x)
-{
-  return x - ((x * x * x) / 3.0f);
-}
-#else
-#include <math.h>
 #endif
 
 float ex0(float x, float y)

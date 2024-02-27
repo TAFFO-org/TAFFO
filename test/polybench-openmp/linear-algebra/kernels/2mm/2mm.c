@@ -7,10 +7,10 @@
  * 
  * Copyright 2013, The University of Delaware
  */
-#include <math.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
+#include <math.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -21,13 +21,14 @@
 
 
 /* Array initialization. */
-static void init_array(int ni, int nj, int nk, int nl,
-                       DATA_TYPE *alpha,
-                       DATA_TYPE *beta,
-                       DATA_TYPE POLYBENCH_2D(A, NI, NK, ni, nl),
-                       DATA_TYPE POLYBENCH_2D(B, NK, NJ, nk, nj),
-                       DATA_TYPE POLYBENCH_2D(C, NL, NJ, nl, nj),
-                       DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
+static
+void init_array(int ni, int nj, int nk, int nl,
+		DATA_TYPE *alpha,
+		DATA_TYPE *beta,
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nl),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
+		DATA_TYPE POLYBENCH_2D(C,NL,NJ,nl,nj),
+		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
@@ -36,72 +37,75 @@ static void init_array(int ni, int nj, int nk, int nl,
   *beta = 2123;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nk; j++)
-      A[i][j] = ((DATA_TYPE)i * j) / ni;
+      A[i][j] = ((DATA_TYPE) i*j) / ni;
   for (i = 0; i < nk; i++)
     for (j = 0; j < nj; j++)
-      B[i][j] = ((DATA_TYPE)i * (j + 1)) / nj;
+      B[i][j] = ((DATA_TYPE) i*(j+1)) / nj;
   for (i = 0; i < nl; i++)
     for (j = 0; j < nj; j++)
-      C[i][j] = ((DATA_TYPE)i * (j + 3)) / nl;
+      C[i][j] = ((DATA_TYPE) i*(j+3)) / nl;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nl; j++)
-      D[i][j] = ((DATA_TYPE)i * (j + 2)) / nk;
+      D[i][j] = ((DATA_TYPE) i*(j+2)) / nk;
 }
 
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
-static void print_array(int ni, int nl,
-                        DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
+static
+void print_array(int ni, int nl,
+		 DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
 {
   int i, j;
 
   for (i = 0; i < ni; i++)
     for (j = 0; j < nl; j++) {
-      fprintf(stderr, DATA_PRINTF_MODIFIER, D[i][j]);
-      if ((i * ni + j) % 20 == 0)
-        fprintf(stderr, "\n");
+	fprintf (stderr, DATA_PRINTF_MODIFIER, D[i][j]);
+	if ((i * ni + j) % 20 == 0) fprintf (stderr, "\n");
     }
-  fprintf(stderr, "\n");
+  fprintf (stderr, "\n");
 }
 
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-static void kernel_2mm(int ni, int nj, int nk, int nl,
-                       DATA_TYPE alpha,
-                       DATA_TYPE beta,
-                       DATA_TYPE POLYBENCH_2D(tmp, NI, NJ, ni, nj),
-                       DATA_TYPE POLYBENCH_2D(A, NI, NK, ni, nk),
-                       DATA_TYPE POLYBENCH_2D(B, NK, NJ, nk, nj),
-                       DATA_TYPE POLYBENCH_2D(C, NL, NJ, nl, nj),
-                       DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
+static
+void kernel_2mm(int ni, int nj, int nk, int nl,
+		DATA_TYPE alpha,
+		DATA_TYPE beta,
+		DATA_TYPE POLYBENCH_2D(tmp,NI,NJ,ni,nj),
+		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
+		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
+		DATA_TYPE POLYBENCH_2D(C,NL,NJ,nl,nj),
+		DATA_TYPE POLYBENCH_2D(D,NI,NL,ni,nl))
 {
   int i, j, k;
-#pragma scop
-/* D := alpha*A*B*C + beta*D */
-#pragma omp parallel
+  #pragma scop
+  /* D := alpha*A*B*C + beta*D */
+  #pragma omp parallel
   {
-#pragma omp for private(j, k)
+    #pragma omp for private (j, k)
     for (i = 0; i < _PB_NI; i++)
-      for (j = 0; j < _PB_NJ; j++) {
-        tmp[i][j] = 0;
-        for (k = 0; k < _PB_NK; ++k)
-          tmp[i][j] += alpha * A[i][k] * B[k][j];
-      }
-#pragma omp for private(j, k)
+      for (j = 0; j < _PB_NJ; j++)
+  	{
+    	  tmp[i][j] = 0;
+  	  for (k = 0; k < _PB_NK; ++k)
+	    tmp[i][j] += alpha * A[i][k] * B[k][j];
+        }
+    #pragma omp for private (j, k)
     for (i = 0; i < _PB_NI; i++)
-      for (j = 0; j < _PB_NL; j++) {
-        D[i][j] *= beta;
-        for (k = 0; k < _PB_NJ; ++k)
-          D[i][j] += tmp[i][k] * C[k][j];
-      }
+      for (j = 0; j < _PB_NL; j++)
+        {
+	  D[i][j] *= beta;
+	  for (k = 0; k < _PB_NJ; ++k)
+	    D[i][j] += tmp[i][k] * C[k][j];
+	}
   }
-#pragma endscop
+  #pragma endscop
 }
 
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int ni = NI;
@@ -112,31 +116,31 @@ int main(int argc, char **argv)
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
   DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("target('tmp') scalar(range(0, 30000000000000) final)"))), NI, NJ, ni, nj);
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), NI, NK, ni, nk);
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("target('B') scalar()"))), NK, NJ, nk, nj);
-  POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE __attribute__((annotate("target('C') scalar()"))), NL, NJ, nl, nj);
-  POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE __attribute__((annotate("target('D') scalar(range(0, 16000000000000000000) final)"))), NI, NL, ni, nl);
+  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("target('tmp') scalar(range(0, 30000000000000) final)"))),NI,NJ,ni,nj);
+  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("target('A') scalar()"))),NI,NK,ni,nk);
+  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("target('B') scalar()"))),NK,NJ,nk,nj);
+  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("target('C') scalar()"))),NL,NJ,nl,nj);
+  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(0, 16000000000000000000) final)"))),NI,NL,ni,nl);
 
 
   /* Initialize array(s). */
-  init_array(ni, nj, nk, nl, &alpha, &beta,
-             POLYBENCH_ARRAY(A),
-             POLYBENCH_ARRAY(B),
-             POLYBENCH_ARRAY(C),
-             POLYBENCH_ARRAY(D));
+  init_array (ni, nj, nk, nl, &alpha, &beta,
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(D));
 
   /* Start timer. */
   polybench_start_instruments;
 
   /* Run kernel. */
-  kernel_2mm(ni, nj, nk, nl,
-             alpha, beta,
-             POLYBENCH_ARRAY(tmp),
-             POLYBENCH_ARRAY(A),
-             POLYBENCH_ARRAY(B),
-             POLYBENCH_ARRAY(C),
-             POLYBENCH_ARRAY(D));
+  kernel_2mm (ni, nj, nk, nl,
+	      alpha, beta,
+	      POLYBENCH_ARRAY(tmp),
+	      POLYBENCH_ARRAY(A),
+	      POLYBENCH_ARRAY(B),
+	      POLYBENCH_ARRAY(C),
+	      POLYBENCH_ARRAY(D));
 
   /* Stop and print timer. */
   polybench_stop_instruments;
@@ -144,7 +148,7 @@ int main(int argc, char **argv)
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
-  polybench_prevent_dce(print_array(ni, nl, POLYBENCH_ARRAY(D)));
+  polybench_prevent_dce(print_array(ni, nl,  POLYBENCH_ARRAY(D)));
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(tmp);

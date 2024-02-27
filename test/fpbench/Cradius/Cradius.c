@@ -1,5 +1,5 @@
 #include <fenv.h>
-
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #define TRUE 1
@@ -9,19 +9,9 @@
 #define M 10000
 #endif
 
-
-#ifdef APP_MFUNC
-
-#else
-#include <math.h>
-
-#endif
-
-
 float ex0(float x, float y) { return sqrt(((x * x) + (y * y))); }
 
-int main()
-{
+int main() {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 2;
   float __attribute__((annotate("target('main') scalar(range(1, 100))")))
   x[len];

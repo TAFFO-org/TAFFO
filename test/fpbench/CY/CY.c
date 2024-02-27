@@ -1,4 +1,5 @@
 #include <fenv.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #define TRUE 1
@@ -8,32 +9,11 @@
 #define M 10000
 #endif
 
-#ifdef APP_MFUNC
-double sin(double x)
-{
-  return x - ((x * x * x) / 6.0f);
-}
-
-double cos(double x)
-{
-  return 1.0f - (x * x * 0.25f);
-}
-
-double atan(double x)
-{
-  return x - ((x * x * x) / 3.0f);
-}
-#else
-#include <math.h>
-#endif
-
 float ex0(float radius, float theta)
 {
   float pi = 3.14159265359f;
-  float __attribute__((annotate("scalar(range(-10, 10) type(64 54))"))) radiant = theta * (pi / 180.0f);
-  float __attribute__((annotate("scalar(range(-100, 100))"))) c = sin(radiant);
-  float __attribute__((annotate("scalar(range(-100, 100))"))) tmp = radius * c;
-  return tmp;
+  float radiant = theta * (pi / 180.0f);
+  return radius * sin(radiant);
 }
 
 int main()
