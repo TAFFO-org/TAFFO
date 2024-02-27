@@ -1,4 +1,5 @@
 #include <fenv.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #define TRUE 1
