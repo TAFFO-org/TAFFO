@@ -88,7 +88,6 @@ Additional options to add at the end **only for Linux**:
 Additional options to add at the end **only for macOS**:
 
 ```
-  -DCMAKE_IGNORE_PATH='/opt/local/bin;/opt/local/include;/opt/local/lib;/usr/local/bin;/usr/local/include;/usr/local/lib' \
   -DLLVM_EXTERNALIZE_DEBUGINFO=ON
 ```
 
