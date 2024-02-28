@@ -213,25 +213,34 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo> &thisMd)
     } else if (peek("type")) {
       if (!expect("("))
         return false;
-      bool isSignd = true;
-      int64_t total, frac;
-      if (!peek("signed")) {
-        if (peek("unsigned")) {
-          isSignd = false;
-        }
-      }
-      if (!expectInteger(total))
-        return false;
-      if (total <= 0) {
-        error = "Fixed point data type must have a positive bit size";
-        return false;
-      }
-      if (!expectInteger(frac))
-        return false;
-      if (!expect(")"))
-        return false;
-      ii->IType.reset(new FPType(total, frac, isSignd));
 
+      if (peek("posit")) {
+        int64_t size;
+        if (!expectInteger(size))
+          return false;
+        if (!expect(")"))
+          return false;
+        ii->IType.reset(new PositType(size));
+      } else {
+        bool isSignd = true;
+        int64_t total, frac;
+        if (!peek("signed")) {
+          if (peek("unsigned")) {
+            isSignd = false;
+          }
+        }
+        if (!expectInteger(total))
+          return false;
+        if (total <= 0) {
+          error = "Fixed point data type must have a positive bit size";
+          return false;
+        }
+        if (!expectInteger(frac))
+          return false;
+        if (!expect(")"))
+          return false;
+        ii->IType.reset(new FPType(total, frac, isSignd));
+      }
     } else if (peek("error")) {
       ii->IError = std::make_shared<double>(0);
       if (!expect("("))
