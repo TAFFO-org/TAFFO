@@ -9,6 +9,8 @@ using namespace llvm;
 using namespace taffo;
 using namespace mdutils;
 
+extern cl::opt<bool> DefaultDisable;
+
 #define DEBUG_TYPE "taffo-init"
 
 
@@ -193,7 +195,8 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo> &thisMd)
     error = "Duplicated content definition in this context";
     return false;
   }
-  InputInfo *ii = new InputInfo(nullptr, nullptr, nullptr, true);
+  bool EnC = DefaultDisable ? false : true;
+  InputInfo *ii = new InputInfo(nullptr, nullptr, nullptr, EnC);
   thisMd.reset(ii);
 
   while (!peek(")")) {

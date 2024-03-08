@@ -184,6 +184,9 @@ for opt in $raw_opts; do
         -disable-vra)
           disable_vra=1
           ;;
+        -disable-conv)
+          init_flags="$init_flags -default-disable"
+          ;;
         -enable-err)
           enable_errorprop=1
           ;;
@@ -378,6 +381,7 @@ Options:
   -disable-vra          Disables the VRA analysis pass, and replaces it with
                         a simpler, optimistic, and potentially incorrect greedy
                         algorithm.
+  -disable-conv         Forces the disabled flag on all annotations.
   -no-mem2reg           Disable scheduling of the mem2reg pass.
   -float-output <file>  Also compile the files without using TAFFO and store
                         the output to the specified location.

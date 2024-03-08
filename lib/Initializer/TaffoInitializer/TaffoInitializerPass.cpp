@@ -39,9 +39,12 @@ cl::opt<bool> ManualFunctionCloning("manualclone",
 cl::opt<bool> OpenCLKernelMode("oclkern",
                                cl::desc("Allows cloning of OpenCL kernel functions"),
                                cl::init(false));
-
 cl::opt<bool> CudaKernelMode("cudakern",
                              cl::desc("Allows cloning of Cuda kernel functions"),
+                             cl::init(false));
+
+cl::opt<bool> DefaultDisable("default-disable",
+                             cl::desc("Mark all annotations as disabled by default"),
                              cl::init(false));
 
 PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
