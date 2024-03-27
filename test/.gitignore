@@ -17,3 +17,10 @@ bench_main.h
 polybench-c-4.2.1-beta-ilp/embedded_src/*.bin
 polybench-c-4.2.1-beta-ilp/embedded_src/*.elf
 polybench-c-4.2.1-beta-ilp/embedded_src/*.map
+fpbench/**/*.csv
+fpbench/**/*-res
+fpbench/**/*-float
+fpbench/**/*-taffo
+polybench-cpu/fe-stats/*
+polybench-cpu/results-out/*
+
