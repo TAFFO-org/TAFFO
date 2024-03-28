@@ -22,8 +22,6 @@ private:
         {"hero_memcpy_host2dev", &VRAnalyzer::handleHeroHost2DevMemCpy},
         {"__dev-hero_memcpy_host2dev", &VRAnalyzer::handleHeroHost2DevMemCpy},
 
-        {"t_memcpy_host2dev", &VRAnalyzer::handleHeroHost2DevMemCpy},
-        {"__dev-t_memcpy_host2dev", &VRAnalyzer::handleHeroHost2DevMemCpy},
 
         //{"hero_memcpy_dev2host", &VRAnalyzer::handleHeroDev2HostMemCpy},
         //{"__dev-hero_memcpy_dev2host", &VRAnalyzer::handleHeroDev2HostMemCpy},

@@ -4,4 +4,4 @@
 #include "llvm/IR/Module.h"
 
 
-int write_module(llvm::Twine filename, const llvm::Module &M);
+void write_module(llvm::Twine filename, const llvm::Module &M);

@@ -2,31 +2,21 @@
 #include "FixedPointType.h"
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
-#include "string"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include <algorithm>
-#include <cstdarg>
 #include <llvm/IR/Type.h>
 #include <utility>
 
-static const int MathZ = 2048;
+const int MathZ = 2048;
 
 /*
 cl::opt<int> MathZ("LuTsize",

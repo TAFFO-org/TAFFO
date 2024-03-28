@@ -321,7 +321,8 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
   auto &m = *new_f->getParent();
   LLVM_DEBUG(llvm::dbgs() << "####" << __func__ << " ####");
   Value *generic;
-  bool is_sin = taffo::start_with(taffo::HandledSpecialFunction::demangle((std::string)old_f->getName()), "sin");
+  bool is_sin = taffo::start_with(taffo::HandledSpecialFunction::demangle((std::string)old_f->getName()), "sin") || taffo::start_with(taffo::HandledSpecialFunction::demangle((std::string)old_f->getName()), "__dev-sin");
+  ;
   // retrive context used in later instruction
   llvm::LLVMContext &cntx(old_f->getContext());
   // retruve the data llayout

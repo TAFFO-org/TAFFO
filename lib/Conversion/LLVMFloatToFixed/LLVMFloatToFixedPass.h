@@ -11,19 +11,16 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedUser.h"
-#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
@@ -440,7 +437,7 @@ struct FloatToFixed : public llvm::ModulePass {
                                                 bool *hasfloats = nullptr);
 
   /** find all target mapped region and fix the call to the new function created by TAFFO
-  */
+   */
   void handleHero(llvm::Module &m, bool Hero);
 
   llvm::Instruction *getFirstInsertionPointAfter(llvm::Instruction *i)

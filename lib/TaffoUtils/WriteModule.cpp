@@ -2,7 +2,7 @@
 #include "llvm/Support/FileSystem.h"
 #include <WriteModule.h>
 
-int write_module(llvm::Twine filename, const llvm::Module &M)
+void write_module(llvm::Twine filename, const llvm::Module &M)
 {
   int file = 0;
   auto err = llvm::sys::fs::openFileForWrite(filename, file);
@@ -12,7 +12,7 @@ int write_module(llvm::Twine filename, const llvm::Module &M)
   llvm::sys::fs::closeFile(file);
 }
 
-int write_module(const char * filename, const llvm::Module &M)
+void write_module(const char *filename, const llvm::Module &M)
 {
   int file = 0;
   auto err = llvm::sys::fs::openFileForWrite(filename, file);

@@ -4,7 +4,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-#include <memory>
 #include <string>
 #include <string_view>
 
@@ -40,11 +39,12 @@ public:
     auto &list_of_handled = get_handled_function()->handledFunction;
     auto founded = match != std::end(list_of_handled);
     LLVM_DEBUG(if (founded) llvm::dbgs() << f->getName() << " is handled in a special way\n";);
+    LLVM_DEBUG(if (!founded) llvm::dbgs() << f->getName() << " is not handled in a special way\n";);
     return founded;
   }
 
-  //Get the match if it is present otherwise it panics
-  //Must be used after is_handled
+  // Get the match if it is present otherwise it panics
+  // Must be used after is_handled
   static const std::string *getMatch(const llvm::Function *f)
   {
     LLVM_DEBUG(
@@ -110,10 +110,15 @@ private:
 
   HandledSpecialFunction()
   {
-    // handledFunction.emplace_back("asin");
-    // handledFunction.emplace_back("acos");
-    // handledFunction.emplace_back("sin");
-    // handledFunction.emplace_back("cos");
+    handledFunction.emplace_back("__dev-asin");
+    handledFunction.emplace_back("__dev-acos");
+    handledFunction.emplace_back("__dev-sin");
+    handledFunction.emplace_back("__dev-cos");
+
+    handledFunction.emplace_back("asin");
+    handledFunction.emplace_back("acos");
+    handledFunction.emplace_back("sin");
+    handledFunction.emplace_back("cos");
   }
 
   /*get an instance of HandledFunction

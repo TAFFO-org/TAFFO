@@ -4,7 +4,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -33,13 +32,9 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
-#include <deque>
 #include <llvm-12/llvm/ADT/Twine.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <memory>
-#include <ostream>
-#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -155,11 +150,11 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
         types.push_back(PointerType::get(llvm::cast<PointerType>(param[0])->getElementType(), 0));
         types.push_back(PointerType::get(llvm::cast<PointerType>(param[1])->getElementType(), 0));
 
-        
+
         for (size_t i = 2; i < param.size(); ++i) {
           types.push_back(param[i]);
         }
-        function_type = FunctionType::get(function_type->getReturnType(), types, false) ;
+        function_type = FunctionType::get(function_type->getReturnType(), types, false);
       }
 
 

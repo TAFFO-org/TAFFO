@@ -16,7 +16,7 @@ namespace taffo
 {
 
 
-//Create a new function to implements special known function
+// Create a new function to implements special known function
 llvm::Function *CreateSpecialFunction::create(flttofix::FloatToFixed *f_t_f, llvm::CallSite *call, bool &alreadyHandledNewF)
 {
   LLVM_DEBUG(
@@ -35,8 +35,8 @@ CreateSpecialFunction *CreateSpecialFunction::get_instance(flttofix::FloatToFixe
   return instance;
 }
 
-//Create a new function to implements special known function
-// it uses a hashmap to store <string, pointer_to_creator>
+// Create a new function to implements special known function
+//  it uses a hashmap to store <string, pointer_to_creator>
 llvm::Function *CreateSpecialFunction::handle(llvm::CallSite *call, bool &alreadyHandledNewF)
 {
 
@@ -65,7 +65,7 @@ llvm::Function *CreateSpecialFunction::handle(llvm::CallSite *call, bool &alread
 
   std::string prefix_name = *HandledSpecialFunction::getMatch(old_f);
 
-  //get new return type
+  // get new return type
 
   llvm::Type *new_ret_type = old_ret_type;
 
@@ -81,7 +81,7 @@ llvm::Function *CreateSpecialFunction::handle(llvm::CallSite *call, bool &alread
   }
 
 
-  //get new Args type
+  // get new Args type
 
   std::vector<llvm::Type *> new_type_args;
   std::vector<flttofix::FixedPointType *> old_args_fxpt;
@@ -127,7 +127,7 @@ llvm::Function *CreateSpecialFunction::handle(llvm::CallSite *call, bool &alread
     // Nope, add it
     Function *new_f = Function::Create(new_func_type, old_f->getLinkage(), prefix_name, old_f->getParent());
     new_f->setLinkage(llvm::GlobalValue::InternalLinkage);
-    //create body
+    // create body
 
     auto old_info = OldInfo{
         old_f,
@@ -147,7 +147,7 @@ llvm::Function *CreateSpecialFunction::handle(llvm::CallSite *call, bool &alread
       dbgs() << "\n";
     });
     alreadyHandledNewF = true;
-    //alredy created
+    // alredy created
     return new_f;
   }
 
@@ -161,6 +161,11 @@ CreateSpecialFunction::CreateSpecialFunction(flttofix::FloatToFixed *f_t_f)
 
   this->float_to_fixed = f_t_f;
 
+  dispatch.insert({"__dev-sin", [this](OldInfo &O, NewInfo &N) { return this->sinHandler(O, N); }});
+  dispatch.insert({"__dev-cos", [this](OldInfo &O, NewInfo &N) { return this->cosHandler(O, N); }});
+
+  dispatch.insert({"__dev-asin", [this](OldInfo &O, NewInfo &N) { return this->asinHandler(O, N); }});
+  dispatch.insert({"__dev-acos", [this](OldInfo &O, NewInfo &N) { return this->acosHandler(O, N); }});
 
   dispatch.insert({"sin", [this](OldInfo &O, NewInfo &N) { return this->sinHandler(O, N); }});
   dispatch.insert({"cos", [this](OldInfo &O, NewInfo &N) { return this->cosHandler(O, N); }});
