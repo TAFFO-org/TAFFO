@@ -32,6 +32,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
                     llvm::IRBuilder<> &builder)
 {
   auto &m = *new_f->getParent();
+  auto hetero = new_f->getName().startswith("__dev-");
   if (!fxparg.isFloatingPoint()) {
     assert(fxparg.scalarBitsAmt() == fxpret.scalarBitsAmt() &&
            "different type arg and ret");
@@ -87,7 +88,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
           dataLayout.getPrefTypeAlign(int_type);
       auto pi_2_arry_g =
           TaffoMath::createGlobalConst(new_f->getParent(), "pi_2_global." + std::to_string(min) + "_" + std::to_string(max), pi_2_ArrayType,
-                                       pi_2_ConstArray, alignement_pi_2);
+                                       pi_2_ConstArray, alignement_pi_2, hetero);
       auto pointer_to_array = TaffoMath::addAllocaToStart(ref, new_f, builder, pi_2_ArrayType, nullptr, "pi_2_array");
       dyn_cast<llvm::AllocaInst>(pointer_to_array)->setAlignment(alignement_pi_2);
       builder.CreateMemCpy(
@@ -260,6 +261,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
 Value *generateSinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::FixedPointType &fxparg,
                       llvm::IRBuilder<> &builder)
 {
+  auto hetero = new_f->getName().startswith("__dev-");
 
   if (!fxparg.isFloatingPoint()) {
     std::vector<llvm::Constant *> sin_arr_const;
@@ -283,7 +285,7 @@ Value *generateSinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::Fi
         new_f->getParent()->getDataLayout().getPrefTypeAlign(sin_arr_const.front()->getType());
     auto sin_arry_g =
         TaffoMath::createGlobalConst(new_f->getParent(), "sin_global." + std::to_string(fxparg.scalarFracBitsAmt()) + "_" + std::to_string(fxparg.scalarBitsAmt()), sin_ArrayType,
-                                     sin_ConstArray, alignement_sin);
+                                     sin_ConstArray, alignement_sin, hetero);
     return sin_arry_g;
   } else {
     std::vector<llvm::Constant *> sin_arr_const;
@@ -307,7 +309,7 @@ Value *generateSinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::Fi
         new_f->getParent()->getDataLayout().getPrefTypeAlign(sin_arr_const.front()->getType());
     auto sin_arry_g =
         TaffoMath::createGlobalConst(new_f->getParent(), std::string("sin_global.") + (sin_arr_const[0]->getType() == llvm::Type::getFloatTy(new_f->getContext()) ? "float" : "duble"), sin_ArrayType,
-                                     sin_ConstArray, alignement_sin);
+                                     sin_ConstArray, alignement_sin, hetero);
     return sin_arry_g;
   }
 }

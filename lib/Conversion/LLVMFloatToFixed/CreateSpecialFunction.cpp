@@ -3,6 +3,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Threading.h"
 
+#include <algorithm>
 #include <cassert>
 #include <functional>
 #include <llvm/ADT/SmallVector.h>
@@ -134,6 +135,7 @@ llvm::Function *CreateSpecialFunction::handle(llvm::CallSite *call, bool &alread
         old_ret_fxpt,
         old_args_fxpt};
 
+
     auto new_info = NewInfo{new_f};
     return dispatch[*HandledSpecialFunction::getMatch(old_f)](old_info, new_info);
   } else if (auto new_f = dyn_cast<llvm::Function>(F)) {
@@ -167,8 +169,8 @@ CreateSpecialFunction::CreateSpecialFunction(flttofix::FloatToFixed *f_t_f)
   dispatch.insert({"__dev-asin", [this](OldInfo &O, NewInfo &N) { return this->asinHandler(O, N); }});
   dispatch.insert({"__dev-acos", [this](OldInfo &O, NewInfo &N) { return this->acosHandler(O, N); }});
 
-  dispatch.insert({"sin", [this](OldInfo &O, NewInfo &N) { return this->sinHandler(O, N); }});
-  dispatch.insert({"cos", [this](OldInfo &O, NewInfo &N) { return this->cosHandler(O, N); }});
+  // dispatch.insert({"sin", [this](OldInfo &O, NewInfo &N) { return this->sinHandler(O, N); }});
+  // dispatch.insert({"cos", [this](OldInfo &O, NewInfo &N) { return this->cosHandler(O, N); }});
 
   dispatch.insert({"asin", [this](OldInfo &O, NewInfo &N) { return this->asinHandler(O, N); }});
   dispatch.insert({"acos", [this](OldInfo &O, NewInfo &N) { return this->acosHandler(O, N); }});

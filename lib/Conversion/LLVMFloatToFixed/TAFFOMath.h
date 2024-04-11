@@ -78,7 +78,7 @@ void getFixedFromRet(FloatToFixed *ref, Function *oldf,
 
 llvm::GlobalVariable *
 createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
-                  Constant *initializer, llvm::MaybeAlign alignment);
+                  Constant *initializer, llvm::MaybeAlign alignment, bool hetero);
 
 
 Value *addAllocaToStart(FloatToFixed *ref, Function *oldf,

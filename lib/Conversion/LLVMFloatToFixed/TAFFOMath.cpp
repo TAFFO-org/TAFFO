@@ -2,6 +2,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -124,12 +125,19 @@ Constant *getOrInsertGlobal(Module *M, StringRef Name, Type *Ty, unsigned addres
 
 llvm::GlobalVariable *
 createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
-                  Constant *initializer, llvm::MaybeAlign alignment)
+                  Constant *initializer, llvm::MaybeAlign alignment, bool hetero)
 {
 
 
-  getOrInsertGlobal(module, Name, Ty, 0);
-  auto global = module->getGlobalVariable(Name);
+  GlobalVariable *global = nullptr;
+  if (hetero) {
+    auto hetero_name = ("__dev-" + Name).str();
+    getOrInsertGlobal(module, hetero_name, Ty, 0);
+    global = module->getGlobalVariable(hetero_name);
+  } else {
+    getOrInsertGlobal(module, Name, Ty, 0);
+    global = module->getGlobalVariable(Name);
+  }
   global->setInitializer(initializer);
   global->setConstant(true);
   if (alignment->value() > 1) {

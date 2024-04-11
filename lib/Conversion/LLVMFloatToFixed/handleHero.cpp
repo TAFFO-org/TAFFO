@@ -4,6 +4,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -32,7 +33,6 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cstddef>
-#include <llvm-12/llvm/ADT/Twine.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <memory>
 #include <unordered_map>
@@ -130,20 +130,31 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 
   // Loop over the functions in the module, making external functions as before
   for (const Function &F : host) {
-    if (!(F.getName().startswith("__dev-") || F.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99") || F.getName().startswith("llvm.")) || F.getName().contains("_trampoline"))
+    if (
+        !(
+            F.getName().startswith("__dev-") ||
+            F.getName().startswith("__omp_offloading_10303_4dc05d6_func_l99") ||
+            F.getName().startswith("llvm.")) ||
+        F.getName().contains("_trampoline"))
       continue;
     auto old_name = F.getName();
     if (F.getName().startswith("__dev-")) {
       old_name = old_name.substr(substring_size, std::string::npos);
     }
     LLVM_DEBUG(llvm::dbgs() << "Search function: " << F.getName() << " as " << old_name << "\n");
-    if (auto old = dev.getFunction(old_name)) {
+    if (auto old = dev.getFunction(old_name); old != nullptr && old->getFunctionType() == F.getFunctionType() && old->getReturnType() == F.getReturnType()) {
       LLVM_DEBUG(llvm::dbgs() << "Founded\n");
       GtoG[&F] = old;
       alredy_present_function.insert(old);
     } else {
-      auto function_type = cast<FunctionType>(remapper->remapType(F.getValueType()));
 
+      FunctionType *function_type = nullptr;
+      if (!old_name.startswith("llvm.")) {
+        function_type = cast<FunctionType>(remapper->remapType(F.getValueType()));
+      } else {
+
+        function_type = F.getFunctionType();
+      }
       if (old_name.contains("omp_outlined")) {
         llvm::SmallVector<Type *, 8> types;
         auto param = function_type->params();
@@ -668,6 +679,8 @@ void export_functions(llvm::Module &M, const SmallVectorImpl<llvm::CallSite *> &
   cloneGlobalVariable(*dev_module, M, GtoG);
   normalize_addrspace(*dev_module);
   write_module("crash_hero.ll", *dev_module);
+  llvm::dbgs() << "PIZZA "
+               << "Divisor\n";
   assert(!verifyModule(*dev_module, &llvm::dbgs()) && "Broken after normal Dev module");
 
 

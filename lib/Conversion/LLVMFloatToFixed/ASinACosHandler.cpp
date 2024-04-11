@@ -15,6 +15,7 @@
 Value *generateASinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::FixedPointType &fxpret,
                        llvm::IRBuilder<> &builder)
 {
+  auto hetero = new_f->getName().startswith("__dev-");
 
   LLVM_DEBUG(llvm::dbgs() << "GENERATE ASIN LUT\n");
   if (!fxpret.isFloatingPoint()) {
@@ -39,7 +40,7 @@ Value *generateASinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::F
         new_f->getParent()->getDataLayout().getPrefTypeAlign(asin_arr_const.front()->getType());
     auto asin_arry_g =
         TaffoMath::createGlobalConst(new_f->getParent(), "asin_global." + std::to_string(fxpret.scalarFracBitsAmt()) + "_" + std::to_string(fxpret.scalarBitsAmt()), asin_ArrayType,
-                                     asin_ConstArray, alignement_sin);
+                                     asin_ConstArray, alignement_sin, hetero);
     return asin_arry_g;
   } else {
     std::vector<llvm::Constant *> asin_arr_const;
@@ -63,7 +64,7 @@ Value *generateASinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::F
         new_f->getParent()->getDataLayout().getPrefTypeAlign(asin_arr_const.front()->getType());
     auto asin_arry_g =
         TaffoMath::createGlobalConst(new_f->getParent(), std::string("asin_global.") + (asin_arr_const[0]->getType() == llvm::Type::getFloatTy(new_f->getContext()) ? "float" : "duble"), asin_ArrayType,
-                                     asin_ConstArray, alignement_asin);
+                                     asin_ConstArray, alignement_asin, hetero);
     return asin_arry_g;
   }
 }
@@ -72,6 +73,7 @@ Value *generateASinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::F
 Value *generateACosLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::FixedPointType &fxpret,
                        llvm::IRBuilder<> &builder)
 {
+  auto hetero = new_f->getName().startswith("__dev-");
 
   LLVM_DEBUG(llvm::dbgs() << "GENERATE ACOS LUT\n");
   if (!fxpret.isFloatingPoint()) {
@@ -97,7 +99,7 @@ Value *generateACosLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::F
         new_f->getParent()->getDataLayout().getPrefTypeAlign(acos_arr_const.front()->getType());
     auto acos_arry_g =
         TaffoMath::createGlobalConst(new_f->getParent(), "acos_arr_const." + std::to_string(fxpret.scalarFracBitsAmt()) + "_" + std::to_string(fxpret.scalarBitsAmt()), acos_ArrayType,
-                                     acos_ConstArray, alignement_acos);
+                                     acos_ConstArray, alignement_acos, hetero);
     return acos_arry_g;
   } else {
     std::vector<llvm::Constant *> acos_arr_const;
@@ -121,7 +123,7 @@ Value *generateACosLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::F
         new_f->getParent()->getDataLayout().getPrefTypeAlign(acos_arr_const.front()->getType());
     auto acos_arry_g =
         TaffoMath::createGlobalConst(new_f->getParent(), std::string("acos_global.") + (acos_arr_const[0]->getType() == llvm::Type::getFloatTy(new_f->getContext()) ? "float" : "duble"), acos_ArrayType,
-                                     acos_ConstArray, alignement_acos);
+                                     acos_ConstArray, alignement_acos, hetero);
     return acos_arry_g;
   }
 }

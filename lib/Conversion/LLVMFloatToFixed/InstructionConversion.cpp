@@ -3,6 +3,7 @@
 #include "WriteModule.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
@@ -14,6 +15,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
+#include <cstddef>
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
@@ -276,8 +278,20 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
 }
 Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
 {
-  if (!phi->getType()->isFloatingPointTy() ||
-      valueInfo(phi)->noTypeConversion) {
+  struct PointerAndLevel {
+    bool pointer = false;
+    size_t level = 0;
+  };
+
+  auto trueType = phi->getType();
+  PointerAndLevel pointerAndLevel = {false, 0};
+  while (trueType->isPointerTy()) {
+    pointerAndLevel.level++;
+    pointerAndLevel.pointer = true;
+    trueType = trueType->getPointerElementType();
+  }
+
+  if (!(trueType->isFloatingPointTy() || valueInfo(phi)->noTypeConversion)) {
     /* in the conversion chain the floating point number was converted to
      * an int at some point; we just upgrade the incoming values in place */
     /* if all of our incoming values were not converted, we want to propagate
@@ -297,13 +311,22 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
   /* if we have to do a type change, create a new phi node. The new type is for
    * sure that of a fixed point value; because the original type was a float
    * and thus all of its incoming values were floats */
-  PHINode *newphi = PHINode::Create(fixpt.scalarToLLVMType(phi->getContext()),
+  Type *newPhiType = fixpt.scalarToLLVMType(phi->getContext());
+  if (pointerAndLevel.pointer) {
+    for (size_t i = 0; i < pointerAndLevel.level; ++i)
+      newPhiType = newPhiType->getPointerTo();
+  }
+  PHINode *newphi = PHINode::Create(newPhiType,
                                     phi->getNumIncomingValues());
   for (int i = 0; i < phi->getNumIncomingValues(); i++) {
     Value *thisval = phi->getIncomingValue(i);
     BasicBlock *thisbb = phi->getIncomingBlock(i);
-    Value *newval =
-        translateOrMatchOperandAndType(thisval, fixpt, thisbb->getTerminator());
+    Value *newval = nullptr;
+    if(pointerAndLevel.pointer){
+      newval = matchOp(thisval);
+    }else{
+       newval =  translateOrMatchOperandAndType(thisval, fixpt, thisbb->getTerminator());
+    }
     if (!newval) {
       delete newphi;
       return nullptr;
@@ -385,7 +408,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
                              "because mem2reg can interfere\n");
       }
       thisArgument = translateOrMatchAnyOperand(*call_arg, funfpt,
-                                                       call);
+                                                call);
       fixArgs.push_back(std::pair<int, FixedPointType>(i, funfpt));
     } else {
       FixedPointType funfpt;
@@ -395,7 +418,7 @@ Value *FloatToFixed::convertCall(CallSite *call, FixedPointType &fixpt)
       LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
                            "because mem2reg can interfere\n");
       thisArgument = translateOrMatchAnyOperand(*call_arg, funfpt,
-                                                       call);
+                                                call);
     }
     if (!thisArgument) {
       LLVM_DEBUG(dbgs() << "CALL: match of argument " << i << " (" << *f_arg

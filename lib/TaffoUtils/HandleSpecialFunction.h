@@ -117,8 +117,8 @@ private:
 
     handledFunction.emplace_back("asin");
     handledFunction.emplace_back("acos");
-    handledFunction.emplace_back("sin");
-    handledFunction.emplace_back("cos");
+    // handledFunction.emplace_back("sin");
+    // handledFunction.emplace_back("cos");
   }
 
   /*get an instance of HandledFunction

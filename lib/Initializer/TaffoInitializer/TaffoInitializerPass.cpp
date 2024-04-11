@@ -1,6 +1,7 @@
 #include "TaffoInitializerPass.h"
 #include "IndirectCallPatcher.h"
 #include "Metadata.h"
+#include "MultiValueMap.h"
 #include "TypeUtils.h"
 #include "WriteModule.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -29,6 +30,21 @@
 
 using namespace llvm;
 using namespace taffo;
+
+void dumpMultiValueFunctions(MultiValueMap<llvm::Value *, ValueInfo> &tmpVals, llvm::Function *oldF = nullptr)
+{
+
+  for (auto w : tmpVals) {
+    Value *v = w->first;
+    if (CallSite *call = dyn_cast<CallSite>(v)) {
+
+      Function *oldF = call->getCalledFunction();
+      llvm::dbgs() << "Print " << oldF->getName() << "\n";
+    }
+  }
+  if (oldF)
+    llvm::dbgs() << "analizzo " << oldF->getName() << "\n";
+}
 
 
 char TaffoInitializer::ID = 0;
@@ -211,6 +227,32 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         LLVM_DEBUG(dbgs() << "\n");
       LLVM_DEBUG(dbgs() << "    distance = " << next->second.fixpTypeRootDistance << "\n");
 
+      if (CallInst *call = dyn_cast<CallInst>(v)) {
+        auto calledFunc = call->getCalledFunction();
+        if (calledFunc->getName().contains("memcpy") && calledFunc->arg_size() == 3 && call->user_empty()) {
+
+          auto destArg = call->getArgOperand(0);
+          LLVM_DEBUG(dbgs() << "[U] " << *destArg << "\n");
+          destArg = destArg->stripInBoundsConstantOffsets();
+
+          /* Insert u at the end of the queue.
+           * If u exists already in the queue, *move* it to the end instead. */
+          auto UI = queue.find(destArg);
+          ValueInfo UVInfo;
+          if (UI == queue.end()) {
+            UI = queue.push_back(destArg, UVInfo).first;
+            LLVM_DEBUG(dbgs() << "[U] " << *destArg);
+            if (Instruction *i = dyn_cast<Instruction>(destArg))
+              LLVM_DEBUG(dbgs() << "[ " << i->getFunction()->getName() << "]\n");
+            else
+              LLVM_DEBUG(dbgs() << "\n");
+            unsigned int udepth = UI->second.backtrackingDepthLeft;
+            UI->second.backtrackingDepthLeft = std::max(3u, udepth);
+            createInfoOfUser(v, next->second, destArg, UI->second);
+          }
+        }
+      }
+
       for (auto *u : v->users()) {
         /* ignore u if it is the global annotation array */
         if (GlobalObject *ugo = dyn_cast<GlobalObject>(u)) {
@@ -271,6 +313,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
       Value *v = (--next)->first;
       unsigned int mydepth = next->second.backtrackingDepthLeft;
 
+#define BACKTRACK
 #ifdef LOG_BACKTRACK
       dbgs() << "BACKTRACK " << *v << ", depth left = " << mydepth << "\n";
 #endif
@@ -468,6 +511,19 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
       }
     }
 
+    {
+      for (auto w : vals) {
+        Value *v = w->first;
+        if (CallSite *call = dyn_cast<CallSite>(v)) {
+
+          Function *oldF = call->getCalledFunction();
+          llvm::dbgs() << "Print " << oldF->getName() << "\n";
+        }
+      }
+
+      llvm::dbgs() << "analizzo " << oldF->getName() << "\n";
+    }
+
     std::vector<llvm::Value *> newVals;
 
     Function *newF = createFunctionAndQueue(call, vals, global, newVals);
@@ -609,7 +665,13 @@ Function *TaffoInitializer::createFunctionAndQueue(CallSite *call, ConvQueueT &v
   ConvQueueT localFix;
   readLocalAnnotations(*newF, localFix);
   roots.insert(roots.begin(), localFix.begin(), localFix.end());
+
+  dumpMultiValueFunctions(tmpVals, oldF);
+
   buildConversionQueueForRootValues(roots, tmpVals);
+
+  dumpMultiValueFunctions(tmpVals, oldF);
+
   for (auto val : tmpVals) {
     if (Instruction *inst = dyn_cast<Instruction>(val.first)) {
       if (inst->getFunction() == newF) {

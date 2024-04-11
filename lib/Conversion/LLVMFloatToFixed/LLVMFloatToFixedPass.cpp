@@ -15,10 +15,12 @@
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
@@ -458,6 +460,13 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     Function *oldF = call->getCalledFunction();
     Function *newF = nullptr;
     if (taffo::HandledSpecialFunction::is_handled(oldF)) {
+
+      bool callHasInfo = hasInfo(call);
+      bool argsHasInfo = std::all_of(call->getCalledFunction()->arg_begin(), call->getCalledFunction()->arg_end(), [this](llvm::Argument &arg) {
+        llvm::Value *  v = llvm::dyn_cast<Value>(&arg);
+        return this->hasInfo(v); });
+      if (!callHasInfo || !argsHasInfo)
+        continue;
       newF = taffo::CreateSpecialFunction::create(this, call, alreadyHandledNewF);
       functionPool[oldF] = newF;
       FunctionCreated++;
