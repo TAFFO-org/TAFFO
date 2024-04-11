@@ -1,6 +1,7 @@
 #include "DataTypeAlloc/TaffoDTA/DTAConfig.h"
 #include "LLVMFloatToFixedPass.h"
 #include "PositBuilder.h"
+#include "TaffoMathUtil.h"
 #include "TypeUtils.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
@@ -19,7 +20,6 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
 #include <cmath>
-#include "TaffoMathUtil.h"
 
 using namespace llvm;
 using namespace flttofix;
@@ -309,7 +309,18 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
 
 Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
 {
-  if (!phi->getType()->isFloatingPointTy() ||
+  struct PointerAndLevel {
+    bool pointer = false;
+    size_t level = 0;
+  };
+  auto trueType = phi->getType();
+  PointerAndLevel pointerAndLevel = {false, 0};
+  while (trueType->isPointerTy()) {
+    pointerAndLevel.level++;
+    pointerAndLevel.pointer = true;
+    trueType = trueType->getPointerElementType();
+  }
+  if (!trueType->isFloatingPointTy() ||
       valueInfo(phi)->noTypeConversion) {
     /* in the conversion chain the floating point number was converted to
      * an int at some point; we just upgrade the incoming values in place */
@@ -330,13 +341,22 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
   /* if we have to do a type change, create a new phi node. The new type is for
    * sure that of a fixed point value; because the original type was a float
    * and thus all of its incoming values were floats */
-  PHINode *newphi = PHINode::Create(fixpt.scalarToLLVMType(phi->getContext()),
+  Type *newPhiType = fixpt.scalarToLLVMType(phi->getContext());
+  if (pointerAndLevel.pointer) {
+    for (size_t i = 0; i < pointerAndLevel.level; ++i)
+      newPhiType = newPhiType->getPointerTo();
+  }
+  PHINode *newphi = PHINode::Create(newPhiType,
                                     phi->getNumIncomingValues());
   for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
     Value *thisval = phi->getIncomingValue(i);
     BasicBlock *thisbb = phi->getIncomingBlock(i);
-    Value *newval =
-        translateOrMatchOperandAndType(thisval, fixpt, thisbb->getTerminator());
+    Value *newval = nullptr;
+    if (pointerAndLevel.pointer) {
+      newval = matchOp(thisval);
+    } else {
+      newval = translateOrMatchOperandAndType(thisval, fixpt, thisbb->getTerminator());
+    }
     if (!newval) {
       delete newphi;
       return nullptr;
