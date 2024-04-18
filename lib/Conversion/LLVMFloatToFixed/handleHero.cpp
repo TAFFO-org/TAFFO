@@ -97,9 +97,14 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
   //  new module.  Here we add them to the VMap and to the new Module.  We
   //  don't worry about attributes or initializers, they will come later.
   //
+  auto &C = dev.getContext();
+
+  std::unordered_map<std::string, FunctionType *> addressSpaceSpecial = {
+      {"hero_memcpy_host2dev", FunctionType::get(Type::getVoidTy(C), {PointerType::getInt8PtrTy(C), PointerType::getInt8PtrTy(C, 1), IntegerType::getInt32Ty(C)}, false)}};
 
 
-  std::unique_ptr<ValueMapTypeRemapper> remapper = std::make_unique<ident_struct_type_remapper>(host.getIdentifiedStructTypes(), dev.getIdentifiedStructTypes());
+  std::unique_ptr<ValueMapTypeRemapper>
+      remapper = std::make_unique<ident_struct_type_remapper>(host.getIdentifiedStructTypes(), dev.getIdentifiedStructTypes());
   std::unordered_set<Function *> alredy_present_function;
 
   for (const llvm::GlobalVariable &I : host.globals()) {
@@ -150,7 +155,11 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
 
       FunctionType *function_type = nullptr;
       if (!old_name.startswith("llvm.")) {
-        function_type = cast<FunctionType>(remapper->remapType(F.getValueType()));
+        if (addressSpaceSpecial.find(old_name.str()) != addressSpaceSpecial.end()) {
+          function_type = addressSpaceSpecial[old_name.str()];
+        } else {
+          function_type = cast<FunctionType>(remapper->remapType(F.getValueType()));
+        }
       } else {
 
         function_type = F.getFunctionType();
@@ -240,6 +249,8 @@ void cloneGlobalVariable(llvm::Module &dev, llvm::Module &host, llvm::ValueToVal
     SmallVector<ReturnInst *, 8> Returns; // Ignore returns cloned.
     CloneFunctionInto(F, &I, GtoG, true,
                       Returns, "", nullptr, remapper.get());
+
+    F->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
 
     if (I.hasPersonalityFn())
       F->setPersonalityFn(MapValue(I.getPersonalityFn(), GtoG));
@@ -679,8 +690,6 @@ void export_functions(llvm::Module &M, const SmallVectorImpl<llvm::CallSite *> &
   cloneGlobalVariable(*dev_module, M, GtoG);
   normalize_addrspace(*dev_module);
   write_module("crash_hero.ll", *dev_module);
-  llvm::dbgs() << "PIZZA "
-               << "Divisor\n";
   assert(!verifyModule(*dev_module, &llvm::dbgs()) && "Broken after normal Dev module");
 
 

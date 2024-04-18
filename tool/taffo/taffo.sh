@@ -182,6 +182,10 @@ for opt in $raw_opts; do
           init_flags="$init_flags -hero=1"
           conversion_flags="$conversion_flags -hero=1"
           ;;
+        -heroDMALUT)
+          init_flags="$init_flags -heroDMALUT=1"
+          conversion_flags="$conversion_flags -heroDMALUT=1"
+          ;;
         -mixedmode)
           dta_flags="$dta_flags -mixedmode=1"
           if [[ -z "$dta_inst_set" ]]; then

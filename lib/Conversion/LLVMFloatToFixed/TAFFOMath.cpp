@@ -2,6 +2,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Type.h"
@@ -97,16 +99,30 @@ llvm::Constant *createFixedPointFromConst(
   return outI;
 }
 
-Value *addAllocaToStart(FloatToFixed *ref, Function *oldf,
+Value *addAllocaToStart(Function *function,
                         llvm::IRBuilder<> &builder, Type *to_alloca,
                         llvm::Value *ArraySize,
+                        llvm::ArrayRef<Value *> init,
                         const llvm::Twine &Name)
 {
   auto OldBB = builder.GetInsertBlock();
   LLVM_DEBUG(dbgs() << "Insert alloca inst\nOld basic block: " << OldBB << "\n");
-  builder.SetInsertPoint(&(oldf->getEntryBlock()),
-                         (oldf->getEntryBlock()).getFirstInsertionPt());
+  builder.SetInsertPoint(&(function->getEntryBlock()),
+                         (function->getEntryBlock()).getFirstInsertionPt());
   Value *pointer_to_alloca = builder.CreateAlloca(to_alloca, ArraySize, Name);
+  // Init
+  if (!init.empty()) {
+    if (to_alloca->isAggregateType()) {
+      for (size_t i = 0; auto elem : init) {
+        auto GEP = builder.CreateInBoundsGEP(pointer_to_alloca, {builder.getInt32(0), builder.getInt32(i)});
+        builder.CreateStore(elem, GEP);
+        i++;
+      }
+    } else {
+      assert(init.size() == 1 && "Init more than 1 element in a primitive type");
+      builder.CreateStore(init[0], pointer_to_alloca);
+    }
+  }
   LLVM_DEBUG(dbgs() << "New Alloca: " << pointer_to_alloca << "\n");
   builder.SetInsertPoint(OldBB);
   return pointer_to_alloca;
@@ -124,8 +140,8 @@ Constant *getOrInsertGlobal(Module *M, StringRef Name, Type *Ty, unsigned addres
 
 
 llvm::GlobalVariable *
-createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
-                  Constant *initializer, llvm::MaybeAlign alignment, bool hetero)
+createGlobal(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
+             Constant *initializer, llvm::MaybeAlign alignment, bool hetero)
 {
 
 
@@ -139,11 +155,19 @@ createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
     global = module->getGlobalVariable(Name);
   }
   global->setInitializer(initializer);
-  global->setConstant(true);
   if (alignment->value() > 1) {
     global->setAlignment(alignment);
   }
   return global;
 }
 
+
+llvm::GlobalVariable *
+createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
+                  Constant *initializer, llvm::MaybeAlign alignment, bool hetero)
+{
+  auto pointer = TaffoMath::createGlobal(module, Name, Ty, initializer, alignment, hetero);
+  pointer->setConstant(true);
+  return pointer;
+}
 } // namespace TaffoMath

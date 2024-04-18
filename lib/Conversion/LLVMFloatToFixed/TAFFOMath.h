@@ -77,13 +77,18 @@ void getFixedFromRet(FloatToFixed *ref, Function *oldf,
 
 
 llvm::GlobalVariable *
+createGlobal(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
+             Constant *initializer, llvm::MaybeAlign alignment, bool hetero);
+
+llvm::GlobalVariable *
 createGlobalConst(llvm::Module *module, llvm::StringRef Name, llvm::Type *Ty,
                   Constant *initializer, llvm::MaybeAlign alignment, bool hetero);
 
 
-Value *addAllocaToStart(FloatToFixed *ref, Function *oldf,
+Value *addAllocaToStart(Function *oldf,
                         llvm::IRBuilder<> &builder, Type *to_alloca,
                         llvm::Value *ArraySize = (llvm::Value *)nullptr,
+                        llvm::ArrayRef<Value *> init = {},
                         const llvm::Twine &Name = "");
 
 

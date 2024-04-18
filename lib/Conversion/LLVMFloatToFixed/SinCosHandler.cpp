@@ -1,15 +1,35 @@
 #include "CreateSpecialFunction.h"
 #include "DebugPrint.h"
 #include "TAFFOMath.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Alignment.h"
+#include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <llvm-10/llvm/Support/Casting.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/IR/Type.h>
 #include <string>
+#include <tuple>
+#include <utility>
+
+extern bool Hero;
+extern bool DMALUT;
 
 namespace taffo
 {
@@ -89,7 +109,7 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
       auto pi_2_arry_g =
           TaffoMath::createGlobalConst(new_f->getParent(), "pi_2_global." + std::to_string(min) + "_" + std::to_string(max), pi_2_ArrayType,
                                        pi_2_ConstArray, alignement_pi_2, hetero);
-      auto pointer_to_array = TaffoMath::addAllocaToStart(ref, new_f, builder, pi_2_ArrayType, nullptr, "pi_2_array");
+      auto pointer_to_array = TaffoMath::addAllocaToStart(new_f, builder, pi_2_ArrayType, nullptr, {}, "pi_2_array");
       dyn_cast<llvm::AllocaInst>(pointer_to_array)->setAlignment(alignement_pi_2);
       builder.CreateMemCpy(
           pointer_to_array,
@@ -105,11 +125,11 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
       wrapper_printf(builder, m, "Start Normalization\n");
 
       Value *iterator_pi_2 =
-          TaffoMath::addAllocaToStart(ref, new_f, builder, int_type, nullptr, "Iterator_pi_2");
+          TaffoMath::addAllocaToStart(new_f, builder, int_type, nullptr, {}, "Iterator_pi_2");
       Value *point_arg =
-          TaffoMath::addAllocaToStart(ref, new_f, builder, int_type, nullptr, "point_arg");
+          TaffoMath::addAllocaToStart(new_f, builder, int_type, nullptr, {}, "point_arg");
       Value *point_ret =
-          TaffoMath::addAllocaToStart(ref, new_f, builder, int_type, nullptr, "point_ret");
+          TaffoMath::addAllocaToStart(new_f, builder, int_type, nullptr, {}, "point_ret");
 
       builder.CreateStore(ConstantInt::get(int_type, current_arg_point), point_arg);
       builder.CreateStore(ConstantInt::get(int_type, current_ret_point), point_ret);
@@ -257,6 +277,119 @@ void fixrangeSinCos(flttofix::FloatToFixed *ref, llvm::Function *new_f, flttofix
   LLVM_DEBUG(dbgs() << "End fixrange\n");
 }
 
+/// Create a heroMALLOC of size \p size
+/// call i8* @__dev-hero_l1malloc(i32 size)
+Value *createHEROMallocCall(IRBuilder<> &builder, size_t size)
+{
+  auto *M = builder.GetInsertBlock()->getModule();
+  auto &C = M->getContext();
+  auto *HEROMallocType = FunctionType::get(PointerType::getInt8PtrTy(C),
+                                           {IntegerType::getInt32Ty(C)},
+                                           false);
+  auto HEROMallocCallee = M->getOrInsertFunction("__dev-hero_l1malloc", HEROMallocType);
+  auto call = builder.CreateCall(HEROMallocCallee, {builder.getInt32(size)});
+  return call;
+}
+
+/// Create a heroMemcpy of size \p size from \p src to \p dst
+/// call void @__dev-hero_memcpy_host2dev(i8* dst, i8* src, i32 size)
+Value *createHEROMemcpy(IRBuilder<> &builder, Value *dst, Value *src, size_t size)
+{
+  auto *M = builder.GetInsertBlock()->getModule();
+  auto &C = M->getContext();
+  auto *HEROMemcpyType = FunctionType::get(Type::getVoidTy(C), {PointerType::getInt8PtrTy(C), PointerType::getInt8PtrTy(C, 1), IntegerType::getInt32Ty(C)},
+                                           false);
+  auto HEROMemcpyCallee = M->getOrInsertFunction("__dev-hero_memcpy_host2dev", HEROMemcpyType);
+
+  auto *int8PtrTy = builder.getInt8PtrTy();
+  auto *int8PtrTyAddr1 = builder.getInt8PtrTy(1);
+  if (src->getType() != int8PtrTyAddr1) {
+    src = builder.CreatePointerCast(src, int8PtrTyAddr1);
+  }
+  if (dst->getType() != int8PtrTy) {
+    dst = builder.CreatePointerCast(dst, int8PtrTy);
+  }
+  auto call = builder.CreateCall(HEROMemcpyCallee, {dst, src, builder.getInt32(size)});
+  return call;
+}
+
+// This function moves lut from main memory to L1 cache. It only support hero
+Value *generateDMALUTHandler(Value *GValue, Function *fun, IRBuilder<> &builder)
+{
+  if (!Hero) {
+    llvm_unreachable("Not Hero Not Work");
+  }
+  if (!llvm::isa<GlobalVariable>(GValue)) {
+    llvm_unreachable("Called on a non global value");
+  }
+  auto *globalValue = llvm::cast<GlobalVariable>(GValue);
+  LLVMContext &C = fun->getContext();
+  // Storage for already loaded LUT
+  static std::vector<std::tuple<std::pair<llvm::GlobalVariable *, llvm::Function *>, llvm::GlobalVariable *>> storedDMALUT;
+  Value *pointerGlobalAlloca = nullptr;
+  // Search if already in STORED if so skip creation of the stub
+  {
+    auto findKey = std::make_pair(
+        globalValue, fun);
+    auto iter = std::find_if(storedDMALUT.begin(), storedDMALUT.end(),
+                             [findKey](auto &elem) {
+                               auto [storeKey, alloca] = elem;
+                               if (storeKey == findKey) {
+                                 return true;
+                               } else
+                                 return false;
+                             });
+    if (iter != storedDMALUT.end()) {
+      pointerGlobalAlloca = std::get<1>(*iter);
+    }
+  }
+  // Create the stub for DMALUT
+  auto *DMALUTType = StructType::get(IntegerType::getInt8PtrTy(C), IntegerType::getInt1Ty(C));
+  if (!pointerGlobalAlloca) {
+    static int counter = 0;
+    pointerGlobalAlloca = TaffoMath::createGlobal(fun->getParent(),
+                                                  std::string("LUTHANDLER") + std::to_string(counter++),
+                                                  DMALUTType,
+                                                  ConstantStruct::get(DMALUTType, {
+                                                                                      ConstantPointerNull::get(IntegerType::getInt8PtrTy(C)),
+                                                                                      builder.getInt1(false),
+                                                                                  }),
+                                                  MaybeAlign(4), true);
+    storedDMALUT.push_back(std::make_tuple(std::make_pair(globalValue, fun), cast<GlobalVariable>(pointerGlobalAlloca)));
+  }
+
+  auto ifBody = BasicBlock::Create(C, "if.body", fun);
+  auto ifEnd = BasicBlock::Create(C, "if.end", fun);
+  // split the basic block to return in the original path after the if
+
+  assert(globalValue->getType()->isPointerTy() && "globalValue is not a pointer type");
+  auto flagGEP = builder.CreateInBoundsGEP(pointerGlobalAlloca, {builder.getInt32(0), builder.getInt32(1)});
+  llvm::MDBuilder MDB(C);
+  builder.CreateCondBr(
+      builder.CreateICmpEQ(
+          builder.CreateLoad(flagGEP),
+          builder.getInt1(false)),
+      ifBody,
+      ifEnd, MDB.createBranchWeights(10, 1000));
+
+  // IFBody
+  builder.SetInsertPoint(ifBody);
+  size_t size = 0;
+  // expect a pointer to an arraytype
+  size = globalValue->getType()->getPointerElementType()->getArrayNumElements() * globalValue->getType()->getPointerElementType()->getArrayElementType()->getPrimitiveSizeInBits() / 8;
+  assert(size != 0 && "At this point size need to be a well known costant");
+  auto heroMalloc = createHEROMallocCall(builder, size);
+  createHEROMemcpy(builder, heroMalloc, globalValue, size);
+  builder.CreateStore(builder.getInt1(true), builder.CreateInBoundsGEP(pointerGlobalAlloca, {builder.getInt32(0), builder.getInt32(1)}));
+  builder.CreateStore(heroMalloc, builder.CreateInBoundsGEP(pointerGlobalAlloca, {builder.getInt32(0), builder.getInt32(0)}));
+  builder.CreateBr(ifEnd);
+  builder.SetInsertPoint(ifEnd);
+  // IfEnd
+  auto pointerGEP = builder.CreateInBoundsGEP(pointerGlobalAlloca, {builder.getInt32(0), builder.getInt32(0)});
+  auto pointerLoaded = builder.CreatePointerCast(builder.CreateLoad(pointerGEP), globalValue->getType());
+  return pointerLoaded;
+}
+
 
 Value *generateSinLUT(flttofix::FloatToFixed *ref, Function *new_f, flttofix::FixedPointType &fxparg,
                       llvm::IRBuilder<> &builder)
@@ -376,7 +509,6 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
 
   // code gen
   auto int_8_zero = ConstantInt::get(Type::getInt8Ty(cntx), 0);
-  auto int_8_one = ConstantInt::get(Type::getInt8Ty(cntx), 1);
   auto int_8_minus_one = ConstantInt::get(Type::getInt8Ty(cntx), -1);
   builder.CreateStore(int_8_zero, changeSign);
   builder.CreateStore(int_8_zero, changedFunction);
@@ -803,7 +935,7 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
 
 
   Value *sin_g = generateSinLUT(float_to_fixed, new_f, internal_fxpt, builder);
-  // Value *cos_g = generateCosLUT(this, oldf, internal_fxpt, builder);
+
   auto zero_arg = zero.first;
   Value *tmp_angle = builder.CreateLoad(arg_value);
 
@@ -852,6 +984,11 @@ bool createSinCos(flttofix::FloatToFixed *float_to_fixed,
 
   auto y_value = builder.CreateAlloca(new_arg_type);
   auto x_value = builder.CreateAlloca(new_arg_type);
+
+  if (Hero && DMALUT) {
+
+    sin_g = generateDMALUTHandler(sin_g, builder.GetInsertBlock()->getParent(), builder);
+  }
 
   builder.CreateStore(builder.CreateLoad(builder.CreateGEP(sin_g, {zero_arg, generic})),
                       y_value);

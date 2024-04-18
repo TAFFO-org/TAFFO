@@ -63,6 +63,10 @@ static llvm::cl::opt<bool, true> Hero_opt("hero",
                                           llvm::cl::desc("Enables TAFFO to work with hero"), cl::location(Hero), llvm::cl::init(false));
 
 
+bool DMALUT;
+static llvm::cl::opt<bool, true> DMALUT_opt("heroDMALUT",
+                                            llvm::cl::desc("Enables TAFFO to switch to hero DMA LUT FIXMAGE"), cl::location(DMALUT), llvm::cl::init(false));
+
 bool TaffoInitializer::runOnModule(Module &m)
 {
   DEBUG_WITH_TYPE(DEBUG_ANNOTATION, printAnnotatedObj(m));
