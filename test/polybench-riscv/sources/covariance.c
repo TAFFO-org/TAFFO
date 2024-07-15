@@ -29,13 +29,22 @@ DATA_TYPE POLYBENCH_2D(cov_float,M,M,m,m);
 static
 void init_array (int m, int n,
 		 DATA_TYPE *float_n,
-		 DATA_TYPE POLYBENCH_2D(data,N,M,n,m))
+		 DATA_TYPE POLYBENCH_2D(data,N,M,n,m),
+		 DATA_TYPE POLYBENCH_2D(cov,M,M,m,m),
+		 DATA_TYPE POLYBENCH_1D(mean,M,m)
+               )
 {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(N) "))")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
+  int k __attribute__((annotate("scalar(range(0, " PB_XSTR(M) "))")));
 
   *float_n = (DATA_TYPE)n;
-
+  for (j = 0; j < M; j++) {
+    mean[j] = 0.0f;
+    for (k = 0; k < M; k++){
+      cov[j][k] = 0.0f;
+    }
+  }
   for (i = 0; i < N; i++)
     for (j = 0; j < M; j++)
       data[i][j] = ((DATA_TYPE) i*j) / M;
@@ -103,31 +112,57 @@ void kernel_covariance(int m, int n,
 }
 
 
-int BENCH_MAIN(int argc, char** argv)
+int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int m = M;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(2, 3000))"))) float_n;
-  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("target('data') scalar(range(-2097152, 2097151) final)"))),N,M,n,m);
-  POLYBENCH_2D_ARRAY_DECL(cov,DATA_TYPE __attribute((annotate("target('cov') scalar(range(-2097152, 2097151) final)"))),M,M,m,m);
+  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(" PB_XSTR(VAR_n_MIN) "," PB_XSTR(VAR_n_MAX) "))"))) float_n;
+  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("target('data') scalar(range(" PB_XSTR(VAR_data_MIN) "," PB_XSTR(VAR_data_MAX) ") final)"))),N,M,n,m);
+  POLYBENCH_2D_ARRAY_DECL(cov,DATA_TYPE __attribute((annotate("target('cov') scalar(range(" PB_XSTR(VAR_cov_MIN) "," PB_XSTR(VAR_cov_MAX) ") final)"))),M,M,m,m);
   POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("target('mean') scalar()"))),M,m);
 
 
   /* Initialize array(s). */
-  init_array(m, n, &float_n, POLYBENCH_ARRAY(data));
+  init_array(m, n, &float_n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(cov), POLYBENCH_ARRAY(mean));
 
+#if SCALING_FACTOR!=1
+  scale_2d(N, M, POLYBENCH_ARRAY(data), SCALING_FACTOR);
+  scale_2d(M, M, POLYBENCH_ARRAY(cov), SCALING_FACTOR);
+  scale_1d(M, POLYBENCH_ARRAY(mean), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("n", float_n);
+  stats_2d("data", N, M, POLYBENCH_ARRAY(data));
+  stats_2d("cov", M, M, POLYBENCH_ARRAY(cov));
+  stats_1d("mean", M, POLYBENCH_ARRAY(mean));
+#endif
+
+#ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
+#endif
 
+  timer_start();
   /* Run kernel. */
   kernel_covariance(m, n, float_n,
                     POLYBENCH_ARRAY(data),
                     POLYBENCH_ARRAY(cov),
                     POLYBENCH_ARRAY(mean));
+  timer_stop();
 
+#ifdef COLLECT_STATS
+  stats_scalar("n", float_n);
+  stats_2d("data", N, M, POLYBENCH_ARRAY(data));
+  stats_2d("cov", M, M, POLYBENCH_ARRAY(cov));
+  stats_1d("mean", M, POLYBENCH_ARRAY(mean));
+#endif
+
+#ifndef _LAMP
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
@@ -140,6 +175,14 @@ int BENCH_MAIN(int argc, char** argv)
   POLYBENCH_FREE_ARRAY(data);
   POLYBENCH_FREE_ARRAY(cov);
   POLYBENCH_FREE_ARRAY(mean);
+#else
+  for (int i = 0; i < m; i++)
+    for (int j = 0; j < m; j++)
+      cov_float[i][j] = cov[i][j];
+#ifdef _PRINT_OUTPUT
+  polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(cov_float)));
+#endif
+#endif
 
   return 0;
 }

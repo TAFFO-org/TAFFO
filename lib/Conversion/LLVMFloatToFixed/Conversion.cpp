@@ -242,9 +242,12 @@ bool FloatToFixed::associateFixFormat(mdutils::InputInfo *II, FixedPointType &io
 
   FixedPointTypeGenError fpgerr;
   // Using default parameters of DTA
-  mdutils::FPType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 32, 0);
-  assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
-  assert(fpgerr == FixedPointTypeGenError::NoError && "Cannot assign a fixed point type 2!");
+  mdutils::FPType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 1, 32, 0);
+  assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type! InvalidRange");
+  assert(fpgerr != FixedPointTypeGenError::UnboundedRange && "Cannot assign a fixed point type! UnboundedRange");
+  assert(fpgerr != FixedPointTypeGenError::NotEnoughFracBits && "Cannot assign a fixed point type! NotEnoughFracBits");
+  assert(fpgerr != FixedPointTypeGenError::NotEnoughIntAndFracBits && "Cannot assign a fixed point type! NotEnoughIntAndFracBits");
+  assert(fpgerr == FixedPointTypeGenError::NoError && "Cannot assign a fixed point type! Something is wrong");
 
   iofixpt = FixedPointType(res.isSigned(), res.getPointPos(), res.getWidth());
 

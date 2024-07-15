@@ -96,11 +96,14 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
   // Check dimension
   if (fracBitsAmt < fracThreshold) {
     LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Fractional part is too small!\n");
+    llvm::dbgs() << "frac bits " << fracBitsAmt << " int bits " << intBit << " bits amt " << bitsAmt
+                 << " fracThreshold " << fracThreshold << "\n";
     fracBitsAmt = 0;
     if (intBit > bitsAmt) {
       LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Overflow may occur!\n");
-      if (outerr)
+      if (outerr) {
         *outerr = FixedPointTypeGenError::NotEnoughIntAndFracBits;
+      }
     } else {
       if (outerr)
         *outerr = FixedPointTypeGenError::NotEnoughFracBits;

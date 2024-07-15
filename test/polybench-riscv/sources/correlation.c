@@ -30,13 +30,25 @@ static
 void init_array (int m,
 		 int n,
 		 DATA_TYPE *float_n,
-		 DATA_TYPE POLYBENCH_2D(data,N,M,n,m))
+		 DATA_TYPE POLYBENCH_2D(data,N,M,n,m),
+		 DATA_TYPE POLYBENCH_2D(corr,M,M,n,m),
+		 DATA_TYPE POLYBENCH_1D(mean,M,m),
+		 DATA_TYPE POLYBENCH_1D(stddev,M,m)
+               )
 {
   int __attribute((annotate("scalar(range(0, 260) final disabled)"))) i;
   int __attribute((annotate("scalar(range(0, 240) final disabled)"))) j;
-
+  int __attribute((annotate("scalar(range(0, 240) final disabled)"))) k;
+//, POLYBENCH_ARRAY(corr), POLYBENCH_ARRAY(mean), POLYBENCH_ARRAY(stddev)
   *float_n = (DATA_TYPE)N;
 
+  for (j = 0; j < M; j++) {
+    mean[j] = 0.0f;
+    stddev[j] = 0.0f;
+    for (k = 0; k < M; k++){
+      corr[j][k] = 0.0f;
+    }
+  }
   for (i = 0; i < N; i++)
     for (j = 0; j < M; j++)
       data[i][j] = ((DATA_TYPE)(i*j)/M + i)/N;
@@ -131,24 +143,44 @@ void kernel_correlation(int m, int n,
 }
 
 
-int BENCH_MAIN(int argc, char** argv)
+int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int m = M;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute((annotate("scalar(range(1, 3000))"))) float_n;
-  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(-512, 512) final)"))),N,M,n,m);
+  DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_n_MIN) "," PB_XSTR(VAR_n_MAX) "))"))) float_n;
+  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_data_MIN) "," PB_XSTR(VAR_data_MAX) ") final)"))),N,M,n,m);
   POLYBENCH_2D_ARRAY_DECL(corr,DATA_TYPE __attribute((annotate("target('corr') scalar()"))),M,M,m,m);
   POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("scalar()"))),M,m);
-  POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(1,4096) final)"))),M,m);
+  POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_stddev_MIN) "," PB_XSTR(VAR_stddev_MAX) ") final)"))),M,m);
 
   /* Initialize array(s). */
-  init_array(m, n, &float_n, POLYBENCH_ARRAY(data));
+  init_array(m, n, &float_n, POLYBENCH_ARRAY(data), POLYBENCH_ARRAY(corr), POLYBENCH_ARRAY(mean), POLYBENCH_ARRAY(stddev));
 
+#if SCALING_FACTOR!=1
+  scale_2d(N, M, POLYBENCH_ARRAY(data), SCALING_FACTOR);
+  scale_2d(M, M, POLYBENCH_ARRAY(corr), SCALING_FACTOR);
+  scale_1d(M, POLYBENCH_ARRAY(mean), SCALING_FACTOR);
+  scale_1d(M, POLYBENCH_ARRAY(stddev), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("n", float_n);
+  stats_2d("data", N, M, POLYBENCH_ARRAY(data));
+  stats_2d("corr", M, M, POLYBENCH_ARRAY(corr));
+  stats_1d("mean", M, POLYBENCH_ARRAY(mean));
+  stats_1d("stddev", M, POLYBENCH_ARRAY(stddev));
+#endif
+
+#ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
+#endif
+
+  timer_start();
 
   /* Run kernel. */
   kernel_correlation(m, n, float_n,
@@ -156,7 +188,17 @@ int BENCH_MAIN(int argc, char** argv)
                      POLYBENCH_ARRAY(corr),
                      POLYBENCH_ARRAY(mean),
                      POLYBENCH_ARRAY(stddev));
+  timer_stop();
 
+#ifdef COLLECT_STATS
+  stats_scalar("n", float_n);
+  stats_2d("data", N, M, POLYBENCH_ARRAY(data));
+  stats_2d("corr", M, M, POLYBENCH_ARRAY(corr));
+  stats_1d("mean", M, POLYBENCH_ARRAY(mean));
+  stats_1d("stddev", M, POLYBENCH_ARRAY(stddev));
+#endif
+
+#ifndef _LAMP
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
@@ -170,6 +212,14 @@ int BENCH_MAIN(int argc, char** argv)
   POLYBENCH_FREE_ARRAY(corr);
   POLYBENCH_FREE_ARRAY(mean);
   POLYBENCH_FREE_ARRAY(stddev);
+#else
+  for (int i = 0; i < m; i++)
+    for (int j = 0; j < m; j++)
+      corr_float[i][j] = corr[i][j];
+#ifdef _PRINT_OUTPUT
+  polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(corr_float)));
+#endif
+#endif
 
   return 0;
 }

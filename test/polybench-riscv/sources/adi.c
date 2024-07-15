@@ -27,7 +27,10 @@ DATA_TYPE POLYBENCH_2D(u_float,N,N,n,n);
 /* Array initialization. */
 static
 void init_array (int n,
-		 DATA_TYPE POLYBENCH_2D(u,N,N,n,n))
+		 DATA_TYPE POLYBENCH_2D(u,N,N,n,n),
+               DATA_TYPE POLYBENCH_2D(v,N,N,n,n),
+               DATA_TYPE POLYBENCH_2D(p,N,N,n,n),
+               DATA_TYPE POLYBENCH_2D(q,N,N,n,n))
 {
   int i __attribute__((annotate("scalar(range(-4000, 4000))")));
   int j __attribute__((annotate("scalar(range(-4000, 4000))")));
@@ -36,6 +39,9 @@ void init_array (int n,
     for (j = 0; j < n; j++)
       {
 	u[i][j] =  (DATA_TYPE)(i + n-j) / n;
+	v[i][j] =  0.0;
+	p[i][j] =  0.0;
+	q[i][j] =  0.0;
       }
 }
 
@@ -136,27 +142,54 @@ void kernel_adi(int tsteps, int n,
 }
 
 
-int BENCH_MAIN(int argc, char** argv)
+int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE __attribute__((annotate("target('u') scalar(range(-60,60) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE __attribute__((annotate("scalar(range(-2,2) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar(range(-1,1) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar(range(-500,500) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE __attribute__((annotate("target('u') scalar(range(" PB_XSTR(VAR_u_MIN) "," PB_XSTR(VAR_u_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_v_MIN) "," PB_XSTR(VAR_v_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_p_MIN) "," PB_XSTR(VAR_p_MAX) ") final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_q_MIN) "," PB_XSTR(VAR_q_MAX) ") final)"))), N, N, n, n);
 
   /* Initialize array(s). */
-  init_array(n, POLYBENCH_ARRAY(u));
+  init_array(n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
 
+#if SCALING_FACTOR!=1
+  scale_2d(N, N, POLYBENCH_ARRAY(u), SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(v), SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(p), SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(q), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_2d("u", N, N, POLYBENCH_ARRAY(u));
+  stats_2d("v", N, N, POLYBENCH_ARRAY(v));
+  stats_2d("p", N, N, POLYBENCH_ARRAY(p));
+  stats_2d("q", N, N, POLYBENCH_ARRAY(q));
+#endif
+
+#ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
+#endif
 
+  timer_start();
   /* Run kernel. */
   kernel_adi(tsteps, n, POLYBENCH_ARRAY(u), POLYBENCH_ARRAY(v), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(q));
+  timer_stop();
 
+#ifdef COLLECT_STATS
+  stats_2d("u", N, N, POLYBENCH_ARRAY(u));
+  stats_2d("v", N, N, POLYBENCH_ARRAY(v));
+  stats_2d("p", N, N, POLYBENCH_ARRAY(p));
+  stats_2d("q", N, N, POLYBENCH_ARRAY(q));
+#endif
+
+#ifndef _LAMP
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
@@ -170,6 +203,14 @@ int BENCH_MAIN(int argc, char** argv)
   POLYBENCH_FREE_ARRAY(v);
   POLYBENCH_FREE_ARRAY(p);
   POLYBENCH_FREE_ARRAY(q);
+#else
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+      u_float[i][j] = u[i][j];
+#ifdef _PRINT_OUTPUT
+  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(u_float)));
+#endif
+#endif
 
   return 0;
 }

@@ -32,8 +32,10 @@ enobweight := 100
 timeweight := 1000
 castweight := 100
 
-modes := float fixed mixed
-benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
+#modes := float fixed mixed
+modes := float fixed
+#benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
+benchmarks := adi correlation covariance heat-3d jacobi-1d jacobi-2d seidel-2d
 #benchmarks := 2mm 3mm atax bicg doitgen mvt gemm gemver gesummv symm syr2k syrk trmm cholesky durbin gramschmidt lu ludcmp trisolv
 #benchmarks := 2mm 3mm atax bicg gemm gemver gesummv symm syr2k syrk trmm lu ludcmp
 #benchmarks := 2mm
@@ -44,25 +46,25 @@ scaling_factors := 1 2 4 8 16 32 64 128 256 512 1024
 double_jobs := $(foreach bench, $(benchmarks), \
 				$(foreach input_size, $(input_sizes), \
 					$(foreach scaling, $(scaling_factors), \
-						double-job-$(bench)-$(input_size)-$(scaling) )))
+						double-job-$(bench)--$(input_size)--$(scaling) )))
 
 stats_jobs := $(foreach bench, $(benchmarks), \
 				$(foreach input_size, $(input_sizes), \
 					$(foreach scaling, $(scaling_factors), \
-						stats-job-$(bench)-$(input_size)-$(scaling) )))
+						stats-job-$(bench)--$(input_size)--$(scaling) )))
 
 jobs := $(foreach bench, $(benchmarks), \
 			$(foreach mode, $(modes), \
 				$(foreach mantissa, $(mantissa_sizes), \
 					$(foreach input_size, $(input_sizes), \
 						$(foreach scaling, $(scaling_factors), \
-							job-$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa) )))))
+							job-$(bench)--$(input_size)--$(scaling)--$(mode)--$(mantissa) )))))
 
-bench = $(word 1, $(subst -, ,$*))
-input_size = $(word 2, $(subst -, ,$*))
-scaling = $(word 3, $(subst -, ,$*))
-mode = $(word 4, $(subst -, ,$*))
-mantissa = $(word 5, $(subst -, ,$*))
+bench = $(word 1, $(subst --, ,$*))
+input_size = $(word 2, $(subst --, ,$*))
+scaling = $(word 3, $(subst --, ,$*))
+mode = $(word 4, $(subst --, ,$*))
+mantissa = $(word 5, $(subst --, ,$*))
 bench_src = $(SRC_DIR)/$(bench).c
 job_dir = $(BUILD_DIR)/bin/$(mode)/$(bench)/$(mantissa)
 job_file_base = $(job_dir)/$(bench)-$(input_size)-$(scaling)-$(mode)-$(mantissa)

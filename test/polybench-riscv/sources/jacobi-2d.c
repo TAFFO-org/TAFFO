@@ -90,26 +90,49 @@ void kernel_jacobi_2d(int tsteps,
 }
 
 
-int BENCH_MAIN(int argc, char** argv)
+int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar()"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) "))"))), N, N, n, n);
 
 
   /* Initialize array(s). */
   init_array(n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
 
+#if SCALING_FACTOR!=1
+  scale_2d(N, N, POLYBENCH_ARRAY(A), SCALING_FACTOR);
+  scale_2d(N, N, POLYBENCH_ARRAY(B), SCALING_FACTOR);
+#endif
+
+#ifdef COLLECT_STATS
+  stats_header();
+  stats_scalar("tsteps", tsteps);
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_2d("B", N, N, POLYBENCH_ARRAY(B));
+#endif
+
+#ifndef _LAMP
   /* Start timer. */
   polybench_start_instruments;
+#endif
 
+  timer_start();
   /* Run kernel. */
   kernel_jacobi_2d(tsteps, n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));
+  timer_stop();
 
+#ifdef COLLECT_STATS
+  stats_scalar("tsteps", tsteps);
+  stats_2d("A", N, N, POLYBENCH_ARRAY(A));
+  stats_2d("B", N, N, POLYBENCH_ARRAY(B));
+#endif
+
+#ifndef _LAMP
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
@@ -121,6 +144,14 @@ int BENCH_MAIN(int argc, char** argv)
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(A);
   POLYBENCH_FREE_ARRAY(B);
+#else
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+        A_float[i][j] = A[i][j];
+#ifdef _PRINT_OUTPUT
+  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A_float)));
+#endif
+#endif
 
   return 0;
 }

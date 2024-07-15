@@ -575,6 +575,7 @@ else
         -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
        --passes="no-op-module,taffodta,globaldce" \
        $compat_flags_opt ${dta_flags} ${dta_inst_set} \
+       -S \
       "${temporary_dir}/${output_basename}.dynamic.taffotmp.ll" \
       -o "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" || exit $?
 
@@ -582,6 +583,7 @@ else
         -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
        --passes='no-op-module,taffoconv,globaldce,dce' \
        $compat_flags_opt ${conversion_flags} \
+       -S \
       "${temporary_dir}/${output_basename}.dynamic_taffodta.taffotmp.ll" \
       -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" || exit $?
   fi
