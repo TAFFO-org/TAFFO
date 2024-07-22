@@ -29,7 +29,10 @@ DATA_TYPE POLYBENCH_2D(imgOut_float,W,H,w,h);
 static
 void init_array (int w, int h, DATA_TYPE* alpha,
 		 DATA_TYPE POLYBENCH_2D(imgIn,W,H,w,h),
-		 DATA_TYPE POLYBENCH_2D(imgOut,W,H,w,h))
+		 DATA_TYPE POLYBENCH_2D(imgOut,W,H,w,h),
+		 DATA_TYPE POLYBENCH_2D(y1,W,H,w,h),
+		 DATA_TYPE POLYBENCH_2D(y2,W,H,w,h)
+               )
 {
   int i __attribute__((annotate("scalar(range(-" PB_XSTR(W) ", " PB_XSTR(W) "))")));
   int j __attribute__((annotate("scalar(range(-" PB_XSTR(H) ", " PB_XSTR(H) "))")));
@@ -37,9 +40,14 @@ void init_array (int w, int h, DATA_TYPE* alpha,
   *alpha=0.25; //parameter of the filter
 
   //input should be between 0 and 1 (grayscale image pixel)
-  for (i = 0; i < w; i++)
-     for (j = 0; j < h; j++)
-	imgIn[i][j] = (DATA_TYPE) ((313*i+991*j)%65536) / 65535.0f;
+  for (i = 0; i < w; i++) {
+    for (j = 0; j < h; j++) {
+      imgIn[i][j] = (DATA_TYPE)((313 * i + 991 * j) % 65536) / 65535.0f;
+      imgOut[i][j] = 0.0f;
+      y1[i][j] = 0.0f;
+      y2[i][j] = 0.0f;
+    }
+  }
 }
 
 
@@ -162,7 +170,7 @@ void kernel_deriche(int w, int h, DATA_TYPE alpha,
 }
 
 
-int BENCH_MAIN(int argc, char** argv)
+int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int w = W;
@@ -170,21 +178,48 @@ int BENCH_MAIN(int argc, char** argv)
 
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
-  POLYBENCH_2D_ARRAY_DECL(imgIn, DATA_TYPE  __attribute__((annotate("scalar()"))), W, H, w, h);
-  POLYBENCH_2D_ARRAY_DECL(imgOut, DATA_TYPE __attribute__((annotate("target('imgOut') scalar()"))), W, H, w, h);
-  POLYBENCH_2D_ARRAY_DECL(y1, DATA_TYPE __attribute__((annotate("scalar()"))), W, H, w, h);
-  POLYBENCH_2D_ARRAY_DECL(y2, DATA_TYPE __attribute__((annotate("scalar()"))), W, H, w, h);
+  POLYBENCH_2D_ARRAY_DECL(imgIn, DATA_TYPE  __attribute__((annotate("scalar(range(" PB_XSTR(VAR_imgIn_MIN) "," PB_XSTR(VAR_imgIn_MAX) "))"))), W, H, w, h);
+  POLYBENCH_2D_ARRAY_DECL(imgOut, DATA_TYPE __attribute__((annotate("target('imgOut') scalar(range(" PB_XSTR(VAR_imgOut_MIN) "," PB_XSTR(VAR_imgOut_MAX) "))"))), W, H, w, h);
+  POLYBENCH_2D_ARRAY_DECL(y1, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_y1_MIN) "," PB_XSTR(VAR_y1_MAX) "))"))), W, H, w, h);
+  POLYBENCH_2D_ARRAY_DECL(y2, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_y2_MIN) "," PB_XSTR(VAR_y2_MAX) "))"))), W, H, w, h);
 
 
   /* Initialize array(s). */
-  init_array(w, h, &alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut));
+  init_array(w, h, &alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut), POLYBENCH_ARRAY(y1), POLYBENCH_ARRAY(y2));
 
-  /* Start timer. */
-  polybench_start_instruments;
+  #if SCALING_FACTOR!=1
+    scale_2d(W, H, POLYBENCH_ARRAY(imgIn), SCALING_FACTOR);
+    scale_2d(W, H, POLYBENCH_ARRAY(imgOut), SCALING_FACTOR);
+    scale_2d(W, H, POLYBENCH_ARRAY(y1), SCALING_FACTOR);
+    scale_2d(W, H, POLYBENCH_ARRAY(y2), SCALING_FACTOR);
+  #endif
 
+  #ifdef COLLECT_STATS
+    stats_header();
+    stats_2d("imgIn", W, H, POLYBENCH_ARRAY(imgIn));
+    stats_2d("imgOut", W, H, POLYBENCH_ARRAY(imgOut));
+    stats_2d("y1", W, H, POLYBENCH_ARRAY(y1));
+    stats_2d("y2", W, H, POLYBENCH_ARRAY(y2));
+  #endif
+
+  #ifndef _LAMP
+    /* Start timer. */
+    polybench_start_instruments;
+  #endif
+
+  timer_start();
   /* Run kernel. */
   kernel_deriche(w, h, alpha, POLYBENCH_ARRAY(imgIn), POLYBENCH_ARRAY(imgOut), POLYBENCH_ARRAY(y1), POLYBENCH_ARRAY(y2));
+  timer_stop();
 
+#ifdef COLLECT_STATS
+  stats_2d("imgIn", W, H, POLYBENCH_ARRAY(imgIn));
+  stats_2d("imgOut", W, H, POLYBENCH_ARRAY(imgOut));
+  stats_2d("y1", W, H, POLYBENCH_ARRAY(y1));
+  stats_2d("y2", W, H, POLYBENCH_ARRAY(y2));
+#endif
+
+#ifndef _LAMP
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
@@ -198,6 +233,14 @@ int BENCH_MAIN(int argc, char** argv)
   POLYBENCH_FREE_ARRAY(imgOut);
   POLYBENCH_FREE_ARRAY(y1);
   POLYBENCH_FREE_ARRAY(y2);
+#else
+  for (int i = 0; i < w; i++)
+    for (int j = 0; j < h; j++)
+      imgOut_float[i][j] = imgOut[i][j];
+#ifdef _PRINT_OUTPUT
+  polybench_prevent_dce(print_array(w, h, POLYBENCH_ARRAY(imgOut_float)));
+#endif
+#endif
 
   return 0;
 }

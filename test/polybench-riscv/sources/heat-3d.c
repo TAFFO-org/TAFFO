@@ -110,8 +110,8 @@ int main(int argc, char** argv)
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_3D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) "))"))), N, N, N, n, n, n);
-  POLYBENCH_3D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) "))"))), N, N, N, n, n, n);
+  POLYBENCH_3D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar(range(" PB_XSTR(VAR_A_MIN) "," PB_XSTR(VAR_A_MAX) ") final)"))), N, N, N, n, n, n);
+  POLYBENCH_3D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("scalar(range(" PB_XSTR(VAR_B_MIN) "," PB_XSTR(VAR_B_MAX) ") final)"))), N, N, N, n, n, n);
 
   /* Initialize array(s). */
   init_array(n, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B));

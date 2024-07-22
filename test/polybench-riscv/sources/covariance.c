@@ -119,10 +119,10 @@ int main(int argc, char** argv)
   int m = M;
 
   /* Variable declaration/allocation. */
-  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(" PB_XSTR(VAR_n_MIN) "," PB_XSTR(VAR_n_MAX) "))"))) float_n;
+  DATA_TYPE __attribute((annotate("target('float_n') scalar(range(" PB_XSTR(VAR_n_MIN) "," PB_XSTR(VAR_n_MAX) ") final)"))) float_n;
   POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("target('data') scalar(range(" PB_XSTR(VAR_data_MIN) "," PB_XSTR(VAR_data_MAX) ") final)"))),N,M,n,m);
   POLYBENCH_2D_ARRAY_DECL(cov,DATA_TYPE __attribute((annotate("target('cov') scalar(range(" PB_XSTR(VAR_cov_MIN) "," PB_XSTR(VAR_cov_MAX) ") final)"))),M,M,m,m);
-  POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("target('mean') scalar()"))),M,m);
+  POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("target('mean') scalar(range(" PB_XSTR(VAR_mean_MIN) "," PB_XSTR(VAR_mean_MAX) ") final)"))),M,m);
 
 
   /* Initialize array(s). */

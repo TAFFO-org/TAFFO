@@ -152,8 +152,8 @@ int main(int argc, char** argv)
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_n_MIN) "," PB_XSTR(VAR_n_MAX) "))"))) float_n;
   POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_data_MIN) "," PB_XSTR(VAR_data_MAX) ") final)"))),N,M,n,m);
-  POLYBENCH_2D_ARRAY_DECL(corr,DATA_TYPE __attribute((annotate("target('corr') scalar()"))),M,M,m,m);
-  POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("scalar()"))),M,m);
+  POLYBENCH_2D_ARRAY_DECL(corr,DATA_TYPE __attribute((annotate("target('corr') scalar(range(" PB_XSTR(VAR_corr_MIN) "," PB_XSTR(VAR_corr_MAX) ") final)"))),M,M,m,m);
+  POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_mean_MIN) "," PB_XSTR(VAR_mean_MAX) ") final)"))),M,m);
   POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(" PB_XSTR(VAR_stddev_MIN) "," PB_XSTR(VAR_stddev_MAX) ") final)"))),M,m);
 
   /* Initialize array(s). */

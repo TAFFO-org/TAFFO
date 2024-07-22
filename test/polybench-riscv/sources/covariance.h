@@ -12,8 +12,8 @@
 
 #define _LAMP
 #ifdef _LAMP
-#   define M 28
-#   define N 32
+#   define M 14
+#   define N 16
 #endif
 
 /* Default to LARGE_DATASET. */

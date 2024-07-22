@@ -12,8 +12,8 @@
 
 #define _LAMP
 #ifdef _LAMP
-#   define TSTEPS 20
-#   define N 20
+#   define TSTEPS 10
+#   define N 10
 #endif
 
 /* Default to LARGE_DATASET. */
