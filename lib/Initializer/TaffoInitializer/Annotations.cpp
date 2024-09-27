@@ -72,10 +72,11 @@ Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
  * TODO: describe what removeNoFloatTy does
  *
  * @param[in] m the module to search
+ * @param[in] DL DataLayout object of the module
  * @param[out] variables the map of annotated values and their metadata
  * @param[in] functionAnnotation the selector for the type of Value to parse
  */
-void TaffoInitializer::readGlobalAnnotations(Module &m,
+void TaffoInitializer::readGlobalAnnotations(Module &m, const DataLayout &DL,
                                              MultiValueMap<Value *, ValueInfo> &variables,
                                              bool functionAnnotation)
 {
@@ -94,7 +95,7 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
            */
           if (ConstantExpr *expr = dyn_cast<ConstantExpr>(anno->getOperand(0))) {
             if (expr->getOpcode() == Instruction::BitCast && (functionAnnotation ^ !isa<Function>(expr->getOperand(0)))) {
-              parseAnnotation(variables, cast<ConstantExpr>(anno->getOperand(1)), expr->getOperand(0));
+              parseAnnotation(DL, variables, cast<ConstantExpr>(anno->getOperand(1)), expr->getOperand(0));
             }
           }
         }
@@ -112,9 +113,10 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
  * If at least one variable is annotated as @c target, the whole function is set as starting point.
  *
  * @param[in] f the function to search
+ * @param[in] DL DataLayout object of the module
  * @param[out] variables the map of annotated variables and their metadata
  */
-void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Value *, ValueInfo> &variables)
+void TaffoInitializer::readLocalAnnotations(llvm::Function &f, const DataLayout &DL, MultiValueMap<Value *, ValueInfo> &variables)
 {
   bool found = false;
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
@@ -124,7 +126,7 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Val
 
       if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
         bool startingPoint = false;
-        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &startingPoint);
+        parseAnnotation(DL, variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &startingPoint);
         found |= startingPoint;
       }
     }
@@ -142,13 +144,14 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Val
  * the @c Attribute::OptimizeNone attributes are removed from all the functions
  *
  * @param m the module to search
+ * @param[in] DL DataLayout object of the module
  * @param res the map of annotated variables and their metadata
  */
-void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Value *, ValueInfo> &res)
+void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, const DataLayout &DL, MultiValueMap<Value *, ValueInfo> &res)
 {
   for (Function &f : m.functions()) {
     MultiValueMap<Value *, ValueInfo> t;
-    readLocalAnnotations(f, t);
+    readLocalAnnotations(f, DL, t);
     res.insert(res.end(), t.begin(), t.end());
 
        /* Otherwise dce pass ignores the function (removed also where it's not required).
@@ -175,6 +178,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
  *
  * In the case of functions, they are also added to the @c enabledFunction list.
  *
+ * @param[in] DL DataLayout object of the module
  * @param[out] variables the map of annotated values and their metadata
  * @param[in] annoPtrInst the instruction that contains the annotation pointer
  * @param[in] instr pointer to the annotated Value
@@ -182,7 +186,7 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
  *
  * @return @c true if the annotation is correctly parsed, @c false otherwise
  */
-bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variables,
+bool TaffoInitializer::parseAnnotation(const DataLayout &DL, MultiValueMap<Value *, ValueInfo> &variables,
                                        ConstantExpr *annoPtrInst, Value *instr,
                                        bool *startingPoint)
 {
@@ -209,15 +213,19 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
     // TODO: use llvm::Error and propagate it (as soon as it is possible...)
     // return false;
   }
-  Type *TyCheck = instr->getType();
+  if (auto SI = dyn_cast<mdutils::StructInfo>(parser.metadata.get()))
+    SI->reduce();
+
+  Type *ValueType = instr->getType();
   if (Instruction *I = dyn_cast<Instruction>(instr))
-    TyCheck = I->getOperand(0)->getType();
+    ValueType = I->getOperand(0)->getType();
   else if (Function *F = dyn_cast<Function>(instr))
-    TyCheck = F->getReturnType();
-  if (!typecheckMetadata(TyCheck, parser.metadata.get())) {
+    ValueType = F->getReturnType();
+
+  if (!typecheckMetadata(parser.metadata.get(), ValueType, DL)) {
     errs() << "TAFFO typechecker error:\n";
     errs() << "  In annotation: \"" << annstr << "\"\n";
-    errs() << "  Type does not look like LLVM type " << *TyCheck << "\n";
+    errs() << "  ValueType does not look like LLVM type " << *ValueType << "\n";
     report_fatal_error("Annotation typecheck failed!");
     // TODO: use llvm::Error and propagate it (as soon as it is possible...)
     // return false;
@@ -231,7 +239,6 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
   if (startingPoint)
     *startingPoint = parser.startingPoint;
   vi.target = parser.target;
-  vi.bufferID = parser.bufferID;
 
   if (auto *toconv = dyn_cast<Instruction>(instr)) {
     variables.push_back(toconv->getOperand(0), vi);
@@ -298,12 +305,13 @@ void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo> &res)
  * @brief Shows all the annotated objects (global and local variables, functions) in a module
  *
  * @param[in] m the module to show
+ * @param[in] DL DataLayout object of the module
  */
-void TaffoInitializer::printAnnotatedObj(Module &m)
+void TaffoInitializer::printAnnotatedObj(Module &m, const DataLayout &DL)
 {
   MultiValueMap<Value *, ValueInfo> res;
 
-  readGlobalAnnotations(m, res, true);
+  readGlobalAnnotations(m, DL, res, true);
   errs() << "Annotated Function: \n";
   if (!res.empty()) {
     for (auto it : res) {
@@ -313,7 +321,7 @@ void TaffoInitializer::printAnnotatedObj(Module &m)
   }
 
   res.clear();
-  readGlobalAnnotations(m, res);
+  readGlobalAnnotations(m, DL, res);
   errs() << "Global Set: \n";
   if (!res.empty()) {
     for (auto it : res) {
@@ -326,7 +334,7 @@ void TaffoInitializer::printAnnotatedObj(Module &m)
     Function &f = *fIt;
     errs().write_escaped(f.getName()) << " : ";
     res.clear();
-    readLocalAnnotations(f, res);
+    readLocalAnnotations(f, DL, res);
     if (!res.empty()) {
       errs() << "\nLocal Set: \n";
       for (auto it : res) {

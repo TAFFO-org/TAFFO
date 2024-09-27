@@ -278,9 +278,14 @@ struct FloatToFixed {
       } else {
         res = matchOp(val);
         if (res) {
-          if (typepol == TypeMatchPolicy::ForceHint)
+          if (typepol == TypeMatchPolicy::ForceHint) {
+            LLVM_DEBUG(
+                if (!(iofixpt == valueInfo(res)->fixpType))
+                    llvm::dbgs() << "Type mismatch! (" << iofixpt << " vs " << valueInfo(res)->fixpType << ")\n";
+                );
             assert(iofixpt == valueInfo(res)->fixpType &&
                    "type mismatch on reference Value");
+          }
           else
             iofixpt = valueInfo(res)->fixpType;
         }
@@ -331,7 +336,7 @@ struct FloatToFixed {
   {
     FixedPointType iofixpt = fixpt;
     return translateOrMatchAnyOperand(val, iofixpt, ip,
-                                      TypeMatchPolicy::ForceHint);
+                                      TypeMatchPolicy::RangeOverHintMaxFrac);
   };
 
   llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
@@ -624,10 +629,10 @@ struct FloatToFixed {
     using namespace llvm;
     using namespace mdutils;
     MetadataManager &mdmgr = MetadataManager::getMetadataManager();
-    InputInfo *ii = dyn_cast_or_null<InputInfo>(mdmgr.retrieveMDInfo(v));
+    InputInfo *ii = dyn_cast_or_null<InputInfo>(mdmgr.retrieveMDInfo(v).get());
     if (!ii)
       return;
-    InputInfo *newII = cast<InputInfo>(ii->clone());
+    InputInfo *newII = cast<InputInfo>(ii->clone(true));
     newII->IType.reset(new FPType(bitsAmt, fracBitsAmt, isSigned));
     mdmgr.setMDInfoMetadata(v, newII);
   }

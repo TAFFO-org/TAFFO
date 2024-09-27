@@ -724,7 +724,7 @@ bool Optimizer::valueHasInfo(Value *value)
 
 
 /*This is ugly as hell, but we use this data type to prevent creating other custom classes for nothing*/
-shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
+shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue, const DataLayout &DL)
 {
   auto res = getInfoOfValue(pValue);
   if (res == nullptr) {
@@ -739,10 +739,10 @@ shared_ptr<mdutils::MDInfo> Optimizer::getAssociatedMetadata(Value *pValue)
     res = res1->getOptInfo();
   }
 
-  return buildDataHierarchy(res);
+  return buildDataHierarchy(res, DL);
 }
 
-shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> info)
+shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> info, const DataLayout &DL)
 {
   if (!info) {
     LLVM_DEBUG(dbgs() << "OptimizerInfo null, returning null\n");
@@ -751,21 +751,22 @@ shared_ptr<mdutils::MDInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerIn
 
   if (info->getKind() == OptimizerInfo::K_Field) {
     auto i = modelvarToTType(dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info));
-    auto result = make_shared<InputInfo>();
+    auto result = make_shared<InputInfo>(false);
     result->IType = i;
     return result;
   } else if (info->getKind() == OptimizerInfo::K_Struct) {
     auto sti = dynamic_ptr_cast_or_null<OptimizerStructInfo>(info);
-    auto result = make_shared<StructInfo>(sti->size());
+    SmallVector<shared_ptr<MDInfo>, 4U> Fields;
     for (unsigned int i = 0; i < sti->size(); i++) {
-      result->setField(i, buildDataHierarchy(sti->getField(i)));
+      Fields.push_back(buildDataHierarchy(sti->getField(i), DL));
     }
+    auto result = make_shared<StructInfo>(sti->getType(), DL, Fields);
 
     return result;
   } else if (info->getKind() == OptimizerInfo::K_Pointer) {
     auto apr = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(info);
     LLVM_DEBUG(dbgs() << "Unwrapping pointer...\n");
-    return buildDataHierarchy(apr->getOptInfo());
+    return buildDataHierarchy(apr->getOptInfo(), DL);
   }
 
   LLVM_DEBUG(dbgs() << "Unknown OptimizerInfo: " << info->toString() << "\n");

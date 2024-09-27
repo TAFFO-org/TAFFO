@@ -226,7 +226,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
    * from VRA before giving up and using the suggested type */
   // Do this hack only if the final wanted type is a fixed point, otherwise we can go ahead
   if (iofixpt.isFixedPoint()) {
-    mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(val);
+    mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(val).get();
     if (mdutils::InputInfo *ii = dyn_cast_or_null<mdutils::InputInfo>(mdi)) {
       if (ii->IRange) {
         FixedPointTypeGenError err;

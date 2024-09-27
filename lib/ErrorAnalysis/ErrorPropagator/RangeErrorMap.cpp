@@ -92,12 +92,12 @@ bool RangeErrorMap::retrieveRangeError(Instruction &I)
 {
   retrieveConstRanges(I);
 
-  if (const StructInfo *SI = MDMgr->retrieveStructInfo(I)) {
+  if (const StructInfo *SI = MDMgr->retrieveStructInfo(I).get()) {
     SEMap.createStructTreeFromMetadata(&I, SI);
     return false;
   }
 
-  const InputInfo *II = MDMgr->retrieveInputInfo(I);
+  const InputInfo *II = MDMgr->retrieveInputInfo(I).get();
   if (II == nullptr || II->IRange == nullptr)
     return false;
 
@@ -112,16 +112,16 @@ bool RangeErrorMap::retrieveRangeError(Instruction &I)
 
 void RangeErrorMap::retrieveRangeErrors(Function &F)
 {
-  SmallVector<MDInfo *, 1U> REs;
+  SmallVector<std::shared_ptr<MDInfo>, 1U> REs;
   MDMgr->retrieveArgumentInputInfo(F, REs);
 
   auto REIt = REs.begin(), REEnd = REs.end();
   for (Function::arg_iterator Arg = F.arg_begin(), ArgE = F.arg_end();
        Arg != ArgE && REIt != REEnd; ++Arg, ++REIt) {
-    if (*REIt == nullptr)
+    if (!REIt->get())
       continue;
 
-    if (const InputInfo *II = dyn_cast<InputInfo>(*REIt)) {
+    if (const InputInfo *II = dyn_cast<InputInfo>(REIt->get())) {
       if (II->IRange == nullptr)
         continue;
 
@@ -143,7 +143,7 @@ void RangeErrorMap::retrieveRangeErrors(Function &F)
       }
     } else {
       assert(taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy() && "Must be a Struct Argument.");
-      const StructInfo *SI = cast<StructInfo>(*REIt);
+      const StructInfo *SI = cast<StructInfo>(REIt->get());
       SEMap.createStructTreeFromMetadata(Arg, SI);
     }
   }
@@ -183,7 +183,7 @@ void RangeErrorMap::applyArgumentErrors(Function &F,
 void RangeErrorMap::retrieveRangeError(GlobalObject &V)
 {
   if (V.getValueType()->isStructTy()) {
-    const StructInfo *SI = MDMgr->retrieveStructInfo(V);
+    const StructInfo *SI = MDMgr->retrieveStructInfo(V).get();
     if (SI == nullptr) {
       LLVM_DEBUG(dbgs() << "[taffo-err] No struct data for Global Variable " << V << ".\n");
       return;
@@ -194,7 +194,7 @@ void RangeErrorMap::retrieveRangeError(GlobalObject &V)
 
   LLVM_DEBUG(dbgs() << "[taffo-err] Retrieving data for Global Variable " << V << "... ");
 
-  const InputInfo *II = MDMgr->retrieveInputInfo(V);
+  const InputInfo *II = MDMgr->retrieveInputInfo(V).get();
   if (II == nullptr) {
     LLVM_DEBUG(dbgs() << "ignored (no data).\n");
     return;

@@ -7,7 +7,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Support/Debug.h"
 
+#include <llvm/IR/DerivedTypes.h>
 #include <memory>
 
 #define DEBUG_TYPE "taffo-vra"
@@ -22,10 +24,20 @@ public:
                      VRAGEPNodeK,
                      VRAStructNodeK,
                      VRAScalarNodeK };
+
+  llvm::Type *getType() const { return Type; }
+  unsigned int getSizeInBits() const { return SizeInBits; }
   VRANodeKind getKind() const { return Kind; }
 
 protected:
-  VRANode(VRANodeKind K) : Kind(K) {}
+  llvm::Type *Type;
+  unsigned int SizeInBits;
+
+  VRANode(VRANodeKind K, llvm::Type *Type, unsigned int SizeInBits)
+      : Type(Type), SizeInBits(SizeInBits), Kind(K)
+  {
+    assert(Type);
+  }
 
 private:
   const VRANodeKind Kind;
@@ -35,11 +47,11 @@ using NodePtrT = std::shared_ptr<VRANode>;
 class VRAPtrNode : public VRANode
 {
 public:
-  VRAPtrNode()
-      : VRANode(VRAPtrNodeK), Parent(nullptr) {}
+  VRAPtrNode(llvm::Type *Type, unsigned int SizeInBits)
+      : VRANode(VRAPtrNodeK, Type, SizeInBits), Parent(nullptr) {}
 
-  VRAPtrNode(NodePtrT P)
-      : VRANode(VRAPtrNodeK), Parent(P) {}
+  VRAPtrNode(llvm::Type *Type, unsigned int SizeInBits, NodePtrT Parent)
+      : VRANode(VRAPtrNodeK, Type, SizeInBits), Parent(Parent) {}
 
   NodePtrT getParent() const { return Parent; }
   void setParent(NodePtrT P) { Parent = P; }
@@ -52,15 +64,15 @@ public:
 protected:
   NodePtrT Parent;
 
-  VRAPtrNode(VRANodeKind K, NodePtrT P)
-      : VRANode(K), Parent(P) {}
+  VRAPtrNode(VRANodeKind K, llvm::Type *Type, unsigned int SizeInBits, NodePtrT P)
+      : VRANode(K, Type, SizeInBits), Parent(P) {}
 };
 
 class VRAGEPNode : public VRAPtrNode
 {
 public:
-  VRAGEPNode(NodePtrT Parent, llvm::ArrayRef<unsigned> Offset)
-      : VRAPtrNode(VRAGEPNodeK, Parent), ParentOffset(Offset.begin(), Offset.end()) {}
+  VRAGEPNode(llvm::Type *Type, unsigned int SizeInBits, NodePtrT Parent, llvm::ArrayRef<unsigned> Offset)
+      : VRAPtrNode(VRAGEPNodeK, Type, SizeInBits, Parent), ParentOffset(Offset.begin(), Offset.end()) {}
 
   const llvm::ArrayRef<unsigned> getOffset() const { return ParentOffset; }
 
@@ -82,18 +94,28 @@ public:
   }
 
 protected:
-  VRARangeNode(VRANodeKind K) : VRANode(K) {}
+  VRARangeNode(VRANodeKind K, llvm::Type *Type, unsigned int SizeInBits)
+      : VRANode(K, Type, SizeInBits) {}
 };
 using RangeNodePtrT = std::shared_ptr<VRARangeNode>;
 
 class VRAStructNode : public VRARangeNode
 {
 public:
-  VRAStructNode()
-      : VRARangeNode(VRAStructNodeK), Fields() {}
+  VRAStructNode(llvm::Type *Type, unsigned int SizeInBits)
+      : VRARangeNode(VRAStructNodeK, Type, SizeInBits), Fields()
+  {
+    auto ST = getStructType();
+    Fields.reserve(ST->getNumElements());
+    for (unsigned int i = 0; i < ST->getNumElements(); i++)
+      Fields.push_back(nullptr);
+  }
 
-  VRAStructNode(llvm::ArrayRef<NodePtrT> Fields)
-      : VRARangeNode(VRAStructNodeK), Fields(Fields.begin(), Fields.end()) {}
+  VRAStructNode(llvm::Type *Type, unsigned int SizeInBits, llvm::ArrayRef<NodePtrT> Fields)
+      : VRARangeNode(VRAStructNodeK, Type, SizeInBits), Fields(Fields.begin(), Fields.end())
+  {
+    getStructType(); //Just to trigger the type assertion
+  }
 
   const llvm::ArrayRef<NodePtrT> fields() const { return Fields; }
   unsigned getNumFields() const { return Fields.size(); }
@@ -106,13 +128,15 @@ public:
   {
     if (Idx >= Fields.size())
       Fields.resize(Idx + 1U, nullptr);
-    Fields[Idx] = Node;
+    Fields[Idx] = std::move(Node);
   }
 
   static bool classof(const VRANode *N)
   {
     return N->getKind() == VRAStructNodeK;
   }
+
+  llvm::StructType *getStructType() const;
 
 protected:
   llvm::SmallVector<NodePtrT, 4U> Fields;
@@ -121,8 +145,8 @@ protected:
 class VRAScalarNode : public VRARangeNode
 {
 public:
-  VRAScalarNode(const range_ptr_t Range)
-      : VRARangeNode(VRAScalarNodeK), Range(Range) {}
+  VRAScalarNode(llvm::Type *Type, unsigned int SizeInBits, const range_ptr_t Range)
+      : VRARangeNode(VRAScalarNodeK, Type, SizeInBits), Range(Range) {}
 
   range_ptr_t getRange() const { return Range; }
   void setRange(range_ptr_t R) { Range = R; }

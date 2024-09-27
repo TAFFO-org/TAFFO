@@ -880,8 +880,8 @@ bool PromoteMem2Reg::QueuePhiNode(BasicBlock *BB, unsigned AllocaNo,
 
   // TAFFO-SPECIFIC: Transfer metadata from the alloca to the phi node.
   auto& MM = mdutils::MetadataManager::getMetadataManager();
-  mdutils::InputInfo *II = MM.retrieveInputInfo(*A);
-  if (II)
+  auto II = MM.retrieveInputInfo(*A);
+  if (II.get())
     MM.setInputInfoMetadata(*PN, *II);
   int IIWeight = MM.retrieveInputInfoInitWeightMetadata(A);
   if (IIWeight >= 0)

@@ -16,15 +16,33 @@
 #ifndef TAFFO_INPUT_INFO_H
 #define TAFFO_INPUT_INFO_H
 
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include <llvm/IR/DataLayout.h>
+#include <map>
 #include <memory>
+#include <regex>
+#include <set>
 #include <sstream>
+
+#define DEBUG_TYPE "taffo-inputinfo"
+
+namespace mdutils
+{
+class MDInfo;
+}
+
+namespace taffo
+{
+class AnnotationParser;
+bool typecheckMetadata(mdutils::MDInfo *II, llvm::Type *T, const llvm::DataLayout &DL);
+}
 
 namespace mdutils
 {
@@ -263,23 +281,40 @@ llvm::MDNode *InitialErrorToMetadata(double Error);
 
 bool IsInitialErrorMetadata(llvm::Metadata *MD);
 
-class MDInfo
-{
+class MDInfo {
+  friend bool taffo::typecheckMetadata(mdutils::MDInfo *II, llvm::Type *T, const llvm::DataLayout &DL);
+
 public:
   enum MDInfoKind {
     K_Struct,
     K_Field
   };
 
-  MDInfo(MDInfoKind K) : Kind(K) {}
+  MDInfo(MDInfoKind K, llvm::Type *Type, const llvm::DataLayout &DL)
+      : Kind(K), Type(Type), SizeInBits(0)
+  {
+    assert(Type);
+    setType(Type, DL);
+  }
+
+  MDInfo(MDInfoKind K, llvm::Type *Type, unsigned int SizeInBits)
+      : Kind(K), Type(Type), SizeInBits(SizeInBits)
+  {
+    if (SizeInBits != UINT_MAX)
+      assert(Type);
+  }
 
   virtual llvm::MDNode *toMetadata(llvm::LLVMContext &C) const = 0;
 
-  virtual MDInfo *clone() const = 0;
+  virtual MDInfo *clone(bool copyBufferID) const = 0;
 
   virtual ~MDInfo() = default;
 
   MDInfoKind getKind() const { return Kind; }
+
+  llvm::Type *getType() const { return Type; }
+
+  unsigned int getSizeInBits() const { return SizeInBits; }
 
   virtual std::string toString() const
   {
@@ -290,36 +325,71 @@ public:
 
 private:
   const MDInfoKind Kind;
+
+protected:
+  llvm::Type *Type;
+  unsigned int SizeInBits;
+
+  virtual void setType(llvm::Type *T, const llvm::DataLayout &DL) {
+    Type = T;
+    SizeInBits = 0;
+    if (!T->isSized()) {
+      LLVM_DEBUG(llvm::dbgs() << "Cannot infer type size as the type is not sized (" << *T << ")\n");
+      return;
+    }
+    SizeInBits = DL.getTypeSizeInBits(T);
+  }
 };
 
 /// Structure containing pointers to Type, Range, and initial Error
 /// of an LLVM Value.
-struct InputInfo : public MDInfo {
+struct InputInfo : MDInfo {
+private:
+  friend class taffo::AnnotationParser;
+  std::string BufferID;
+
+public:
   std::shared_ptr<TType> IType;
   std::shared_ptr<Range> IRange;
   std::shared_ptr<double> IError;
   bool IEnableConversion;
   bool IFinal;
 
-  InputInfo()
-      : MDInfo(K_Field), IType(nullptr), IRange(nullptr), IError(nullptr), IEnableConversion(false),
-        IFinal(false) {}
+  InputInfo(bool EnC, const std::string &BufferID = "")
+      : MDInfo(K_Field, nullptr, -1), BufferID(BufferID),
+        IType(nullptr), IRange(nullptr), IError(nullptr), IEnableConversion(EnC), IFinal(false) {}
 
-  InputInfo(std::shared_ptr<TType> T, std::shared_ptr<Range> R, std::shared_ptr<double> Error)
-      : MDInfo(K_Field), IType(T), IRange(R), IError(Error), IEnableConversion(false), IFinal(false) {}
+  InputInfo(llvm::Type *Type, const llvm::DataLayout &DL, bool EnC, const std::string &BufferID = "")
+      : MDInfo(K_Field, Type, DL), BufferID(BufferID),
+        IType(nullptr), IRange(nullptr), IError(nullptr), IEnableConversion(EnC), IFinal(false) {}
 
-  InputInfo(std::shared_ptr<TType> T, std::shared_ptr<Range> R, std::shared_ptr<double> Error, bool EnC,
-            bool IsFinal = false)
-      : MDInfo(K_Field), IType(T), IRange(R), IError(Error), IEnableConversion(EnC), IFinal(IsFinal) {}
+  InputInfo(llvm::Type *Type, unsigned int SizeInBits, bool EnC, const std::string &BufferID = "")
+      : MDInfo(K_Field, Type, SizeInBits), BufferID(BufferID),
+        IType(nullptr), IRange(nullptr), IError(nullptr), IEnableConversion(EnC), IFinal(false) {}
 
-  InputInfo(InputInfo& II) = default;
+  InputInfo(llvm::Type *Type, const llvm::DataLayout &DL,
+            std::shared_ptr<TType> T, std::shared_ptr<Range> R, std::shared_ptr<double> Error,
+            bool EnC, bool IsFinal, const std::string &BufferID = "")
+      : MDInfo(K_Field, Type, DL), BufferID(BufferID),
+        IType(T), IRange(R), IError(Error), IEnableConversion(EnC), IFinal(IsFinal) {}
 
-  virtual MDInfo *clone() const override
+  InputInfo(llvm::Type *Type, unsigned int SizeInBits,
+            std::shared_ptr<TType> T, std::shared_ptr<Range> R, std::shared_ptr<double> Error,
+            bool EnC, bool IsFinal, const std::string &BufferID = "")
+      : MDInfo(K_Field, Type, SizeInBits), BufferID(BufferID),
+        IType(T), IRange(R), IError(Error), IEnableConversion(EnC), IFinal(IsFinal) {}
+
+  InputInfo(InputInfo &II) = default;
+
+  std::string getBufferID() const { return BufferID; }
+
+  virtual MDInfo *clone(bool copyBufferID) const override
   {
     std::shared_ptr<TType> NewIType(IType.get() ? IType->clone() : nullptr);
     std::shared_ptr<Range> NewIRange(IRange.get() ? new Range(*IRange) : nullptr);
     std::shared_ptr<double> NewIError(IError.get() ? new double(*IError) : nullptr);
-    return new InputInfo(NewIType, NewIRange, NewIError, IEnableConversion, IFinal);
+    auto NewBufferID = (copyBufferID) ? getBufferID() : "";
+    return new InputInfo(Type, SizeInBits, NewIType, NewIRange, NewIError, IEnableConversion, IFinal, NewBufferID);
   }
 
   llvm::MDNode *toMetadata(llvm::LLVMContext &C) const override;
@@ -353,6 +423,11 @@ struct InputInfo : public MDInfo {
         first = false;
       sstm << "range(" << IRange->Min << ", " << IRange->Max << ")";
     }
+    if (BufferID != "") {
+      if (!first)
+        sstm << " ";
+      sstm << "bufferid('" << BufferID << "')";
+    }
     if (IError.get()) {
       if (!first)
         sstm << " ";
@@ -384,14 +459,104 @@ struct InputInfo : public MDInfo {
 
 class StructInfo : public MDInfo
 {
+public:
+  /**
+   * Struct to represent the bits occupied by a field inside a StructType
+   * as a range from start (inclusive) to end (exclusive)
+   */
+  struct FieldBits {
+    unsigned int start, end;
+
+    FieldBits(unsigned int start, unsigned int end) : start(start), end(end) {}
+
+    FieldBits(const std::string &s) {
+      if (s == "no_field_bits") {
+        start = 0;
+        end = 0;
+        return;
+      }
+
+      std::regex pattern(R"(field_bits\((\d+),\s*(\d+)\))");
+      std::smatch matches;
+
+      if (std::regex_match(s, matches, pattern)) {
+        start = std::stoul(matches[1].str());
+        end = std::stoul(matches[2].str());
+      }
+    }
+
+    bool isUndefined() const {
+      return start == 0 && end == 0;
+    }
+
+    inline FieldBits& operator+=(unsigned int rhs) {
+      start += rhs;
+      end += rhs;
+      return *this;
+    }
+
+    inline bool operator==(FieldBits &rhs) {
+      return start == rhs.start && end == rhs.end;
+    }
+
+    inline bool operator!=(FieldBits &rhs) {
+      return start != rhs.start || end != rhs.end;
+    }
+
+    std::string toString() const {
+      if (isUndefined()) return "no_field_bits";
+      return (std::stringstream() << "field_bits(" << start << ", " << end << ")").str() ;
+    }
+
+    friend llvm::raw_ostream& operator<<(llvm::raw_ostream &os, const FieldBits &fieldBits) {
+      return os << fieldBits.toString();
+    }
+  };
+
 private:
+  friend class taffo::AnnotationParser;
+
   typedef llvm::SmallVector<std::shared_ptr<MDInfo>, 4U> FieldsType;
+  typedef llvm::SmallVector<FieldBits, 4U> FieldsLayoutType;
+
+  unsigned int StructSizeInBits;
   FieldsType Fields;
+  FieldsLayoutType FieldsLayout;
+  std::set<std::string> BufferIDs;
+
+  StructInfo(llvm::Type *Type, const llvm::DataLayout &DL)
+      : MDInfo(K_Struct, Type, DL), StructSizeInBits(0), Fields(), FieldsLayout(), BufferIDs()
+  {
+    auto ST = getStructType();
+    Fields.reserve(ST->getNumElements());
+    for (unsigned int i = 0; i < ST->getNumElements(); i++)
+      Fields.push_back(nullptr);
+    setType(Type, DL);
+  }
+
+  StructInfo(llvm::ArrayRef<std::shared_ptr<MDInfo>> Fields, const std::set<std::string> &BufferIDs)
+      : MDInfo(K_Struct, nullptr, -1), StructSizeInBits(0), Fields(Fields.begin(), Fields.end()),
+        FieldsLayout(Fields.size(), FieldBits(0, 0)), BufferIDs(BufferIDs) {}
+
+  void setType(llvm::Type *T, const llvm::DataLayout &DL) override;
+
+  void setFieldsLayout(llvm::StructType *ST, const llvm::DataLayout &DL);
+
+  void flatten(FieldsType &flatFields, FieldsLayoutType &flatFieldsLayout, unsigned int firstBit = 0) const;
+
+  void setFlatField(unsigned int flatIndex, const std::shared_ptr<MDInfo> &field,
+                    unsigned int *flatCurr = nullptr, bool *found = nullptr);
+
+  void setBufferIDs(std::set<std::string> IDs) { BufferIDs = IDs; }
+
+  void setBufferIDs(const std::string& IDs);
+
+  static void copyCommon(const std::shared_ptr<MDInfo> &src, std::shared_ptr<MDInfo> &dst, bool copyBufferID, bool clone);
 
   bool _getEnableConversion(llvm::SmallPtrSetImpl<const StructInfo *> &visited) const
   {
     visited.insert(this);
-    for (auto field : Fields) {
+    for (const auto &field : Fields) {
       if (!field.get())
         continue;
       if (StructInfo *si = llvm::dyn_cast<StructInfo>(field.get())) {
@@ -412,11 +577,43 @@ public:
   typedef FieldsType::const_iterator const_iterator;
   typedef FieldsType::size_type size_type;
 
-  StructInfo(int size)
-      : MDInfo(K_Struct), Fields(size, nullptr) {}
+  StructInfo(llvm::Type *Type, const llvm::DataLayout &DL,
+             const llvm::ArrayRef<std::shared_ptr<MDInfo>> Fields)
+      : MDInfo(K_Struct, Type, DL), StructSizeInBits(0), Fields(Fields.begin(), Fields.end()),
+        FieldsLayout(Fields.size(), FieldBits(0, 0)), BufferIDs()
+  {
+    StructInfo::setType(Type, DL);
+  }
 
-  StructInfo(const llvm::ArrayRef<std::shared_ptr<MDInfo>> SInfos)
-      : MDInfo(K_Struct), Fields(SInfos.begin(), SInfos.end()) {}
+  StructInfo(llvm::Type *Type, unsigned int SizeInBits, unsigned int StructSizeInBits,
+             const llvm::ArrayRef<std::shared_ptr<MDInfo>> Fields,
+             const llvm::ArrayRef<FieldBits> FieldsLayout)
+      : MDInfo(K_Struct, Type, SizeInBits), StructSizeInBits(StructSizeInBits), Fields(Fields.begin(), Fields.end()),
+        FieldsLayout(FieldsLayout.begin(), FieldsLayout.end()), BufferIDs()
+  {
+    getStructType(); //Just to trigger the type assert
+  }
+
+  StructInfo(llvm::Type *Type, unsigned int SizeInBits, unsigned int StructSizeInBits,
+             const llvm::ArrayRef<std::shared_ptr<MDInfo>> Fields,
+             const llvm::ArrayRef<FieldBits> FieldsLayout,
+             const std::set<std::string> &BufferIDs)
+      : MDInfo(K_Struct, Type, SizeInBits), StructSizeInBits(StructSizeInBits), Fields(Fields.begin(), Fields.end()),
+        FieldsLayout(FieldsLayout.begin(), FieldsLayout.end()), BufferIDs(BufferIDs)
+  {
+    getStructType(); //Just to trigger the type assert
+  }
+
+  StructInfo(llvm::Type *Type, unsigned int SizeInBits, unsigned int StructSizeInBits,
+             const llvm::ArrayRef<std::shared_ptr<MDInfo>> Fields,
+             const llvm::ArrayRef<FieldBits> FieldsLayout,
+             const std::string &BufferIDs)
+      : MDInfo(K_Struct, Type, SizeInBits), StructSizeInBits(StructSizeInBits), Fields(Fields.begin(), Fields.end()),
+        FieldsLayout(FieldsLayout.begin(), FieldsLayout.end()), BufferIDs()
+  {
+    getStructType(); //Just to trigger the type assert
+    setBufferIDs(BufferIDs);
+  }
 
   iterator begin() { return Fields.begin(); }
 
@@ -428,9 +625,9 @@ public:
 
   size_type size() const { return Fields.size(); }
 
-  MDInfo *getField(size_type I) const { return Fields[I].get(); }
+  std::shared_ptr<MDInfo> getField(size_type I) const { return Fields[I]; }
 
-  void setField(size_type I, std::shared_ptr<MDInfo> F) { Fields[I] = F; }
+  void setField(size_type I, std::shared_ptr<MDInfo> F) { Fields[I] = std::move(F); }
 
   std::shared_ptr<MDInfo> getField(size_type I) { return Fields[I]; }
 
@@ -438,39 +635,14 @@ public:
    *  LLVM Type. All non-struct struct members are set to nullptr.
    *  @returns Either a StructInfo, or nullptr if the type does not
    *    contain any structure. */
-  static std::shared_ptr<StructInfo> constructFromLLVMType(llvm::Type *t,
-                                                           llvm::SmallDenseMap<llvm::Type *, std::shared_ptr<StructInfo>> *recursionMap = nullptr)
-  {
-    std::unique_ptr<llvm::SmallDenseMap<llvm::Type *, std::shared_ptr<StructInfo>>> _recursionMap;
-    if (!recursionMap) {
-      _recursionMap.reset(new llvm::SmallDenseMap<llvm::Type *, std::shared_ptr<StructInfo>>());
-      recursionMap = _recursionMap.get();
-    }
+  static std::shared_ptr<StructInfo> constructFromLLVMType(llvm::Type *t, const llvm::DataLayout &DL,
+                                                           llvm::SmallDenseMap<llvm::Type *, std::shared_ptr<StructInfo>> *recursionMap = nullptr);
 
-    auto rec = recursionMap->find(t);
-    if (rec != recursionMap->end()) {
-      return rec->getSecond();
-    }
+  static void cloneCommon(const std::shared_ptr<MDInfo> &src, std::shared_ptr<MDInfo> &dst, bool copyBufferID);
 
-    int c = t->getNumContainedTypes();
+  static void copyCommon(const std::shared_ptr<MDInfo> &src, std::shared_ptr<MDInfo> &dst);
 
-    if (c == 0 || t->isFunctionTy()) {
-      recursionMap->insert({t, nullptr});
-      return nullptr;
-    }
-
-    if (t->isStructTy()) {
-      FieldsType fields;
-      std::shared_ptr<StructInfo> res = std::make_shared<StructInfo>(StructInfo(c));
-      recursionMap->insert({t, res});
-      for (int i = 0; i < c; i++) {
-        res->getField(i) = StructInfo::constructFromLLVMType(t->getContainedType(i), recursionMap);
-      }
-      return res;
-    }
-
-    return StructInfo::constructFromLLVMType(t->getContainedType(0), recursionMap);
-  }
+  bool reduce();
 
   std::shared_ptr<MDInfo> resolveFromIndexList(llvm::Type *type, llvm::ArrayRef<unsigned> indices)
   {
@@ -489,36 +661,58 @@ public:
     return resolvedInfo;
   }
 
-  virtual MDInfo *clone() const override
-  {
+  virtual MDInfo *clone(bool copyBufferID) const override {
     FieldsType newFields;
-    for (std::shared_ptr<MDInfo> oldF : Fields) {
-      if (oldF.get())
-        newFields.push_back(std::shared_ptr<MDInfo>(oldF->clone()));
+    FieldsLayoutType newFieldsLayout;
+    newFields.reserve(Fields.size());
+    newFieldsLayout.reserve(FieldsLayout.size());
+    for (const std::shared_ptr<MDInfo> &oldField : Fields) {
+      if (oldField.get())
+        newFields.push_back(std::shared_ptr<MDInfo>(oldField->clone(copyBufferID)));
       else
-        newFields.push_back(std::shared_ptr<MDInfo>(nullptr));
+        newFields.push_back(nullptr);
     }
-    return new StructInfo(newFields);
+    for (FieldBits oldFB : FieldsLayout) {
+      newFieldsLayout.push_back(oldFB);
+    }
+    if (copyBufferID)
+      return new StructInfo(getType(), SizeInBits, StructSizeInBits, newFields, newFieldsLayout, BufferIDs);
+    else
+      return new StructInfo(getType(), SizeInBits, StructSizeInBits, newFields, newFieldsLayout);
   }
 
-  virtual std::string toString() const override
-  {
+  virtual std::string toString() const override {
     std::stringstream sstm;
     sstm << "struct(";
     bool first = true;
-    for (std::shared_ptr<MDInfo> i : Fields) {
+    for (unsigned int i = 0; i < Fields.size(); i++) {
       if (!first)
         sstm << ", ";
-      if (i.get()) {
-        sstm << i->toString();
-      } else {
-        sstm << "void()";
-      }
       first = false;
+
+      std::shared_ptr<MDInfo> Field = Fields[i];
+      if (Field.get())
+        sstm << Field->toString();
+      else
+        sstm << "void()";
+
+      //sstm << " " << FieldsLayout[i].toString();
     }
     sstm << ")";
     return sstm.str();
-  };
+  }
+
+  llvm::StructType *getStructType() const;
+
+  unsigned int getStructSizeInBits() const { return StructSizeInBits; }
+
+  std::set<std::string> getBufferIDs() const { return BufferIDs; }
+
+  std::string getBufferIDsString() const;
+
+  std::set<TType*> getBufferIDTypes(const std::string &BufferID) const;
+
+  void setBufferIDType(const std::string &BufferID, const std::shared_ptr<TType> &Type);
 
   bool getEnableConversion() const override
   {

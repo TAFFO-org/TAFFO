@@ -76,21 +76,21 @@ public:
   ///\section Input Info & Struct Info
 
   /// Retrieve the MDInfo associated to the given value.
-  MDInfo *retrieveMDInfo(const llvm::Value *v);
+  std::shared_ptr<MDInfo> retrieveMDInfo(const llvm::Value *v);
 
   /// Get the Input Info (Type, Range, Initial Error) attached to I.
-  InputInfo *retrieveInputInfo(const llvm::Instruction &I);
+  std::shared_ptr<InputInfo> retrieveInputInfo(const llvm::Instruction &I);
 
   /// Get the Input Info (Type, Range, Initial Error) attached to Global Variable V.
-  InputInfo *retrieveInputInfo(const llvm::GlobalObject &V);
+  std::shared_ptr<InputInfo> retrieveInputInfo(const llvm::GlobalObject &V);
 
   /// Get the StructInfo attached to an Instruction or GlobalVariable.
-  StructInfo *retrieveStructInfo(const llvm::Instruction &I);
-  StructInfo *retrieveStructInfo(const llvm::GlobalObject &V);
+  std::shared_ptr<StructInfo> retrieveStructInfo(const llvm::Instruction &I);
+  std::shared_ptr<StructInfo> retrieveStructInfo(const llvm::GlobalObject &V);
 
   /// Fill vector ResII with the InputInfo for F's parameters retrieved from F's metadata.
   void retrieveArgumentInputInfo(const llvm::Function &F,
-                                 llvm::SmallVectorImpl<MDInfo *> &ResII);
+                                 llvm::SmallVectorImpl<std::shared_ptr<MDInfo>> &ResII);
 
   /// Fill vector ResII with the InputInfo for Constant operands of I
   void retrieveConstInfo(const llvm::Instruction &I,
@@ -119,7 +119,7 @@ public:
   /// range and initial error of each formal parameter of F.
   /// Each InputInfo object refers to the function parameter with the same index.
   static void setArgumentInputInfoMetadata(llvm::Function &F,
-                                           const llvm::ArrayRef<MDInfo *> AInfo);
+                                           const llvm::ArrayRef<std::shared_ptr<MDInfo>> AInfo);
 
 
   static void setConstInfoMetadata(llvm::Instruction &I,
@@ -207,6 +207,7 @@ public:
   static llvm::Optional<llvm::StringRef> retrieveTargetMetadata(const llvm::Instruction &I);
   static llvm::Optional<llvm::StringRef> retrieveTargetMetadata(const llvm::GlobalObject &V);
 
+  static void removeTaffoMetadata(llvm::Module &M);
 
 protected:
   llvm::DenseMap<llvm::MDNode *, std::shared_ptr<TType>> TTypes;
@@ -221,8 +222,8 @@ protected:
   std::shared_ptr<InputInfo> retrieveInputInfo(llvm::MDNode *MDN);
   std::shared_ptr<StructInfo> retrieveStructInfo(llvm::MDNode *MDN);
 
-  std::unique_ptr<InputInfo> createInputInfoFromMetadata(llvm::MDNode *MDN);
-  std::unique_ptr<StructInfo> createStructInfoFromMetadata(llvm::MDNode *MDN);
+  std::shared_ptr<InputInfo> createInputInfoFromMetadata(llvm::MDNode *MDN);
+  std::shared_ptr<StructInfo> createStructInfoFromMetadata(llvm::MDNode *MDN);
 
   static llvm::Optional<unsigned> retrieveLUCFromHeaderMD(const llvm::Loop &L);
   static llvm::Optional<unsigned>

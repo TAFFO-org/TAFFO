@@ -53,15 +53,17 @@ PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
     createCudaKernelTrampolines(m);
   }
 
-  LLVM_DEBUG(printAnnotatedObj(m));
+  DataLayout DL(&m);
+
+  LLVM_DEBUG(printAnnotatedObj(m, DL));
 
   manageIndirectCalls(m);
 
   ConvQueueT local;
   ConvQueueT global;
-  readAllLocalAnnotations(m, local);
-  readGlobalAnnotations(m, global, true);
-  readGlobalAnnotations(m, global, false);
+  readAllLocalAnnotations(m, DL, local);
+  readGlobalAnnotations(m, DL, global, true);
+  readGlobalAnnotations(m, DL, global, false);
 
   Function *startingPoint = findStartingPointFunctionGlobal(m);
   if (startingPoint) {
@@ -75,14 +77,14 @@ PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &AM)
   AnnotationCount = rootsa.size();
 
   ConvQueueT vals;
-  buildConversionQueueForRootValues(rootsa, vals);
+  buildConversionQueueForRootValues(rootsa, vals, DL);
   for (auto V : vals) {
     setMetadataOfValue(V->first, V->second);
   }
   removeAnnotationCalls(vals);
 
   SmallPtrSet<Function *, 10> callTrace;
-  generateFunctionSpace(vals, global, callTrace);
+  generateFunctionSpace(DL, vals, global, callTrace);
 
   LLVM_DEBUG(printConversionQueue(vals));
   setFunctionArgsMetadata(m, vals);
@@ -117,9 +119,6 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo &vi)
 {
   std::shared_ptr<mdutils::MDInfo> md = vi.metadata;
 
-  if (vi.bufferID) {
-    mdutils::MetadataManager::setBufferIDMetadata(v, *(vi.bufferID));
-  }
   if (isa<Instruction>(v) || isa<GlobalObject>(v)) {
     mdutils::MetadataManager::setInputInfoInitWeightMetadata(v, vi.fixpTypeRootDistance);
   }
@@ -152,7 +151,7 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo &vi)
 
 void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT &Q)
 {
-  std::vector<mdutils::MDInfo *> iiPVec;
+  std::vector<std::shared_ptr<mdutils::MDInfo>> iiPVec;
   std::vector<int> wPVec;
   for (Function &f : m.functions()) {
     LLVM_DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
@@ -161,15 +160,12 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT &Q)
 
     for (Argument &a : f.args()) {
       LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
-      mdutils::MDInfo *ii = nullptr;
+      std::shared_ptr<mdutils::MDInfo> ii = nullptr;
       int weight = -1;
       if (Q.count(&a)) {
         LLVM_DEBUG(dbgs() << "Info found.\n");
         ValueInfo &vi = Q[&a];
-        if (vi.bufferID) {
-          mdutils::MetadataManager::setBufferIDMetadata(&a, *(vi.bufferID));
-        }
-        ii = vi.metadata.get();
+        ii = vi.metadata;
         weight = vi.fixpTypeRootDistance;
       }
       iiPVec.push_back(ii);
@@ -187,7 +183,8 @@ void TaffoInitializer::setFunctionArgsMetadata(Module &m, ConvQueueT &Q)
 
 void TaffoInitializer::buildConversionQueueForRootValues(
     const ConvQueueT &val,
-    ConvQueueT &queue)
+    ConvQueueT &queue,
+    const DataLayout &DL)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n"
                     << "Initial ");
@@ -256,7 +253,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(
           unsigned int udepth = UI->second.backtrackingDepthLeft;
           UI->second.backtrackingDepthLeft = std::max(vdepth, udepth);
         }
-        createInfoOfUser(v, next->second, u, UI->second);
+        createInfoOfUser(v, next->second, u, UI->second, DL);
       }
       ++next;
     }
@@ -311,9 +308,9 @@ void TaffoInitializer::buildConversionQueueForRootValues(
         }
         if (!alreadyIn) {
           LLVM_DEBUG(dbgs() << "  enqueued\n");
-          next = UI = queue.insert(next, u, std::move(VIU)).first;
+          next = UI = queue.insert(next, u, VIU).first;
           ++next;
-          createInfoOfUser(v, next->second, u, UI->second);
+          createInfoOfUser(v, next->second, u, UI->second, DL);
         } else {
           LLVM_DEBUG(dbgs() << " already in, not updating info\n");
         }
@@ -325,33 +322,67 @@ void TaffoInitializer::buildConversionQueueForRootValues(
 }
 
 
-void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Value *user, ValueInfo &uinfo)
+void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Value *user, ValueInfo &uinfo, const DataLayout &DL)
 {
   /* Copy metadata from the closest instruction to a root */
   LLVM_DEBUG(dbgs() << "root distances: " << uinfo.fixpTypeRootDistance << " > " << vinfo.fixpTypeRootDistance << " + 1\n");
   if (!(uinfo.fixpTypeRootDistance <= std::max(vinfo.fixpTypeRootDistance, vinfo.fixpTypeRootDistance + 1))) {
-    /* Do not copy metadata in case of type conversions from struct to
-     * non-struct and vice-versa.
-     * We could check the instruction type and copy the correct type
-     * contained in the struct type or create a struct type with the
-     * correct type in the correct place, but is'a huge mess */
     Type *usedt = fullyUnwrapPointerOrArrayType(used->getType());
     Type *usert = fullyUnwrapPointerOrArrayType(user->getType());
-    LLVM_DEBUG(dbgs() << "usedt = " << *usedt << ", vinfo metadata = " << (vinfo.metadata ? vinfo.metadata->toString() : "(null)") << "\n");
-    LLVM_DEBUG(dbgs() << "usert = " << *usert << ", uinfo metadata = " << (uinfo.metadata ? uinfo.metadata->toString() : "(null)") << "\n");
-    bool copyok = (usedt == usert);
-    copyok |= (!usedt->isStructTy() && !usert->isStructTy()) || isa<StoreInst>(user);
+    LLVM_DEBUG(dbgs() << *user->getType() << "\n");
+    LLVM_DEBUG(dbgs() << "usedt = " << *usedt << ", vinfo metadata = " << (vinfo.metadata ? vinfo.metadata->toString() : "(null)") << "\n"
+                      << *used << "\n");
+    LLVM_DEBUG(dbgs() << "usert = " << *usert << ", uinfo metadata = " << (uinfo.metadata ? uinfo.metadata->toString() : "(null)") << "\n"
+                      << *user << "\n");
+
+    bool copyOk = usedt == usert
+                  || (!usedt->isStructTy() && !usert->isStructTy())
+                  || isa<StoreInst>(user);
+    bool ignore = false;
     if (isa<GetElementPtrInst>(user) && used != dyn_cast<GetElementPtrInst>(user)->getPointerOperand())
-      copyok = false;
-    if (copyok) {
+      ignore = true;
+    bool copyBufferID = false;
+    if (isa<GetElementPtrInst>(user) || isa<BitCastInst>(user) || isa<LoadInst>(user) || isa<StoreInst>(user))
+      copyBufferID = true;
+
+    if (copyOk && !ignore) {
+      uinfo.metadata.reset(vinfo.metadata->clone(copyBufferID));
       LLVM_DEBUG(dbgs() << "createInfoOfUser copied MD from vinfo (" << *used << ") " << vinfo.metadata->toString() << "\n");
-      uinfo.metadata.reset(vinfo.metadata->clone());
-    } else {
-      LLVM_DEBUG(dbgs() << "createInfoOfUser created MD from uinfo because usedt != usert\n");
-      uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert);
-      if (uinfo.metadata.get() == nullptr) {
-        uinfo.metadata.reset(new mdutils::InputInfo(nullptr, nullptr, nullptr, true));
-      }
+    }
+    else if (isa<BitCastInst>(user) && !ignore) {
+      uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert, DL);
+      if (!uinfo.metadata.get())
+        uinfo.metadata.reset(new mdutils::InputInfo(usert, DL, true));
+
+      mdutils::StructInfo::cloneCommon(vinfo.metadata, uinfo.metadata, true);
+      if (auto uinfoStructMD = dyn_cast<mdutils::StructInfo>(uinfo.metadata.get()))
+        uinfoStructMD->reduce();
+      LLVM_DEBUG(dbgs() << "createInfoOfUser (bitcast) copied MD from vinfo\n");
+      LLVM_DEBUG(dbgs() << "resulting MD: " << uinfo.metadata->toString() << "\n");
+    }
+    else if (isa<GetElementPtrInst>(user) && !ignore) {
+      assert(usedt->isStructTy());
+      auto fieldIndex = cast<ConstantInt>(cast<GetElementPtrInst>(user)->getOperand(2))->getZExtValue();
+      auto usedFieldMD = cast<mdutils::StructInfo>(vinfo.metadata.get())->getField(fieldIndex);
+
+      uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert, DL);
+      if (!uinfo.metadata.get())
+        uinfo.metadata.reset(new mdutils::InputInfo(usert, DL, true));
+
+      if (usedFieldMD.get())
+        mdutils::StructInfo::cloneCommon(usedFieldMD, uinfo.metadata, copyBufferID);
+      if (auto uinfoStructMD = dyn_cast<mdutils::StructInfo>(uinfo.metadata.get()))
+        uinfoStructMD->reduce();
+      LLVM_DEBUG(dbgs() << "createInfoOfUser (getElementPtr) copied MD from vinfo\n");
+      LLVM_DEBUG(dbgs() << "resulting MD: " << uinfo.metadata->toString() << "\n");
+    }
+    else {
+      uinfo.metadata = mdutils::StructInfo::constructFromLLVMType(usert, DL);
+      if (!uinfo.metadata.get())
+        uinfo.metadata.reset(new mdutils::InputInfo(usert, DL, true));
+
+      LLVM_DEBUG(dbgs() << "createInfoOfUser created MD from uinfo because they couldn't be copied\n");
+      LLVM_DEBUG(dbgs() << uinfo.metadata->toString() << "\n");
     }
 
     uinfo.target = vinfo.target;
@@ -373,15 +404,6 @@ void TaffoInitializer::createInfoOfUser(Value *used, const ValueInfo &vinfo, Val
   if (std::shared_ptr<mdutils::MDInfo> gepi_mdi =
           extractGEPIMetadata(user, used, uinfo.metadata, vinfo.metadata)) {
     uinfo.metadata = gepi_mdi;
-    uinfo.bufferID = vinfo.bufferID;
-  }
-  // Copy BufferID across bitcasts
-  if (isa<BitCastInst>(user)) {
-    uinfo.bufferID = vinfo.bufferID;
-  }
-  // Copy BufferID across loads
-  if (isa<LoadInst>(user)) {
-    uinfo.bufferID = vinfo.bufferID;
   }
 }
 
@@ -430,12 +452,12 @@ TaffoInitializer::extractGEPIMetadata(const llvm::Value *user,
   else
     LLVM_DEBUG(dbgs() << "[extractGEPIMetadata] end, used_mdi=NULL\n");
   return (used_mdi)
-             ? std::shared_ptr<mdutils::MDInfo>(used_mdi.get()->clone())
+             ? std::shared_ptr<mdutils::MDInfo>(used_mdi.get()->clone(true))
              : nullptr;
 }
 
 
-void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
+void TaffoInitializer::generateFunctionSpace(const DataLayout &DL, ConvQueueT &vals,
                                              ConvQueueT &global, SmallPtrSet<Function *, 10> &callTrace)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
@@ -462,7 +484,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
 
     std::vector<llvm::Value *> newVals;
 
-    Function *newF = createFunctionAndQueue(call, vals, global, newVals);
+    Function *newF = createFunctionAndQueue(DL, call, vals, global, newVals);
     call->setCalledFunction(newF);
     enabledFunctions.insert(newF);
 
@@ -493,9 +515,9 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
     // TODO: REWRITE USING THE VALUE MAP RETURNED BY CloneFunctionInto
     for (BasicBlock &bb : *newF) {
       for (Instruction &i : bb) {
-        if (mdutils::MDInfo *mdi = mm.retrieveMDInfo(&i)) {
+        if (auto mdi = mm.retrieveMDInfo(&i)) {
           ValueInfo &vi = vals.insert(vals.end(), &i, ValueInfo()).first->second;
-          vi.metadata.reset(mdi->clone());
+          vi.metadata.reset(mdi->clone(true));
           int weight = mm.retrieveInputInfoInitWeightMetadata(&i);
           if (weight >= 0)
             vi.fixpTypeRootDistance = weight;
@@ -510,7 +532,7 @@ void TaffoInitializer::generateFunctionSpace(ConvQueueT &vals,
 }
 
 
-Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue)
+Function *TaffoInitializer::createFunctionAndQueue(const DataLayout &DL, CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue)
 {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
 
@@ -519,9 +541,11 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
    * convQueue: output conversion queue of this function */
 
   Function *oldF = call->getCalledFunction();
-  Function *newF = Function::Create(
-      oldF->getFunctionType(), oldF->getLinkage(),
-      oldF->getName(), oldF->getParent());
+  Function *newF = Function::Create(oldF->getFunctionType(),
+                                    oldF->getLinkage(),
+                                    oldF->getName(),
+                                    oldF->getParent());
+  newF->copyAttributesFrom(oldF);
 
   ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
   Function::arg_iterator newArgumentI = newF->arg_begin();
@@ -548,16 +572,21 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
       continue;
     }
 
-
-
     Value *callOperand = call->getOperand(i);
-    Value *allocaOfArgument = user_begin->getOperand(1);
 
+    Value *allocaOfArgument = nullptr;
+    if(user_begin->getNumOperands() > 1)
+      allocaOfArgument = user_begin->getOperand(1);
 
     for (; user_begin != newArgumentI->user_end(); ++user_begin) {
       if (llvm::StoreInst *store = llvm::dyn_cast<StoreInst>(*user_begin)) {
         allocaOfArgument = store->getOperand(1);
       }
+    }
+
+    if (!allocaOfArgument) {
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, no alloca instructions found\n");
+      continue;
     }
 
     if (!isa<AllocaInst>(allocaOfArgument))
@@ -572,7 +601,7 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
 
     ValueInfo &argumentVi = vals.insert(vals.end(), newArgumentI, ValueInfo()).first->second;
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
-    argumentVi.metadata.reset(callVi.metadata->clone());
+    argumentVi.metadata.reset(callVi.metadata->clone(true));
     argumentVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance + 1);
     if (!allocaOfArgument) {
       roots.push_back(newArgumentI, argumentVi);
@@ -582,13 +611,10 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
       ValueInfo &allocaVi = vals.insert(vals.end(), allocaOfArgument, ValueInfo()).first->second;
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root in VRA-less mode
-      allocaVi.metadata.reset(callVi.metadata->clone());
+      allocaVi.metadata.reset(callVi.metadata->clone(true));
       allocaVi.fixpTypeRootDistance = std::max(callVi.fixpTypeRootDistance, callVi.fixpTypeRootDistance + 2);
       roots.push_back(allocaOfArgument, allocaVi);
     }
-
-    // Propagate BufferID
-    argumentVi.bufferID = callVi.bufferID;
 
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed\n");
     LLVM_DEBUG(dbgs() << "    md = " << argumentVi.metadata->toString() << "\n");
@@ -599,9 +625,9 @@ Function *TaffoInitializer::createFunctionAndQueue(CallBase *call, ConvQueueT &v
   ConvQueueT tmpVals;
   roots.insert(roots.begin(), global.begin(), global.end());
   ConvQueueT localFix;
-  readLocalAnnotations(*newF, localFix);
+  readLocalAnnotations(*newF, DL, localFix);
   roots.insert(roots.begin(), localFix.begin(), localFix.end());
-  buildConversionQueueForRootValues(roots, tmpVals);
+  buildConversionQueueForRootValues(roots, tmpVals, DL);
   for (auto val : tmpVals) {
     if (Instruction *inst = dyn_cast<Instruction>(val.first)) {
       if (inst->getFunction() == newF) {

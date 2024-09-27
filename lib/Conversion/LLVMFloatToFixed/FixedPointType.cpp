@@ -262,6 +262,7 @@ Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const
   } else if (srct->isStructTy()) {
     SmallVector<Type *, 2> elems;
     bool allinvalid = true;
+    bool allnoconv = true;
     for (unsigned i = 0; i < srct->getStructNumElements(); i++) {
       const FixedPointType &fpelemt = structItem(i);
       Type *baseelemt = srct->getStructElementType(i);
@@ -272,9 +273,11 @@ Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const
       } else {
         newelemt = baseelemt;
       }
+      if (!fpelemt.isNoConv())
+        allnoconv = false;
       elems.push_back(newelemt);
     }
-    if (!allinvalid)
+    if (!allinvalid && !allnoconv)
       return StructType::get(srct->getContext(), elems, dyn_cast<StructType>(srct)->isPacked());
     return srct;
 

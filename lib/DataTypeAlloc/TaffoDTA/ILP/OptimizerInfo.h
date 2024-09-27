@@ -212,20 +212,19 @@ struct OptimizerScalarInfo : public OptimizerInfo {
 class OptimizerStructInfo : public OptimizerInfo
 {
 private:
+  llvm::Type *Type;
   typedef llvm::SmallVector<std::shared_ptr<OptimizerInfo>, 4U> FieldsType;
   FieldsType Fields;
-
 
 public:
   typedef FieldsType::iterator iterator;
   typedef FieldsType::const_iterator const_iterator;
   typedef FieldsType::size_type size_type;
 
-  OptimizerStructInfo(int size)
-      : OptimizerInfo(K_Struct), Fields(size, nullptr) {}
+  OptimizerStructInfo(llvm::Type *Type, int size)
+      : OptimizerInfo(K_Struct), Type(Type), Fields(size, nullptr) {}
 
-  OptimizerStructInfo(const llvm::ArrayRef<std::shared_ptr<OptimizerInfo>> SInfos)
-      : OptimizerInfo(K_Struct), Fields(SInfos.begin(), SInfos.end()) {}
+  llvm::Type *getType() const { return llvm::cast<llvm::StructType>(Type); }
 
   iterator begin() { return Fields.begin(); }
 

@@ -26,7 +26,30 @@ bool taffo::isFloatType(Type *srct)
 }
 
 
-bool taffo::typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II)
+bool taffo::areEquivalentType(Type *T1, Type *T2)
+{
+  while (T1->isPointerTy() && T2->isPointerTy()) {
+    T1 = T1->getPointerElementType();
+    T2 = T2->getPointerElementType();
+  }
+  if (!(T1->isStructTy() && T2->isStructTy()))
+    return T1 == T2;
+  auto structT1 = cast<StructType>(T1);
+  auto structT2 = cast<StructType>(T2);
+  if ((structT1->hasName() && structT2->hasName()) ||
+      (!structT1->hasName() && !structT2->hasName()))
+    return T1 == T2;
+  if (structT1->getNumElements() != structT2->getNumElements())
+    return false;
+  for (unsigned int i = 0; i < structT1->getNumElements(); i++) {
+    if (!areEquivalentType(structT1->getElementType(i), structT2->getElementType(i)))
+      return false;
+  }
+  return true;
+}
+
+
+bool taffo::typecheckMetadata(mdutils::MDInfo *II, llvm::Type *T, const DataLayout &DL)
 {
   assert(T);
   assert(II);
@@ -35,27 +58,31 @@ bool taffo::typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II)
 
   if (UT->isSingleValueType() && isa<mdutils::InputInfo>(II)) {
     LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check OK\n");
+    II->setType(UT, DL);
     return true;
   }
 
   if (UT->isStructTy() && isa<mdutils::StructInfo>(II)) {
     auto *ST = dyn_cast<StructType>(UT);
     auto *SI = dyn_cast<mdutils::StructInfo>(II);
+    LLVM_DEBUG(dbgs() << "Struct type: " << *ST << "\n");
     if (UT->getStructNumElements() != SI->size()) {
-      LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed: struct member count mismatch\n");
+      LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed: struct member count mismatch (expected "
+                        << UT->getStructNumElements() << ", got " << SI->size() << ")\n");
       return false;
     }
     for (unsigned i = 0; i < SI->size(); i++) {
       mdutils::MDInfo *IIField = SI->getField(i).get();
       auto *TyField = ST->elements()[i];
       if (IIField != nullptr) {
-        if (!typecheckMetadata(TyField, IIField)) {
+        if (!typecheckMetadata(IIField, TyField, DL)) {
           LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed for one of the struct fields\n");
           return false;
         }
       }
     }
     LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check OK\n");
+    II->setType(T, DL);
     return true;
   }
   

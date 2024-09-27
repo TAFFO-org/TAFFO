@@ -120,7 +120,7 @@ public:
 
   void handleCallFromRoot(Function *f);
 
-  std::shared_ptr<mdutils::MDInfo> getAssociatedMetadata(Value *pValue);
+  std::shared_ptr<mdutils::MDInfo> getAssociatedMetadata(Value *pValue, const llvm::DataLayout &DL);
 
   void printStatInfos();
 
@@ -161,7 +161,7 @@ public:
 
   shared_ptr<mdutils::TType> modelvarToTType(shared_ptr<OptimizerScalarInfo> sharedPtr);
 
-  shared_ptr<mdutils::MDInfo> buildDataHierarchy(shared_ptr<OptimizerInfo> info);
+  shared_ptr<mdutils::MDInfo> buildDataHierarchy(shared_ptr<OptimizerInfo> info, const llvm::DataLayout &DL);
 
   void handleUnknownFunction(Instruction *call_i, shared_ptr<ValueInfo> valueInfo);
 

@@ -16,8 +16,8 @@ namespace taffo
 class VRAGlobalStore : protected VRAStore, public AnalysisStore
 {
 public:
-  VRAGlobalStore()
-      : VRAStore(VRASK_VRAGlobalStore, std::make_shared<VRALogger>()),
+  VRAGlobalStore(const llvm::DataLayout &DL)
+      : VRAStore(VRASK_VRAGlobalStore, std::make_shared<VRALogger>(), DL),
         AnalysisStore(ASK_VRAGlobalStore) {}
 
   void convexMerge(const AnalysisStore &Other) override;
@@ -34,13 +34,13 @@ public:
 
   // Metadata Processing
   void harvestMetadata(llvm::Module &M);
-  NodePtrT harvestStructMD(const mdutils::MDInfo *MD, const llvm::Type *T);
+  NodePtrT harvestStructMD(const std::shared_ptr<mdutils::MDInfo> MD, const llvm::Type *T);
   void saveResults(llvm::Module &M);
   bool isValidRange(const mdutils::Range *rng) const;
   void refreshRange(const llvm::Instruction *i);
   std::shared_ptr<mdutils::MDInfo> toMDInfo(const RangeNodePtrT r);
   void updateMDInfo(std::shared_ptr<mdutils::MDInfo> mdi, const RangeNodePtrT r);
-  static void setConstRangeMetadata(mdutils::MetadataManager &MDManager,
+  static void setConstRangeMetadata(mdutils::MetadataManager &MDManager, const llvm::DataLayout &DL,
                                     llvm::Instruction &i);
 
   const range_ptr_t fetchRange(const llvm::Value *V) override;

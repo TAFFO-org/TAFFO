@@ -62,7 +62,7 @@ if [[ -z $LLVM_DIR ]]; then
 else
   llvmbin="$LLVM_DIR/bin/";
 fi
-if [[ -z "$CLANG" ]]; then CLANG=${llvmbin}clang; fi
+if [[ -z "$CLANG" ]]; then CLANG="/home/nico/CLionProjects/llvm/build/bin/clang"; fi # TODO: do this the proper way
 if [[ -z "$CLANGXX" ]]; then CLANGXX=${CLANG}++; fi
 if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
 if [[ -z "$LLC" ]]; then LLC=${llvmbin}llc; fi
@@ -79,6 +79,10 @@ if [[ $llvm_ver_maj -ge 15 ]]; then
   compat_flags_opt='-opaque-pointers=0'
 fi
 
+sycl=0
+linker_command=1;
+bufferid_in_file=
+bufferid_out_file=
 parse_state=0
 cuda_kern=0
 raw_opts="$@"
@@ -112,6 +116,16 @@ for opt in $raw_opts; do
   case $parse_state in
     0)
       case $opt in
+        -fsycl)
+          sycl=1;
+          opts="$opts $opt";
+          ;;
+        -bufferid-import)
+          parse_state=15;
+          ;;
+        -bufferid-export)
+          parse_state=16;
+          ;;
         -Xinit)
           parse_state=2;
           ;;
@@ -246,12 +260,15 @@ for opt in $raw_opts; do
           ;;
         *.cu)
           input_files+=( "$opt" );
+          linker_command=0;
           ;;
         *.c | *.ll)
           input_files+=( "$opt" );
+          linker_command=0;
           ;;
         *.cpp | *.cc)
           input_files+=( "$opt" );
+          linker_command=0;
           AUTO_CLANGXX=$CLANGXX
           ;;
         *)
@@ -327,6 +344,14 @@ for opt in $raw_opts; do
       time_profile_file="$opt";
       parse_state=0;
       ;;
+    15)
+      bufferid_in_file="$opt";
+      parse_state=0;
+      ;;
+    16)
+      bufferid_out_file="$opt";
+      parse_state=0;
+      ;;
   esac;
 done
 
@@ -341,7 +366,7 @@ if [[ $print_version -ne 0 ]]; then
   exit 0
 fi
 
-if [[ ( -z "$input_files" ) || ( $help -ne 0 ) ]]; then
+if [[ $help -ne 0 ]]; then
   cat << HELP_END
 TAFFO: Tuning Assistant for Floating point and Fixed point Optimization
 Usage: taffo [options] file...
@@ -442,171 +467,442 @@ output_time_string () {
 
 append_time_string "taffo_start"
 
-###
-###  Produce base .ll
-###
-if [[ ${#input_files[@]} -eq 1 ]]; then
-  # one input file
-  ${CLANG} \
-    $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
-    -c -emit-llvm \
-    ${input_files} \
-    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?       
+if [[ ${linker_command} -eq 1 ]]; then
+  ${CLANGXX} $optimization $opts -o $output_file #TODO do this the proper way for c and c++
 else
-  # > 1 input files
-  tmp=()
-  for input_file in "${input_files[@]}"; do
-    thisfn=$(basename "$input_file")
-    thisfn=${thisfn%.*}
-    thisfn="${temporary_dir}/${output_basename}.${thisfn}.0.taffotmp.ll"
-    tmp+=( $thisfn )
-    ${CLANG} \
-      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
-      -c -emit-llvm \
-      ${input_file} \
-      -S -o "${thisfn}" || exit $?
-  done
-  ${LLVM_LINK} \
-    ${tmp[@]} \
-    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
-fi
+  ###
+  ###  Produce base .ll
+  ###
+  if [[ ${#input_files[@]} -eq 1 ]]; then
+    # one input file
+    if [[ "${input_files##*.}" != "ll" ]]; then
+      # not an ll file
+      ${CLANG} \
+        $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
+        -c -emit-llvm \
+        ${input_files} \
+        -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
+    else
+      # already an ll file
+      cp "${input_files}" "${temporary_dir}/${output_basename}.1.taffotmp.ll"
+    fi
+  else
+    # > 1 input files
+    tmp=()
+    for input_file in "${input_files[@]}"; do
+      thisfn=$(basename "$input_file")
+      thisfn=${thisfn%.*}
+      thisfn="${temporary_dir}/${output_basename}.${thisfn}.0.taffotmp.ll"
+      tmp+=( $thisfn )
+      if [[ "${input_file##*.}" != "ll" ]]; then
+        # not an ll file
+        ${CLANG} \
+          $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
+          -c -emit-llvm \
+          ${input_file} \
+          -S -o "${thisfn}" || exit $?
+      else
+        # already an ll file
+        cp "${input_file}" "${thisfn}"
+      fi
+    done
+    ${LLVM_LINK} \
+      ${tmp[@]} \
+      -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
+  fi
 
-# precompute clang invocation for compiling float version
-build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}.1.taffotmp.ll"
+  targets=()
+  if [[ $sycl -eq 1 ]]; then
+    # find target triples
+    target_lines=$(sed -n "/__CLANG_OFFLOAD_BUNDLE____START__/p" "${temporary_dir}/${output_basename}.1.taffotmp.ll")
+    while IFS= read -r line ; do
+      target=${line#*"__CLANG_OFFLOAD_BUNDLE____START__ "}
+      output="${temporary_dir}/${output_basename}.${target}.1.taffotmp.ll"
+      targets+=( ".${target}" )
+      targets_string=${targets_string},${target}
+      outputs=${outputs},${output}
+    done <<< "$target_lines"
+    targets_string=${targets_string#,}
+    outputs=${outputs#,}
 
-# Note: in the following we load the plugin both with -load and --load-pass-plugin
-# because the latter does not load the .so until later in the game after command
-# line args are all parsed, and because -load does not register new pass manager
-# passes at all.
+    # unbundle targets ll files
+    clang-offload-bundler -targets="${targets_string}" -type=ll -outputs="${outputs}" -inputs="${temporary_dir}/${output_basename}.1.taffotmp.ll" -unbundle
 
-###
-###  TAFFO initialization
-###
-append_time_string "init_start"
-${OPT} \
-  -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
-  --passes='no-op-module,taffoinit' \
-  ${init_flags} \
-  -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
+    # put host target first in the list
+    for i in "${!targets[@]}"; do
+      if [[ "${targets[$i]}" == *"host"* ]]; then
+        host="${targets[$i]}"
+        unset 'targets[i]'
+        break
+      fi
+    done
+    targets=("$host" "${targets[@]}")
 
-###
-###  TAFFO Value Range Analysis
-###
-append_time_string "vra_start"
-if [[ $disable_vra -eq 0 ]]; then
-  ${OPT} \
-    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
-    --passes="no-op-module,${mem2reg}taffovra" \
-    $compat_flags_opt ${vra_flags} \
-    -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
-else
-  cp "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll";
-fi
+    targets_string=""
+    for target in "${targets[@]}"; do
+      targets_string=${targets_string},${target#.}
+    done
+    targets_string=${targets_string#,}
 
-feedback_stop=0
-if [[ $feedback -ne 0 ]]; then
-  # init the feedback estimator if needed
-  base_dta_flags="${dta_flags}"
-  dta_flags="${base_dta_flags} "$($TAFFO_FE --init --state "${temporary_dir}/${output_basename}.festate.taffotmp.bin")
-fi
-while [[ $feedback_stop -eq 0 ]]; do
-  ###
-  ###  TAFFO Data Type Allocation
-  ###
-  append_time_string "dta_start"
-  ${OPT} \
-    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
-    --passes="no-op-module,taffodta,globaldce" \
-    $compat_flags_opt ${dta_flags} ${dta_inst_set} \
-    -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
-    
-  ###
-  ###  TAFFO Conversion
-  ###
-  append_time_string "conversion_start"
-  ${OPT} \
-    -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
-    --passes='no-op-module,taffoconv,globaldce,dce' \
-    $compat_flags_opt ${conversion_flags} \
-    -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" "${temporary_dir}/${output_basename}.4.taffotmp.ll" || exit $?
-    
-  ###
-  ###  TAFFO Feedback Estimator
-  ###
-  if [[ ( $enable_errorprop -eq 1 ) || ( $feedback -ne 0 ) ]]; then
+  else
+    # single default target
+    targets+=( "" )
+  fi
+
+  # run taffo passes for each target
+  sycl_kernel_variables=()
+  sycl_accessor_variables=()
+  device_string_definitions=()
+  kernel_variables_classes=()
+  for target in "${targets[@]}"; do
+    bufferid_options=""
+
+    # target is host
+    if [[ "$target" == *"host"* ]]; then
+      bufferid_options=--bufferid-export=$bufferid_out_file
+
+      # find all host string definitions
+      string_definitions=()
+      mapfile -t temp < <(grep -E "@\.str(\.([0-9]+))? = " "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll")
+      for def in "${temp[@]}"; do
+        escaped_def="${def//"\\"/"\\\\"}"
+        string_definitions+=("$escaped_def")
+      done
+
+      # find sycl accessor annotations in host
+
+      # for each annotation line
+      while IFS= read -r line; do
+        is_kernel_var=0
+
+        # find all the string definitions used by this annotation
+        # and check if it is a kernel variable annotation
+        line_copy="$line"
+        while [[ "$line_copy" =~ @\.str(\.([0-9]+))? ]]; do
+          string_name="${BASH_REMATCH[0]}"
+
+          for def in "${string_definitions[@]}"; do
+            if [[ "$def" == *"${string_name} = "* ]]; then
+              if [[ "$def" == *"sycl_accessor("* ]] || [[ "$def" == *"sycl_variable("* ]]; then
+                is_kernel_var=1
+                if [[ "$def" == *"sycl_accessor("* ]]; then
+                  sycl_accessor_variables+=(1)
+                  kernel_variable=$(echo "$def" | sed -n "s/.*sycl_accessor('\([^']*\)').*/\1/p")
+                else
+                  sycl_accessor_variables+=(0)
+                  kernel_variable=$(echo "$def" | sed -n "s/.*sycl_variable('\([^']*\)').*/\1/p")
+                fi
+                # save the name of the kernel variable
+                sycl_kernel_variables+=("${kernel_variable}")
+                # save string definition for device
+                device_string_definitions+=("${def}")
+              fi
+            fi
+          done
+
+          line_copy=${line_copy/$string_name/}
+        done
+
+        # if it's a kernel variable annotation, save other relevant data for device code
+        if [[ $is_kernel_var -eq 1 && "$line" =~ call\ void\ @llvm\.var\.annotation\(i8\*\ %([^,]+), ]]; then
+          annotation=$(grep -E "%${BASH_REMATCH[1]} = bitcast .* to i8*" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll")
+          variable_class=$(echo "$annotation" | sed -n 's/.*bitcast \([^ ]*\) %.*/\1/p')
+          kernel_variables_classes+=("${variable_class}")
+        fi
+      done < <(grep "call void @llvm.var.annotation" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll")
+
+      # remove duplicate device string definitions
+      unique_definitions=()
+      declare -A seen
+      for def in "${device_string_definitions[@]}"; do
+        if [[ -z "${seen[$def]}" ]]; then
+          unique_definitions+=("$def")
+          seen["$def"]=1
+        fi
+      done
+      device_string_definitions=("${unique_definitions[@]}")
+
+    # target is a device and there are kernel variables to annotate
+    elif [[ ${#sycl_kernel_variables[@]} -gt 0 ]]; then
+      bufferid_options=--bufferid-import=$bufferid_in_file
+
+      # insert accessor annotations
+
+      # find the index of each variable inside the sycl kernel
+      kernel_var_indices=()
+      for var in "${sycl_kernel_variables[@]}"; do
+        var_gep=$(grep -m 1 -E "${var} = getelementptr .*, .* %__SYCLKernel" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll")
+        var_kernel_index=$(echo "$var_gep" | grep -oE '[0-9]+' | tail -n 1)
+        kernel_var_indices+=("${var_kernel_index}")
+      done
+
+      # extract relevant parts from host annotations
+      annotation_parts=()
+      parts_tot_len=0
+      for def in "${device_string_definitions[@]}"; do
+        # extract scalar part only from accessor annotations
+        if [[ ${sycl_accessor_variables[j]} -eq 1 ]]; then
+          scalar_part=$(extract_scalar_part "$def")
+          annotation_parts+=("${scalar_part}")
+          parts_tot_len=$((parts_tot_len + ${#scalar_part}))
+
+        # extract whole struct/scalar part from other kernel variable annotations
+        else
+          # Try to extract struct part if it exists
+          annotation_part=$(extract_struct_part "$def")
+          # Otherwise extract scalar part
+          if [ -z "$annotation_part" ]; then
+            annotation_part=$(extract_scalar_part "$def")
+          fi
+          annotation_parts+=("${annotation_part}")
+          parts_tot_len=$((parts_tot_len + ${#annotation_part}))
+        fi
+      done
+
+      # build sycl kernel annotations
+
+      # count the data elements inside kernel
+      sycl_kernel_type=$(grep -m 1 -E "%class.anon = type" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll")
+      kernel_content=$(echo "$sycl_kernel_type" | sed -n 's/.*{\(.*\)}.*/\1/p')
+      comma_count=$(echo "$kernel_content" | grep -o ',' | wc -l)
+      elements_count=$((comma_count + 1))
+
+      sycl_kernel_struct="struct["
+      sycl_kernel_struct_len=7
+      for ((i=0; i<elements_count; i++)); do
+        annotation_part=0
+        is_accessor=0
+        for ((j=0; j<${#sycl_kernel_variables[@]}; j++)); do
+          if [[ ${kernel_var_indices[j]} -eq $i ]]; then
+            if [[ ${sycl_accessor_variables[j]} -eq 1 ]]; then
+              is_accessor=1
+            fi
+            annotation_part=${annotation_parts[j]}
+            break
+          fi
+        done
+        if [[ "${annotation_part}" != 0 ]]; then
+          if [[ $is_accessor -eq 1 ]]; then
+            sycl_kernel_struct+="struct[void, struct[${annotation_part}]], "
+            sycl_kernel_struct_len=$((sycl_kernel_struct_len + 24))
+          else
+            sycl_kernel_struct+="${annotation_part}, "
+            sycl_kernel_struct_len=$((sycl_kernel_struct_len + 2))
+          fi
+        else
+          sycl_kernel_struct+="void, "
+          sycl_kernel_struct_len=$((sycl_kernel_struct_len + 6))
+        fi
+      done
+      sycl_kernel_struct="${sycl_kernel_struct::-2}"
+      sycl_kernel_struct+="]"
+      sycl_kernel_struct_len=$((sycl_kernel_struct_len - 1))
+
+      # new device string definitions
+      device_def_len1=$((22 + sycl_kernel_struct_len + parts_tot_len))
+      device_def1="@.taffo.str.1 = private unnamed_addr constant [${device_def_len1} x i8] c\"target('SYCLKernel') ${sycl_kernel_struct}\\\\00\""
+
+      device_def_len2=$((48 + sycl_kernel_struct_len + parts_tot_len))
+      device_def2="@.taffo.str.2 = private unnamed_addr constant [${device_def_len2} x i8] c\"target('SYCLRoundedRangeKernel') struct[void, ${sycl_kernel_struct}]\\\\00\""
+
+      device_def3="@.taffo.str.3 = private unnamed_addr constant [9 x i8] c\"main.cpp\\\\00\", section \"llvm.metadata\""
+
+      additional_string_definitions=""
+      additional_string_definitions+="$device_def1\n"
+      additional_string_definitions+="$device_def2\n"
+      additional_string_definitions+="$device_def3\n"
+
+      # kernel annotations
+      device_annotation1="  %__SYCLKernel2 = bitcast %\"class.anon\"* %__SYCLKernel to i8*\n"
+      device_annotation1+="  call void @llvm.var.annotation(i8* %__SYCLKernel2, i8* getelementptr inbounds ([${device_def_len1} x i8], [${device_def_len1} x i8]* @.taffo.str.1, i32 0, i32 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.taffo.str.3, i32 0, i32 0), i32 72, i8* null)"
+      sed -i "/%__SYCLKernel = alloca/a\\${device_annotation1}" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+
+      device_annotation2="  %RoundedRangeKernel2 = bitcast %\"class.sycl::_V1::detail::RoundedRangeKernel\"* %RoundedRangeKernel to i8*\n"
+      device_annotation2+="  call void @llvm.var.annotation(i8* %RoundedRangeKernel2, i8* getelementptr inbounds ([${device_def_len2} x i8], [${device_def_len2} x i8]* @.taffo.str.2, i32 0, i32 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.taffo.str.3, i32 0, i32 0), i32 72, i8* null)"
+      sed -i "/%RoundedRangeKernel = alloca/a\\${device_annotation2}" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+
+      # Additional annotations for kernel variables which are not accessors:
+      # differently from accessors, which copy the actual data back and forth between host and device,
+      # other variables are copied by value and their float value is stored in local variables which need to be converted
+      taffo_def_counter=3
+      for ((i=0; i<${#sycl_kernel_variables[@]}; i++)); do
+        if [[ ${sycl_accessor_variables[i]} -eq 0 ]]; then
+          var=${sycl_kernel_variables[i]}
+          annotation_part=${annotation_parts[i]}
+          ((taffo_def_counter++))
+          device_def_len=$((12 + ${#var} + ${#annotation_part}))
+          device_def="@.taffo.str.${taffo_def_counter} = private unnamed_addr constant [${device_def_len} x i8] c\"target('${var}') ${annotation_part}\\\\00\""
+          additional_string_definitions+="$device_def\n"
+          device_annotation="  %_arg_${var}2 = bitcast ${kernel_variables_classes[i]} %_arg_${var}.addr to i8*\n"
+          device_annotation+="  call void @llvm.var.annotation(i8* %_arg_${var}2, i8* getelementptr inbounds ([${device_def_len} x i8], [${device_def_len} x i8]* @.taffo.str.${taffo_def_counter}, i32 0, i32 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.taffo.str.3, i32 0, i32 0), i32 72, i8* null)"
+          sed -i "/%_arg_${var}.addr = alloca/a\\${device_annotation}" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+        fi
+      done
+
+      # find first device string definition and insert new definitions after
+      first_def=$(grep -m 1 -E "@\.str(\.([0-9]+))? = " "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll")
+      escaped_first_def=$(printf '%s\n' "$first_def" | sed -e 's/[]\/$*.^[]/\\&/g')
+      sed -i "/$escaped_first_def/i $additional_string_definitions" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+
+      # insert llvm annotation function declaration and its attributes
+      #last_attribute=$(grep -E "attributes #([0-9]+)" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll" | tail -n 1)
+      #attribute="${last_attribute#* #}"
+      #attribute="${attribute%% = *}"
+      #((attribute++))
+      #attribute_string="attributes #$attribute = { inaccessiblememonly nocallback nofree nosync nounwind willreturn }"
+      #sed -i "/${last_attribute}/a\\${attribute_string}" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+
+      #first_attribute="attributes #0"
+      #declaration="; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn\ndeclare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #$attribute\n"
+      #sed -i "/$first_attribute/i $declaration" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+    fi
+
+    # precompute clang invocation for compiling float version
+    build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
+
+    # Note: in the following we load the plugin both with -load and --load-pass-plugin
+    # because the latter does not load the .so until later in the game after command
+    # line args are all parsed, and because -load does not register new pass manager
+    # passes at all.
+
+    ###
+    ###  TAFFO initialization
+    ###
+    append_time_string "init_start"
     ${OPT} \
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
-      --passes='no-op-module,taffoerr' \
-      $compat_flags_opt ${errorprop_flags} \
-      -S -o "${temporary_dir}/${output_basename}.6.taffotmp.ll" "${temporary_dir}/${output_basename}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
-    if [[ ! ( -z "$errorprop_out" ) ]]; then
-      cp "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" "$errorprop_out"
+      --passes='no-op-module,taffoinit' \
+      ${init_flags} \
+      -S -o "${temporary_dir}/${output_basename}${target}.2.taffotmp.ll" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll" || exit $?
+
+    ###
+    ###  TAFFO Value Range Analysis
+    ###
+    append_time_string "vra_start"
+    if [[ $disable_vra -eq 0 ]]; then
+      ${OPT} \
+        -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+        --passes="no-op-module,${mem2reg}taffovra" \
+        $compat_flags_opt ${vra_flags} \
+        -S -o "${temporary_dir}/${output_basename}${target}.3.taffotmp.ll" "${temporary_dir}/${output_basename}${target}.2.taffotmp.ll" || exit $?;
+    else
+      cp "${temporary_dir}/${output_basename}${target}.2.taffotmp.ll" "${temporary_dir}/${output_basename}${target}.3.taffotmp.ll";
+    fi
+
+    feedback_stop=0
+    if [[ $feedback -ne 0 ]]; then
+      # init the feedback estimator if needed
+      base_dta_flags="${dta_flags}"
+      dta_flags="${base_dta_flags} "$($TAFFO_FE --init --state "${temporary_dir}/${output_basename}${target}.festate.taffotmp.bin")
+    fi
+    while [[ $feedback_stop -eq 0 ]]; do
+      ###
+      ###  TAFFO Data Type Allocation
+      ###
+      append_time_string "dta_start"
+      ${OPT} \
+        -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+        --passes="no-op-module,taffodta,globaldce" \
+        $compat_flags_opt ${dta_flags} ${bufferid_options} ${dta_inst_set} \
+        -S -o "${temporary_dir}/${output_basename}${target}.4.taffotmp.ll" "${temporary_dir}/${output_basename}${target}.3.taffotmp.ll" || exit $?
+
+      ###
+      ###  TAFFO Conversion
+      ###
+      append_time_string "conversion_start"
+      ${OPT} \
+        -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+        --passes='no-op-module,taffoconv,globaldce,dce' \
+        $compat_flags_opt ${conversion_flags} \
+        -S -o "${temporary_dir}/${output_basename}${target}.5.taffotmp.ll" "${temporary_dir}/${output_basename}${target}.4.taffotmp.ll" || exit $?
+
+      ###
+      ###  TAFFO Feedback Estimator
+      ###
+      if [[ ( $enable_errorprop -eq 1 ) || ( $feedback -ne 0 ) ]]; then
+        ${OPT} \
+          -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+          --passes='no-op-module,taffoerr' \
+          $compat_flags_opt ${errorprop_flags} \
+          -S -o "${temporary_dir}/${output_basename}${target}.6.taffotmp.ll" "${temporary_dir}/${output_basename}${target}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
+        if [[ ! ( -z "$errorprop_out" ) ]]; then
+          cp "${temporary_dir}/${output_basename}${target}.errorprop.taffotmp.txt" "$errorprop_out"
+        fi
+      fi
+      if [[ $feedback -eq 0 ]]; then
+        break
+      fi
+      ${build_float} -S -emit-llvm \
+        -o "${temporary_dir}/${output_basename}${target}.float.taffotmp.ll" || exit $?
+      ${TAFFO_PE} \
+        --fix "${temporary_dir}/${output_basename}${target}.5.taffotmp.ll" \
+        --flt "${temporary_dir}/${output_basename}${target}.float.taffotmp.ll" \
+        --model ${pe_model_file} > "${temporary_dir}/${output_basename}${target}.perfest.taffotmp.txt" || exit $?
+      newflgs=$(${TAFFO_FE} \
+        --pe-out "${temporary_dir}/${output_basename}${target}.perfest.taffotmp.txt" \
+        --ep-out "${temporary_dir}/${output_basename}${target}.errorprop.taffotmp.txt" \
+        --state "${temporary_dir}/${output_basename}${target}.festate.taffotmp.bin" || exit $?)
+      if [[ ( "$newflgs" == 'STOP' ) || ( -z "$newflgs" ) ]]; then
+        feedback_stop=1
+      else
+        dta_flags="${base_dta_flags} ${newflgs}"
+      fi
+    done
+
+    inputs=${inputs},"${temporary_dir}/${output_basename}${target}.5.taffotmp.ll"
+  done
+  inputs=${inputs#,}
+
+  if [[ $sycl -eq 1 ]]; then
+    # bundle targets ll files back together
+    clang-offload-bundler -targets="${targets_string}" -type=ll -inputs="${inputs}" -outputs="${temporary_dir}/${output_basename}.5.taffotmp.ll"
+  fi
+
+  ###
+  ###  Backend
+  ###
+  append_time_string "backend_start"
+  # Produce the requested output file
+  if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
+    if [[ $cuda_kern == 1 ]]; then
+      ${CLANG} \
+      $opts -target nvptx64-nvidia-cuda ${optimization} $compat_flags_clang \
+      -c \
+      "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
+      -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
+    else
+      ${CLANG} \
+      $opts ${optimization} $compat_flags_clang \
+      -c \
+      "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
+      -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
     fi
   fi
-  if [[ $feedback -eq 0 ]]; then
-    break
-  fi
-  ${build_float} -S -emit-llvm \
-    -o "${temporary_dir}/${output_basename}.float.taffotmp.ll" || exit $?
-  ${TAFFO_PE} \
-    --fix "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
-    --flt "${temporary_dir}/${output_basename}.float.taffotmp.ll" \
-    --model ${pe_model_file} > "${temporary_dir}/${output_basename}.perfest.taffotmp.txt" || exit $?
-  newflgs=$(${TAFFO_FE} \
-    --pe-out "${temporary_dir}/${output_basename}.perfest.taffotmp.txt" \
-    --ep-out "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" \
-    --state "${temporary_dir}/${output_basename}.festate.taffotmp.bin" || exit $?)
-  if [[ ( "$newflgs" == 'STOP' ) || ( -z "$newflgs" ) ]]; then
-    feedback_stop=1
+  if [[ $emit_source == "s" ]]; then
+    cp "${temporary_dir}/${output_basename}.taffotmp.s" "$output_file"
+  elif [[ $emit_source == "ll" ]]; then
+    cp "${temporary_dir}/${output_basename}.5.taffotmp.ll" "$output_file"
   else
-    dta_flags="${base_dta_flags} ${newflgs}"
+    ${AUTO_CLANGXX} \
+      $opts ${optimization} $compat_flags_clang \
+      ${dontlink} \
+      "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
+      -o "$output_file" || exit $?
   fi
-done
 
-###
-###  Backend
-###
-append_time_string "backend_start"
-# Produce the requested output file
-if [[ ( $emit_source == "s" ) || ( $del_temporary_dir -eq 0 ) ]]; then
-  if [[ $cuda_kern == 1 ]]; then
-    ${CLANG} \
-    $opts -target nvptx64-nvidia-cuda ${optimization} $compat_flags_clang \
-    -c \
-    "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
-    -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
-  else
-    ${CLANG} \
-    $opts ${optimization} $compat_flags_clang \
-    -c \
-    "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
-    -S -o "${temporary_dir}/${output_basename}.taffotmp.s" || exit $?
-  fi  
-fi
-if [[ $emit_source == "s" ]]; then
-  cp "${temporary_dir}/${output_basename}.taffotmp.s" "$output_file"
-elif [[ $emit_source == "ll" ]]; then
-  cp "${temporary_dir}/${output_basename}.5.taffotmp.ll" "$output_file"
-else
-  ${AUTO_CLANGXX} \
-    $opts ${optimization} $compat_flags_clang \
-    ${dontlink} \
-    "${temporary_dir}/${output_basename}.5.taffotmp.ll" \
-    -o "$output_file" || exit $?
-fi
-
-if [[ ! ( -z ${float_output_file} ) ]]; then
-  if [[ $emit_source == 's' ]]; then
-    type_opts='-S'
-  elif [[ $emit_source == 'll' ]]; then
-    type_opts='-S -emit-llvm'
+  if [[ ! ( -z ${float_output_file} ) ]]; then
+    if [[ $emit_source == 's' ]]; then
+      type_opts='-S'
+    elif [[ $emit_source == 'll' ]]; then
+      type_opts='-S -emit-llvm'
+    fi
+    ${build_float} \
+      ${dontlink} -S \
+      -o "${temporary_dir}/${output_basename}.float.taffotmp.s" || exit $?
+    ${build_float} \
+      ${dontlink} ${type_opts} \
+      -o "$float_output_file" || exit $?
   fi
-  ${build_float} \
-    ${dontlink} -S \
-    -o "${temporary_dir}/${output_basename}.float.taffotmp.s" || exit $?
-  ${build_float} \
-    ${dontlink} ${type_opts} \
-    -o "$float_output_file" || exit $?
 fi
 
 ###
@@ -618,4 +914,3 @@ fi
 
 append_time_string "taffo_end"
 output_time_string
-

@@ -253,7 +253,15 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
    * change, but we cannot extract values that didn't */
   if (valueInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid())
     return Unsupported;
-  std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
+  std::vector<Value *> idxlist;
+  idxlist.reserve(gep->getNumIndices());
+  for (const auto &idx : gep->indices()) {
+    Value *newIdx = matchOp(idx);
+    LLVM_DEBUG(if (newIdx != idx) llvm::dbgs() << *gep << "\nhas index \n"
+                                               << *idx << "\nmatchOp return \n"
+                                               << *newIdx << "\n");
+    idxlist.push_back(newIdx);
+  }
   return builder.CreateInBoundsGEP(newval->getType()->getPointerElementType(), newval, idxlist);
 }
 
@@ -456,7 +464,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
     typeArgs.push_back(thisArgument->getType());
     if (convArgs[i]->getType() != f_arg->getType()) {
       LLVM_DEBUG(dbgs() << "CALL: type mismatch in actual argument " << i
-                        << " (" << *f_arg << ") vs. formal argument\n");
+                        << " (" << *f_arg << ") vs. formal argument (" << *convArgs[i]->getType() << ")\n");
       return nullptr;
     }
     i++;
@@ -465,6 +473,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   }
   if (isa<CallInst>(call)) {
     CallInst *newCall = CallInst::Create(newF, convArgs);
+    newCall->setAttributes(call->getAttributes());
     newCall->setCallingConv(call->getCallingConv());
     newCall->insertBefore(call);
     return newCall;
@@ -472,6 +481,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
     InvokeInst *invk = dyn_cast<InvokeInst>(call);
     InvokeInst *newInvk = InvokeInst::Create(newF, invk->getNormalDest(),
                                              invk->getUnwindDest(), convArgs);
+    newInvk->setAttributes(call->getAttributes());
     newInvk->setCallingConv(call->getCallingConv());
     newInvk->insertBefore(invk);
     return newInvk;
@@ -960,6 +970,15 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
       return builder.CreateBitCast(newOperand, newType);
     } else {
       return builder.CreateBitCast(operand, newType);
+    }
+  }
+  if (AddrSpaceCastInst *asc = dyn_cast<AddrSpaceCastInst>(cast)) {
+    Value *newOperand = operandPool[operand];
+    Type *newType = getLLVMFixedPointTypeForFloatType(asc->getDestTy(), fixpt);
+    if (newOperand && newOperand != ConversionError) {
+      return builder.CreateAddrSpaceCast(newOperand, newType);
+    } else {
+      return builder.CreateAddrSpaceCast(operand, newType);
     }
   }
   if (operand->getType()->isFloatingPointTy()) {

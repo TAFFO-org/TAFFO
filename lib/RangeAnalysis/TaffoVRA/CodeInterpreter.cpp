@@ -241,7 +241,7 @@ static unsigned retrieveOMPExternalCallBoundaryTripCount(llvm::Function *F, llvm
   // Get the true latch because the default is not correct
   llvm::Value *cmpvalue = getLatchConditionInst(branch);
   while (cmpvalue == nullptr) {
-    llvm::dbgs() << "branch = " << *branch << "\n";
+    LLVM_DEBUG(llvm::dbgs() << "branch = " << *branch << "\n");
     auto end_block = llvm::dyn_cast_or_null<llvm::BranchInst>(branch->getTerminator());
     if (end_block == nullptr) {
       // block terminated by something that is not a branch (e.g. invoke), bail out

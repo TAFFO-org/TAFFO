@@ -40,6 +40,7 @@ public:
 protected:
   llvm::DenseMap<const llvm::Value *, NodePtrT> DerivedRanges;
   std::shared_ptr<VRALogger> Logger;
+  const llvm::DataLayout &DL;
 
   std::shared_ptr<VRAScalarNode> assignScalarRange(NodePtrT Dst, const NodePtrT Src) const;
   void assignStructNode(NodePtrT Dst, const NodePtrT Src) const;
@@ -50,8 +51,8 @@ protected:
   void storeNode(NodePtrT Dst, const NodePtrT Src, llvm::SmallVectorImpl<unsigned> &Offset);
   RangeNodePtrT fetchRange(const NodePtrT Node, llvm::SmallVectorImpl<unsigned> &Offset) const;
 
-  VRAStore(VRAStoreKind K, std::shared_ptr<VRALogger> L)
-      : DerivedRanges(), Logger(L), Kind(K) {}
+  VRAStore(VRAStoreKind K, std::shared_ptr<VRALogger> L, const llvm::DataLayout &DL)
+      : DerivedRanges(), Logger(L), DL(DL), Kind(K) {}
 
 private:
   const VRAStoreKind Kind;

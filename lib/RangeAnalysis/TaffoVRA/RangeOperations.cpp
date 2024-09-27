@@ -580,7 +580,7 @@ taffo::copyRange(const RangeNodePtrT op)
 
   if (const std::shared_ptr<VRAScalarNode> op_s =
           std::dynamic_ptr_cast<VRAScalarNode>(op)) {
-    return std::make_shared<VRAScalarNode>(copyRange(op_s->getRange()));
+    return std::make_shared<VRAScalarNode>(op_s->getType(), op_s->getSizeInBits(), copyRange(op_s->getRange()));
   }
 
   const std::shared_ptr<VRAStructNode> op_s = std::static_ptr_cast<VRAStructNode>(op);
@@ -591,7 +591,7 @@ taffo::copyRange(const RangeNodePtrT op)
     if (const NodePtrT field = op_s->getNodeAt(i)) {
       if (const std::shared_ptr<VRAPtrNode> ptr_field =
               std::dynamic_ptr_cast_or_null<VRAPtrNode>(field)) {
-        new_fields.push_back(std::make_shared<VRAPtrNode>(ptr_field->getParent()));
+        new_fields.push_back(std::make_shared<VRAPtrNode>(op_s->getType(), op_s->getSizeInBits(), ptr_field->getParent()));
       } else {
         new_fields.push_back(copyRange(std::static_ptr_cast<VRARangeNode>(field)));
       }
@@ -599,7 +599,7 @@ taffo::copyRange(const RangeNodePtrT op)
       new_fields.push_back(nullptr);
     }
   }
-  return std::make_shared<VRAStructNode>(new_fields);
+  return std::make_shared<VRAStructNode>(op_s->getType(), op_s->getSizeInBits(), new_fields);
 }
 
 range_ptr_t
@@ -663,7 +663,8 @@ taffo::getUnionRange(const RangeNodePtrT op1,
           std::dynamic_ptr_cast<VRAScalarNode>(op1)) {
     const std::shared_ptr<VRAScalarNode> sop2 =
         std::static_ptr_cast<VRAScalarNode>(op2);
-    return std::make_shared<VRAScalarNode>(getUnionRange(sop1->getRange(), sop2->getRange()));
+    return std::make_shared<VRAScalarNode>(sop2->getType(), sop2->getSizeInBits(),
+                                           getUnionRange(sop1->getRange(), sop2->getRange())); //TODO fix type
   }
 
   const std::shared_ptr<VRAStructNode> op1_s = std::static_ptr_cast<VRAStructNode>(op1);
@@ -680,7 +681,7 @@ taffo::getUnionRange(const RangeNodePtrT op1,
                                          std::dynamic_ptr_cast_or_null<VRARangeNode>(op2_s->getNodeAt(i))));
     }
   }
-  return std::make_shared<VRAStructNode>(new_fields);
+  return std::make_shared<VRAStructNode>(op2_s->getType(), op2_s->getSizeInBits(), new_fields); //TODO fix type
 }
 
 RangeNodePtrT
@@ -700,11 +701,11 @@ taffo::fillRangeHoles(const RangeNodePtrT src,
   for (unsigned i = 0; i < num_fields; ++i) {
     if (const std::shared_ptr<VRAPtrNode> ptr_field =
             std::dynamic_ptr_cast_or_null<VRAPtrNode>(src_s->getNodeAt(i))) {
-      new_fields.push_back(std::make_shared<VRAPtrNode>(ptr_field->getParent()));
+      new_fields.push_back(std::make_shared<VRAPtrNode>(dst->getType(), dst->getSizeInBits(), ptr_field->getParent()));
     } else if (i < dst_s->getNumFields()) {
       new_fields.push_back(fillRangeHoles(std::dynamic_ptr_cast_or_null<VRARangeNode>(src_s->getNodeAt(i)),
                                           std::dynamic_ptr_cast_or_null<VRARangeNode>(dst_s->getNodeAt(i))));
     }
   }
-  return std::make_shared<VRAStructNode>(new_fields);
+  return std::make_shared<VRAStructNode>(dst_s->getType(), dst_s->getSizeInBits(), new_fields);
 }

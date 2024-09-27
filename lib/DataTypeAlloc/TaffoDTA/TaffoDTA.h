@@ -56,7 +56,7 @@ public:
   bool associateFixFormat(mdutils::InputInfo &rng, llvm::Value *V);
 
   void sortQueue(std::vector<llvm::Value *> &vals,
-                 llvm::SmallPtrSetImpl<llvm::Value *> &valset);
+                 llvm::SmallPtrSetImpl<llvm::Value *> &valset, const llvm::DataLayout &DL);
 
   void mergeFixFormat(const std::vector<llvm::Value *> &vals,
                       const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
@@ -112,8 +112,8 @@ public:
     }
     mdutils::MetadataManager &MDManager =
         mdutils::MetadataManager::getMetadataManager();
-    mdutils::MDInfo *mdi = MDManager.retrieveMDInfo(val);
-    return !(mdi && mdi->getEnableConversion()) && incomingValuesDisabled(val);
+    auto mdi = MDManager.retrieveMDInfo(val);
+    return !(mdi.get() && mdi->getEnableConversion()) && incomingValuesDisabled(val);
   }
 
   bool incomingValuesDisabled(llvm::Value *v)

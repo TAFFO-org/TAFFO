@@ -26,7 +26,7 @@ void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &varia
   MetadataManager &MDManager = MetadataManager::getMetadataManager();
 
   for (GlobalVariable &gv : m.globals()) {
-    MDInfo *MDI = MDManager.retrieveMDInfo(&gv);
+    MDInfo *MDI = MDManager.retrieveMDInfo(&gv).get();
     if (MDI) {
       parseMetaData(&variables, MDI, &gv);
     }
@@ -39,7 +39,7 @@ void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &varia
 InputInfo *FloatToFixed::getInputInfo(Value *v)
 {
   MetadataManager &MDManager = MetadataManager::getMetadataManager();
-  MDInfo *MDI = MDManager.retrieveMDInfo(v);
+  MDInfo *MDI = MDManager.retrieveMDInfo(v).get();
 
   if (auto *fpInfo = dyn_cast_or_null<InputInfo>(MDI)) {
     return fpInfo;
@@ -53,14 +53,14 @@ void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value *> &vari
 {
   MetadataManager &MDManager = MetadataManager::getMetadataManager();
 
-  SmallVector<mdutils::MDInfo *, 5> argsII;
+  SmallVector<std::shared_ptr<mdutils::MDInfo>, 5> argsII;
   MDManager.retrieveArgumentInputInfo(f, argsII);
   auto arg = f.arg_begin();
   for (auto itII = argsII.begin(); itII != argsII.end(); itII++) {
     if (*itII != nullptr) {
       /* Don't enqueue function arguments because they will be handled by
        * the function cloning step */
-      parseMetaData(nullptr, *itII, arg);
+      parseMetaData(nullptr, itII->get(), arg);
     }
     arg++;
   }
@@ -69,7 +69,7 @@ void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value *> &vari
     return;
 
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
-    MDInfo *MDI = MDManager.retrieveMDInfo(&(*iIt));
+    mdutils::MDInfo *MDI = MDManager.retrieveMDInfo(&(*iIt)).get();
     if (MDI) {
       parseMetaData(&variables, MDI, &(*iIt));
     }
@@ -147,7 +147,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
       int enableConversion = 0;
       vi.fixpType = FixedPointType::get(fpInfo, &enableConversion);
       if (enableConversion == 0) {
-        LLVM_DEBUG(dbgs() << "Conversion not enabled.\n");
+        LLVM_DEBUG(dbgs() << "Conversion not enabled.\n" << fpInfo->toString() << "\n");
         return false;
       }
     } else {

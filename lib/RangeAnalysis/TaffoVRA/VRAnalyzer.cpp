@@ -26,13 +26,13 @@ void VRAnalyzer::convexMerge(const AnalysisStore &Other)
 std::shared_ptr<CodeAnalyzer>
 VRAnalyzer::newCodeAnalyzer(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI);
+  return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI, DL);
 }
 
 std::shared_ptr<AnalysisStore>
 VRAnalyzer::newFunctionStore(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()));
+  return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), DL);
 }
 
 std::shared_ptr<CodeAnalyzer>
@@ -48,7 +48,7 @@ void VRAnalyzer::analyzeInstruction(llvm::Instruction *I)
   const unsigned OpCode = i.getOpcode();
   if (OpCode == Instruction::Call || OpCode == Instruction::Invoke) {
     handleSpecialCall(&i);
-  } else if (Instruction::isCast(OpCode) && OpCode != llvm::Instruction::BitCast) {
+  } else if (Instruction::isCast(OpCode) && OpCode != llvm::Instruction::BitCast && OpCode != llvm::Instruction::AddrSpaceCast) {
     LLVM_DEBUG(Logger->logInstruction(&i));
     const llvm::Value *op = i.getOperand(0);
     const range_ptr_t info = fetchRange(op);
@@ -94,7 +94,8 @@ void VRAnalyzer::analyzeInstruction(llvm::Instruction *I)
       handleGEPInstr(&i);
       break;
     case llvm::Instruction::BitCast:
-      handleBitCastInstr(I);
+    case llvm::Instruction::AddrSpaceCast:
+      handleBitCastOrAddrSpaceCastInstr(I);
       break;
     case llvm::Instruction::Fence:
       LLVM_DEBUG(Logger->logErrorln("Handling of Fence not supported yet"));
@@ -191,12 +192,25 @@ void VRAnalyzer::prepareForCall(llvm::Instruction *I,
   LLVM_DEBUG(Logger->lineHead(); llvm::dbgs() << "Loading argument ranges: ");
   // fetch ranges of arguments
   std::list<NodePtrT> ArgRanges;
+  std::vector<std::shared_ptr<mdutils::MDInfo>> ArgMetadata;
+  ArgMetadata.reserve(CB->arg_size());
+  auto &MDManager = mdutils::MetadataManager::getMetadataManager();
   for (Value *Arg : CB->args()) {
     ArgRanges.push_back(getNode(Arg));
-
+    ArgMetadata.push_back(MDManager.retrieveMDInfo(Arg));
     LLVM_DEBUG(llvm::dbgs() << VRALogger::toString(fetchRangeNode(Arg)) << ", ");
   }
   LLVM_DEBUG(llvm::dbgs() << "\n");
+  LLVM_DEBUG(
+      for (unsigned int i = 0; i < ArgMetadata.size(); i++) {
+        const auto &MDI = ArgMetadata[i];
+        dbgs() << "Argument " << i << " metadata: ";
+        if (MDI.get())
+          dbgs() << MDI->toString() << "\n";
+        else
+          dbgs() << "none\n";
+      }
+  );
 
   std::shared_ptr<VRAFunctionStore> FStore =
       std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
@@ -310,34 +324,37 @@ bool VRAnalyzer::isCallocLike(const llvm::Function *F) const
 void VRAnalyzer::handleMallocCall(const llvm::CallBase *CB)
 {
   LLVM_DEBUG(Logger->logInfo("malloc-like"));
-  const llvm::Type *AllocatedType = nullptr;
+  llvm::Type *AllocatedType = nullptr;
+  RangeNodePtrT InputRange = nullptr;
   for (const llvm::Value *User : CB->users()) {
     if (const llvm::BitCastInst *BCI = llvm::dyn_cast<llvm::BitCastInst>(User)) {
       AllocatedType = BCI->getDestTy()->getPointerElementType();
+      InputRange = getGlobalStore()->getUserInput(BCI);
       break;
     }
   }
 
-  const RangeNodePtrT InputRange = getGlobalStore()->getUserInput(CB);
   if (AllocatedType && AllocatedType->isStructTy()) {
     if (InputRange && std::isa_ptr<VRAStructNode>(InputRange)) {
       DerivedRanges[CB] = InputRange;
     } else {
-      DerivedRanges[CB] = std::make_shared<VRAStructNode>();
+      DerivedRanges[CB] = std::make_shared<VRAStructNode>(cast<StructType>(AllocatedType), DL.getTypeSizeInBits(AllocatedType));
     }
     LLVM_DEBUG(Logger->logInfoln("struct"));
   } else {
     if (!(AllocatedType && AllocatedType->isPointerTy())) {
       if (InputRange && std::isa_ptr<VRAScalarNode>(InputRange)) {
-        DerivedRanges[CB] = std::make_shared<VRAPtrNode>(InputRange);
+        DerivedRanges[CB] = std::make_shared<VRAPtrNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType), InputRange);
       } else if (isCallocLike(CB->getCalledFunction())) {
         DerivedRanges[CB] =
-            std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(make_range(0, 0)));
+            std::make_shared<VRAPtrNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType),
+                                         std::make_shared<VRAScalarNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType),
+                                                                         make_range(0, 0)));
       } else {
-        DerivedRanges[CB] = std::make_shared<VRAPtrNode>();
+        DerivedRanges[CB] = std::make_shared<VRAPtrNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType));
       }
     } else {
-      DerivedRanges[CB] = std::make_shared<VRAPtrNode>();
+      DerivedRanges[CB] = std::make_shared<VRAPtrNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType));
     }
     LLVM_DEBUG(Logger->logInfoln("pointer"));
   }
@@ -386,19 +403,20 @@ void VRAnalyzer::handleAllocaInstr(const llvm::Instruction *I)
 {
   const llvm::AllocaInst *AI = llvm::cast<AllocaInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
+  llvm::Type *AllocatedType = AI->getAllocatedType();
   const RangeNodePtrT InputRange = getGlobalStore()->getUserInput(I);
-  if (AI->getAllocatedType()->isStructTy()) {
+  if (AllocatedType->isStructTy()) {
     if (InputRange && std::isa_ptr<VRAStructNode>(InputRange)) {
       DerivedRanges[I] = InputRange;
     } else {
-      DerivedRanges[I] = std::make_shared<VRAStructNode>();
+      DerivedRanges[I] = std::make_shared<VRAStructNode>(cast<StructType>(AllocatedType), DL.getTypeSizeInBits(AllocatedType));
     }
     LLVM_DEBUG(Logger->logInfoln("struct"));
   } else {
     if (InputRange && std::isa_ptr<VRAScalarNode>(InputRange)) {
-      DerivedRanges[I] = std::make_shared<VRAPtrNode>(InputRange);
+      DerivedRanges[I] = std::make_shared<VRAPtrNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType), InputRange);
     } else {
-      DerivedRanges[I] = std::make_shared<VRAPtrNode>();
+      DerivedRanges[I] = std::make_shared<VRAPtrNode>(AllocatedType, DL.getTypeSizeInBits(AllocatedType));
     }
     LLVM_DEBUG(Logger->logInfoln("pointer"));
   }
@@ -476,11 +494,87 @@ void VRAnalyzer::handleGEPInstr(const llvm::Instruction *I)
                         Offset)) {
     return;
   }
-  Node = std::make_shared<VRAGEPNode>(getNode(Gep->getPointerOperand()), Offset);
+  //FIXME should always get pointer nodes as pointer operands!!! Maybe even structs, but surely not scalars!
+  auto PtrOpNode = getNode(Gep->getPointerOperand());
+  if (PtrOpNode.get() && isa<VRAScalarNode>(PtrOpNode.get()))
+    Node = std::make_shared<VRAPtrNode>(fullyUnwrapPointerOrArrayType(Gep->getType()),
+                                        DL.getTypeSizeInBits(Gep->getType()), PtrOpNode);
+  else
+    Node = std::make_shared<VRAGEPNode>(fullyUnwrapPointerOrArrayType(Gep->getType()),
+                                        DL.getTypeSizeInBits(Gep->getType()), PtrOpNode, Offset);
   setNode(I, Node);
+  LLVM_DEBUG(Logger->logRangeln(Node));
 }
 
-void VRAnalyzer::handleBitCastInstr(const llvm::Instruction *I)
+void mapMDInfoToVRANode(const std::shared_ptr<mdutils::MDInfo> &MD,
+                        const std::shared_ptr<VRANode> &Node,
+                        SmallDenseMap<mdutils::MDInfo*, std::shared_ptr<VRANode>> &map) {
+  if (!(MD.get() && Node.get()))
+    return;
+  assert(((isa<mdutils::StructInfo>(MD.get()) && cast<mdutils::StructInfo>(MD.get())->getStructType() == Node->getType())
+         || MD->getType() == Node->getType())
+         && "Cannot map different types");
+  if (isa<mdutils::InputInfo>(MD.get()) && !isa<VRAStructNode>(Node.get())) {
+    if (map.find(MD.get()) == map.end())
+      map.insert({MD.get(), Node});
+  }
+  else if (isa<mdutils::StructInfo>(MD.get()) && isa<VRAStructNode>(Node.get())) {
+    auto structMD = cast<mdutils::StructInfo>(MD.get());
+    auto structNode = cast<VRAStructNode>(Node.get());
+    for (unsigned int i = 0; i < structMD->size(); i++)
+      mapMDInfoToVRANode(structMD->getField(i), structNode->getNodeAt(i), map);
+    if (map.find(MD.get()) == map.end())
+      map.insert({MD.get(), Node});
+  }
+  else
+    llvm_unreachable("Incoherent types");
+}
+
+void setNodeFromMDInfoMapping(std::shared_ptr<VRANode> &Node,
+                              const std::shared_ptr<mdutils::MDInfo> &MD,
+                              const SmallDenseMap<mdutils::MDInfo*, std::shared_ptr<VRANode>> &map,
+                              std::shared_ptr<VRAStructNode> ParentNode = nullptr, unsigned int FieldIndex = -1) {
+  if (!MD.get())
+    return;
+  assert(Node->getType() == MD->getType() && "Wrong types");
+  if (!isa<VRAStructNode>(Node.get()) && isa<mdutils::InputInfo>(MD.get())) {
+    auto Pair = map.find(MD.get());
+    LLVM_DEBUG(dbgs() << "Finding " << MD->toString() << " with ptr " << MD.get() << "\n");
+    if (Pair != map.end()) {
+      LLVM_DEBUG(dbgs() << "Found\n");
+      if (ParentNode.get())
+        ParentNode->setNodeAt(FieldIndex, Pair->getSecond());
+      else
+        Node = Pair->getSecond();
+    }
+    else
+      LLVM_DEBUG(dbgs() << "Not found!\n");
+  }
+  else if (isa<VRAStructNode>(Node.get()) && isa<mdutils::StructInfo>(MD.get())) {
+    auto Pair = map.find(MD.get());
+    LLVM_DEBUG(dbgs() << "Finding " << MD->toString() << " with ptr " << MD.get() << "\n");
+    if (Pair != map.end()) {
+      LLVM_DEBUG(dbgs() << "Found\n");
+      if (ParentNode.get())
+        ParentNode->setNodeAt(FieldIndex, Pair->getSecond());
+      else
+        Node = Pair->getSecond();
+    }
+    else {
+      LLVM_DEBUG(dbgs() << "Not found! Searching for struct fields\n");
+      auto structNode = std::static_ptr_cast<VRAStructNode>(Node);
+      auto structMD = cast<mdutils::StructInfo>(MD.get());
+      for (unsigned int i = 0; i < structMD->size(); i++) {
+        auto childNode = structNode->getNodeAt(i);
+        setNodeFromMDInfoMapping(childNode, structMD->getField(i), map, structNode, i);
+      }
+    }
+  }
+  else
+    llvm_unreachable("Incoherent types");
+}
+
+void VRAnalyzer::handleBitCastOrAddrSpaceCastInstr(const llvm::Instruction *I)
 {
   LLVM_DEBUG(Logger->logInstruction(I));
   if (NodePtrT Node = getNode(I->getOperand(0U))) {
@@ -491,9 +585,49 @@ void VRAnalyzer::handleBitCastInstr(const llvm::Instruction *I)
     if (!InputIsStruct && !OutputIsStruct) {
       setNode(I, Node);
       LLVM_DEBUG(Logger->logRangeln(Node));
-    } else {
-      LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
-      LLVM_DEBUG(dbgs() << "This instruction is converting to/from a struct type. Ignoring to avoid generating invalid metadata\n");
+    }
+    else {
+      using namespace mdutils;
+      MetadataManager &MDManager = MetadataManager::getMetadataManager();
+      auto InputMD = MDManager.retrieveMDInfo(I->getOperand(0U));
+      auto OutputMD = std::shared_ptr<MDInfo>(StructInfo::constructFromLLVMType(OutputT, DL));
+      if (!OutputMD.get())
+        OutputMD = std::make_shared<InputInfo>(OutputT, DL, true);
+      auto LoadedNode = Node;
+      while (LoadedNode.get() && isa<VRAPtrNode>(LoadedNode.get()))
+        LoadedNode = loadNode(LoadedNode);
+      if (InputMD.get() && LoadedNode.get() && isa<VRAStructNode>(LoadedNode.get())) {
+        StructInfo::copyCommon(InputMD, OutputMD);
+        if (auto StructOutputMD = std::dynamic_ptr_cast<StructInfo>(OutputMD))
+          StructOutputMD->reduce();
+
+        SmallDenseMap<mdutils::MDInfo*, std::shared_ptr<VRANode>> map;
+        mapMDInfoToVRANode(InputMD, LoadedNode, map);
+
+        LLVM_DEBUG(
+            dbgs() << "Result mapping:\n";
+            for (const auto &el : map) {
+              dbgs() << el.getFirst()->toString() << " with ptr " << el.getFirst() << " -> " << el.getSecond().get() << " ";
+              Logger->logRangeln(el.getSecond());
+            }
+        );
+
+        //FIXME should always output pointer nodes!!! Maybe even structs but not scalars for sure!
+        NodePtrT OutputNode;
+        if (auto SI = std::dynamic_ptr_cast<StructInfo>(OutputMD))
+          OutputNode = getGlobalStore()->harvestStructMD(SI, fullyUnwrapPointerOrArrayType(OutputT));
+        else {
+          auto II = std::static_ptr_cast<InputInfo>(OutputMD);
+          OutputNode = std::make_shared<VRAScalarNode>(II->getType(), II->getSizeInBits(), nullptr);
+        }
+        setNodeFromMDInfoMapping(OutputNode, OutputMD, map);
+        setNode(I, OutputNode);
+        LLVM_DEBUG(Logger->logRangeln(OutputNode));
+      }
+      else {
+        LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
+        LLVM_DEBUG(dbgs() << "Bitcast/addrspacecast instruction to/from a struct type could not be handled. Ignoring to avoid generating invalid metadata\n");
+      }
     }
   } else {
     LLVM_DEBUG(Logger->logInfoln("no node"));

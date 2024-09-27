@@ -23,13 +23,13 @@ void VRAFunctionStore::convexMerge(const AnalysisStore &Other)
 std::shared_ptr<CodeAnalyzer>
 VRAFunctionStore::newCodeAnalyzer(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI);
+  return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI, DL);
 }
 
 std::shared_ptr<AnalysisStore>
 VRAFunctionStore::newFunctionStore(CodeInterpreter &CI)
 {
-  return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()));
+  return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), DL);
 }
 
 void VRAFunctionStore::setRetVal(NodePtrT RetVal)

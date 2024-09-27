@@ -15,8 +15,8 @@ namespace taffo
 class VRAnalyzer : protected VRAStore, public CodeAnalyzer
 {
 public:
-  VRAnalyzer(std::shared_ptr<VRALogger> VRAL, CodeInterpreter& CI)
-      : VRAStore(VRASK_VRAnalyzer, VRAL),
+  VRAnalyzer(std::shared_ptr<VRALogger> VRAL, CodeInterpreter& CI, const llvm::DataLayout &DL)
+      : VRAStore(VRASK_VRAnalyzer, VRAL, DL),
         CodeAnalyzer(ASK_VRAnalyzer),
         CodeInt(CI) {}
 
@@ -76,7 +76,7 @@ private:
   void handleStoreInstr(const llvm::Instruction *store);
   void handleLoadInstr(llvm::Instruction *load);
   void handleGEPInstr(const llvm::Instruction *gep);
-  void handleBitCastInstr(const llvm::Instruction *I);
+  void handleBitCastOrAddrSpaceCastInstr(const llvm::Instruction *I);
 
   void handleCmpInstr(const llvm::Instruction *cmp);
   void handlePhiNode(const llvm::Instruction *phi);

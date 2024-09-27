@@ -79,8 +79,8 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
 
   LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
   for (GlobalObject &globObj : m.globals()) {
-    MDInfo *MDI = MDManager.retrieveMDInfo(&globObj);
-    if (processMetadataOfValue(&globObj, MDI)) {
+    auto MDI = MDManager.retrieveMDInfo(&globObj);
+    if (processMetadataOfValue(&globObj, MDI.get())) {
       vals.push_back(&globObj);
       retrieveBufferID(&globObj);
     }
@@ -92,11 +92,11 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
       continue;
     LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand() << "  <<<<===============\n");
 
-    SmallVector<mdutils::MDInfo *, 5> argsII;
+    SmallVector<std::shared_ptr<MDInfo>, 5> argsII;
     MDManager.retrieveArgumentInputInfo(f, argsII);
     auto arg = f.arg_begin();
     for (auto itII = argsII.begin(); itII != argsII.end(); itII++) {
-      if (processMetadataOfValue(arg, *itII)) {
+      if (processMetadataOfValue(arg, itII->get())) {
         vals.push_back(arg);
         retrieveBufferID(arg);
       }
@@ -104,8 +104,8 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
     }
 
     for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
-      MDInfo *MDI = MDManager.retrieveMDInfo(&(*iIt));
-      if (processMetadataOfValue(&(*iIt), MDI)) {
+      auto MDI = MDManager.retrieveMDInfo(&(*iIt));
+      if (processMetadataOfValue(&(*iIt), MDI.get())) {
         vals.push_back(&*iIt);
         retrieveBufferID(&(*iIt));
       }
@@ -114,7 +114,8 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
   }
 
   LLVM_DEBUG(dbgs() << "=============>>>>  SORTING QUEUE  <<<<===============\n");
-  sortQueue(vals, valset);
+  DataLayout DL(&m);
+  sortQueue(vals, valset, DL);
 
   LLVM_DEBUG(dbgs() << "**********************************************************\n");
   LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " END\n");
@@ -129,17 +130,25 @@ void TaffoTuner::retrieveAllMetadata(Module &m, std::vector<llvm::Value *> &vals
 void TaffoTuner::retrieveBufferID(llvm::Value *V)
 {
   LLVM_DEBUG(dbgs() << "Looking up buffer id of " << *V << "\n");
-  auto MaybeBID = mdutils::MetadataManager::retrieveBufferIDMetadata(V);
-  if (MaybeBID.hasValue()) {
-    std::string Tag = *MaybeBID;
-    auto& Set = bufferIDSets[Tag];
-    Set.insert(V);
-    LLVM_DEBUG(dbgs() << "Found buffer ID '" << Tag << "' for " << *V << "\n");
-    if (hasInfo(V))
-      valueInfo(V)->bufferID = Tag;
-  } else {
-    LLVM_DEBUG(dbgs() << "No buffer ID for " << *V << "\n");
+  auto MDI = valueInfo(V)->metadata;
+  std::set<std::string> Tags;
+  if (auto SI = dyn_cast<StructInfo>(MDI.get())) {
+    auto FieldTags = SI->getBufferIDs();
+    Tags.insert(FieldTags.begin(), FieldTags.end());
   }
+  else if (auto II = dyn_cast<InputInfo>(MDI.get())) {
+    if (II->getBufferID() != "")
+      Tags.insert(II->getBufferID());
+  }
+
+  if (!Tags.empty()) {
+    for (const auto &Tag : Tags) {
+      bufferIDSets[Tag].insert(V);
+      LLVM_DEBUG(dbgs() << "Found buffer ID '" << Tag << "' for " << *V << "\n");
+    }
+  }
+  else
+    LLVM_DEBUG(dbgs() << "No buffer ID for " << *V << "\n");
 }
 
 
@@ -151,7 +160,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, MDInfo *MDI)
     LLVM_DEBUG(dbgs() << "no metadata... bailing out!\n");
     return false;
   }
-  std::shared_ptr<MDInfo> newmdi(MDI->clone());
+  std::shared_ptr<MDInfo> newmdi(MDI->clone(true));
 
   if (v->getType()->isVoidTy()) {
     LLVM_DEBUG(dbgs() << "[Info] Value " << *v << " has void type, leaving metadata unchanged\n");
@@ -251,14 +260,14 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
   Instruction *I = dyn_cast<Instruction>(V);
   if (I) {
     if (I->isBinaryOp() || I->isUnaryOp()) {
-      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)));
+      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(0U)).get());
       if (II && II->IRange.get())
         greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
       else
         LLVM_DEBUG(dbgs() << "[Warning] No range metadata found on first arg of " << *I << "\n");
     }
     if (I->isBinaryOp()) {
-      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)));
+      InputInfo *II = dyn_cast_or_null<InputInfo>(MetadataManager::getMetadataManager().retrieveMDInfo(I->getOperand(1U)).get());
       if (II && II->IRange.get())
         greatest = std::max(greatest, std::max(std::abs(II->IRange->Max), std::abs(II->IRange->Min)));
       else
@@ -342,7 +351,7 @@ bool TaffoTuner::associateFixFormat(InputInfo &II, Value *V)
 
 
 void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
-                           llvm::SmallPtrSetImpl<llvm::Value *> &valset)
+                           llvm::SmallPtrSetImpl<llvm::Value *> &valset, const DataLayout &DL)
 {
   // Topological sort by means of a reversed DFS.
   enum VState {
@@ -379,19 +388,23 @@ void TaffoTuner::sortQueue(std::vector<llvm::Value *> &vals,
             LLVM_DEBUG(dbgs() << "[WARNING] Found Value " << *u << " without range! (uses " << *c << ")\n");
             Type *utype = fullyUnwrapPointerOrArrayType(u->getType());
             Type *ctype = fullyUnwrapPointerOrArrayType(c->getType());
+            bool copyBufferID = false;
+            if ((isa<GetElementPtrInst>(u) && c == dyn_cast<GetElementPtrInst>(u)->getPointerOperand())
+                || isa<BitCastInst>(u) || isa<LoadInst>(u) || isa<StoreInst>(u))
+              copyBufferID = true;
             if (!utype->isStructTy() && !ctype->isStructTy()) {
-              InputInfo *ii = cast<InputInfo>(valueInfo(c)->metadata->clone());
+              InputInfo *ii = cast<InputInfo>(valueInfo(c)->metadata->clone(copyBufferID));
               ii->IRange.reset();
               std::shared_ptr<ValueInfo> viu = valueInfo(u);
               viu->metadata.reset(ii);
               viu->initialType = ii->IType;
             } else if (utype->isStructTy() && ctype->isStructTy() && ctype->canLosslesslyBitCastTo(utype)) {
-              valueInfo(u)->metadata.reset(valueInfo(c)->metadata->clone());
+              valueInfo(u)->metadata.reset(valueInfo(c)->metadata->clone(copyBufferID));
             } else {
               if (utype->isStructTy())
-                valueInfo(u)->metadata = StructInfo::constructFromLLVMType(utype);
+                valueInfo(u)->metadata = StructInfo::constructFromLLVMType(utype, DL);
               else
-                valueInfo(u)->metadata.reset(new InputInfo());
+                valueInfo(u)->metadata.reset(new InputInfo(utype, DL, false));
               LLVM_DEBUG(dbgs() << "not copying metadata of " << *c << " to " << *u
                                 << " because one value has struct typing and the other has not.\n");
             }
@@ -590,32 +603,54 @@ void TaffoTuner::mergeBufferIDSets()
   }
 
   for (auto& Set: bufferIDSets) {
-    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << "\n");
+    const std::string &Tag = Set.first;
+    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Tag << "\n");
 
     auto DestType = std::shared_ptr<mdutils::TType>(nullptr);
-    if (InMap.find(Set.first) != InMap.end()) {
+    if (InMap.find(Tag) != InMap.end()) {
       LLVM_DEBUG(dbgs() << "Set has type specified in file\n");
-      DestType.reset(InMap.at(Set.first).get()->clone());
+      DestType.reset(InMap.at(Tag).get()->clone());
     } else {
       for (auto *V: Set.second) {
         auto VInfo = valueInfo(V);
-        auto IInfo = dyn_cast<InputInfo>(VInfo->metadata.get());
-        if (!IInfo) {
-          LLVM_DEBUG(dbgs() << "Metadata is null or struct, not handled, bailing out! Value='" << *V << "'\n");
+        auto MDInfo = VInfo->metadata.get();
+        if (!MDInfo) {
+          LLVM_DEBUG(dbgs() << "Metadata is null: not handled, bailing out! Value='" << *V << "'\n");
           goto nextSet;
         }
-        TType *T = IInfo->IType.get();
-        if (T) {
-          LLVM_DEBUG(dbgs() << "Type=" << T->toString() << " Value='" << *V << "'\n");
-        } else {
-          LLVM_DEBUG(dbgs() << "Type is null, not handled, bailing out! Value='" << *V << "'\n");
-          continue;
+
+        std::set<TType*> TTypes;
+        if (auto SInfo = dyn_cast<StructInfo>(MDInfo)) {
+          auto FieldTypes = SInfo->getBufferIDTypes(Tag);
+          for (const auto &T : FieldTypes) {
+            if (T) {
+              LLVM_DEBUG(dbgs() << "FieldType=" << T->toString() << " Value='" << *V << "'\n");
+              TTypes.insert(T);
+            }
+            else {
+              LLVM_DEBUG(dbgs() << "FieldType is null: not handled, skipping! Value='" << *V << "'\n");
+              continue;
+            }
+          }
         }
-        
-        if (!DestType.get()) {
-          DestType.reset(T->clone());
-        } else {
-          DestType = merge(DestType.get(), T);
+        else {
+          auto IInfo = cast<InputInfo>(MDInfo);
+          TType *T = IInfo->IType.get();
+          if (T) {
+            LLVM_DEBUG(dbgs() << "Type=" << T->toString() << " Value='" << *V << "'\n");
+            TTypes.insert(T);
+          }
+          else {
+            LLVM_DEBUG(dbgs() << "Type is null: not handled, skipping! Value='" << *V << "'\n");
+            continue;
+          }
+        }
+
+        for (const auto &T : TTypes) {
+          if (!DestType.get())
+            DestType.reset(T->clone());
+          else
+            DestType = merge(DestType.get(), T);
         }
       }
     }
@@ -623,14 +658,19 @@ void TaffoTuner::mergeBufferIDSets()
 
     for (auto *V: Set.second) {
       auto VInfo = valueInfo(V);
-      auto IInfo = dyn_cast<InputInfo>(VInfo->metadata.get());
-      IInfo->IType.reset(DestType->clone());
+      if (auto SInfo = dyn_cast<StructInfo>(VInfo->metadata.get())) {
+        SInfo->setBufferIDType(Tag, DestType);
+      }
+      else {
+        auto IInfo = cast<InputInfo>(VInfo->metadata.get());
+        IInfo->IType.reset(DestType->clone());
+      }
       restoreTypesAcrossFunctionCall(V);
     }
-    OutMap[Set.first].reset(DestType->clone());
+    OutMap[Tag].reset(DestType->clone());
 
 nextSet:
-    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Set.first << " DONE\n\n");
+    LLVM_DEBUG(dbgs() << "Merging Buffer ID set " << Tag << " DONE\n\n");
   }
 
   if (BufferIDExport != "") {
@@ -688,7 +728,7 @@ void TaffoTuner::setTypesOnFunctionArgumentFromCallArgument(Value *v, std::share
     assert(fun->arg_size() > use.getOperandNo() && "invalid call to function; operandNo > numOperands");
     Argument *arg = fun->arg_begin() + use.getOperandNo();
     if (hasInfo(arg)) {
-      valueInfo(arg)->metadata.reset(finalMd->clone());
+      valueInfo(arg)->metadata.reset(finalMd->clone(true));
       setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
       LLVM_DEBUG(dbgs() << " --> set new metadata, now checking uses of the argument... (hope there's no recursion!)\n");
       setTypesOnFunctionArgumentFromCallArgument(arg, finalMd);
@@ -718,7 +758,7 @@ void TaffoTuner::setTypesOnCallArgumentFromFunctionArgument(Argument *arg, std::
           LLVM_DEBUG(dbgs() << " --> actual argument IS AN ARGUMENT ITSELF! not skipping even if it doesn't get converted\n");
         }
       }
-      valueInfo(callarg)->metadata.reset(finalMd->clone());
+      valueInfo(callarg)->metadata.reset(finalMd->clone(true));
       if (Argument *Arg = dyn_cast<Argument>(callarg)) {
         LLVM_DEBUG(dbgs() << " --> actual argument IS AN ARGUMENT ITSELF, recursing\n");
         setTypesOnCallArgumentFromFunctionArgument(Arg, finalMd);
@@ -871,13 +911,13 @@ void TaffoTuner::attachFunctionMetaData(llvm::Module &m)
     if (f.isIntrinsic())
       continue;
 
-    SmallVector<mdutils::MDInfo *, 5> argsII;
+    SmallVector<std::shared_ptr<mdutils::MDInfo>, 5> argsII;
     MDManager.retrieveArgumentInputInfo(f, argsII);
     auto argsIt = argsII.begin();
     for (Argument &arg : f.args()) {
-      if (*argsIt) {
+      if (argsIt->get()) {
         if (hasInfo(&arg)) {
-          MDInfo *mdi = valueInfo(&arg)->metadata.get();
+          auto mdi = valueInfo(&arg)->metadata;
           *argsIt = mdi;
         }
       }
@@ -958,7 +998,8 @@ void TaffoTuner::buildModelAndOptimze(Module &m, const vector<llvm::Value *> &va
     std::shared_ptr<ValueInfo> viu = valueInfo(v);
 
     // Read from the model, search for the data type associated with that value and convert it!
-    auto fp = optimizer.getAssociatedMetadata(v);
+    DataLayout DL(&m);
+    auto fp = optimizer.getAssociatedMetadata(v, DL);
     if (!fp) {
       LLVM_DEBUG(dbgs() << "Invalid datatype returned!\n";);
       continue;

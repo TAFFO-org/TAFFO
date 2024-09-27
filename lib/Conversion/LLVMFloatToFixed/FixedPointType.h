@@ -151,6 +151,16 @@ public:
     return (*structData)[n];
   }
 
+  bool isNoConv() const
+  {
+    if (!structData)
+      return scalarBitsAmt() == 0;
+    for (const auto &field : *structData)
+      if (!field.isNoConv())
+        return false;
+    return true;
+  }
+
   inline bool isInvalid(void) const
   {
     return !structData && (scalarData.bitsAmt == 0) && (scalarData.floatStandard == Float_NotFloat);

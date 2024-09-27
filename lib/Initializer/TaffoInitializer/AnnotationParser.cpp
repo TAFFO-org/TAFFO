@@ -68,7 +68,7 @@ bool AnnotationParser::parseOldSyntax()
   else
     return false;
 
-  mdutils::InputInfo *info = new mdutils::InputInfo(nullptr, nullptr, nullptr, true);
+  mdutils::InputInfo *info = new mdutils::InputInfo(true);
   metadata.reset(info);
 
   if (readNumBits) {
@@ -157,15 +157,15 @@ bool AnnotationParser::parseNewSyntax()
       if (!parseScalar(metadata))
         return false;
 
-    } else if (peek("bufferid")) {
-      std::string bid;
+    } else if (peek("sycl_accessor") || peek("sycl_variable")) {
+      // Parsed but ignored: managed by taffo.sh only
+      std::string accessorVariableName;
       if (!expect("("))
         return false;
-      if (!expectString(bid))
+      if (!expectString(accessorVariableName))
         return false;
       if (!expect(")"))
         return false;
-      bufferID = bid;
 
     } else {
       error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
@@ -193,7 +193,7 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo> &thisMd)
     error = "Duplicated content definition in this context";
     return false;
   }
-  InputInfo *ii = new InputInfo(nullptr, nullptr, nullptr, true);
+  InputInfo *ii = new InputInfo(true);
   thisMd.reset(ii);
 
   while (!peek(")")) {
@@ -245,6 +245,17 @@ bool AnnotationParser::parseScalar(std::shared_ptr<MDInfo> &thisMd)
       ii->IEnableConversion = false;
     } else if (peek("final")) {
       ii->IFinal = true;
+
+    } else if (peek("bufferid")) {
+      std::string bid;
+      if (!expect("("))
+        return false;
+      if (!expectString(bid))
+        return false;
+      if (!expect(")"))
+        return false;
+      ii->BufferID = bid;
+
     } else {
       error = "Unknown identifier at character index " + std::to_string(sstream.tellg());
       return false;
@@ -263,6 +274,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo> &thisMd)
     return false;
   }
   std::vector<std::shared_ptr<MDInfo>> elems;
+  std::set<std::string> bufferids;
 
   bool first = true;
   while (!peek("]")) {
@@ -278,13 +290,13 @@ bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo> &thisMd)
       if (!parseScalar(tmp))
         return false;
       elems.push_back(tmp);
-
+      bufferids.insert(cast<InputInfo>(tmp.get())->getBufferID());
     } else if (peek("struct")) {
       std::shared_ptr<MDInfo> tmp;
       if (!parseStruct(tmp))
         return false;
       elems.push_back(tmp);
-
+      bufferids.insert(cast<StructInfo>(tmp.get())->getBufferIDsString());
     } else if (peek("void")) {
       elems.push_back(nullptr);
 
@@ -298,7 +310,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<MDInfo> &thisMd)
     error = "Empty structures not allowed";
     return false;
   }
-  StructInfo *si = new StructInfo(elems);
+  StructInfo *si = new StructInfo(elems, bufferids);
   thisMd.reset(si);
   return true;
 }

@@ -16,6 +16,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
+#include "TypeUtils.h"
 #include <sstream>
 
 namespace mdutils
@@ -29,43 +30,43 @@ MetadataManager &MetadataManager::getMetadataManager()
   return Instance;
 }
 
-MDInfo *MetadataManager::retrieveMDInfo(const Value *v)
+std::shared_ptr<MDInfo> MetadataManager::retrieveMDInfo(const Value *v)
 {
   if (const Instruction *i = dyn_cast<Instruction>(v)) {
     if (MDNode *mdn = i->getMetadata(INPUT_INFO_METADATA)) {
-      return retrieveInputInfo(mdn).get();
+      return retrieveInputInfo(mdn);
     } else if (MDNode *mdn = i->getMetadata(STRUCT_INFO_METADATA)) {
-      return retrieveStructInfo(mdn).get();
+      return retrieveStructInfo(mdn);
     } else
       return nullptr;
   } else if (const GlobalObject *go = dyn_cast<GlobalObject>(v)) {
     if (MDNode *mdn = go->getMetadata(INPUT_INFO_METADATA)) {
-      return retrieveInputInfo(mdn).get();
+      return retrieveInputInfo(mdn);
     } else if (MDNode *mdn = go->getMetadata(STRUCT_INFO_METADATA)) {
-      return retrieveStructInfo(mdn).get();
+      return retrieveStructInfo(mdn);
     } else
       return nullptr;
   } else if (const Argument *arg = dyn_cast<Argument>(v)) {
     const Function *fun = arg->getParent();
-    llvm::SmallVector<MDInfo *, 2> famd;
+    llvm::SmallVector<std::shared_ptr<MDInfo>, 2> famd;
     retrieveArgumentInputInfo(*fun, famd);
     return famd[arg->getArgNo()];
   }
   return nullptr;
 }
 
-InputInfo *MetadataManager::retrieveInputInfo(const Instruction &I)
+std::shared_ptr<InputInfo> MetadataManager::retrieveInputInfo(const Instruction &I)
 {
-  return retrieveInputInfo(I.getMetadata(INPUT_INFO_METADATA)).get();
+  return retrieveInputInfo(I.getMetadata(INPUT_INFO_METADATA));
 }
 
-InputInfo *MetadataManager::retrieveInputInfo(const GlobalObject &V)
+std::shared_ptr<InputInfo> MetadataManager::retrieveInputInfo(const GlobalObject &V)
 {
-  return retrieveInputInfo(V.getMetadata(INPUT_INFO_METADATA)).get();
+  return retrieveInputInfo(V.getMetadata(INPUT_INFO_METADATA));
 }
 
 void MetadataManager::
-    retrieveArgumentInputInfo(const Function &F, SmallVectorImpl<MDInfo *> &ResII)
+    retrieveArgumentInputInfo(const Function &F, SmallVectorImpl<std::shared_ptr<MDInfo>> &ResII)
 {
   MDNode *ArgsMD = F.getMetadata(FUNCTION_ARGS_METADATA);
   if (ArgsMD == nullptr)
@@ -85,10 +86,10 @@ void MetadataManager::
       ResII.push_back(nullptr);
       break;
     case 1:
-      ResII.push_back(retrieveInputInfo(cast<MDNode>(ArgMDOp->get())).get());
+      ResII.push_back(retrieveInputInfo(cast<MDNode>(ArgMDOp->get())));
       break;
     case 2:
-      ResII.push_back(retrieveStructInfo(cast<MDNode>(ArgMDOp->get())).get());
+      ResII.push_back(retrieveStructInfo(cast<MDNode>(ArgMDOp->get())));
       break;
     default:
       assert(0 && "invalid funinfo type id");
@@ -154,22 +155,22 @@ void MetadataManager::
 }
 
 void MetadataManager::
-    setArgumentInputInfoMetadata(Function &F, const ArrayRef<MDInfo *> AInfo)
+    setArgumentInputInfoMetadata(Function &F, const ArrayRef<std::shared_ptr<MDInfo>> AInfo)
 {
   LLVMContext &Context = F.getContext();
   SmallVector<Metadata *, 2U> AllArgsMD;
   AllArgsMD.reserve(AInfo.size());
 
-  for (MDInfo *info : AInfo) {
+  for (const auto &info : AInfo) {
     int tid = -1;
     Metadata *val;
     if (info == nullptr) {
       tid = 0;
       val = ConstantAsMetadata::get(Constant::getNullValue(Type::getInt1Ty(Context)));
-    } else if (InputInfo *IInfo = dyn_cast<InputInfo>(info)) {
+    } else if (InputInfo *IInfo = dyn_cast<InputInfo>(info.get())) {
       tid = 1;
       val = IInfo->toMetadata(Context);
-    } else if (StructInfo *SInfo = dyn_cast<StructInfo>(info)) {
+    } else if (StructInfo *SInfo = dyn_cast<StructInfo>(info.get())) {
       tid = 2;
       val = SInfo->toMetadata(Context);
     } else {
@@ -206,14 +207,14 @@ void MetadataManager::
   I.setMetadata(CONST_INFO_METADATA, MDNode::get(Context, ConstMDs));
 }
 
-StructInfo *MetadataManager::retrieveStructInfo(const Instruction &I)
+std::shared_ptr<StructInfo> MetadataManager::retrieveStructInfo(const Instruction &I)
 {
-  return retrieveStructInfo(I.getMetadata(STRUCT_INFO_METADATA)).get();
+  return retrieveStructInfo(I.getMetadata(STRUCT_INFO_METADATA));
 }
 
-StructInfo *MetadataManager::retrieveStructInfo(const GlobalObject &V)
+std::shared_ptr<StructInfo> MetadataManager::retrieveStructInfo(const GlobalObject &V)
 {
-  return retrieveStructInfo(V.getMetadata(STRUCT_INFO_METADATA)).get();
+  return retrieveStructInfo(V.getMetadata(STRUCT_INFO_METADATA));
 }
 
 void MetadataManager::setStructInfoMetadata(Instruction &I, const StructInfo &SInfo)
@@ -688,7 +689,7 @@ std::shared_ptr<InputInfo> MetadataManager::retrieveInputInfo(MDNode *MDN)
   if (CachedIInfo != IInfos.end())
     return CachedIInfo->second;
 
-  std::shared_ptr<InputInfo> NIInfo(createInputInfoFromMetadata(MDN));
+  std::shared_ptr<InputInfo> NIInfo = createInputInfoFromMetadata(MDN);
 
   IInfos.insert(std::make_pair(MDN, NIInfo));
   return NIInfo;
@@ -703,57 +704,80 @@ std::shared_ptr<StructInfo> MetadataManager::retrieveStructInfo(MDNode *MDN)
   if (CachedStructInfo != StructInfos.end())
     return CachedStructInfo->second;
 
-  std::shared_ptr<StructInfo> NSInfo(createStructInfoFromMetadata(MDN));
+  std::shared_ptr<StructInfo> NSInfo = createStructInfoFromMetadata(MDN);
 
   StructInfos.insert(std::make_pair(MDN, NSInfo));
   return NSInfo;
 }
 
-std::unique_ptr<InputInfo> MetadataManager::
+std::shared_ptr<InputInfo> MetadataManager::
     createInputInfoFromMetadata(MDNode *MDN)
 {
   assert(MDN != nullptr);
-  assert(MDN->getNumOperands() >= 3U && "Must have Type, Range, Initial Error, [Flags]");
+  assert(MDN->getNumOperands() >= 5U && "Must have LLVMType, SizeInBits, Type, Range, Initial Error, [BufferID], [Flags]");
 
-  Metadata *ITypeMDN = MDN->getOperand(0U).get();
+  Type *Type;
+  if (isa<MDString>(MDN->getOperand(0U)) && cast<MDString>(MDN->getOperand(0U))->getString() == "void")
+    Type = Type::getVoidTy(MDN->getContext());
+  else
+    Type = cast<ConstantAsMetadata>(MDN->getOperand(0U))->getType();
+
+  unsigned int SizeInBits = cast<ConstantInt>(cast<ConstantAsMetadata>(MDN->getOperand(1U))->getValue())->getZExtValue();
+
+  Metadata *ITypeMDN = MDN->getOperand(2U).get();
   std::shared_ptr<TType> IType = (IsNullInputInfoField(ITypeMDN))
                                      ? nullptr
                                      : retrieveTType(cast<MDNode>(ITypeMDN));
 
-  Metadata *IRangeMDN = MDN->getOperand(1U).get();
+  Metadata *IRangeMDN = MDN->getOperand(3U).get();
   std::shared_ptr<Range> IRange = (IsNullInputInfoField(IRangeMDN))
                                       ? nullptr
                                       : retrieveRange(cast<MDNode>(IRangeMDN));
 
-  Metadata *IErrorMDN = MDN->getOperand(2U).get();
+  Metadata *IErrorMDN = MDN->getOperand(4U).get();
   std::shared_ptr<double> IError = (IsNullInputInfoField(IErrorMDN))
                                        ? nullptr
                                        : retrieveError(cast<MDNode>(IErrorMDN));
 
   bool IEnabled = true;
   bool IFinal = false;
-  if (MDN->getNumOperands() >= 4U) {
-    Metadata *IFlagsMDN = MDN->getOperand(3U).get();
-    if (IFlagsMDN) {
-      ConstantAsMetadata *tmpmd = cast<ConstantAsMetadata>(IFlagsMDN);
-      uint64_t tmpint = cast<ConstantInt>(tmpmd->getValue())->getZExtValue();
-      IEnabled = tmpint & 1U;
-      IFinal = tmpint & 2U;
+  std::string BufferID = "";
+  for (unsigned int i = 5U; i < MDN->getNumOperands(); i++) {
+    auto OptionalMD = MDN->getOperand(i).get();
+    if (auto BufferIDMD = dyn_cast<MDString>(OptionalMD)) {
+      BufferID = BufferIDMD->getString().str();
+    }
+    else if (auto FlagsMD = dyn_cast<ConstantInt>(cast<ConstantAsMetadata>(OptionalMD)->getValue())) {
+      uint64_t flags = FlagsMD->getZExtValue();
+      IEnabled = flags & 1U;
+      IFinal = flags & 2U;
     }
   }
 
-  return std::unique_ptr<InputInfo>(new InputInfo(IType, IRange, IError, IEnabled, IFinal));
+  return std::make_shared<InputInfo>(Type, SizeInBits, IType, IRange, IError, IEnabled, IFinal, BufferID);
 }
 
-std::unique_ptr<StructInfo> MetadataManager::
+std::shared_ptr<StructInfo> MetadataManager::
     createStructInfoFromMetadata(MDNode *MDN)
 {
   assert(MDN != nullptr);
+  Type *Type;
+  if (isa<MDString>(MDN->getOperand(0U)) && cast<MDString>(MDN->getOperand(0U))->getString() == "void")
+    Type = Type::getVoidTy(MDN->getContext());
+  else
+    Type = cast<ConstantAsMetadata>(MDN->getOperand(0U))->getType();
 
+  unsigned int SizeInBits = cast<ConstantInt>(cast<ConstantAsMetadata>(MDN->getOperand(1))->getValue())->getZExtValue();
+  unsigned int StructSizeInBits = cast<ConstantInt>(cast<ConstantAsMetadata>(MDN->getOperand(2))->getValue())->getZExtValue();
+  std::string BufferIDs = cast<MDString>(MDN->getOperand(3))->getString().str();
+
+  unsigned int numFields = (MDN->getNumOperands() - 1) / 2;
   SmallVector<std::shared_ptr<MDInfo>, 4U> Fields;
-  Fields.reserve(MDN->getNumOperands());
-  for (const MDOperand &MDO : MDN->operands()) {
-    Metadata *MDField = MDO.get();
+  SmallVector<StructInfo::FieldBits, 4U> FieldsLayout;
+  Fields.reserve(numFields);
+  FieldsLayout.reserve(numFields);
+  for (unsigned int i = 4; i < MDN->getNumOperands(); i+=2) {
+    Metadata *MDField = MDN->getOperand(i).get();
     assert(MDField != nullptr);
     if (IsNullInputInfoField(MDField)) {
       Fields.push_back(nullptr);
@@ -764,9 +788,53 @@ std::unique_ptr<StructInfo> MetadataManager::
     } else {
       llvm_unreachable("Malformed structinfo Metadata.");
     }
-  }
 
-  return std::unique_ptr<StructInfo>(new StructInfo(Fields));
+    Metadata *MDFieldBits = MDN->getOperand(i+1).get();
+    assert(MDFieldBits != nullptr);
+    std::string FieldBitsString = cast<MDString>(MDFieldBits)->getString().str();
+    FieldsLayout.push_back(StructInfo::FieldBits(FieldBitsString));
+  }
+  return std::make_shared<StructInfo>(Type, SizeInBits, StructSizeInBits, Fields, FieldsLayout, BufferIDs);
+}
+
+void MetadataManager::removeTaffoMetadata(Module &M) {
+  const char *metadataTags[] = {
+      INPUT_INFO_METADATA,
+      FUNCTION_ARGS_METADATA,
+      STRUCT_INFO_METADATA,
+      CONST_INFO_METADATA,
+      COMP_ERROR_METADATA,
+      WRONG_CMP_METADATA,
+      MAX_REC_METADATA,
+      UNROLL_COUNT_METADATA,
+      START_FUN_METADATA,
+      TARGET_METADATA,
+      ORIGINAL_FUN_METADATA,
+      CLONED_FUN_METADATA,
+      SOURCE_FUN_METADATA,
+      INDIRECT_METADATA,
+      OMP_DISABLED_METADATA,
+      CUDA_KERNEL_METADATA,
+      INIT_WEIGHT_METADATA,
+      INIT_FUN_ARGS_BUFFER_ID_METADATA,
+  };
+  for (const auto &TagName : metadataTags) {
+    unsigned MDKindID = M.getContext().getMDKindID(TagName);
+
+    for (auto &GV : M.globals())
+      if (GV.getMetadata(MDKindID))
+        GV.setMetadata(MDKindID, nullptr);
+
+    for (auto &GO : M.global_objects())
+      if (GO.getMetadata(MDKindID))
+        GO.setMetadata(MDKindID, nullptr);
+
+    for (auto &F : M)
+      for (auto &BB : F)
+        for (auto &I : BB)
+          if (I.getMetadata(MDKindID))
+            I.setMetadata(MDKindID, nullptr);
+  }
 }
 
 

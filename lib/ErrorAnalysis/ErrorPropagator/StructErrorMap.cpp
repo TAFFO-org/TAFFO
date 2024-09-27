@@ -37,7 +37,7 @@ StructNode::StructNode(const StructInfo *SI, StructType *ST, StructTree *Parent)
 
   LLVM_DEBUG(dbgs() << "{ ");
   for (std::size_t Idx = 0; Idx < SI->size(); ++Idx) {
-    const MDInfo *FieldMDI = SI->getField(Idx);
+    const MDInfo *FieldMDI = SI->getField(Idx).get();
     if (FieldMDI == nullptr) {
       LLVM_DEBUG(dbgs() << "null ,");
       continue;

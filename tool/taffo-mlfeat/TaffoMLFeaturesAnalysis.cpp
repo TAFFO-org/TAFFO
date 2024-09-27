@@ -143,8 +143,8 @@ void computeBasicBlockStats(MLFeatureBlock& b, BasicBlock *bb, MLFeatureBlockCom
       state.lastDist_div = std::max(state.lastDist_div, state.lastDist_div+1);
     
     mdutils::MetadataManager& mm = mdutils::MetadataManager::getMetadataManager();
-    mdutils::MDInfo *mdi = mm.retrieveMDInfo(&i);
-    if (mdi) {
+    auto mdi = mm.retrieveMDInfo(&i);
+    if (mdi.get()) {
       b.numAnnotatedInstr += !!(mdi->getEnableConversion());
     }
   }

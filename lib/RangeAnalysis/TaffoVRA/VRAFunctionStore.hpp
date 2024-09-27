@@ -13,8 +13,8 @@ namespace taffo
 class VRAFunctionStore : protected VRAStore, public AnalysisStore
 {
 public:
-  VRAFunctionStore(std::shared_ptr<VRALogger> VRAL)
-      : VRAStore(VRASK_VRAFunctionStore, VRAL),
+  VRAFunctionStore(std::shared_ptr<VRALogger> VRAL, const llvm::DataLayout &DL)
+      : VRAStore(VRASK_VRAFunctionStore, VRAL, DL),
         AnalysisStore(ASK_VRAFunctionStore),
         ReturnValue() {}
 

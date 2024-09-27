@@ -17,6 +17,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include <limits>
+#include "llvm/Demangle/Demangle.h"
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -32,7 +33,6 @@ struct ValueInfo {
 
   std::shared_ptr<mdutils::MDInfo> metadata;
   llvm::Optional<std::string> target;
-  llvm::Optional<std::string> bufferID;
 };
 
 
@@ -48,31 +48,39 @@ private:
   llvm::SmallPtrSet<llvm::Function *, 32> enabledFunctions;
 
   llvm::Function *findStartingPointFunctionGlobal(llvm::Module &M);
-  void readGlobalAnnotations(llvm::Module &m, ConvQueueT &res, bool functionAnnotation = false);
-  void readLocalAnnotations(llvm::Function &f, ConvQueueT &res);
-  void readAllLocalAnnotations(llvm::Module &m, ConvQueueT &res);
-  bool parseAnnotation(ConvQueueT &res, llvm::ConstantExpr *annoPtrInst, llvm::Value *instr, bool *isTarget = nullptr);
+  void readGlobalAnnotations(llvm::Module &m, const llvm::DataLayout &DL, ConvQueueT &res, bool functionAnnotation = false);
+  void readLocalAnnotations(llvm::Function &f, const llvm::DataLayout &DL, ConvQueueT &res);
+  void readAllLocalAnnotations(llvm::Module &m, const llvm::DataLayout &DL, ConvQueueT &res);
+  bool parseAnnotation(const llvm::DataLayout &DL, ConvQueueT &res, llvm::ConstantExpr *annoPtrInst, llvm::Value *instr, bool *isTarget = nullptr);
   void removeNoFloatTy(ConvQueueT &res);
-  void printAnnotatedObj(llvm::Module &m);
+  void printAnnotatedObj(llvm::Module &m, const llvm::DataLayout &DL);
 
-  void buildConversionQueueForRootValues(const ConvQueueT &val, ConvQueueT &res);
-  void createInfoOfUser(llvm::Value *used, const ValueInfo &VIUsed, llvm::Value *user, ValueInfo &VIUser);
+  void buildConversionQueueForRootValues(const ConvQueueT &val, ConvQueueT &res, const llvm::DataLayout &DL);
+  void createInfoOfUser(llvm::Value *used, const ValueInfo &VIUsed, llvm::Value *user, ValueInfo &VIUser, const llvm::DataLayout &DL);
   std::shared_ptr<mdutils::MDInfo> extractGEPIMetadata(const llvm::Value *user,
                                                        const llvm::Value *used,
                                                        std::shared_ptr<mdutils::MDInfo> user_mdi,
                                                        std::shared_ptr<mdutils::MDInfo> used_mdi);
-  void generateFunctionSpace(ConvQueueT &vals, ConvQueueT &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
-  llvm::Function *createFunctionAndQueue(llvm::CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
+  void generateFunctionSpace(const llvm::DataLayout &DL, ConvQueueT &vals, ConvQueueT &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
+  llvm::Function *createFunctionAndQueue(const llvm::DataLayout &DL, llvm::CallBase *call, ConvQueueT &vals, ConvQueueT &global, std::vector<llvm::Value *> &convQueue);
   void printConversionQueue(ConvQueueT &vals);
   void removeAnnotationCalls(ConvQueueT &vals);
 
   void setMetadataOfValue(llvm::Value *v, ValueInfo &VI);
   void setFunctionArgsMetadata(llvm::Module &m, ConvQueueT &Q);
 
+  //Special functions are ignored by Taffo
   bool isSpecialFunction(const llvm::Function *f)
   {
     llvm::StringRef fName = f->getName();
-    return fName.startswith("llvm.") || f->getBasicBlockList().empty();
+    std::basic_string<char> demangledFName = llvm::demangle(fName.str());
+    bool isSpecial = fName.startswith("llvm.")
+                     || f->getBasicBlockList().empty()
+                     || demangledFName.find("std::_Sp_counted_base") != std::string::npos;
+    LLVM_DEBUG(if (isSpecial) llvm::dbgs() << "Special function name: " << demangledFName << "\n";
+               else llvm::dbgs() << "Non-special function name: " << demangledFName << "\n";);
+
+    return isSpecial;
   };
 };
 

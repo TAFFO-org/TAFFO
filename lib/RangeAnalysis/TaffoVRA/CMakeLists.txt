@@ -3,6 +3,7 @@ set(SELF TaffoVRA)
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   RangeOperationsCallWhitelist.cpp
   RangeOperations.cpp
+  RangeNode.cpp
   ValueRangeAnalysis.cpp
   CodeInterpreter.cpp
   VRAStore.cpp

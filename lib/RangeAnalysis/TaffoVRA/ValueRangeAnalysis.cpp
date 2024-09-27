@@ -34,7 +34,8 @@ llvm::cl::opt<unsigned> MaxUnroll("max-unroll",
 
 PreservedAnalyses ValueRangeAnalysis::run(Module &M, ModuleAnalysisManager &AM)
 {
-  std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>();
+  DataLayout DL(&M);
+  std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>(DL);
   GlobalStore->harvestMetadata(M);
 
   CodeInterpreter CodeInt(AM, GlobalStore, Unroll, MaxUnroll);

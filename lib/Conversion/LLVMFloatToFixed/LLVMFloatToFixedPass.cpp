@@ -206,6 +206,8 @@ PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM)
 
   cleanUpOpenCLKernelTrampolines(&m);
 
+  mdutils::MetadataManager::getMetadataManager().removeTaffoMetadata(m);
+
   return PreservedAnalyses::none();
 }
 
@@ -543,7 +545,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
     }
     LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF << "\n");
 
-    SmallVector<mdutils::MDInfo *, 4> ArgsII;
+    SmallVector<std::shared_ptr<mdutils::MDInfo>, 4> ArgsII;
     MM.retrieveArgumentInputInfo(*oldF, ArgsII);
 
     std::vector<Value *> newVals; // propagate fixp conversion
@@ -578,7 +580,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
 
         /* Copy input info to the placeholder because it's the only place where+
          * ranges are stored */
-        mdutils::InputInfo *II = dyn_cast_or_null<mdutils::InputInfo>(ArgsII[i]);
+        mdutils::InputInfo *II = dyn_cast_or_null<mdutils::InputInfo>(ArgsII[i].get());
         if (II) {
           MM.setInputInfoMetadata(*(dyn_cast<Instruction>(placehValue)), *II);
         }
@@ -654,8 +656,11 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, llvm::SmallPtrSetIm
 
 Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
 {
-  LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
+  LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n"
+                    << "Caller: " << call->getCaller()->getName() << "\n"
+                    << "Call: " << *call << "\n");
   Function *oldF = call->getCalledFunction();
+
   assert(oldF && "bitcasted function pointers and such not handled atm");
   if (isSpecialFunction(oldF))
     return nullptr;
@@ -718,7 +723,11 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
     dbgs() << "\n";
   });
 
-  newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
+  newF = Function::Create(newFunTy,
+                          oldF->getLinkage(),
+                          oldF->getName() + "_" + suffix,
+                          oldF->getParent());
+  newF->copyAttributesFrom(oldF);
   LLVM_DEBUG(dbgs() << "created function\n" << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;

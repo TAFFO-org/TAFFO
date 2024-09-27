@@ -1,6 +1,7 @@
 #include "InputInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
+#include <llvm/IR/Type.h>
 
 
 #ifndef TAFFOUTILS_TYPEUTILS_H
@@ -24,12 +25,16 @@ bool isFloatType(llvm::Type *srct);
  *  @returns The pointer element type. */
 llvm::Type *fullyUnwrapPointerOrArrayType(llvm::Type *srct);
 
+bool areEquivalentType(llvm::Type *T1, llvm::Type *T2);
+
 /** Checks if a value with the given LLVM type can have the specified InputInfo
  *  metadata attached or not.
- *  @param T An LLVM type.
+ *  In case of StructInfo metadata, the LLVM type is associated to the metadata
  *  @param II A TAFFO InputInfo object
+ *  @param T An LLVM type
+ *  @param DL A DataLayout object used to know which bits of a StructType correspond to which field
  *  @returns true if the two types are compatible, false otherwise. */
-bool typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II);
+bool typecheckMetadata(mdutils::MDInfo *II, llvm::Type *T, const llvm::DataLayout &DL);
 
 enum class FixedPointTypeGenError {
   NoError = 0,

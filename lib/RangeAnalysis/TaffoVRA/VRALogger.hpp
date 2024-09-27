@@ -113,10 +113,12 @@ public:
         return Result;
       }
       case VRANode::VRAGEPNodeK: {
-        return "GEPNode";
+        auto parent = llvm::cast<VRAGEPNode>(Range.get())->getParent();
+        return (std::stringstream() << "GEPNode, parent kind: " << (parent ? std::to_string(parent->getKind()) : "no_parent")).str();
       }
       case VRANode::VRAPtrNodeK: {
-        return "Pointer Node";
+        auto parent = llvm::cast<VRAPtrNode>(Range.get())->getParent();
+        return (std::stringstream() << "PointerNode, parent kind: " << (parent ? std::to_string(parent->getKind()) : "no_parent")).str();
       }
       default:
         llvm_unreachable("Unhandled node type.");

@@ -62,7 +62,7 @@ void VRAStore::saveValueRange(const llvm::Value *v,
   if (!Range)
     return;
   // TODO: make specialized version of this to avoid creating useless node
-  saveValueRange(v, std::make_shared<VRAScalarNode>(Range));
+  saveValueRange(v, std::make_shared<VRAScalarNode>(v->getType(), DL.getTypeSizeInBits(v->getType()), Range));
 }
 
 void VRAStore::saveValueRange(const llvm::Value *v,
@@ -155,7 +155,7 @@ VRAStore::assignScalarRange(NodePtrT Dst, const NodePtrT Src) const
     return ScalarDst;
 
   range_ptr_t Union = getUnionRange(ScalarDst->getRange(), ScalarSrc->getRange());
-  return std::make_shared<VRAScalarNode>(Union);
+  return std::make_shared<VRAScalarNode>(Dst->getType(), Dst->getSizeInBits(), Union);
 }
 
 void VRAStore::assignStructNode(NodePtrT Dst, const NodePtrT Src) const
@@ -222,7 +222,8 @@ void VRAStore::storeNode(NodePtrT Dst, const NodePtrT Src,
     } else {
       NodePtrT Field = StructDst->getNodeAt(Offset.back());
       if (!Field) {
-        Field = std::make_shared<VRAStructNode>();
+        StructType *FieldType = cast<StructType>(StructDst->getStructType()->getElementType(Offset.back()));
+        Field = std::make_shared<VRAStructNode>(FieldType, DL.getTypeSizeInBits(FieldType));
         StructDst->setNodeAt(Offset.back(), Field);
       }
       Offset.pop_back();
