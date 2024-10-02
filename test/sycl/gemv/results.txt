@@ -1,0 +1,3 @@
+Speedup:             0.830508 x
+Max relative error:  5.83781e-03 %
+Mean relative error: 5.26210e-03 %

@@ -62,7 +62,7 @@ if [[ -z $LLVM_DIR ]]; then
 else
   llvmbin="$LLVM_DIR/bin/";
 fi
-if [[ -z "$CLANG" ]]; then CLANG="/home/nico/CLionProjects/llvm/build/bin/clang"; fi # TODO: do this the proper way
+if [[ -z "$CLANG" ]]; then CLANG=${llvmbin}clang; fi
 if [[ -z "$CLANGXX" ]]; then CLANGXX=${CLANG}++; fi
 if [[ -z "$OPT" ]]; then OPT=${llvmbin}opt; fi
 if [[ -z "$LLC" ]]; then LLC=${llvmbin}llc; fi
@@ -468,7 +468,7 @@ output_time_string () {
 append_time_string "taffo_start"
 
 if [[ ${linker_command} -eq 1 ]]; then
-  ${CLANGXX} $optimization $opts -o $output_file #TODO do this the proper way for c and c++
+  ${CLANGXX} $optimization $opts -o $output_file #TODO use the proper clang for c and c++ (maybe needs taffo++)
 else
   ###
   ###  Produce base .ll
@@ -717,7 +717,7 @@ else
       device_annotation1+="  call void @llvm.var.annotation(i8* %__SYCLKernel2, i8* getelementptr inbounds ([${device_def_len1} x i8], [${device_def_len1} x i8]* @.taffo.str.1, i32 0, i32 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.taffo.str.3, i32 0, i32 0), i32 72, i8* null)"
       sed -i "/%__SYCLKernel = alloca/a\\${device_annotation1}" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
 
-      device_annotation2="  %RoundedRangeKernel2 = bitcast %\"class.sycl::_V1::detail::RoundedRangeKernel\"* %RoundedRangeKernel to i8*\n"
+      device_annotation2="  %RoundedRangeKernel2 = bitcast %\"class.cl::sycl::detail::RoundedRangeKernel\"* %RoundedRangeKernel to i8*\n"
       device_annotation2+="  call void @llvm.var.annotation(i8* %RoundedRangeKernel2, i8* getelementptr inbounds ([${device_def_len2} x i8], [${device_def_len2} x i8]* @.taffo.str.2, i32 0, i32 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.taffo.str.3, i32 0, i32 0), i32 72, i8* null)"
       sed -i "/%RoundedRangeKernel = alloca/a\\${device_annotation2}" "${temporary_dir}/${output_basename}${target}.1.taffotmp.ll"
 

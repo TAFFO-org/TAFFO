@@ -10,9 +10,8 @@ set(BUILD_SHARED_LIBS OFF)
 include(TaffoOptions)
 include(TaffoFetchDeps)
 
-find_package(LLVM 15.0.7 EXACT REQUIRED CONFIG PATHS /opt/llvm-15-d)
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+find_package(LLVM REQUIRED CONFIG)
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} at path ${LLVM_DIR}")
 
 add_definitions(${LLVM_DEFINITIONS})
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
