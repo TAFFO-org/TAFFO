@@ -303,7 +303,7 @@ void MetadataManager::setBufferIDMetadata(Value *V, std::string BufID)
   }
 }
 
-Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
+std::optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
 {
   MDString *String;
 
@@ -311,7 +311,7 @@ Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
     Function *F = Arg->getParent();
     MDNode *Node = F->getMetadata(INIT_FUN_ARGS_BUFFER_ID_METADATA);
     if (!Node || Node->getNumOperands() != F->arg_size())
-      return Optional<std::string>();
+      return std::optional<std::string>();
     String = dyn_cast_or_null<MDString>(Node->getOperand(Arg->getArgNo()));
   } else {
     MDNode *Node;
@@ -323,13 +323,13 @@ Optional<std::string> MetadataManager::retrieveBufferIDMetadata(Value *V)
       llvm_unreachable("attempted to attach metadata to unsupported value type");
     }
     if (!Node || Node->getNumOperands() != 1)
-      return Optional<std::string>();
+      return std::optional<std::string>();
     String = dyn_cast_or_null<MDString>(Node->getOperand(0U));
   }
 
   if (String)
-    return Optional<std::string>(std::string(String->getString()));
-  return Optional<std::string>();
+    return std::optional<std::string>(std::string(String->getString()));
+  return std::optional<std::string>();
 }
 
 void MetadataManager::getCudaKernels(Module &M, SmallVectorImpl<Function *> &Fs) {
@@ -446,12 +446,12 @@ void MetadataManager::
 
 void MetadataManager::
     setLoopUnrollCountMetadata(Function &F,
-                               const SmallVectorImpl<Optional<unsigned>> &LUCs)
+                               const SmallVectorImpl<std::optional<unsigned>> &LUCs)
 {
   std::ostringstream EncLUCs;
-  for (const Optional<unsigned> &LUC : LUCs) {
-    if (LUC.hasValue())
-      EncLUCs << LUC.getValue() << " ";
+  for (const std::optional<unsigned> &LUC : LUCs) {
+    if (LUC.has_value())
+      EncLUCs << LUC.value() << " ";
     else
       EncLUCs << "U ";
   }
@@ -461,18 +461,18 @@ void MetadataManager::
                             MDString::get(F.getContext(), EncLUCs.str())));
 }
 
-Optional<unsigned>
+std::optional<unsigned>
 MetadataManager::retrieveLoopUnrollCount(const Loop &L, LoopInfo *LI)
 {
-  Optional<unsigned> MDLUC = retrieveLUCFromHeaderMD(L);
+  std::optional<unsigned> MDLUC = retrieveLUCFromHeaderMD(L);
 
-  if (!MDLUC.hasValue() && LI)
+  if (!MDLUC.has_value() && LI)
     return retrieveLUCFromFunctionMD(L, *LI);
 
   return MDLUC;
 }
 
-Optional<unsigned>
+std::optional<unsigned>
 MetadataManager::retrieveLUCFromHeaderMD(const Loop &L)
 {
   // Get Loop header terminating instruction
@@ -484,7 +484,7 @@ MetadataManager::retrieveLUCFromHeaderMD(const Loop &L)
 
   MDNode *UCNode = HTI->getMetadata(UNROLL_COUNT_METADATA);
   if (UCNode == nullptr)
-    return NoneType();
+    return std::nullopt;
 
   assert(UCNode->getNumOperands() > 0 && "Must contain the unroll count.");
   ConstantAsMetadata *CMUC = cast<ConstantAsMetadata>(UCNode->getOperand(0U));
@@ -492,17 +492,17 @@ MetadataManager::retrieveLUCFromHeaderMD(const Loop &L)
   return CIUC->getZExtValue();
 }
 
-Optional<unsigned>
+std::optional<unsigned>
 MetadataManager::retrieveLUCFromFunctionMD(const Loop &L, LoopInfo &LI)
 {
   unsigned LIdx = getLoopIndex(L, LI);
 
   Function *F = L.getHeader()->getParent();
   assert(F);
-  SmallVector<Optional<unsigned>, 4U> LUCs = retrieveLUCListFromFunctionMD(*F);
+  SmallVector<std::optional<unsigned>, 4U> LUCs = retrieveLUCListFromFunctionMD(*F);
 
   if (LIdx >= LUCs.size())
-    return NoneType();
+    return std::nullopt;
 
   return LUCs[LIdx];
 }
@@ -520,10 +520,10 @@ MetadataManager::getLoopIndex(const Loop &L, LoopInfo &LI)
   llvm_unreachable("User-provided loop not found in LoopInfo.");
 }
 
-SmallVector<Optional<unsigned>, 4U>
+SmallVector<std::optional<unsigned>, 4U>
 MetadataManager::retrieveLUCListFromFunctionMD(Function &F)
 {
-  SmallVector<Optional<unsigned>, 4U> LUCList;
+  SmallVector<std::optional<unsigned>, 4U> LUCList;
 
   MDNode *LUCListMDN = F.getMetadata(UNROLL_COUNT_METADATA);
   if (!LUCListMDN)
@@ -542,7 +542,7 @@ MetadataManager::retrieveLUCListFromFunctionMD(Function &F)
       LUCList.push_back(LUC);
       errs() << " done\n";
     } else {
-      LUCList.push_back(NoneType());
+      LUCList.push_back(std::nullopt);
       errs() << " nope\n";
     }
   }
@@ -607,11 +607,11 @@ void MetadataManager::setTargetMetadata(Instruction &I, StringRef Name)
   I.setMetadata(TARGET_METADATA, TMD);
 }
 
-Optional<StringRef> MetadataManager::retrieveTargetMetadata(const Instruction &I)
+std::optional<StringRef> MetadataManager::retrieveTargetMetadata(const Instruction &I)
 {
   MDNode *MD = I.getMetadata(TARGET_METADATA);
   if (MD == nullptr)
-    return NoneType();
+    return std::nullopt;
 
   MDString *MDName = cast<MDString>(MD->getOperand(0U).get());
   return MDName->getString();
@@ -623,11 +623,11 @@ void MetadataManager::setTargetMetadata(GlobalObject &I, StringRef Name)
   I.setMetadata(TARGET_METADATA, TMD);
 }
 
-Optional<StringRef> MetadataManager::retrieveTargetMetadata(const GlobalObject &I)
+std::optional<StringRef> MetadataManager::retrieveTargetMetadata(const GlobalObject &I)
 {
   MDNode *MD = I.getMetadata(TARGET_METADATA);
   if (MD == nullptr)
-    return NoneType();
+    return std::nullopt;
 
   MDString *MDName = cast<MDString>(MD->getOperand(0U).get());
   return MDName->getString();

@@ -47,7 +47,7 @@ bool InstructionPropagator::propagateSqrt(Instruction &I)
 {
   LLVM_DEBUG(dbgs() << "(special: sqrt) ");
   auto *OpRE = getOperandRangeError(I, 0U);
-  if (OpRE == nullptr || !OpRE->second.hasValue()) {
+  if (OpRE == nullptr || !OpRE->second.has_value()) {
     LLVM_DEBUG(dbgs() << "no data.\n");
     return false;
   }
@@ -55,7 +55,7 @@ bool InstructionPropagator::propagateSqrt(Instruction &I)
   const FPInterval *IRange = RMap.getRange(&I);
   AffineForm<inter_t> NewErr =
       LinearErrorApproximationDecr([](inter_t x) { return static_cast<inter_t>(0.5) / std::sqrt(x); },
-                                   OpRE->first, OpRE->second.getValue()) +
+                                   OpRE->first, OpRE->second.value()) +
       ((IRange) ? AffineForm<inter_t>(0.0, IRange->getRoundingError()) : AffineForm<inter_t>(0.0, OpRE->first.getRoundingError()));
 
   RMap.setError(&I, NewErr);
@@ -68,7 +68,7 @@ bool InstructionPropagator::propagateLog(Instruction &I)
 {
   LLVM_DEBUG(dbgs() << "(special: log) ");
   auto *OpRE = getOperandRangeError(I, 0U);
-  if (OpRE == nullptr || !OpRE->second.hasValue()) {
+  if (OpRE == nullptr || !OpRE->second.has_value()) {
     LLVM_DEBUG(dbgs() << "no data.\n");
     return false;
   }
@@ -76,7 +76,7 @@ bool InstructionPropagator::propagateLog(Instruction &I)
   const FPInterval *IRange = RMap.getRange(&I);
   AffineForm<inter_t> NewErr =
       LinearErrorApproximationDecr([](inter_t x) { return static_cast<inter_t>(1) / x; },
-                                   OpRE->first, OpRE->second.getValue()) +
+                                   OpRE->first, OpRE->second.value()) +
       ((IRange) ? AffineForm<inter_t>(0.0, IRange->getRoundingError()) : AffineForm<inter_t>(0.0, OpRE->first.getRoundingError()));
 
   RMap.setError(&I, NewErr);
@@ -89,7 +89,7 @@ bool InstructionPropagator::propagateExp(Instruction &I)
 {
   LLVM_DEBUG(dbgs() << "(special: exp) ");
   auto *OpRE = getOperandRangeError(I, 0U);
-  if (OpRE == nullptr || !OpRE->second.hasValue()) {
+  if (OpRE == nullptr || !OpRE->second.has_value()) {
     LLVM_DEBUG(dbgs() << "no data.\n");
     return false;
   }
@@ -97,7 +97,7 @@ bool InstructionPropagator::propagateExp(Instruction &I)
   const FPInterval *IRange = RMap.getRange(&I);
   AffineForm<inter_t> NewErr =
       LinearErrorApproximationIncr([](inter_t x) { return std::exp(x); },
-                                   OpRE->first, OpRE->second.getValue()) +
+                                   OpRE->first, OpRE->second.value()) +
       ((IRange) ? AffineForm<inter_t>(0.0, IRange->getRoundingError()) : AffineForm<inter_t>(0.0, OpRE->first.getRoundingError()));
 
   RMap.setError(&I, NewErr);
@@ -110,7 +110,7 @@ bool InstructionPropagator::propagateAcos(Instruction &I)
 {
   LLVM_DEBUG(dbgs() << "(special: acos) ");
   auto *OpRE = getOperandRangeError(I, 0U);
-  if (OpRE == nullptr || !OpRE->second.hasValue()) {
+  if (OpRE == nullptr || !OpRE->second.has_value()) {
     LLVM_DEBUG(dbgs() << "no data.\n");
     return false;
   }
@@ -120,7 +120,7 @@ bool InstructionPropagator::propagateAcos(Instruction &I)
   const FPInterval *IRange = RMap.getRange(&I);
   AffineForm<inter_t> NewErr =
       LinearErrorApproximationIncr([](inter_t x) { return static_cast<inter_t>(-1) / std::sqrt(1 - x * x); },
-                                   R, OpRE->second.getValue()) +
+                                   R, OpRE->second.value()) +
       ((IRange) ? AffineForm<inter_t>(0.0, IRange->getRoundingError()) : AffineForm<inter_t>(0.0, OpRE->first.getRoundingError()));
 
   RMap.setError(&I, NewErr);
@@ -133,7 +133,7 @@ bool InstructionPropagator::propagateAsin(Instruction &I)
 {
   LLVM_DEBUG(dbgs() << "(special: asin) ");
   auto *OpRE = getOperandRangeError(I, 0U);
-  if (OpRE == nullptr || !OpRE->second.hasValue()) {
+  if (OpRE == nullptr || !OpRE->second.has_value()) {
     LLVM_DEBUG(dbgs() << "no data.\n");
     return false;
   }
@@ -143,7 +143,7 @@ bool InstructionPropagator::propagateAsin(Instruction &I)
   const FPInterval *IRange = RMap.getRange(&I);
   AffineForm<inter_t> NewErr =
       LinearErrorApproximationIncr([](inter_t x) { return static_cast<inter_t>(1) / std::sqrt(1 - x * x); },
-                                   R, OpRE->second.getValue()) +
+                                   R, OpRE->second.value()) +
       ((IRange) ? AffineForm<inter_t>(0.0, IRange->getRoundingError()) : AffineForm<inter_t>(0.0, OpRE->first.getRoundingError()));
 
   RMap.setError(&I, NewErr);

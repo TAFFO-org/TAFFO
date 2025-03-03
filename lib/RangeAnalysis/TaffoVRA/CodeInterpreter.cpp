@@ -290,10 +290,10 @@ void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
       if (DefaultTripCount > 0U && MaxTripCount > 0U) {
         unsigned TripCount = 0U;
         // Get user supplied unroll count
-        llvm::Optional<unsigned> OUC =
+        std::optional<unsigned> OUC =
             mdutils::MetadataManager::retrieveLoopUnrollCount(*L, LoopInfo);
-        if (OUC.hasValue()) {
-          TripCount = OUC.getValue();
+        if (OUC.has_value()) {
+          TripCount = OUC.value();
         } else {
           // Compute loop trip count
           if (!SE) {

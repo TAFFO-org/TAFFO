@@ -16,7 +16,7 @@ MemSSARE::REVector &MemSSARE::getRangeErrors(llvm::Instruction *I, bool Sloppy)
   Res.reserve(DefVals.size());
   for (Value *V : DefVals) {
     const RangeErrorMap::RangeError *RE = RMap.getRangeError(V);
-    if (RE != nullptr && RE->second.hasValue()) {
+    if (RE != nullptr && RE->second.has_value()) {
       Res.push_back(RE);
     }
   }
@@ -45,7 +45,7 @@ void MemSSARE::findLOEError(Instruction *I)
     return;
   }
   const RangeErrorMap::RangeError *RE = RMap.getRangeError(Pointer);
-  if (RE != nullptr && RE->second.hasValue()) {
+  if (RE != nullptr && RE->second.has_value()) {
     Res.push_back(RE);
   } else {
     Instruction *PI = dyn_cast<Instruction>(Pointer);

@@ -125,8 +125,8 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo &vi)
   }
 
   if (Instruction *inst = dyn_cast<Instruction>(v)) {
-    if (vi.target.hasValue())
-      mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.getValue());
+    if (vi.target.has_value())
+      mdutils::MetadataManager::setTargetMetadata(*inst, vi.target.value());
 
     if (auto *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
       if (inst->getMetadata(OMP_DISABLED_METADATA)) {
@@ -138,8 +138,8 @@ void TaffoInitializer::setMetadataOfValue(Value *v, ValueInfo &vi)
       mdutils::MetadataManager::setStructInfoMetadata(*inst, *si);
     }
   } else if (GlobalObject *con = dyn_cast<GlobalObject>(v)) {
-    if (vi.target.hasValue())
-      mdutils::MetadataManager::setTargetMetadata(*con, vi.target.getValue());
+    if (vi.target.has_value())
+      mdutils::MetadataManager::setTargetMetadata(*con, vi.target.value());
 
     if (mdutils::InputInfo *ii = dyn_cast<mdutils::InputInfo>(md.get())) {
       mdutils::MetadataManager::setInputInfoMetadata(*con, *ii);

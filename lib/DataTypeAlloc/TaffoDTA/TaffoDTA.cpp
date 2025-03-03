@@ -130,7 +130,7 @@ void TaffoTuner::retrieveBufferID(llvm::Value *V)
 {
   LLVM_DEBUG(dbgs() << "Looking up buffer id of " << *V << "\n");
   auto MaybeBID = mdutils::MetadataManager::retrieveBufferIDMetadata(V);
-  if (MaybeBID.hasValue()) {
+  if (MaybeBID.has_value()) {
     std::string Tag = *MaybeBID;
     auto& Set = bufferIDSets[Tag];
     Set.insert(V);

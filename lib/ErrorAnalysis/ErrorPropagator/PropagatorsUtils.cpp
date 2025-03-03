@@ -113,7 +113,7 @@ void InstructionPropagator::
   Pointer = taffo::MemSSAUtils::getOriginPointer(MemSSA, Pointer);
   if (Pointer != nullptr) {
     auto *PointerRE = RMap.getRangeError(Pointer);
-    if (PointerRE == nullptr || !PointerRE->second.hasValue() || PointerRE->second->noiseTermsAbsSum() < NewRE->second->noiseTermsAbsSum()) {
+    if (PointerRE == nullptr || !PointerRE->second.has_value() || PointerRE->second->noiseTermsAbsSum() < NewRE->second->noiseTermsAbsSum()) {
       RMap.setRangeError(Pointer, *NewRE);
       LLVM_DEBUG(dbgs() << "(Error of pointer (" << *Pointer << ") updated.) ");
     }
@@ -125,7 +125,7 @@ bool InstructionPropagator::unOpErrorPassThrough(Instruction &I)
   // assert(isa<UnaryInstruction>(I) && "Must be Unary.");
 
   auto *OpRE = getOperandRangeError(I, 0U);
-  if (OpRE == nullptr || !OpRE->second.hasValue()) {
+  if (OpRE == nullptr || !OpRE->second.has_value()) {
     LLVM_DEBUG(logInfoln("no data."));
     return false;
   }
@@ -185,8 +185,8 @@ void InstructionPropagator::logError(const AffineForm<inter_t> &Err)
 
 void InstructionPropagator::logError(const RangeErrorMap::RangeError &RE)
 {
-  if (RE.second.hasValue())
-    logError(RE.second.getValue());
+  if (RE.second.has_value())
+    logError(RE.second.value());
   else
     dbgs() << "null";
 }

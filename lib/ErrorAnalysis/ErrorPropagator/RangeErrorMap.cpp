@@ -43,9 +43,9 @@ const AffineForm<inter_t> *RangeErrorMap::getError(const Value *I) const
   if (RError == REMap.end()) {
     return nullptr;
   }
-  const Optional<AffineForm<inter_t>> &Error = RError->second.second;
-  if (Error.hasValue())
-    return Error.getPointer();
+  const std::optional<AffineForm<inter_t>> &Error = RError->second.second;
+  if (Error.has_value())
+    return &Error.value();
   else
     return nullptr;
 }
@@ -81,7 +81,7 @@ void RangeErrorMap::setRangeError(const Value *I,
 {
   REMap[I] = RE;
 
-  if (RE.second.hasValue()) {
+  if (RE.second.has_value()) {
     double OutError = getOutputError(RE);
     if (!std::isnan(OutError))
       TErrs.updateTarget(I, OutError);
@@ -102,7 +102,7 @@ bool RangeErrorMap::retrieveRangeError(Instruction &I)
     return false;
 
   if (II->IError == nullptr) {
-    REMap[&I] = std::make_pair(FPInterval(II), NoneType());
+    REMap[&I] = std::make_pair(FPInterval(II), std::nullopt);
     return false;
   } else {
     REMap[&I] = std::make_pair(FPInterval(II), AffineForm<inter_t>(0.0, *II->IError));
@@ -137,7 +137,7 @@ void RangeErrorMap::retrieveRangeErrors(Function &F)
 
         LLVM_DEBUG(dbgs() << FPI.getInitialError() << ".\n");
       } else {
-        this->setRangeError(Arg, std::make_pair(FPI, NoneType()));
+        this->setRangeError(Arg, std::make_pair(FPI, std::nullopt));
 
         LLVM_DEBUG(dbgs() << "none.\n");
       }
@@ -210,7 +210,7 @@ void RangeErrorMap::retrieveRangeError(GlobalObject &V)
 
     LLVM_DEBUG(dbgs() << FPI.getInitialError() << ".\n");
   } else {
-    REMap[&V] = std::make_pair(FPI, NoneType());
+    REMap[&V] = std::make_pair(FPI, std::nullopt);
 
     LLVM_DEBUG(dbgs() << "none.\n");
   }
@@ -244,7 +244,7 @@ double RangeErrorMap::computeRelativeError(const RangeError &RE)
 double RangeErrorMap::getOutputError(const llvm::Value *V) const
 {
   const RangeError *RE = getRangeError(V);
-  if (RE && RE->second.hasValue()) {
+  if (RE && RE->second.has_value()) {
     return getOutputError(*RE);
   } else {
     return std::numeric_limits<double>::quiet_NaN();
@@ -267,17 +267,17 @@ void TargetErrors::updateTarget(const Value *V, const inter_t &Error)
 void TargetErrors::updateTarget(const Instruction *I, const inter_t &Error)
 {
   assert(I != nullptr);
-  Optional<StringRef> Target = MetadataManager::retrieveTargetMetadata(*I);
-  if (Target.hasValue())
-    updateTarget(Target.getValue(), Error);
+  std::optional<StringRef> Target = MetadataManager::retrieveTargetMetadata(*I);
+  if (Target.has_value())
+    updateTarget(Target.value(), Error);
 }
 
 void TargetErrors::updateTarget(const GlobalVariable *V, const inter_t &Error)
 {
   assert(V != nullptr);
-  Optional<StringRef> Target = MetadataManager::retrieveTargetMetadata(*V);
-  if (Target.hasValue())
-    updateTarget(Target.getValue(), Error);
+  std::optional<StringRef> Target = MetadataManager::retrieveTargetMetadata(*V);
+  if (Target.has_value())
+    updateTarget(Target.value(), Error);
 }
 
 void TargetErrors::updateTarget(StringRef T, const inter_t &Error)

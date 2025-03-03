@@ -18,7 +18,6 @@
 #include "InputInfo.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
@@ -138,7 +137,7 @@ public:
   static bool retrieveOpenCLCloneTrampolineMetadata(llvm::Function *f, llvm::Function **KernF);
 
   static void setBufferIDMetadata(llvm::Value *V, std::string BufID);
-  static llvm::Optional<std::string> retrieveBufferIDMetadata(llvm::Value *V);
+  static std::optional<std::string> retrieveBufferIDMetadata(llvm::Value *V);
 
   static void getCudaKernels(llvm::Module &M, llvm::SmallVectorImpl<llvm::Function *> &Fs);
 
@@ -166,10 +165,10 @@ public:
   /// Loop unroll counts must be provided in Loop preorder.
   static void
   setLoopUnrollCountMetadata(llvm::Function &F,
-                             const llvm::SmallVectorImpl<llvm::Optional<unsigned>> &LUCs);
+                             const llvm::SmallVectorImpl<std::optional<unsigned>> &LUCs);
 
   /// Read loop unroll count from metadata attached to the header of L.
-  static llvm::Optional<unsigned>
+  static std::optional<unsigned>
   retrieveLoopUnrollCount(const llvm::Loop &L, llvm::LoopInfo *LI = nullptr);
 
   /// Attach metadata containing the computed error to the given instruction.
@@ -204,8 +203,8 @@ public:
 
   /// Get the name of the target of this instruction/global variable,
   /// if it is a target. Returns an empty Optional if it is not a target.
-  static llvm::Optional<llvm::StringRef> retrieveTargetMetadata(const llvm::Instruction &I);
-  static llvm::Optional<llvm::StringRef> retrieveTargetMetadata(const llvm::GlobalObject &V);
+  static std::optional<llvm::StringRef> retrieveTargetMetadata(const llvm::Instruction &I);
+  static std::optional<llvm::StringRef> retrieveTargetMetadata(const llvm::GlobalObject &V);
 
 
 protected:
@@ -224,11 +223,11 @@ protected:
   std::unique_ptr<InputInfo> createInputInfoFromMetadata(llvm::MDNode *MDN);
   std::unique_ptr<StructInfo> createStructInfoFromMetadata(llvm::MDNode *MDN);
 
-  static llvm::Optional<unsigned> retrieveLUCFromHeaderMD(const llvm::Loop &L);
-  static llvm::Optional<unsigned>
+  static std::optional<unsigned> retrieveLUCFromHeaderMD(const llvm::Loop &L);
+  static std::optional<unsigned>
   retrieveLUCFromFunctionMD(const llvm::Loop &L, llvm::LoopInfo &LI);
   static unsigned getLoopIndex(const llvm::Loop &L, llvm::LoopInfo &LI);
-  static llvm::SmallVector<llvm::Optional<unsigned>, 4U>
+  static llvm::SmallVector<std::optional<unsigned>, 4U>
   retrieveLUCListFromFunctionMD(llvm::Function &F);
 
 private:

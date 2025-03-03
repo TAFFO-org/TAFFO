@@ -32,7 +32,7 @@ namespace ErrorProp
 class StructTree
 {
 public:
-  typedef std::pair<FPInterval, llvm::Optional<AffineForm<inter_t>>> RangeError;
+  typedef std::pair<FPInterval, std::optional<AffineForm<inter_t>>> RangeError;
   enum StructTreeKind {
     STK_Node,
     STK_Error

@@ -44,12 +44,12 @@ class AnnotationParser
   bool expectBoolean(bool &res);
 
 public:
-  llvm::Optional<std::string> target;
+  std::optional<std::string> target;
   bool startingPoint;
   bool backtracking;
   unsigned int backtrackingDepth;
   std::shared_ptr<mdutils::MDInfo> metadata;
-  llvm::Optional<std::string> bufferID;
+  std::optional<std::string> bufferID;
 
   bool parseAnnotationString(llvm::StringRef annString);
   llvm::StringRef lastError();

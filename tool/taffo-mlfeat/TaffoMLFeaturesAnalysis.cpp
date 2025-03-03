@@ -100,8 +100,8 @@ void computeBasicBlockStats(MLFeatureBlock& b, BasicBlock *bb, MLFeatureBlockCom
     
     if (AllocaInst *alloca = dyn_cast<AllocaInst>(&i)) {
       const DataLayout &dl = alloca->getModule()->getDataLayout();
-      Optional<llvm::TypeSize> size = alloca->getAllocationSizeInBits(dl);
-      if (size.hasValue()) {
+      std::optional<llvm::TypeSize> size = alloca->getAllocationSizeInBits(dl);
+      if (size.has_value()) {
         b.maxAllocSize = std::max(b.maxAllocSize, (int)((*size) / 8));
       }
     } else if (CallBase *call = dyn_cast<CallBase>(&i)) {

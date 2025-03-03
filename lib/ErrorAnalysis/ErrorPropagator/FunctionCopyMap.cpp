@@ -29,13 +29,13 @@ void UnrollLoops(FunctionAnalysisManager &FAM, Function &F, unsigned DefaultUnro
     // Compute loop trip count
     unsigned TripCount = SE.getSmallConstantTripCount(L);
     // Get user supplied unroll count
-    Optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*L, &LInfo);
+    std::optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*L, &LInfo);
     unsigned UnrollCount = DefaultUnrollCount;
-    if (OUC.hasValue())
-      if (TripCount != 0 && OUC.getValue() > TripCount)
+    if (OUC.has_value())
+      if (TripCount != 0 && OUC.value() > TripCount)
         UnrollCount = TripCount;
       else
-        UnrollCount = OUC.getValue();
+        UnrollCount = OUC.value();
     else if (TripCount != 0)
       UnrollCount = TripCount;
 

@@ -40,10 +40,10 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop *loop)
 
   Function *F = (*(loop->block_begin()))->getParent();
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(*F);
-  llvm::Optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*loop, &LI);
+  std::optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*loop, &LI);
 
-  if (OUC.hasValue()) {
-    LocalTrip = OUC.getValue();
+  if (OUC.has_value()) {
+    LocalTrip = OUC.value();
     if (LocalTrip > 0) {
       LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata = " << LocalTrip << "\n");
       TripCountDetectionSuccessCount++;

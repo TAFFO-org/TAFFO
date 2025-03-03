@@ -15,7 +15,7 @@
 using namespace llvm;
 using namespace taffo;
 
-void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, Optional<ConstantExpr *>& Res)
+void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std::optional<ConstantExpr *>& Res)
 {
   Argument *Arg = KernF.getArg(ArgId);
 
@@ -60,10 +60,10 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, Opti
       Res = AnnoStringCExp;
       break;
     }
-    if (Res.hasValue())
+    if (Res.has_value())
       break;
   }
-  if (!Res.hasValue()) {
+  if (!Res.has_value()) {
     LLVM_DEBUG(dbgs() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function " << KernF.getName() << "\n");
     return;
   }
@@ -74,13 +74,13 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, Opti
 void createCudaKernelTrampoline(Module &M, Function& KernF)
 {
   /* Collect the annotations */
-  SmallVector<Optional<ConstantExpr *>, 8> Annotations;
+  SmallVector<std::optional<ConstantExpr *>, 8> Annotations;
   SmallVector<Type *, 8> ArgTypes;
   unsigned NumAnnos = 0;
   for (unsigned ArgId = 0; ArgId < KernF.arg_size(); ArgId++) {
-    Optional<ConstantExpr *> OptAnn;
+    std::optional<ConstantExpr *> OptAnn;
     getAndDeleteAnnotationsOfArgumentCuda(KernF, ArgId, OptAnn);
-    NumAnnos += !!OptAnn.hasValue();
+    NumAnnos += !!OptAnn.has_value();
     Annotations.append({OptAnn});
     ArgTypes.append({KernF.getArg(ArgId)->getType()});
   }
@@ -114,9 +114,9 @@ void createCudaKernelTrampoline(Module &M, Function& KernF)
     AllocaInst *Alloca = Allocas[ArgId];
     Builder.CreateStore(NewF->getArg(ArgId), Alloca);
     auto& OptAnn = Annotations[ArgId];
-    if (!OptAnn.hasValue())
+    if (!OptAnn.has_value())
       continue;
-    ConstantExpr *AnnoStr = OptAnn.getValue();
+    ConstantExpr *AnnoStr = OptAnn.value();
     Value *BCI = Builder.CreateBitCast(Alloca, Type::getInt8PtrTy(KernF.getContext()));
     Constant *Null = Constant::getNullValue(Type::getInt8PtrTy(M.getContext()));
     Builder.CreateCall(AnnoFun->getFunctionType(), AnnoFun, {BCI, AnnoStr, Null, Builder.getIntN(32, 0), Null});

@@ -21,7 +21,6 @@
 #include "Metadata.h"
 #include "StructErrorMap.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Value.h"
@@ -52,7 +51,7 @@ protected:
 class RangeErrorMap
 {
 public:
-  typedef std::pair<FPInterval, llvm::Optional<AffineForm<inter_t>>> RangeError;
+  typedef std::pair<FPInterval, std::optional<AffineForm<inter_t>>> RangeError;
 
   RangeErrorMap(mdutils::MetadataManager &MDManager, bool Absolute = true, bool ExactConst = false)
       : REMap(), MDMgr(&MDManager), SEMap(), TErrs(),

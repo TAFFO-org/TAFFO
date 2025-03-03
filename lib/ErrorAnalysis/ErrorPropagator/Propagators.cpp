@@ -118,7 +118,7 @@ bool InstructionPropagator::propagateBinaryOp(Instruction &I)
   bool DoublePP = BI.getOpcode() == Instruction::UDiv || BI.getOpcode() == Instruction::SDiv;
   auto *O1 = getOperandRangeError(BI, 0U, DoublePP);
   auto *O2 = getOperandRangeError(BI, 1U);
-  if (O1 == nullptr || !O1->second.hasValue() || O2 == nullptr || !O2->second.hasValue()) {
+  if (O1 == nullptr || !O1->second.has_value() || O2 == nullptr || !O2->second.has_value()) {
     LLVM_DEBUG(logInfo("no data.\n"));
     return false;
   }
@@ -192,10 +192,10 @@ bool InstructionPropagator::propagateStore(Instruction &I)
   auto *PointerRE = RMap.getRangeError(IDest);
 
   auto *SrcRE = getOperandRangeError(I, 0U);
-  if (SrcRE == nullptr || !SrcRE->second.hasValue()) {
+  if (SrcRE == nullptr || !SrcRE->second.has_value()) {
     LLVM_DEBUG(logInfo("(no data, looking up pointer)"));
     SrcRE = PointerRE;
-    if (SrcRE == nullptr || !SrcRE->second.hasValue()) {
+    if (SrcRE == nullptr || !SrcRE->second.has_value()) {
       LLVM_DEBUG(logInfoln("ignored (no data)."));
       return false;
     }
@@ -247,7 +247,7 @@ bool InstructionPropagator::propagateLoad(Instruction &I)
   if (REs.size() == 1U && REs.front() != nullptr) {
     // If we found only one defining instruction, we just use its data.
     const RangeErrorMap::RangeError *RE = REs.front();
-    if (RE->second.hasValue() && RMap.getRange(&I))
+    if (RE->second.has_value() && RMap.getRange(&I))
       RMap.setError(&I, *RE->second);
     else
       RMap.setRangeError(&I, *RE);
@@ -259,7 +259,7 @@ bool InstructionPropagator::propagateLoad(Instruction &I)
   // Otherwise, we take the maximum error.
   inter_t MaxAbsErr = -1.0;
   for (const RangeErrorMap::RangeError *RE : REs)
-    if (RE != nullptr && RE->second.hasValue()) {
+    if (RE != nullptr && RE->second.has_value()) {
       MaxAbsErr = std::max(MaxAbsErr, RE->second->noiseTermsAbsSum());
     }
 
@@ -365,7 +365,7 @@ bool InstructionPropagator::propagateSelect(Instruction &I)
 
   auto *TV = getOperandRangeError(I, SI.getTrueValue());
   auto *FV = getOperandRangeError(I, SI.getFalseValue());
-  if (TV == nullptr || !TV->second.hasValue() || FV == nullptr || !FV->second.hasValue()) {
+  if (TV == nullptr || !TV->second.has_value() || FV == nullptr || !FV->second.has_value()) {
     LLVM_DEBUG(logInfoln("(no data)."));
     return false;
   }
@@ -419,7 +419,7 @@ bool InstructionPropagator::propagatePhi(Instruction &I)
     Min = std::isnan(RE->first.Min) ? RE->first.Min : std::min(Min, RE->first.Min);
     Max = std::isnan(RE->first.Max) ? RE->first.Max : std::max(Max, RE->first.Max);
 
-    if (!RE->second.hasValue())
+    if (!RE->second.has_value())
       continue;
 
     AbsErr = std::max(AbsErr, RE->second->noiseTermsAbsSum());
@@ -453,7 +453,7 @@ bool InstructionPropagator::checkCmp(CmpErrorMap &CmpMap, Instruction &I)
 
   auto *Op1 = getOperandRangeError(I, 0U);
   auto *Op2 = getOperandRangeError(I, 1U);
-  if (Op1 == nullptr || Op1->first.isUninitialized() || !Op1->second.hasValue() || Op2 == nullptr || Op2->first.isUninitialized() || !Op2->second.hasValue()) {
+  if (Op1 == nullptr || Op1->first.isUninitialized() || !Op1->second.has_value() || Op2 == nullptr || Op2->first.isUninitialized() || !Op2->second.has_value()) {
     LLVM_DEBUG(logInfoln("(no data)."));
     return false;
   }
@@ -565,7 +565,7 @@ bool InstructionPropagator::propagateGetElementPtr(Instruction &I)
 
   const RangeErrorMap::RangeError *RE =
       RMap.getRangeError(GEPI.getPointerOperand());
-  if (RE == nullptr || !RE->second.hasValue()) {
+  if (RE == nullptr || !RE->second.has_value()) {
     LLVM_DEBUG(logInfoln("ignored (no data)."));
     return false;
   }
@@ -584,7 +584,7 @@ bool InstructionPropagator::propagateExtractValue(Instruction &I)
   LLVM_DEBUG(logInstruction(I));
 
   const RangeErrorMap::RangeError *RE = RMap.getStructRangeError(&EVI);
-  if (RE == nullptr || !RE->second.hasValue()) {
+  if (RE == nullptr || !RE->second.has_value()) {
     LLVM_DEBUG(logInfoln("ignored (no data)."));
     return false;
   }
@@ -604,7 +604,7 @@ bool InstructionPropagator::propagateInsertValue(Instruction &I)
 
   const RangeErrorMap::RangeError *RE =
       RMap.getStructRangeError(IVI.getInsertedValueOperand());
-  if (RE == nullptr || !RE->second.hasValue()) {
+  if (RE == nullptr || !RE->second.has_value()) {
     LLVM_DEBUG(logInfoln("ignored (no data)."));
     return false;
   }

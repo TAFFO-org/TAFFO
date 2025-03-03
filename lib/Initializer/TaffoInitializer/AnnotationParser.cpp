@@ -14,7 +14,7 @@ using namespace mdutils;
 
 void AnnotationParser::reset()
 {
-  target = None;
+  target = std::nullopt;
   startingPoint = false;
   backtracking = false;
   metadata.reset();

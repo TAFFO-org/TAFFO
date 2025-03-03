@@ -227,7 +227,7 @@ void FunctionErrorPropagator::prepareErrorsForCall(Instruction &I)
     Value *Arg = U.get();
     if (Arg->getType()->isPointerTy() && !taffo::fullyUnwrapPointerOrArrayType(Arg->getType())->isStructTy()) {
       auto RE = RMap.getRangeError(Arg);
-      if (RE != nullptr && RE->second.hasValue())
+      if (RE != nullptr && RE->second.has_value())
         Args.push_back(Arg);
       else {
         Value *OrigPointer = taffo::MemSSAUtils::getOriginPointer(*MemSSA, Arg);

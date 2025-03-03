@@ -5,7 +5,6 @@
 #include "MultiValueMap.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Constants.h"
@@ -31,8 +30,8 @@ struct ValueInfo {
   unsigned int fixpTypeRootDistance = UINT_MAX;
 
   std::shared_ptr<mdutils::MDInfo> metadata;
-  llvm::Optional<std::string> target;
-  llvm::Optional<std::string> bufferID;
+  std::optional<std::string> target;
+  std::optional<std::string> bufferID;
 };
 
 

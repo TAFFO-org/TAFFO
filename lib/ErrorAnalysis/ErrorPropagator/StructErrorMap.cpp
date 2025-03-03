@@ -109,7 +109,7 @@ StructError::StructError(const InputInfo *II, StructTree *Parent)
 
     LLVM_DEBUG(dbgs() << FPI.getInitialError() << "} ");
   } else {
-    Error = std::make_pair(FPI, NoneType());
+    Error = std::make_pair(FPI, std::nullopt);
 
     LLVM_DEBUG(dbgs() << "none}");
   }
