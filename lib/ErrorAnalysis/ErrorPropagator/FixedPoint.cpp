@@ -100,7 +100,7 @@ FixedPointValue::createFromConstantInt(int SPrec,
 
   if (IT == nullptr) {
     // If there is no Instruction IntegerType, we get it from the operands.
-    IT = CIMin->getType();
+    IT = cast<IntegerType>(CIMin->getType());
   }
   if (SPrec >= 0) {
     if (IT->getBitWidth() <= 32U) {
