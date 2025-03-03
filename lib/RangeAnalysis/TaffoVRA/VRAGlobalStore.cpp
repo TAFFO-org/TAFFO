@@ -106,7 +106,7 @@ void VRAGlobalStore::harvestMetadata(Module &M)
 
     // retrieve info about instructions, for each basic block bb
     for (const llvm::BasicBlock &bb : f) {
-      for (const llvm::Instruction &i : bb.getInstList()) {
+      for (const llvm::Instruction &i : bb) {
         // fetch info about Instruction i
         MDInfo *MDI = MDManager.retrieveMDInfo(&i);
         if (!MDI)
@@ -250,7 +250,7 @@ void VRAGlobalStore::saveResults(llvm::Module &M)
 
     // retrieve info about instructions, for each basic block bb
     for (BasicBlock &bb : f) {
-      for (Instruction &i : bb.getInstList()) {
+      for (Instruction &i : bb) {
         setConstRangeMetadata(MDManager, i);
         if (i.getOpcode() == llvm::Instruction::Store)
           continue;
