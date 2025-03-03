@@ -117,8 +117,8 @@ void createCudaKernelTrampoline(Module &M, Function& KernF)
     if (!OptAnn.has_value())
       continue;
     ConstantExpr *AnnoStr = OptAnn.value();
-    Value *BCI = Builder.CreateBitCast(Alloca, Type::getInt8PtrTy(KernF.getContext()));
-    Constant *Null = Constant::getNullValue(Type::getInt8PtrTy(M.getContext()));
+    Value *BCI = Builder.CreateBitCast(Alloca, PointerType::get(Type::getInt8Ty((KernF.getContext())), 0));
+    Constant *Null = Constant::getNullValue(PointerType::get(Type::getInt8Ty(M.getContext()), 0));
     Builder.CreateCall(AnnoFun->getFunctionType(), AnnoFun, {BCI, AnnoStr, Null, Builder.getIntN(32, 0), Null});
   }
   SmallVector<Value *, 8> Loads;

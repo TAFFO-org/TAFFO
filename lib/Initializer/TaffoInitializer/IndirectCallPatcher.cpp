@@ -75,7 +75,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                       << *curCallInstruction << "\n");
 
     auto *constantPointerNull =
-        ConstantPointerNull::get(Type::getInt32PtrTy(m.getContext()));
+        ConstantPointerNull::get(PointerType::get(Type::getInt32Ty((m.getContext())), 0));
     MDNode *metadataNode =
         MDNode::get(m.getContext(), ValueAsMetadata::get(constantPointerNull));
 
