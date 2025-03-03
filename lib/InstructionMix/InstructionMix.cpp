@@ -123,7 +123,6 @@ bool isSkippableInstruction(llvm::Instruction *instr)
   if (opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::annotation ||
       opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::var_annotation ||
       opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::ptr_annotation ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_addr ||
       opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_label ||
       opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_value ||
       opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_declare ||
