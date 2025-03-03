@@ -90,9 +90,8 @@ bool analyze_function(InstructionMix& imix, Function *f, std::unordered_set<Basi
 {
   if (Verbose)
     std::cerr << " Function: " << f->getName().str() << std::endl;
-  
-  auto &bblist = f->getBasicBlockList();
-  if (bblist.empty()) {
+
+  if (f->empty()) {
     return false;
   }
   

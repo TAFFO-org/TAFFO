@@ -170,7 +170,7 @@ bool VRAnalyzer::requiresInterpretation(llvm::Instruction *I) const
       return Called && !(Called->isIntrinsic() 
           || isMathCallInstruction(Called->getName().str()) 
           || isMallocLike(Called) 
-          || Called->getBasicBlockList().size() == 0 // function prototypes
+          || Called->empty() // function prototypes
         );
     }
     return true;

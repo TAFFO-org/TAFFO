@@ -71,7 +71,7 @@ private:
   bool isSpecialFunction(const llvm::Function *f)
   {
     llvm::StringRef fName = f->getName();
-    return fName.startswith("llvm.") || f->getBasicBlockList().empty();
+    return fName.startswith("llvm.") || f->empty();
   };
 };
 

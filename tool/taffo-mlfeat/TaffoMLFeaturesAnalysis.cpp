@@ -214,11 +214,11 @@ bool TaffoMLFeatureAnalysisPass::runOnFunction(Function &F)
   
   /* compute the list of basic blocks that are outside any loop */
   std::set<BasicBlock *> allbbs;
-  for (BasicBlock& bb: F.getBasicBlockList()) {
+  for (BasicBlock &bb : F) {
     allbbs.insert(&bb);
   }
-  for (Loop *l: li.getLoopsInPreorder()) {
-    for (BasicBlock *bb: l->blocks()) {
+  for (Loop *l : li.getLoopsInPreorder()) {
+    for (BasicBlock *bb : l->blocks()) {
       allbbs.erase(bb);
     }
   }

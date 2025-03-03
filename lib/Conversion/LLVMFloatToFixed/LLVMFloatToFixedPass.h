@@ -216,7 +216,7 @@ struct FloatToFixed {
   bool isSpecialFunction(const llvm::Function *f)
   {
     llvm::StringRef fName = f->getName();
-    return fName.startswith("llvm.") || f->getBasicBlockList().size() == 0;
+    return fName.startswith("llvm.") || f->empty();
   };
 
   /** Returns the converted Value matching a non-converted Value.
