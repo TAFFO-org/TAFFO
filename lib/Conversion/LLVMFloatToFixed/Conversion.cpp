@@ -478,16 +478,18 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
         return fix;
       } else if (startingBit < destinationBit) {
         // Extension needed
-        return ConstantExpr::getFPExtend(cst, destt);
+        return ConstantExpr::getCast(Instruction::FPExt, cst, destt);
       } else {
         // Truncation needed
-        return ConstantExpr::getFPTrunc(cst, destt);
+        return ConstantExpr::getCast(Instruction::FPTrunc, cst, destt);
       }
 
       // Always convert to double then to the destination type
       // No need to worry about efficiency, as everything will be constant folded
       Type *TmpTy = Type::getDoubleTy(cst->getContext());
-      Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, TmpTy) : ConstantExpr::getUIToFP(cst, TmpTy);
+      Constant *floattmp = fixpt.scalarIsSigned()
+                               ? ConstantExpr::getCast(Instruction::SIToFP, cst, TmpTy)
+                               : ConstantExpr::getCast(Instruction::UIToFP, cst, TmpTy);
       double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
       Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
       assert(DblRes && "Constant folding failed...");
@@ -552,7 +554,9 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const FixedPointType &fixp
     // Always convert to double then to the destination type
     // No need to worry about efficiency, as everything will be constant folded
     Type *TmpTy = Type::getDoubleTy(cst->getContext());
-    Constant *floattmp = fixpt.scalarIsSigned() ? ConstantExpr::getSIToFP(cst, TmpTy) : ConstantExpr::getUIToFP(cst, TmpTy);
+    Constant *floattmp = fixpt.scalarIsSigned()
+                             ? ConstantExpr::getCast(Instruction::SIToFP, cst, TmpTy)
+                             : ConstantExpr::getCast(Instruction::UIToFP, cst, TmpTy);
     double twoebits = pow(2.0, fixpt.scalarFracBitsAmt());
     Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
     assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
