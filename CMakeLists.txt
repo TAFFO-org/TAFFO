@@ -19,12 +19,12 @@ include(AddLLVM)
 include(LLVMConfig)
 include(HandleLLVMOptions)
 
-if ((${LLVM_VERSION_MAJOR} LESS 14) OR (${LLVM_VERSION_MAJOR} GREATER 15))
+if ((${LLVM_VERSION_MAJOR} LESS 18) OR (${LLVM_VERSION_MAJOR} GREATER 18))
   message(FATAL_ERROR "LLVM version ${LLVM_VERSION_MAJOR} is not supported!")
 endif ()
 
 # to be kept in sync with LLVM!
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy-10;")
 add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-covered-switch-default)
