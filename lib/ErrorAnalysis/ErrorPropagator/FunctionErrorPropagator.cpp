@@ -14,10 +14,8 @@
 
 #include "FunctionErrorPropagator.h"
 
-#include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/InstrTypes.h"
