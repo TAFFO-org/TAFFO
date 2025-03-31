@@ -1,27 +1,20 @@
 #ifndef __TAFFO_DTA_OPTIMIZER_H__
 #define __TAFFO_DTA_OPTIMIZER_H__
 
-#include <fstream>
-#include <set>
-#include <stack>
-#include <unordered_map>
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
+#include "TaffoInfo/ValueInfo.hpp"
+#include "TaffoDTA.h"
 #include "CPUCosts.h"
-#include "InputInfo.h"
-#include "Metadata.h"
 #include "Model.h"
 #include "OptimizerInfo.h"
-#include "TaffoDTA.h"
 #include "TypeUtils.h"
 #include "PhiWatcher.h"
 #include "MemWatcher.h"
+
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/Support/CommandLine.h>
+#include <unordered_map>
+#include <stack>
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -46,26 +39,12 @@ extern llvm::cl::opt<bool> MixedTripCount;
 
 #define BIG_NUMBER 10000
 
-
-using namespace llvm;
-
 class MetricBase;
 class MetricPerf;
 
-namespace tuner
-{
-template <class T, class U>
-std::shared_ptr<T> dynamic_ptr_cast_or_null(const std::shared_ptr<U> &r) noexcept
-{
-  if (auto p = llvm::dyn_cast_or_null<typename std::shared_ptr<T>::element_type>(r.get())) {
-    return std::shared_ptr<T>(r, p);
-  } else {
-    return std::shared_ptr<T>();
-  }
-}
+namespace tuner {
 
-class Optimizer
-{
+class Optimizer {
 public:
   /// Data related to function call
   std::unordered_map<std::string, llvm::Function *> known_functions;
@@ -75,7 +54,7 @@ public:
   std::unique_ptr<MetricBase> metric;
 
 
-  DenseMap<llvm::Value *, std::shared_ptr<OptimizerInfo>> valueToVariableName;
+  llvm::DenseMap<llvm::Value *, std::shared_ptr<OptimizerInfo>> valueToVariableName;
   Model model;
   llvm::Module &module;
   TaffoTuner *tuner;
@@ -102,11 +81,11 @@ public:
   bool hasBF16;*/
 
 private:
-  Instruction *currentInstruction;
+  llvm::Instruction *currentInstruction;
   unsigned int currentInstructionTripCount = 1;
 
 public:
-  void handleGlobal(GlobalObject *glob, shared_ptr<ValueInfo> valueInfo);
+  void handleGlobal(llvm::GlobalObject *glob, shared_ptr<TunerInfo> tunerInfo);
 
   bool finish();
 
@@ -117,14 +96,14 @@ public:
 
   void initialize();
 
-  void handleCallFromRoot(Function *f);
+  void handleCallFromRoot(llvm::Function *f);
 
-  std::shared_ptr<mdutils::MDInfo> getAssociatedMetadata(Value *pValue);
+  std::shared_ptr<taffo::ValueInfo> getAssociatedMetadata(llvm::Value *pValue);
 
   void printStatInfos();
 
 public:
-  void handleInstruction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo);
+  void handleInstruction(llvm::Instruction *instruction, shared_ptr<TunerInfo> valueInfo);
 
   /** Returns the cost of the instruction currently being processed by handleInstruction. */
   int getCurrentInstructionCost();
@@ -132,42 +111,41 @@ public:
   void emitError(const string &stringhina);
 
 
-  shared_ptr<OptimizerInfo> getInfoOfValue(Value *value);
+  shared_ptr<OptimizerInfo> getInfoOfValue(llvm::Value *value);
 
   void
-  handleBinaryInstruction(Instruction *instr, const unsigned int OpCode, const shared_ptr<ValueInfo> &valueInfos);
-  void handleUnaryInstruction(Instruction *instr, const shared_ptr<ValueInfo> &valueInfos);
+  handleBinaryInstruction(llvm::Instruction *instr, const unsigned int OpCode, const shared_ptr<TunerInfo> &valueInfos);
+  void handleUnaryInstruction(llvm::Instruction *instr, const shared_ptr<TunerInfo> &valueInfos);
 
   void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1, shared_ptr<OptimizerScalarInfo> op2,
                                     bool forceFixBitsConstraint);
 
-  shared_ptr<OptimizerInfo> handleGEPConstant(const ConstantExpr *cexp_i);
+  shared_ptr<OptimizerInfo> handleGEPConstant(const llvm::ConstantExpr *cexp_i);
 
 
-  bool valueHasInfo(Value *value);
+  bool valueHasInfo(llvm::Value *value);
 
-  list<shared_ptr<OptimizerInfo>> fetchFunctionCallArgumentInfo(const CallBase *call_i);
-  void processFunction(Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
+  list<shared_ptr<OptimizerInfo>> fetchFunctionCallArgumentInfo(const llvm::CallBase *call_i);
+  void processFunction(llvm::Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
 
-  void handleTerminators(Instruction *term, shared_ptr<ValueInfo> valueInfo);
+  void handleTerminators(llvm::Instruction *term, shared_ptr<TunerInfo> valueInfo);
 
   shared_ptr<OptimizerScalarInfo>
-  handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
-                    shared_ptr<ValueInfo> valueInfos);
+  handleBinOpCommon(llvm::Instruction *instr, llvm::Value *op1, llvm::Value *op2, bool forceFixEquality,
+                    shared_ptr<TunerInfo> valueInfos);
 
-  void saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInfo> pointerInfo);
+  void saveInfoForPointer(llvm::Value *value, shared_ptr<OptimizerPointerInfo> pointerInfo);
 
 
-  shared_ptr<mdutils::TType> modelvarToTType(shared_ptr<OptimizerScalarInfo> sharedPtr);
+  shared_ptr<taffo::NumericType> modelvarToTType(shared_ptr<OptimizerScalarInfo> sharedPtr);
 
-  shared_ptr<mdutils::MDInfo> buildDataHierarchy(shared_ptr<OptimizerInfo> info);
+  shared_ptr<taffo::ValueInfo> buildDataHierarchy(shared_ptr<OptimizerInfo> info);
 
-  void handleUnknownFunction(Instruction *call_i, shared_ptr<ValueInfo> valueInfo);
+  void handleUnknownFunction(llvm::Instruction *call_i, shared_ptr<TunerInfo> valueInfo);
 
 
   friend class MetricBase;
 };
-
 
 } // namespace tuner
 

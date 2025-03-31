@@ -1,9 +1,8 @@
 #ifndef DTACONFIG
 #define DTACONFIG
 
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
+#include <llvm/ADT/Statistic.h>
+#include <llvm/Support/CommandLine.h>
 #include <string>
 
 #define DEBUG_TYPE "taffo-dta"

@@ -1,18 +1,18 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
+#include <llvm/ADT/APFloat.h>
+#include <llvm/ADT/APSInt.h>
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/Analysis/OptimizationRemarkEmitter.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/raw_ostream.h>
 #include <cassert>
 #include <cmath>
 
@@ -22,9 +22,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt,
-                                        TypeMatchPolicy typepol)
-{
+Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt, TypeMatchPolicy typepol) {
   if (dyn_cast<UndefValue>(flt)) {
     return UndefValue::get(
         getLLVMFixedPointTypeForFloatType(flt->getType(), fixpt));
@@ -80,11 +78,9 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
   return nullptr;
 }
 
-Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob,
-                                              FixedPointType &fixpt)
-{
+Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob, FixedPointType &fixpt) {
   bool hasfloats = false;
-  Type *prevt = glob->getType()->getPointerElementType();
+  Type *prevt = TaffoInfo::getInstance().getValueInfo(*glob)->getUnwrappedType();
   Type *newt = getLLVMFixedPointTypeForFloatType(prevt, fixpt, &hasfloats);
   if (!newt)
     return nullptr;
@@ -101,7 +97,7 @@ Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob,
 
   GlobalVariable *newglob = new GlobalVariable(*(glob->getParent()), newt, glob->isConstant(), glob->getLinkage(),
                                                newinit);
-  newglob->setAlignment(llvm::MaybeAlign(glob->getAlignment()));
+  newglob->setAlignment(MaybeAlign(glob->getAlignment()));
   newglob->setName(glob->getName() + ".fixp");
   return newglob;
 }
@@ -114,7 +110,7 @@ FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, FixedPointType &f
   for (unsigned int i = 0; i < cag->getNumOperands(); i++) {
     Constant *oldconst = cag->getOperand(i);
     Constant *newconst = nullptr;
-    if (isFloatType(oldconst->getType())) {
+    if (getUnwrappedType(oldconst)->isFloatTy()) {
       newconst = convertConstant(cag->getOperand(i), fixpt, TypeMatchPolicy::ForceHint);
       if (!newconst)
         return nullptr;
@@ -186,9 +182,8 @@ Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *c
 }
 
 
-Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cds, const FixedPointType &fixpt)
-{
-  if (!isFloatType(cds->getElementType()))
+Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cds, const FixedPointType &fixpt) {
+  if (!getUnwrappedType(cds)->isFloatTy())
     return cds;
 
   if (fixpt.isFixedPoint()) {
@@ -235,9 +230,9 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
       tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmTowardNegative, &precise);
       double dblval = tmp.convertToDouble();
       int nbits = fixpt.scalarBitsAmt();
-      mdutils::Range range(dblval, dblval);
+      Range range(dblval, dblval);
       int minflt = isMaxIntPolicy(typepol) ? -1 : 0;
-      mdutils::FPType t = taffo::fixedPointTypeFromRange(range, nullptr, nbits, minflt);
+      FixpType t = fixedPointTypeFromRange(range, nullptr, nbits, minflt);
       fixpt = FixedPointType(&t);
     }
 
@@ -255,7 +250,7 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
     Type *intty = fixpt.scalarToLLVMType(fpc->getContext());
     bool loosesInfo;
 
-    val.convert(intty->getFltSemantics(), llvm::APFloatBase::rmTowardPositive, &loosesInfo);
+    val.convert(intty->getFltSemantics(), APFloatBase::rmTowardPositive, &loosesInfo);
 
     return ConstantFP::get(intty, val);
   }

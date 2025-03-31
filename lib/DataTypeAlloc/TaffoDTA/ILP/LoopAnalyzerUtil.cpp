@@ -2,11 +2,12 @@
 // Created by nicola on 07/08/20.
 //
 
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "LoopAnalyzerUtil.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Support/Debug.h"
-#include "Metadata.h"
+
+#include <llvm/ADT/Statistic.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -14,6 +15,7 @@ STATISTIC(TripCountDetectionFailCount, "Number of times the trip count of a loop
 STATISTIC(TripCountDetectionSuccessCount, "Number of times the trip count of a loop was found");
 
 using namespace llvm;
+using namespace taffo;
 using namespace tuner;
 
 unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction *instruction)
@@ -38,9 +40,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop *loop)
     return 1;
   }
 
-  Function *F = (*(loop->block_begin()))->getParent();
-  LoopInfo &LI = FAM.getResult<LoopAnalysis>(*F);
-  std::optional<unsigned> OUC = mdutils::MetadataManager::retrieveLoopUnrollCount(*loop, &LI);
+  std::optional OUC = TaffoInfo::getInstance().getLoopUnrollCount(*loop);
 
   if (OUC.has_value()) {
     LocalTrip = OUC.value();

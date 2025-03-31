@@ -15,9 +15,9 @@
 #ifndef TAFFO_MEMSSAUTILS_H
 #define TAFFO_MEMSSAUTILS_H
 
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/MemorySSA.h"
+#include <llvm/ADT/SmallSet.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/Analysis/MemorySSA.h>
 
 namespace taffo
 {

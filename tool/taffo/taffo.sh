@@ -74,7 +74,7 @@ llvm_ver_maj=${llvm_ver%%.*}
 
 compat_flags_clang=
 compat_flags_opt=
-if [[ $llvm_ver_maj -ge 15 ]]; then
+if [[ $llvm_ver_maj -eq 15 ]]; then
   compat_flags_clang='-Xclang -no-opaque-pointers'
   compat_flags_opt='-opaque-pointers=0'
 fi
@@ -89,6 +89,7 @@ emit_source=
 optimization=
 opts=
 float_opts=
+typededucer_flags=
 init_flags=
 vra_flags=
 disable_vra=0
@@ -112,24 +113,50 @@ for opt in $raw_opts; do
   case $parse_state in
     0)
       case $opt in
-        -Xinit)
+        -Xtypededucer)
           parse_state=2;
           ;;
-        -Xvra)
-          parse_state=5;
-          ;;
-        -Xdta)
+        -Xinit)
           parse_state=3;
           ;;
-        -Xconversion)
+        -Xvra)
           parse_state=4;
           ;;
+        -Xdta)
+          parse_state=5;
+          ;;
+        -Xconversion)
+          parse_state=6;
+          ;;
         -Xerr)
-          enable_errorprop=1
+          enable_errorprop=1;
+          parse_state=7;
+          ;;
+        -float-output)
           parse_state=8;
           ;;
         -Xfloat)
+          parse_state=9;
+          ;;
+        -pe-model)
+          parse_state=10;
+          ;;
+        -temp-dir)
+          del_temporary_dir=0;
+          parse_state=11;
+          ;;
+        -err-out)
+          enable_errorprop=1;
           parse_state=12;
+          ;;
+        -costmodel)
+          parse_state=13
+          ;;
+        -instructionset)
+          parse_state=14
+          ;;
+        -time-profile-file)
+          parse_state=15
           ;;
         -oclkern)
           init_flags="$init_flags -oclkern"
@@ -145,9 +172,6 @@ for opt in $raw_opts; do
             output_file=`echo "$opt" | cut -b 2`;
           fi;
           ;;
-        -float-output)
-          parse_state=6;
-          ;;
         -O*)
           optimization=$opt;
           ;;
@@ -159,6 +183,7 @@ for opt in $raw_opts; do
           ;;
         -debug)
           if [[ $llvm_debug -ne 0 ]]; then
+            typededucer_flags="$typededucer_flags -debug --stats";
             init_flags="$init_flags -debug --stats";
             dta_flags="$dta_flags -debug --stats";
             conversion_flags="$conversion_flags -debug --stats";
@@ -169,6 +194,7 @@ for opt in $raw_opts; do
           ;;
         -debug-taffo)
           if [[ $llvm_debug -ne 0 ]]; then
+            typededucer_flags="$typededucer_flags --debug-only=taffo-typededucer";
             init_flags="$init_flags --debug-only=taffo-init";
             dta_flags="$dta_flags --debug-only=taffo-dta";
             conversion_flags="$conversion_flags --debug-only=taffo-conversion";
@@ -186,17 +212,6 @@ for opt in $raw_opts; do
         -feedback)
           feedback=1
           ;;
-        -pe-model)
-          parse_state=7
-          ;;
-        -temp-dir)
-          del_temporary_dir=0
-          parse_state=9
-          ;;
-        -err-out)
-          enable_errorprop=1
-          parse_state=10
-          ;;
         -no-mem2reg)
           mem2reg=
           ;;
@@ -205,15 +220,6 @@ for opt in $raw_opts; do
           if [[ -z "$dta_inst_set" ]]; then
             dta_inst_set="-instructionsetfile=$TAFFO_PREFIX/share/ILP/constrain/fix"
           fi
-          ;;
-        -costmodel)
-          parse_state=11
-          ;;
-        -instructionset)
-          parse_state=13
-          ;;
-        -time-profile-file)
-          parse_state=14
           ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
@@ -264,42 +270,50 @@ for opt in $raw_opts; do
       parse_state=0;
       ;;
     2)
-      init_flags="$init_flags $opt";
+      typededucer_flags="$typededucer_flags $opt";
       parse_state=0;
       ;;
     3)
-      dta_flags="$dta_flags $opt";
+      init_flags="$init_flags $opt";
       parse_state=0;
       ;;
     4)
-      conversion_flags="$conversion_flags $opt";
-      parse_state=0;
-      ;;
-    5)
       vra_flags="$vra_flags $opt";
       parse_state=0;
       ;;
+    5)
+      dta_flags="$dta_flags $opt";
+      parse_state=0;
+      ;;
     6)
-      float_output_file="$opt";
+      conversion_flags="$conversion_flags $opt";
       parse_state=0;
       ;;
     7)
-      pe_model_file="$opt";
-      parse_state=0;
-      ;;
-    8)
       errorprop_flags="$errorprop_flags $opt";
       parse_state=0;
       ;;
+    8)
+      float_output_file="$opt";
+      parse_state=0;
+      ;;
     9)
-      temporary_dir="$opt";
+      float_opts="$float_opts $opt";
       parse_state=0;
       ;;
     10)
-      errorprop_out="$opt";
+      pe_model_file="$opt";
       parse_state=0;
       ;;
     11)
+      temporary_dir="$opt";
+      parse_state=0;
+      ;;
+    12)
+      errorprop_out="$opt";
+      parse_state=0;
+      ;;
+    13)
       f="$TAFFO_PREFIX"/share/ILP/cost/"$opt".csv
       if [[ -e "$f" ]]; then
         dta_flags="$dta_flags -costmodelfilename=$f"
@@ -309,11 +323,7 @@ for opt in $raw_opts; do
       fi
       parse_state=0
       ;;
-    12)
-      float_opts="$float_opts $opt";
-      parse_state=0;
-      ;;
-    13)
+    14)
       f="$TAFFO_PREFIX"/share/ILP/constrain/"$opt"
       if [[ -e "$f" ]]; then
         dta_inst_set="-instructionsetfile=$f"
@@ -323,7 +333,7 @@ for opt in $raw_opts; do
       fi
       parse_state=0
       ;;
-    14)
+    15)
       time_profile_file="$opt";
       parse_state=0;
       ;;
@@ -451,7 +461,7 @@ if [[ ${#input_files[@]} -eq 1 ]]; then
     $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
     -c -emit-llvm \
     ${input_files} \
-    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?       
+    -S -o "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 else
   # > 1 input files
   tmp=()
@@ -468,16 +478,26 @@ else
   done
   ${LLVM_LINK} \
     ${tmp[@]} \
-    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
+    -S -o "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 fi
 
 # precompute clang invocation for compiling float version
-build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}.1.taffotmp.ll"
+build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}.0.taffotmp.ll"
 
 # Note: in the following we load the plugin both with -load and --load-pass-plugin
 # because the latter does not load the .so until later in the game after command
 # line args are all parsed, and because -load does not register new pass manager
 # passes at all.
+
+###
+###  TAFFO Type deduction
+###
+append_time_string "type_deduction_start"
+${OPT} \
+  -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+  --passes='no-op-module,typededucer' \
+  ${typededucer_flags} \
+  -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 
 ###
 ###  TAFFO initialization

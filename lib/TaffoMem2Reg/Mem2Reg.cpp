@@ -11,19 +11,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Mem2Reg.h"
-#include "PromoteMemToReg.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Transforms/Utils.h"
+#include "Mem2Reg.hpp"
+
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "PromoteMemToReg.hpp"
+
+#include <llvm/ADT/Statistic.h>
+#include <llvm/Analysis/AssumptionCache.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Dominators.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/Support/Casting.h>
 #include <vector>
 
 using namespace llvm;
@@ -60,10 +60,15 @@ static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
 }
 
 PreservedAnalyses TaffoMem2Reg::run(Function &F, FunctionAnalysisManager &AM) {
+  Module &M = *F.getParent();
+  TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", M);
+
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   if (!promoteMemoryToRegister(F, DT, AC))
     return PreservedAnalyses::all();
+
+  TaffoInfo::getInstance().dumpToFile("taffo_info_memToReg.json", M);
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();

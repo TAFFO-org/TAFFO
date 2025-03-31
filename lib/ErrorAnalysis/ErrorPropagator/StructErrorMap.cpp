@@ -15,10 +15,10 @@
 #include "StructErrorMap.h"
 
 #include "TypeUtils.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/Support/Debug.h"
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Operator.h>
+#include <llvm/Support/Debug.h>
 #include <memory>
 
 #define DEBUG_TYPE "errorprop"
@@ -86,7 +86,9 @@ StructType *StructNode::getElementStructType(Type *T)
 {
   while (!T->isStructTy()) {
     if (PointerType *PT = dyn_cast<PointerType>(T))
-      T = PT->getPointerElementType();
+      // TODO FIX SOON!
+      //T = PT->getPointerElementType();
+      ;
     else if (isa<ArrayType>(T) || isa<VectorType>(T)) {
       T = T->getContainedType(0);
     } else
@@ -133,7 +135,8 @@ StructError *StructTreeWalker::getFieldNode(StructTree *Root)
 
 StructTree *StructTreeWalker::makeRoot(Value *P)
 {
-  StructType *ST = cast<StructType>(cast<PointerType>(P->getType())->getPointerElementType());
+  // TODO FIX SOON!
+  StructType *ST = cast<StructType>(cast<PointerType>(P->getType())/*->getPointerElementType()*/);
   return new StructNode(ST);
 }
 
@@ -174,8 +177,9 @@ Value *StructTreeWalker::navigatePointerTreeToRoot(Value *P)
     auto AArg = ArgBindings.find(A);
     if (AArg != ArgBindings.end() && AArg->second != nullptr)
       return navigatePointerTreeToRoot(AArg->second);
-    else
-      return (isa<StructType>(cast<PointerType>(A->getType())->getPointerElementType())) ? P : nullptr;
+    // TODO FIX SOON!
+    /*else
+      return (isa<StructType>(cast<PointerType>(A->getType())->getPointerElementType())) ? P : nullptr;*/
   } else if (AllocaInst *AI = dyn_cast<AllocaInst>(P)) {
     return (isa<StructType>(AI->getAllocatedType())) ? P : nullptr;
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(P)) {
@@ -262,8 +266,9 @@ void StructErrorMap::initArgumentBindings(Function &F,
   for (Argument &FArg : F.args()) {
     if (AArgIt == AArgs.end())
       break;
-    if (FArg.getType()->isPointerTy() && cast<PointerType>(FArg.getType())->getPointerElementType()->isStructTy())
-      ArgBindings.insert(std::make_pair(&FArg, *AArgIt));
+    // TODO FIX SOON!
+    /*if (FArg.getType()->isPointerTy() && cast<PointerType>(FArg.getType())->getPointerElementType()->isStructTy())
+      ArgBindings.insert(std::make_pair(&FArg, *AArgIt));*/
 
     ++AArgIt;
   }

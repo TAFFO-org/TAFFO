@@ -47,3 +47,9 @@ if (TAFFO_BUILD_ILP_DTA)
   endif ()
 endif ()
 
+FetchContent_Declare(
+  json
+  GIT_REPOSITORY "https://github.com/nlohmann/json.git"
+  GIT_TAG "v3.11.3"
+)
+FetchContent_MakeAvailable(json)

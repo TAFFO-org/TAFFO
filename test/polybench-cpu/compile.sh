@@ -158,13 +158,11 @@ for bench in $all_benchs; do
   if [[ "$bench" =~ $ONLY ]]; then
     skipped_all=0
     printf '[....] %s' "$bench"
-    opts=$(read_opts ${bench})
     compile_one "$bench" \
       "-O3 \
       -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DPOLYBENCH_STACK_ARRAYS \
       -D$D_CONF -D$D_STANDARD_DATASET $MIXIMODE \
-      -Xdta -totalbits -Xdta $TOT \
-      $ERRORPROP $opts"
+      -Xdta -totalbits -Xdta $TOT"
     bpid_fc=$?
     if [[ $bpid_fc == 0 ]]; then
       bpid_fc=' ok '

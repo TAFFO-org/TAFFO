@@ -20,7 +20,7 @@ public:
         CodeAnalyzer(ASK_VRAnalyzer),
         CodeInt(CI) {}
 
-  void convexMerge(const AnalysisStore &Other) override;
+  void convexMerge(const AnalysisStore &other) override;
   std::shared_ptr<CodeAnalyzer> newCodeAnalyzer(CodeInterpreter &CI) override;
   std::shared_ptr<AnalysisStore> newFunctionStore(CodeInterpreter &CI) override;
 
@@ -53,12 +53,12 @@ public:
 
 #ifdef UNITTESTS
 public:
-  NodePtrT getNode(const llvm::Value *v) override;
-  void setNode(const llvm::Value *V, NodePtrT Node) override;
+  std::shared_ptr<ValueInfo> getNode(const llvm::Value *v) override;
+  void setNode(const llvm::Value *V, std::shared_ptr<ValueInfo> Node) override;
 #else
 private:
-  NodePtrT getNode(const llvm::Value *v) override;
-  void setNode(const llvm::Value *V, NodePtrT Node) override;
+  std::shared_ptr<ValueInfo> getNode(const llvm::Value *v) override;
+  void setNode(const llvm::Value *V, std::shared_ptr<ValueInfo> Node) override;
 #endif
 
 private:
@@ -84,8 +84,8 @@ private:
 
   // Data handling
   using VRAStore::fetchRange;
-  const range_ptr_t fetchRange(const llvm::Value *V) override;
-  const RangeNodePtrT fetchRangeNode(const llvm::Value *V) override;
+  std::shared_ptr<Range> fetchRange(const llvm::Value *v) override;
+  std::shared_ptr<ValueInfoWithRange> fetchRangeNode(const llvm::Value *v) override;
 
 
   // Interface with CodeInterpreter

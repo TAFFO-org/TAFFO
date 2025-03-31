@@ -1,11 +1,13 @@
 #include "CodeInterpreter.hpp"
 
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Debug.h"
-#include <Metadata.h>
+#include "TaffoInfo/TaffoInfo.hpp"
+
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/Support/Debug.h>
 #include <cassert>
 #include <deque>
 
@@ -290,8 +292,7 @@ void CodeInterpreter::retrieveLoopTripCount(llvm::Function *F)
       if (DefaultTripCount > 0U && MaxTripCount > 0U) {
         unsigned TripCount = 0U;
         // Get user supplied unroll count
-        std::optional<unsigned> OUC =
-            mdutils::MetadataManager::retrieveLoopUnrollCount(*L, LoopInfo);
+        std::optional<unsigned> OUC = TaffoInfo::getInstance().getLoopUnrollCount(*L);
         if (OUC.has_value()) {
           TripCount = OUC.value();
         } else {
@@ -320,7 +321,7 @@ bool CodeInterpreter::updateRecursionCount(llvm::Function *F)
 {
   auto RCIt = RecursionCount.find(F);
   if (RCIt == RecursionCount.end()) {
-    unsigned FromMD = mdutils::MetadataManager::retrieveMaxRecursionCount(*F);
+    unsigned FromMD = TaffoInfo::getInstance().getMaxRecursionCount(*F);
     if (FromMD > 0)
       --FromMD;
 

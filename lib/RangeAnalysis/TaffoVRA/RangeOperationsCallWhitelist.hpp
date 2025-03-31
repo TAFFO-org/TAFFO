@@ -1,7 +1,7 @@
 #ifndef TAFFO_RANGE_OPERATIONS_CALL_WHITELIST_HPP
 #define TAFFO_RANGE_OPERATIONS_CALL_WHITELIST_HPP
 
-#include "Range.hpp"
+#include "TaffoInfo/ValueInfo.hpp"
 
 #include <list>
 #include <map>
@@ -23,7 +23,7 @@ namespace taffo
     INTRINSIC_WHITELIST_FUN(BASE_NAME, POINTER)
 // clang-format on
 
-using map_value_t = range_ptr_t (*)(const std::list<range_ptr_t> &);
+using map_value_t = std::shared_ptr<Range> (*)(const std::list<std::shared_ptr<Range>> &);
 extern const std::map<const std::string, map_value_t> functionWhiteList;
 }; // namespace taffo
 

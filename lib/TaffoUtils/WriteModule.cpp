@@ -1,5 +1,5 @@
-#include "llvm/IR/Module.h"
-#include "llvm/Support/FileSystem.h"
+#include <llvm/IR/Module.h>
+#include <llvm/Support/FileSystem.h>
 #include <WriteModule.h>
 
 int write_module(llvm::Twine filename, const llvm::Module &M)

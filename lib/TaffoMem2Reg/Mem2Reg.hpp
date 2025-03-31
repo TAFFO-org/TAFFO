@@ -11,11 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TAFFO_MEM2REG_MEM2REG_H
-#define TAFFO_MEM2REG_MEM2REG_H
+#ifndef TAFFO_MEM2REG_MEM2REG_HPP
+#define TAFFO_MEM2REG_MEM2REG_HPP
 
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/Function.h"
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/Function.h>
 
 namespace taffo {
 
@@ -26,4 +26,4 @@ public:
 
 } // end namespace taffo
 
-#endif // LLVM_TRANSFORMS_UTILS_MEM2REG_H
+#endif // TAFFO_MEM2REG_MEM2REG_HPP

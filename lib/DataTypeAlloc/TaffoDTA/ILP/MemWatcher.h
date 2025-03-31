@@ -1,8 +1,8 @@
 #pragma once
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/Instructions.h"
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Instructions.h>
 #include <vector>
 
 #define DEBUG_TYPE "taffo-dta"

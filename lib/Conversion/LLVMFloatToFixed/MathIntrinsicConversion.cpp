@@ -1,7 +1,7 @@
 #include "LLVMFloatToFixedPass.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/NoFolder.h"
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/NoFolder.h>
 
 using namespace llvm;
 using namespace flttofix;
@@ -38,7 +38,7 @@ bool FloatToFixed::isSupportedMathIntrinsicFunction(Function *F)
 Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, FixedPointType &fixpt)
 {
   /* Use the normal fallback path to handle non-converted values */
-  if (valueInfo(C)->noTypeConversion)
+  if (getConversionInfo(C)->noTypeConversion)
     return Unsupported;
 
   Function *F = C->getCalledFunction();

@@ -2,15 +2,15 @@
 #define TAFFO_VRALOGGER_HPP
 
 #include "CodeInterpreter.hpp"
-#include "RangeNode.hpp"
-#include "llvm/Support/Debug.h"
+#include "TaffoInfo/ValueInfo.hpp"
+#include "PtrCasts.hpp"
+#include <llvm/Support/Debug.h>
 #include <string>
 
 #define DEBUG_TYPE "taffo-vra"
 #define DEBUG_HEAD "[TAFFO][VRA]"
 
-namespace taffo
-{
+namespace taffo {
 
 class VRALogger : public CILogger
 {
@@ -51,22 +51,22 @@ public:
     llvm::dbgs() << *V << ": ";
   }
 
-  void logRange(const NodePtrT Range)
+  void logRange(const std::shared_ptr<ValueInfo> Range)
   {
     llvm::dbgs() << toString(Range);
   }
 
-  void logRangeln(const NodePtrT Range)
+  void logRangeln(const std::shared_ptr<ValueInfo> Range)
   {
     llvm::dbgs() << toString(Range) << "\n";
   }
 
-  void logRange(const range_ptr_t Range)
+  void logRange(const std::shared_ptr<Range> Range)
   {
     llvm::dbgs() << toString(Range);
   }
 
-  void logRangeln(const range_ptr_t Range)
+  void logRangeln(const std::shared_ptr<Range> Range)
   {
     llvm::dbgs() << toString(Range) << "\n";
   }
@@ -92,30 +92,28 @@ public:
     llvm::dbgs() << DEBUG_HEAD << std::string(IndentLevel * 2U, ' ');
   }
 
-  static std::string toString(const NodePtrT Range)
+  static std::string toString(const std::shared_ptr<ValueInfo> Range)
   {
     if (Range) {
       switch (Range->getKind()) {
-      case VRANode::VRAScalarNodeK: {
-        const std::shared_ptr<VRAScalarNode> ScalarNode =
-            std::static_ptr_cast<VRAScalarNode>(Range);
-        return toString(ScalarNode->getRange());
+      case ValueInfo::K_Scalar: {
+        const std::shared_ptr<ScalarInfo> ScalarNode = std::static_ptr_cast<ScalarInfo>(Range);
+        return toString(ScalarNode->range);
       }
-      case VRANode::VRAStructNodeK: {
-        std::shared_ptr<VRAStructNode> StructNode =
-            std::static_ptr_cast<VRAStructNode>(Range);
+      case ValueInfo::K_Struct: {
+        std::shared_ptr<StructInfo> StructNode = std::static_ptr_cast<StructInfo>(Range);
         std::string Result("{ ");
-        for (const NodePtrT& Field : StructNode->fields()) {
+        for (const std::shared_ptr<ValueInfo>& Field : *StructNode) {
           Result.append(toString(Field));
           Result.append(", ");
         }
         Result.append("}");
         return Result;
       }
-      case VRANode::VRAGEPNodeK: {
+      case ValueInfo::K_GetElementPointer: {
         return "GEPNode";
       }
-      case VRANode::VRAPtrNodeK: {
+      case ValueInfo::K_Pointer: {
         return "Pointer Node";
       }
       default:
@@ -125,13 +123,13 @@ public:
     return "null range";
   }
 
-  static std::string toString(const range_ptr_t R)
+  static std::string toString(const std::shared_ptr<Range> R)
   {
     if (R) {
       char minstr[32];
       char maxstr[32];
-      std::snprintf(minstr, 32, "%.20e", R->min());
-      std::snprintf(maxstr, 32, "%.20e", R->max());
+      std::snprintf(minstr, 32, "%.20e", R->Min);
+      std::snprintf(maxstr, 32, "%.20e", R->Max);
       return "[" + std::string(minstr) + ", " + std::string(maxstr) + "]";
     }
     return "null range";

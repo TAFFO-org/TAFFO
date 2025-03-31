@@ -1,41 +1,42 @@
 #include "ValueRangeAnalysis.hpp"
 
+#include "Logger.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "VRAGlobalStore.hpp"
-#include "llvm/Analysis/MemorySSA.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/CommandLine.h"
+
+#include <llvm/Analysis/MemorySSA.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/CommandLine.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
 using namespace llvm;
 using namespace taffo;
-using namespace mdutils;
 
-namespace taffo
-{
-llvm::cl::opt<bool> PropagateAll("propagate-all",
-                                 llvm::cl::desc("Propagate ranges for all functions, "
-                                                "not only those marked as starting point."),
-                                 llvm::cl::init(false));
-llvm::cl::opt<unsigned> Unroll("unroll",
-                               llvm::cl::desc("Default loop unroll count. "
-                                              "Setting this to 0 disables loop unrolling. "
-                                              "(Default: 1)"),
-                               llvm::cl::value_desc("count"),
-                               llvm::cl::init(1U));
+namespace taffo {
 
-llvm::cl::opt<unsigned> MaxUnroll("max-unroll",
-                                  llvm::cl::desc("Max loop unroll count. "
-                                                 "Setting this to 0 disables loop unrolling. "
-                                                 "(Default: 256)"),
-                                  llvm::cl::value_desc("count"),
-                                  llvm::cl::init(256U));
-}
+cl::opt<bool> PropagateAll("propagate-all",
+  cl::desc("Propagate ranges for all functions, not only those marked as starting point."),
+  cl::init(false));
 
-PreservedAnalyses ValueRangeAnalysis::run(Module &M, ModuleAnalysisManager &AM)
-{
+cl::opt<unsigned> Unroll("unroll",
+  cl::desc("Default loop unroll count. Setting this to 0 disables loop unrolling. (Default: 1)"),
+  cl::value_desc("count"),
+  cl::init(1U));
+
+cl::opt<unsigned> MaxUnroll("max-unroll",
+  cl::desc("Max loop unroll count. Setting this to 0 disables loop unrolling. (Default: 256)"),
+  cl::value_desc("count"),
+  cl::init(256U));
+
+} // namespace taffo
+
+PreservedAnalyses ValueRangeAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  LLVM_DEBUG(Logger::getInstance().logln("[ValueRangeAnalysisPass]", raw_ostream::Colors::MAGENTA));
+  TaffoInfo::getInstance().initializeFromFile("taffo_info_memToReg.json", M);
+
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>();
-  GlobalStore->harvestMetadata(M);
+  GlobalStore->harvestValueInfo(M);
 
   CodeInterpreter CodeInt(AM, GlobalStore, Unroll, MaxUnroll);
   processModule(CodeInt, M);
@@ -43,14 +44,16 @@ PreservedAnalyses ValueRangeAnalysis::run(Module &M, ModuleAnalysisManager &AM)
   LLVM_DEBUG(dbgs() << "saving results...\n");
   GlobalStore->saveResults(M);
 
+  TaffoInfo::getInstance().dumpToFile("taffo_info_vra.json", M);
+  LLVM_DEBUG(Logger::getInstance().logln("[End of ValueRangeAnalysisPass]", raw_ostream::Colors::MAGENTA));
   return PreservedAnalyses::all();
 }
 
 void ValueRangeAnalysis::processModule(CodeInterpreter &CodeInt, Module &M)
 {
   bool FoundVisitableFunction = false;
-  for (llvm::Function &F : M) {
-    if (!F.empty() && (PropagateAll || MetadataManager::isStartingPoint(F))) {
+  for (Function &F : M) {
+    if (!F.empty() && (PropagateAll || TaffoInfo::getInstance().isStartingPoint(F))) {
       CodeInt.interpretFunction(&F);
       FoundVisitableFunction = true;
     }

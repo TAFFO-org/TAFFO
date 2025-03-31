@@ -1,10 +1,12 @@
+#include "PtrCasts.hpp"
 #include "MetricBase.h"
 #include "Optimizer.h"
 #include "Utils.h"
-#include "llvm/Support/Debug.h"
+
+#include <llvm/Support/Debug.h>
 
 using namespace llvm;
-using namespace mdutils;
+using namespace taffo;
 using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
@@ -15,7 +17,7 @@ static void emitError(const string &stringhina)
 }
 
 
-void MetricPerf::handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res, const tuner::CPUCosts &cpuCosts, const char *start)
+void MetricPerf::handleDisabled(std::shared_ptr<OptimizerScalarInfo> res, const CPUCosts &cpuCosts, const char *start)
 {
   auto constraint = vector<pair<string, double>>();
   auto &model = getModel();
@@ -72,9 +74,9 @@ void MetricPerf::handleDisabled(std::shared_ptr<tuner::OptimizerScalarInfo> res,
 }
 
 
-void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FAdd && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FAdd && "Operand mismatch!");
 
   auto &cpuCosts = getCpuCosts();
   auto &model = getModel();
@@ -83,8 +85,8 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   auto op2 = instr->getOperand(1);
 
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op1));
+  auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op2));
 
 
   auto res = handleBinOpCommon(instr, op1, op2, true, valueInfos);
@@ -154,16 +156,16 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
 }
 
 
-void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FNeg && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FNeg && "Operand mismatch!");
 
   auto &cpuCosts = getCpuCosts();
   auto &model = getModel();
 
   auto op1 = instr->getOperand(0);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
+  auto info1 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op1));
 
   /* adds type cast constraints for operands and returns the variable set of this instruction */
   auto res = handleUnaryOpCommon(instr, op1, true, valueInfos);
@@ -224,9 +226,9 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
 }
 
 
-void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FSub && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FSub && "Operand mismatch!");
 
   auto &cpuCosts = getCpuCosts();
   auto &model = getModel();
@@ -234,8 +236,8 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op1));
+  auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op2));
 
   auto res = handleBinOpCommon(instr, op1, op2, true, valueInfos);
   if (!res)
@@ -301,9 +303,9 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub second addend"*/);
 }
 
-void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FMul && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FMul && "Operand mismatch!");
 
   auto &cpuCosts = getCpuCosts();
   auto &model = getModel();
@@ -311,8 +313,8 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op1));
+  auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op2));
 
   auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
   if (!res)
@@ -405,9 +407,9 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertLinearConstraint(constraint, Model::LE, -intbit_2 /*, "Enob: propagation in product 2"*/);
 }
 
-void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FDiv && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FDiv && "Operand mismatch!");
 
   auto &cpuCosts = getCpuCosts();
   auto &model = getModel();
@@ -415,8 +417,8 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-  auto info1 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op1));
-  auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op2));
+  auto info1 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op1));
+  auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op2));
 
   auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
   if (!res)
@@ -508,9 +510,9 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertLinearConstraint(constraint, Model::LE, -intbit_2 + 2 * maxbits2 /*, "Enob: propagation in division 2"*/);
 }
 
-void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<ValueInfo> &valueInfos)
+void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FRem && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FRem && "Operand mismatch!");
 
   auto &cpuCosts = getCpuCosts();
   auto &model = getModel();
@@ -575,7 +577,7 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
 }
 
 
-void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
+void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
 {
   LLVM_DEBUG(dbgs() << "Handling casting instruction...\n";);
 
@@ -586,9 +588,10 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
     assert(bitcast && "Not a bitcast???");
 
 
-    if (bitcast->getType()->isPointerTy() && bitcast->getType()->getPointerElementType()->isFloatingPointTy()) {
+    // TODO FIX SOON!
+    /*if (bitcast->getType()->isPointerTy() && bitcast->getType()->getPointerElementType()->isFloatingPointTy()) {
       // When bitcasting to a floating point and having info, maybe we are dealing with a floating point array!
-      auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
+      auto fieldInfo = dynamic_ptr_cast<InputInfo>(valueInfo->metadata);
       if (!fieldInfo) {
         LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
 
@@ -600,7 +603,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
         return;
       }
 
-      auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
+      auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->IType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;
@@ -616,7 +619,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 
       LLVM_DEBUG(dbgs() << "Associated metadata " << met->toString() << " to the bitcast!\n";);
       return;
-    }
+    }*/
 
 
     LLVM_DEBUG(dbgs() << "[Warning] Bitcasting not supported for model generation.";);
@@ -639,7 +642,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
   if (isa<UIToFPInst>(instruction) ||
       isa<SIToFPInst>(instruction)) {
 
-    auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
+    auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
     if (!fieldInfo) {
       LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
 
@@ -651,15 +654,15 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
       return;
     }
 
-    auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
+    auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
     if (!fptype) {
       LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
       return;
     }
 
 
-    shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                           fieldInfo->IError);
+    shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->range,
+                                                                           fieldInfo->error);
 
     // Limiting the ENOB as coming from an integer we can have an error at min of 1
     // Look that here we have the original program, so these instruction are not related to fixed point implementation!
@@ -687,7 +690,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Valu
 }
 
 
-void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInfo> &valueInfo)
+void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<TunerInfo> &valueInfo)
 {
   auto *store = dyn_cast<StoreInst>(instruction);
 
@@ -706,13 +709,13 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       return;
     }
 
-    auto info_pointer_t = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(info1);
+    auto info_pointer_t = dynamic_ptr_cast<OptimizerPointerInfo>(info1);
     if (!info_pointer_t) {
       emitError("No info on pointer value!");
       return;
     }
 
-    auto info_variable_oeig_t = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info2);
+    auto info_variable_oeig_t = dynamic_ptr_cast<OptimizerScalarInfo>(info2);
     if (!info_variable_oeig_t) {
       emitError("No info on register value!");
       return;
@@ -721,7 +724,7 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
     LLVM_DEBUG(dbgs() << "Storing " << info2->toString() << " into " << info1->toString() << "\n";);
 
 
-    auto info_pointer = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info_pointer_t->getOptInfo());
+    auto info_pointer = dynamic_ptr_cast<OptimizerScalarInfo>(info_pointer_t->getOptInfo());
 
     shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableWithCastCost(opRegister, instruction);
 
@@ -757,7 +760,7 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
 
 
-      auto enoblambda = [&](int ENOB, const std::string (tuner::OptimizerScalarInfo::*getvariable)(), const char *desc) mutable {
+      auto enoblambda = [&](int ENOB, const std::string (OptimizerScalarInfo::*getvariable)(), const char *desc) mutable {
         constraint.clear();
         constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
         constraint.push_back(make_pair(((*info_pointer).*getvariable)(), BIG_NUMBER));
@@ -765,36 +768,36 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
       };
 
       // Enob constraints float
-      enoblambda(ENOBfloat, &tuner::OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
+      enoblambda(ENOBfloat, &OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
       // Enob constraints Double
       if (hasDouble) {
-        enoblambda(ENOBdouble, &tuner::OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
+        enoblambda(ENOBdouble, &OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
       }
 
       // Enob constraints half
       if (hasHalf) {
-        enoblambda(ENOBhalf, &tuner::OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
+        enoblambda(ENOBhalf, &OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
       }
 
       // Enob constraints quad
       if (hasQuad) {
-        enoblambda(ENOBquad, &tuner::OptimizerScalarInfo::getQuadSelectedVariable, "Enob constraint for quad");
+        enoblambda(ENOBquad, &OptimizerScalarInfo::getQuadSelectedVariable, "Enob constraint for quad");
       }
 
       // Enob constraints fp80
       if (hasFP80) {
-        enoblambda(ENOBfp80, &tuner::OptimizerScalarInfo::getFP80SelectedVariable, "Enob constraint for fp80");
+        enoblambda(ENOBfp80, &OptimizerScalarInfo::getFP80SelectedVariable, "Enob constraint for fp80");
       }
 
       // Enob constraints ppc128
       if (hasPPC128) {
-        enoblambda(ENOBppc128, &tuner::OptimizerScalarInfo::getPPC128SelectedVariable, "Enob constraint for ppc128");
+        enoblambda(ENOBppc128, &OptimizerScalarInfo::getPPC128SelectedVariable, "Enob constraint for ppc128");
       }
 
       // Enob constraints bf16
       if (hasBF16) {
-        enoblambda(ENOBbf16, &tuner::OptimizerScalarInfo::getBF16SelectedVariable, "Enob constraint for bf16");
+        enoblambda(ENOBbf16, &OptimizerScalarInfo::getBF16SelectedVariable, "Enob constraint for bf16");
       }
 
       constraint.clear();
@@ -848,13 +851,13 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<ValueInf
 }
 
 
-void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
+void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
 {
 
   auto operand = instruction->getOperand(0); // The argument to be casted
 
   auto info = getInfoOfValue(operand);
-  auto sinfos = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
+  auto sinfos = dynamic_ptr_cast<OptimizerScalarInfo>(info);
   if (!sinfos) {
     LLVM_DEBUG(dbgs() << "No info for the operand, ignoring...\n";);
     return;
@@ -870,7 +873,7 @@ void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<Val
   LLVM_DEBUG(dbgs() << "For this fpext/fptrunc, reusing variable" << sinfos->getBaseName() << "\n";);
 }
 
-void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
+void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
 {
   auto *phi = dyn_cast<PHINode>(instruction);
 
@@ -889,7 +892,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
   // from the real execution, but the overall meaning is the same.
 
 
-  auto *phi_n = dyn_cast<llvm::PHINode>(phi);
+  auto *phi_n = dyn_cast<PHINode>(phi);
   if (!phi_n) {
     llvm_unreachable("Could not convert Phi instruction to PHINode");
   }
@@ -898,33 +901,32 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
     llvm_unreachable("Why on earth there is a Phi instruction with no incoming values?");
   }
 
-  auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
+  auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
   if (!fieldInfo) {
     LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
     return;
   }
 
-  if (!fieldInfo->IRange) {
+  if (!fieldInfo->range) {
     LLVM_DEBUG(dbgs() << "Not Range information. Bailing out.\n\n";);
     return;
   }
 
-  auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
+  auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return;
   }
 
   // Allocating variable for result
-  shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->IRange,
-                                                                         fieldInfo->IError);
+  shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->range, fieldInfo->error);
   auto constraint = vector<pair<string, double>>();
   constraint.clear();
 
 
   for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
     Value *op = phi_n->getIncomingValue(index);
-    if (auto info = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op))) {
+    if (auto info = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op))) {
       if (info->doesReferToConstant()) {
         // We skip the variable if it is a constant
         LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
@@ -954,7 +956,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
     Value *op = phi_n->getIncomingValue(index);
 
     if (auto info = getInfoOfValue(op)) {
-      if (auto info2 = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info)) {
+      if (auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
           // We skip the variable if it is a constant
           LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
@@ -982,9 +984,9 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<ValueInfo> value
 }
 
 
-void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo> &valueInfo)
+void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo> &valueInfo)
 {
-  LLVM_DEBUG(llvm::dbgs() << "Handle Load\n");
+  LLVM_DEBUG(dbgs() << "Handle Load\n");
   if (!valueInfo) {
     LLVM_DEBUG(dbgs() << "No value info, skipping...\n";);
     return;
@@ -994,7 +996,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
   auto loaded = load->getPointerOperand();
   shared_ptr<OptimizerInfo> infos = getInfoOfValue(loaded);
 
-  auto pinfos = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(infos);
+  auto pinfos = dynamic_ptr_cast<OptimizerPointerInfo>(infos);
   if (!pinfos) {
     emitError("Loaded a variable with no information attached, or attached info not a Pointer type!");
     return;
@@ -1002,7 +1004,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
 
 
   if (load->getType()->isFloatingPointTy()) {
-    auto sinfos = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(pinfos->getOptInfo());
+    auto sinfos = dynamic_ptr_cast<OptimizerScalarInfo>(pinfos->getOptInfo());
     if (!sinfos) {
       emitError("Loaded a variable with no information attached...");
       return;
@@ -1072,7 +1074,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<ValueInfo
         LLVM_DEBUG(dbgs() << " as it is NOT a store!\n";);
         continue;
       }
-      if (auto info = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(getInfoOfValue(op))) {
+      if (auto info = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op))) {
         if (info->doesReferToConstant()) {
           // We skip the variable if it is a constant
           LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);

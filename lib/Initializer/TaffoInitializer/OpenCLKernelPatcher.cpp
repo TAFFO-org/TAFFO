@@ -1,9 +1,9 @@
-#include "OpenCLKernelPatcher.h"
-#include "Metadata.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Support/Debug.h"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "OpenCLKernelPatcher.hpp"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/Debug.h>
 #include <string>
 
 #define DEBUG_TYPE "taffo-init"
@@ -76,6 +76,7 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, std::opt
   }
   
   CallI->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*CallI);
 }
 
 void createOpenCLKernelTrampoline(Module &M, Function& KernF)
@@ -136,9 +137,7 @@ void createOpenCLKernelTrampoline(Module &M, Function& KernF)
   Builder.CreateCall(KernF.getFunctionType(), &KernF, Loads);
   Builder.CreateRetVoid();
 
-  /* Add metadata for identification */
-  mdutils::MetadataManager::setOpenCLCloneTrampolineMetadata(NewF, &KernF);
-
+  taffo::TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
   LLVM_DEBUG(dbgs() << "Created trampoline:\n" << *NewF);
 }
 

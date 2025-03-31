@@ -4,29 +4,28 @@
 #include <list>
 #include <string>
 
-#include "RangeNode.hpp"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
+#include "TaffoInfo/ValueInfo.hpp"
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instruction.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
-namespace taffo
-{
+namespace taffo {
 
 //-----------------------------------------------------------------------------
 // Wrappers
 //-----------------------------------------------------------------------------
 /** Handle binary instructions */
-range_ptr_t handleBinaryInstruction(const range_ptr_t op1,
-                                    const range_ptr_t op2,
+std::shared_ptr<Range> handleBinaryInstruction(const std::shared_ptr<Range> op1,
+                                    const std::shared_ptr<Range> op2,
                                     const unsigned OpCode);
 
 /** Handle unary instructions */
-range_ptr_t handleUnaryInstruction(const range_ptr_t op,
+std::shared_ptr<Range> handleUnaryInstruction(const std::shared_ptr<Range> op,
                                    const unsigned OpCode);
 
 /** Handle cast instructions */
-range_ptr_t handleCastInstruction(const range_ptr_t op,
+std::shared_ptr<Range> handleCastInstruction(const std::shared_ptr<Range> op,
                                   const unsigned OpCode,
                                   const llvm::Type *dest);
 
@@ -34,84 +33,84 @@ range_ptr_t handleCastInstruction(const range_ptr_t op,
 bool isMathCallInstruction(const std::string &function);
 
 /** Handle call to known math functions. Return nullptr if unknown */
-range_ptr_t handleMathCallInstruction(const std::list<range_ptr_t> &ops,
+std::shared_ptr<Range> handleMathCallInstruction(const std::list<std::shared_ptr<Range>> &ops,
                                       const std::string &function);
 
-range_ptr_t handleCompare(const std::list<range_ptr_t> &ops,
+std::shared_ptr<Range> handleCompare(const std::list<std::shared_ptr<Range>> &ops,
                           const llvm::CmpInst::Predicate pred);
 
 //-----------------------------------------------------------------------------
 // Arithmetic
 //-----------------------------------------------------------------------------
 /** operator+ */
-range_ptr_t handleAdd(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleAdd(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** operator- */
-range_ptr_t handleSub(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleSub(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** operator* */
-range_ptr_t handleMul(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleMul(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** operator/ */
-range_ptr_t handleDiv(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleDiv(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** operator% */
-range_ptr_t handleRem(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleRem(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** operator<< */
-range_ptr_t handleShl(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleShl(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** operator>> */
-range_ptr_t handleAShr(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleAShr(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 //-----------------------------------------------------------------------------
 // Cast
 //-----------------------------------------------------------------------------
 /** Trunc */
-range_ptr_t handleTrunc(const range_ptr_t gop, const llvm::Type *dest);
+std::shared_ptr<Range> handleTrunc(const std::shared_ptr<Range> gop, const llvm::Type *dest);
 
 /** Cast To Unsigned Integer */
-range_ptr_t handleCastToUI(const range_ptr_t op);
+std::shared_ptr<Range> handleCastToUI(const std::shared_ptr<Range> op);
 
 /** Cast To Signed Integer */
-range_ptr_t handleCastToSI(const range_ptr_t op);
+std::shared_ptr<Range> handleCastToSI(const std::shared_ptr<Range> op);
 
 /** FPTrunc */
-range_ptr_t handleFPTrunc(const range_ptr_t op, const llvm::Type *dest);
+std::shared_ptr<Range> handleFPTrunc(const std::shared_ptr<Range> op, const llvm::Type *dest);
 
 //-----------------------------------------------------------------------------
 // Boolean
 //-----------------------------------------------------------------------------
 /** boolean Xor instruction */
-range_ptr_t handleBooleanXor(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleBooleanXor(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** boolean And instruction */
-range_ptr_t handleBooleanAnd(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleBooleanAnd(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 /** boolean Or instruction */
-range_ptr_t handleBooleanOr(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> handleBooleanOr(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
 //-----------------------------------------------------------------------------
 // Range helpers
 //-----------------------------------------------------------------------------
 /** deep copy of range */
-RangeNodePtrT copyRange(const RangeNodePtrT op);
-range_ptr_t copyRange(const range_ptr_t op);
+std::shared_ptr<ValueInfoWithRange> copyRange(const std::shared_ptr<ValueInfoWithRange> op);
+std::shared_ptr<Range> copyRange(const std::shared_ptr<Range> op);
 
 /** create a generic boolean range */
-range_ptr_t getGenericBoolRange();
+std::shared_ptr<Range> getGenericBoolRange();
 
 /** create a always false boolean range */
-range_ptr_t getAlwaysFalse();
+std::shared_ptr<Range> getAlwaysFalse();
 
 /** create a always false boolean range */
-range_ptr_t getAlwaysTrue();
+std::shared_ptr<Range> getAlwaysTrue();
 
-range_ptr_t getUnionRange(const range_ptr_t op1, const range_ptr_t op2);
+std::shared_ptr<Range> getUnionRange(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
-RangeNodePtrT getUnionRange(const RangeNodePtrT op1, const RangeNodePtrT op2);
+std::shared_ptr<ValueInfoWithRange> getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1, const std::shared_ptr<ValueInfoWithRange> op2);
 
-RangeNodePtrT fillRangeHoles(const RangeNodePtrT src, const RangeNodePtrT dst);
+std::shared_ptr<ValueInfoWithRange> fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> src, const std::shared_ptr<ValueInfoWithRange> dst);
 
 } // namespace taffo
 

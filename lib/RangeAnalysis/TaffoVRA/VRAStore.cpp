@@ -1,87 +1,64 @@
 #include "VRAStore.hpp"
 
 #include "RangeOperations.hpp"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/GlobalIFunc.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Support/Debug.h"
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
 using namespace llvm;
 using namespace taffo;
 
-void VRAStore::convexMerge(const VRAStore &Other)
-{
-  for (auto &OValueRangeNode : Other.DerivedRanges) {
-    const llvm::Value *V = OValueRangeNode.first;
-    NodePtrT ThisNode = this->getNode(V);
-    if (ThisNode) {
-      if (std::isa_ptr<VRAStructNode>(ThisNode))
-        assignStructNode(ThisNode, OValueRangeNode.second);
-      else if (NodePtrT Union = assignScalarRange(ThisNode, OValueRangeNode.second)) {
-        DerivedRanges[V] = Union;
-      }
+void VRAStore::convexMerge(const VRAStore &other) {
+  for (const auto &[value, otherValueInfo] : other.DerivedRanges) {
+    if (std::shared_ptr<ValueInfo> valueInfo = this->getNode(value)) {
+      if (std::isa_ptr<StructInfo>(valueInfo))
+        assignStructNode(valueInfo, otherValueInfo);
+      else if (std::shared_ptr<ScalarInfo> unionInfo = assignScalarRange(valueInfo, otherValueInfo))
+        DerivedRanges[value] = unionInfo;
     } else {
-      DerivedRanges[V] = OValueRangeNode.second;
+      DerivedRanges[value] = otherValueInfo;
     }
   }
 }
 
-const range_ptr_t
-VRAStore::fetchRange(const llvm::Value *V)
-{
-  if (const std::shared_ptr<VRAScalarNode> Ret =
-          std::dynamic_ptr_cast_or_null<VRAScalarNode>(fetchRangeNode(V)))
-    return Ret->getRange();
+std::shared_ptr<Range> VRAStore::fetchRange(const Value *v) {
+  if (const std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(fetchRangeNode(v)))
+    return scalarInfo->range;
   return nullptr;
 }
 
-const RangeNodePtrT
-VRAStore::fetchRangeNode(const llvm::Value *v)
-{
-  if (const NodePtrT Node = getNode(v)) {
-    if (std::shared_ptr<VRAScalarNode> Scalar =
-            std::dynamic_ptr_cast<VRAScalarNode>(Node)) {
+std::shared_ptr<ValueInfoWithRange> VRAStore::fetchRangeNode(const Value *v) {
+  if (const std::shared_ptr<ValueInfo> valueInfo = getNode(v)) {
+    if (std::shared_ptr<ScalarInfo> Scalar = std::dynamic_ptr_cast<ScalarInfo>(valueInfo))
       return Scalar;
-    } else if (v->getType()->isPointerTy()) {
-      return fetchRange(Node);
-    }
+    if (v->getType()->isPointerTy())
+      return fetchRange(valueInfo);
   }
-
   // no info available
   return nullptr;
 }
 
-void VRAStore::saveValueRange(const llvm::Value *v,
-                              const range_ptr_t Range)
-{
-  if (!Range)
+void VRAStore::saveValueRange(const Value *v, const std::shared_ptr<Range> range) {
+  if (!range)
     return;
   // TODO: make specialized version of this to avoid creating useless node
-  saveValueRange(v, std::make_shared<VRAScalarNode>(Range));
+  saveValueRange(v, std::make_shared<ScalarInfo>(v->getType(), nullptr, range));
 }
 
-void VRAStore::saveValueRange(const llvm::Value *v,
-                              const RangeNodePtrT Range)
-{
+void VRAStore::saveValueRange(const Value *v, const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange) {
   assert(v && "Trying to save range for null value.");
-  if (!Range)
+  if (!valueInfoWithRange)
     return;
-
-  if (NodePtrT Union = assignScalarRange(getNode(v), Range)) {
-    DerivedRanges[v] = Union;
+  if (std::shared_ptr<ValueInfo> unionInfo = assignScalarRange(getNode(v), valueInfoWithRange)) {
+    DerivedRanges[v] = unionInfo;
     return;
   }
-  DerivedRanges[v] = Range;
+  DerivedRanges[v] = valueInfoWithRange;
 }
 
-NodePtrT
-VRAStore::getNode(const llvm::Value *v)
-{
+std::shared_ptr<ValueInfo> VRAStore::getNode(const Value *v) {
   assert(v && "Trying to get node for null value.");
   const auto it = DerivedRanges.find(v);
   if (it != DerivedRanges.end()) {
@@ -90,223 +67,195 @@ VRAStore::getNode(const llvm::Value *v)
   return nullptr;
 }
 
-void VRAStore::setNode(const llvm::Value *V, NodePtrT Node)
-{
+void VRAStore::setNode(const Value *V, std::shared_ptr<ValueInfo> Node) {
   DerivedRanges[V] = Node;
 }
 
-NodePtrT
-VRAStore::loadNode(const NodePtrT Node) const
-{
-  llvm::SmallVector<unsigned, 1U> Offset;
+std::shared_ptr<ValueInfo>
+VRAStore::loadNode(const std::shared_ptr<ValueInfo> Node) const {
+  SmallVector<unsigned, 1U> Offset;
   return loadNode(Node, Offset);
 }
 
-NodePtrT
-VRAStore::loadNode(const NodePtrT Node,
-                   llvm::SmallVectorImpl<unsigned> &Offset) const
-{
-  if (!Node)
+std::shared_ptr<ValueInfo> VRAStore::loadNode(
+  const std::shared_ptr<ValueInfo> &valueInfo,
+  SmallVectorImpl<unsigned> &Offset) const {
+  if (!valueInfo)
     return nullptr;
-  switch (Node->getKind()) {
-  case VRANode::VRAScalarNodeK:
-    return Node;
-  case VRANode::VRAStructNodeK:
+  switch (valueInfo->getKind()) {
+  case ValueInfo::K_Scalar:
+    return valueInfo;
+  case ValueInfo::K_Struct:
     if (Offset.empty()) {
-      return Node;
+      return valueInfo;
     } else {
-      std::shared_ptr<VRAStructNode> StructNode =
-          std::static_ptr_cast<VRAStructNode>(Node);
-      NodePtrT Field = StructNode->getNodeAt(Offset.back());
+      std::shared_ptr<StructInfo> StructNode = std::static_ptr_cast<StructInfo>(valueInfo);
+      std::shared_ptr<ValueInfo> Field = StructNode->getField(Offset.back());
       Offset.pop_back();
       if (Offset.empty())
         return Field;
       else
         return loadNode(Field, Offset);
     }
-  case VRANode::VRAGEPNodeK: {
-    std::shared_ptr<VRAGEPNode> GEPNode =
-        std::static_ptr_cast<VRAGEPNode>(Node);
-    const llvm::ArrayRef<unsigned> GEPOffset = GEPNode->getOffset();
-    Offset.append(GEPOffset.begin(), GEPOffset.end());
-    return loadNode(GEPNode->getParent(), Offset);
+  case ValueInfo::K_GetElementPointer: {
+    std::shared_ptr<GEPInfo> gepInfo = std::static_ptr_cast<GEPInfo>(valueInfo);
+    const ArrayRef<unsigned> gepOffset = gepInfo->getOffset();
+    Offset.append(gepOffset.begin(), gepOffset.end());
+    return loadNode(gepInfo->getPointed(), Offset);
   }
-  case VRANode::VRAPtrNodeK: {
-    std::shared_ptr<VRAPtrNode> PtrNode =
-        std::static_ptr_cast<VRAPtrNode>(Node);
-    return PtrNode->getParent();
+  case ValueInfo::K_Pointer: {
+    std::shared_ptr<PointerInfo> pointerInfo = std::static_ptr_cast<PointerInfo>(valueInfo);
+    return pointerInfo->getPointed();
   }
   default:
     llvm_unreachable("Unhandled node type.");
   }
 }
 
-std::shared_ptr<VRAScalarNode>
-VRAStore::assignScalarRange(NodePtrT Dst, const NodePtrT Src) const
+std::shared_ptr<ScalarInfo> VRAStore::assignScalarRange(
+  const std::shared_ptr<ValueInfo> &dst,
+  const std::shared_ptr<ValueInfo> &src) const
 {
-  std::shared_ptr<VRAScalarNode> ScalarDst =
-      std::dynamic_ptr_cast_or_null<VRAScalarNode>(Dst);
-  const std::shared_ptr<VRAScalarNode> ScalarSrc =
-      std::dynamic_ptr_cast_or_null<VRAScalarNode>(Src);
-  if (!(ScalarDst && ScalarSrc))
+  std::shared_ptr<ScalarInfo> scalarDst = std::dynamic_ptr_cast_or_null<ScalarInfo>(dst);
+  const std::shared_ptr<ScalarInfo> scalarSrc = std::dynamic_ptr_cast_or_null<ScalarInfo>(src);
+  if (!scalarDst || !scalarSrc)
     return nullptr;
-
-  if (ScalarDst->isFinal())
-    return ScalarDst;
-
-  range_ptr_t Union = getUnionRange(ScalarDst->getRange(), ScalarSrc->getRange());
-  return std::make_shared<VRAScalarNode>(Union);
+  if (scalarDst->isFinal())
+    return scalarDst;
+  std::shared_ptr<Range> unionRange = getUnionRange(scalarDst->range, scalarSrc->range);
+  return std::make_shared<ScalarInfo>(dst->getUnwrappedType(), nullptr, unionRange);
 }
 
-void VRAStore::assignStructNode(NodePtrT Dst, const NodePtrT Src) const
-{
-  std::shared_ptr<VRAStructNode> StructDst =
-      std::dynamic_ptr_cast_or_null<VRAStructNode>(Dst);
-  const std::shared_ptr<VRAStructNode> StructSrc =
-      std::dynamic_ptr_cast_or_null<VRAStructNode>(Src);
-  if (!(StructDst && StructSrc))
+void VRAStore::assignStructNode(const std::shared_ptr<ValueInfo> &dst, const std::shared_ptr<ValueInfo> &src) const {
+  const std::shared_ptr<StructInfo> structSrc = std::dynamic_ptr_cast_or_null<StructInfo>(src);
+  std::shared_ptr<StructInfo> structDst = std::dynamic_ptr_cast_or_null<StructInfo>(dst);
+  if (!(structDst && structSrc))
     return;
-
-  const llvm::ArrayRef<NodePtrT> SrcFields = StructSrc->fields();
-  for (unsigned Idx = 0; Idx < SrcFields.size(); ++Idx) {
-    NodePtrT SrcField = SrcFields[Idx];
-    if (!SrcField)
+  for (unsigned i = 0; i < structSrc->numFields(); i++) {
+    std::shared_ptr<ValueInfo> srcField = structSrc->getField(i);
+    if (!srcField)
       continue;
-    NodePtrT DstField = StructDst->getNodeAt(Idx);
-    if (!DstField) {
-      StructDst->setNodeAt(Idx, SrcField);
+    std::shared_ptr<ValueInfo> dstField = structDst->getField(i);
+    if (!dstField) {
+      structDst->setField(i, srcField);
     } else {
-      if (std::isa_ptr<VRAStructNode>(DstField)) {
-        assignStructNode(DstField, SrcField);
-      } else if (NodePtrT Union = assignScalarRange(DstField, SrcField)) {
-        StructDst->setNodeAt(Idx, Union);
+      if (std::isa_ptr<StructInfo>(dstField)) {
+        assignStructNode(dstField, srcField);
+      } else if (std::shared_ptr<ValueInfo> unionField = assignScalarRange(dstField, srcField)) {
+        structDst->setField(i, unionField);
       }
     }
   }
 }
 
-void VRAStore::storeNode(NodePtrT Dst, const NodePtrT Src)
-{
-  llvm::SmallVector<unsigned, 1U> Offset;
-  storeNode(Dst, Src, Offset);
+void VRAStore::storeNode(const std::shared_ptr<ValueInfo> dst, const std::shared_ptr<ValueInfo> &src) {
+  SmallVector<unsigned, 1U> Offset;
+  storeNode(dst, src, Offset);
 }
 
-void VRAStore::storeNode(NodePtrT Dst, const NodePtrT Src,
-                         llvm::SmallVectorImpl<unsigned> &Offset)
-{
-  if (!(Dst && Src))
+void VRAStore::storeNode(std::shared_ptr<ValueInfo> dst, const std::shared_ptr<ValueInfo> &src, SmallVectorImpl<unsigned> &offset) {
+  if (!(dst && src))
     return;
-  NodePtrT Pointed = nullptr;
-  switch (Dst->getKind()) {
-  case VRANode::VRAGEPNodeK: {
-    std::shared_ptr<VRAGEPNode> GEPNode =
-        std::static_ptr_cast<VRAGEPNode>(Dst);
-    const llvm::ArrayRef<unsigned> GEPOffset = GEPNode->getOffset();
-    Offset.append(GEPOffset.begin(), GEPOffset.end());
-    storeNode(GEPNode->getParent(), Src, Offset);
-    break;
-  }
-  case VRANode::VRAStructNodeK: {
-    std::shared_ptr<VRAStructNode> StructDst =
-        std::static_ptr_cast<VRAStructNode>(Dst);
-    if (Offset.empty()) {
-      assignStructNode(StructDst, Src);
-    } else if (Offset.size() == 1U) {
-      unsigned Idx = Offset.front();
-      NodePtrT Union = assignScalarRange(StructDst->getNodeAt(Idx), Src);
-      if (Union) {
-        StructDst->setNodeAt(Idx, Union);
+  std::shared_ptr<ValueInfo> pointed = nullptr;
+  switch (dst->getKind()) {
+    case ValueInfo::K_GetElementPointer: {
+      std::shared_ptr<GEPInfo> gepInfo = std::static_ptr_cast<GEPInfo>(dst);
+      const ArrayRef<unsigned> gepOffset = gepInfo->getOffset();
+      offset.append(gepOffset.begin(), gepOffset.end());
+      storeNode(gepInfo->getPointed(), src, offset);
+      break;
+    }
+    case ValueInfo::K_Struct: {
+      std::shared_ptr<StructInfo> structDst = std::static_ptr_cast<StructInfo>(dst);
+      if (offset.empty()) {
+        assignStructNode(structDst, src);
+      } else if (offset.size() == 1) {
+        unsigned index = offset.front();
+        if (std::shared_ptr<ValueInfo> unionInfo = assignScalarRange(structDst->getField(index), src))
+          structDst->setField(index, unionInfo);
+        else
+          structDst->setField(index, src);
       } else {
-        StructDst->setNodeAt(Idx, Src);
+        std::shared_ptr<ValueInfo> field = structDst->getField(offset.back());
+        if (!field) {
+          field = std::make_shared<StructInfo>(nullptr, 0);
+          structDst->setField(offset.back(), field);
+        }
+        offset.pop_back();
+        storeNode(field, src, offset);
       }
-    } else {
-      NodePtrT Field = StructDst->getNodeAt(Offset.back());
-      if (!Field) {
-        Field = std::make_shared<VRAStructNode>();
-        StructDst->setNodeAt(Offset.back(), Field);
+      break;
+    }
+    case ValueInfo::K_Pointer: {
+      std::shared_ptr<PointerInfo> pointerDst = std::static_ptr_cast<PointerInfo>(dst);
+      if (std::shared_ptr<ValueInfo> unionInfo = assignScalarRange(pointerDst->getPointed(), src)) {
+        pointerDst->setPointed(unionInfo);
+      } else {
+        pointerDst->setPointed(src);
       }
-      Offset.pop_back();
-      storeNode(Field, Src, Offset);
+      break;
     }
-    break;
-  }
-  case VRANode::VRAPtrNodeK: {
-    std::shared_ptr<VRAPtrNode> PtrDst =
-        std::static_ptr_cast<VRAPtrNode>(Dst);
-    NodePtrT Union = assignScalarRange(PtrDst->getParent(), Src);
-    if (Union) {
-      PtrDst->setParent(Union);
-    } else {
-      PtrDst->setParent(Src);
-    }
-    break;
-  }
-  default:
-    LLVM_DEBUG(dbgs() << "WARNING: trying to store into a non-pointer node, aborted.\n");
+    default:
+      LLVM_DEBUG(dbgs() << "WARNING: trying to store into a non-pointer node, aborted.\n");
   }
 }
 
-RangeNodePtrT
-VRAStore::fetchRange(const NodePtrT Node) const
-{
-  llvm::SmallVector<unsigned, 1U> Offset;
-  return fetchRange(Node, Offset);
+std::shared_ptr<ValueInfoWithRange> VRAStore::fetchRange(const std::shared_ptr<ValueInfo> valueInfo) const {
+  SmallVector<unsigned, 1> offset;
+  return fetchRange(valueInfo, offset);
 }
 
-RangeNodePtrT
-VRAStore::fetchRange(const NodePtrT Node,
-                     llvm::SmallVectorImpl<unsigned> &Offset) const
+std::shared_ptr<ValueInfoWithRange> VRAStore::fetchRange(
+  const std::shared_ptr<ValueInfo> &valueInfo,
+  SmallVectorImpl<unsigned> &offset) const
 {
-  if (!Node)
+  if (!valueInfo)
     return nullptr;
-  switch (Node->getKind()) {
-  case VRANode::VRAScalarNodeK:
-    return std::static_ptr_cast<VRAScalarNode>(Node);
-  case VRANode::VRAStructNodeK: {
-    std::shared_ptr<VRAStructNode> StructNode =
-        std::static_ptr_cast<VRAStructNode>(Node);
-    if (Offset.empty()) {
+  switch (valueInfo->getKind()) {
+  case ValueInfo::K_Scalar:
+    return std::static_ptr_cast<ScalarInfo>(valueInfo);
+  case ValueInfo::K_Struct: {
+    std::shared_ptr<StructInfo> StructNode = std::static_ptr_cast<StructInfo>(valueInfo);
+    if (offset.empty()) {
       return StructNode;
     } else {
-      NodePtrT Field = StructNode->getNodeAt(Offset.back());
-      Offset.pop_back();
-      return fetchRange(Field, Offset);
+      std::shared_ptr<ValueInfo> field = StructNode->getField(offset.back());
+      offset.pop_back();
+      return fetchRange(field, offset);
     }
   }
-  case VRANode::VRAGEPNodeK: {
-    std::shared_ptr<VRAGEPNode> GEPNode =
-        std::dynamic_ptr_cast<VRAGEPNode>(Node);
-    const llvm::ArrayRef<unsigned> GEPOffset = GEPNode->getOffset();
-    Offset.append(GEPOffset.begin(), GEPOffset.end());
-    return fetchRange(GEPNode->getParent(), Offset);
+  case ValueInfo::K_GetElementPointer: {
+    std::shared_ptr<GEPInfo> GEPNode =
+        std::dynamic_ptr_cast<GEPInfo>(valueInfo);
+    const ArrayRef<unsigned> GEPOffset = GEPNode->getOffset();
+    offset.append(GEPOffset.begin(), GEPOffset.end());
+    return fetchRange(GEPNode->getPointed(), offset);
   }
-  case VRANode::VRAPtrNodeK: {
-    std::shared_ptr<VRAPtrNode> PtrNode =
-        std::dynamic_ptr_cast<VRAPtrNode>(Node);
-    return fetchRange(PtrNode->getParent(), Offset);
+  case ValueInfo::K_Pointer: {
+    std::shared_ptr<PointerInfo> PtrNode =
+        std::dynamic_ptr_cast<PointerInfo>(valueInfo);
+    return fetchRange(PtrNode->getPointed(), offset);
   }
   default:
     llvm_unreachable("Unhandled node type.");
   }
 }
 
-bool VRAStore::extractGEPOffset(const llvm::Type *source_element_type,
-                                const llvm::iterator_range<llvm::User::const_op_iterator> indices,
-                                llvm::SmallVectorImpl<unsigned> &offset)
+bool VRAStore::extractGEPOffset(const Type *sourceElementType,
+                                const iterator_range<User::const_op_iterator> indices,
+                                SmallVectorImpl<unsigned> &offset) const
 {
-  assert(source_element_type != nullptr);
+  assert(sourceElementType != nullptr);
   LLVM_DEBUG(dbgs() << "indices: ");
-  for (auto idx_it = indices.begin() + 1; // skip first index
-       idx_it != indices.end(); ++idx_it) {
-    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type))
+  for (auto indicesIter = indices.begin() + 1; // skip first index
+       indicesIter != indices.end(); indicesIter++) {
+    if (isa<ArrayType>(sourceElementType) || isa<VectorType>(sourceElementType))
       continue;
-    const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
-    if (int_i) {
-      int n = static_cast<int>(int_i->getSExtValue());
-      offset.push_back(n);
-      source_element_type =
-          cast<StructType>(source_element_type)->getTypeAtIndex(n);
-      LLVM_DEBUG(dbgs() << n << " ");
+    if (const ConstantInt *intConstant = dyn_cast<ConstantInt>(*indicesIter)) {
+      int val = static_cast<int>(intConstant->getSExtValue());
+      offset.push_back(val);
+      sourceElementType = cast<StructType>(sourceElementType)->getTypeAtIndex(val);
+      LLVM_DEBUG(dbgs() << val << " ");
     } else {
       LLVM_DEBUG(Logger->logErrorln("Index of GEP not constant"));
       return false;

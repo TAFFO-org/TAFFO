@@ -1,23 +1,24 @@
 #ifndef __LLVM_FLOAT_TO_FIXED_PASS_H__
 #define __LLVM_FLOAT_TO_FIXED_PASS_H__
 
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "PtrCasts.hpp"
 #include "FixedPointType.h"
-#include "InputInfo.h"
-#include "Metadata.h"
 #include "TypeUtils.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/ValueMap.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "WriteModule.h"
+
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/ADT/SmallSet.h>
+#include <llvm/ADT/Statistic.h>
+#include <llvm/IR/Argument.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/ValueMap.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "taffo-conversion"
 extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
@@ -51,7 +52,7 @@ namespace flttofix
 {
 
 
-struct ValueInfo {
+struct ConversionInfo {
   bool isBacktrackingNode;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value *, 5> roots;
@@ -94,7 +95,7 @@ struct FloatToFixed {
   llvm::DenseMap<llvm::Function *, llvm::Function *> functionPool;
 
   /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
+  llvm::DenseMap<llvm::Value *, std::shared_ptr<ConversionInfo>> conversionInfo;
 
   llvm::ValueMap<llvm::PHINode *, PHIInfo> phiReplacementData;
 
@@ -108,7 +109,7 @@ struct FloatToFixed {
   void readAllLocalMetadata(llvm::Module &m,
                             llvm::SmallPtrSetImpl<llvm::Value *> &res);
   bool parseMetaData(llvm::SmallPtrSetImpl<llvm::Value *> *variables,
-                     mdutils::MDInfo *fpInfo, llvm::Value *instr);
+                     std::shared_ptr<taffo::ValueInfo> fpInfo, llvm::Value *instr);
   void removeNoFloatTy(llvm::SmallPtrSetImpl<llvm::Value *> &res);
   void printAnnotatedObj(llvm::Module &m);
   void openPhiLoop(llvm::PHINode *phi);
@@ -119,7 +120,7 @@ struct FloatToFixed {
   void insertOpenMPIndirection(llvm::Module &m);
   void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, llvm::Module &m);
   llvm::Function *createFixFun(llvm::CallBase *call, bool *old);
-  void printConversionQueue(std::vector<llvm::Value *> vals);
+  void printConversionQueue(const std::vector<llvm::Value *> &vals);
   void performConversion(llvm::Module &m, std::vector<llvm::Value *> &q);
   llvm::Value *convertSingleValue(llvm::Module &m, llvm::Value *val, FixedPointType &fixpt);
 
@@ -216,7 +217,7 @@ struct FloatToFixed {
   bool isSpecialFunction(const llvm::Function *f)
   {
     llvm::StringRef fName = f->getName();
-    return fName.startswith("llvm.") || f->empty();
+    return fName.starts_with("llvm.") || f->empty();
   };
 
   /** Returns the converted Value matching a non-converted Value.
@@ -279,10 +280,10 @@ struct FloatToFixed {
         res = matchOp(val);
         if (res) {
           if (typepol == TypeMatchPolicy::ForceHint)
-            assert(iofixpt == valueInfo(res)->fixpType &&
+            assert(iofixpt == getConversionInfo(res)->fixpType &&
                    "type mismatch on reference Value");
           else
-            iofixpt = valueInfo(res)->fixpType;
+            iofixpt = getConversionInfo(res)->fixpType;
         }
       }
     } else {
@@ -357,11 +358,11 @@ struct FloatToFixed {
       return nullptr;
     }
 
-    LLVM_DEBUG(llvm::dbgs() << "hasInfo " << hasInfo(cvtfallval) << "\n";);
-    if (!hasInfo(cvtfallval))
+    LLVM_DEBUG(llvm::dbgs() << "hasInfo " << hasConversionInfo(cvtfallval) << "\n";);
+    if (!hasConversionInfo(cvtfallval))
       return cvtfallval;
-    LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << valueInfo(cvtfallval)->noTypeConversion << "\n";);
-    if (valueInfo(cvtfallval)->noTypeConversion)
+    LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << getConversionInfo(cvtfallval)->noTypeConversion << "\n";);
+    if (getConversionInfo(cvtfallval)->noTypeConversion)
       return cvtfallval;
 
     if (!ip) {
@@ -461,28 +462,25 @@ struct FloatToFixed {
 
   llvm::Type *getLLVMFixedPointTypeForFloatValue(llvm::Value *val);
 
-  std::shared_ptr<ValueInfo> newValueInfo(llvm::Value *val)
-  {
+  std::shared_ptr<ConversionInfo> newConversionInfo(llvm::Value *val) {
     LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
-    auto vi = info.find(val);
-    if (vi == info.end()) {
-      info[val] = std::make_shared<ValueInfo>(ValueInfo());
-      return info[val];
+    auto vi = conversionInfo.find(val);
+    if (vi == conversionInfo.end()) {
+      conversionInfo[val] = std::make_shared<ConversionInfo>(ConversionInfo());
+      return conversionInfo[val];
     } else {
       assert(false && "value already has info!");
     }
   }
 
-  std::shared_ptr<ValueInfo> demandValueInfo(llvm::Value *val,
-                                             bool *isNew = nullptr)
-  {
+  std::shared_ptr<ConversionInfo> demandConversionInfo(llvm::Value *val, bool *isNew = nullptr) {
     LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
-    auto vi = info.find(val);
-    if (vi == info.end()) {
+    auto vi = conversionInfo.find(val);
+    if (vi == conversionInfo.end()) {
       if (isNew)
         *isNew = true;
-      info[val] = std::make_shared<ValueInfo>(ValueInfo());
-      return info[val];
+      conversionInfo[val] = std::make_shared<ConversionInfo>(ConversionInfo());
+      return conversionInfo[val];
     } else {
       if (isNew)
         *isNew = false;
@@ -490,10 +488,9 @@ struct FloatToFixed {
     }
   }
 
-  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val)
-  {
-    auto vi = info.find(val);
-    if (vi == info.end()) {
+  std::shared_ptr<ConversionInfo> getConversionInfo(llvm::Value *val) {
+    auto vi = conversionInfo.find(val);
+    if (vi == conversionInfo.end()) {
       LLVM_DEBUG(llvm::dbgs() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
       llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
     }
@@ -502,34 +499,30 @@ struct FloatToFixed {
 
   FixedPointType &fixPType(llvm::Value *val)
   {
-    auto vi = info.find(val);
-    assert((vi != info.end()) && "value with no info");
+    auto vi = conversionInfo.find(val);
+    assert((vi != conversionInfo.end()) && "value with no info");
     return vi->getSecond()->fixpType;
   };
 
-  bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); };
+  bool hasConversionInfo(llvm::Value *val) { return conversionInfo.find(val) != conversionInfo.end(); };
 
   bool isConvertedFixedPoint(llvm::Value *val)
   {
-    if (!hasInfo(val))
+    if (!hasConversionInfo(val))
       return false;
-    std::shared_ptr<ValueInfo> vi = valueInfo(val);
+    std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
     if (vi->noTypeConversion)
       return false;
     if (vi->fixpType.isInvalid())
       return false;
-    llvm::Type *fuwt = taffo::fullyUnwrapPointerOrArrayType(vi->origType);
-    if (!fuwt->isStructTy()) {
-      if (!taffo::isFloatType(vi->origType))
+    if (!vi->origType->isStructTy() && !vi->origType->isFloatTy())
         return false;
-    }
     if (val->getType() == vi->origType)
       return false;
     return true;
   }
 
-  bool isFloatingPointToConvert(llvm::Value *val)
-  {
+  bool isFloatingPointToConvert(llvm::Value *val) {
     if (llvm::isa<llvm::Argument>(val))
       // function arguments to be converted are substituted by placeholder
       // values in the function cloning stage.
@@ -537,139 +530,72 @@ struct FloatToFixed {
       // function, thus they never fit the requirements for being
       // converted.
       return false;
-    if (!hasInfo(val))
+    if (!hasConversionInfo(val))
       return false;
-    std::shared_ptr<ValueInfo> vi = valueInfo(val);
+    std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
     if (vi->noTypeConversion)
       return false;
     if (vi->fixpType.isInvalid())
       return false;
-    llvm::Type *ty;
-    if (llvm::ReturnInst *ret = llvm::dyn_cast<llvm::ReturnInst>(val))
-      ty = ret->getReturnValue()->getType();
-    else
-      ty = val->getType();
-    llvm::Type *fuwt = taffo::fullyUnwrapPointerOrArrayType(ty);
-    if (!fuwt->isStructTy()) {
-      if (!taffo::isFloatType(ty))
+    llvm::Type *ty = taffo::TaffoInfo::getInstance().getValueInfo(*val)->getUnwrappedType();
+    if (!ty->isStructTy() && !ty->isFloatTy())
         return false;
-    }
     return true;
   }
 
-  llvm::Value *cpMetaData(llvm::Value *dst, llvm::Value *src,
-                          llvm::Instruction *target = nullptr)
-  {
+  llvm::Value *cpMetaData(llvm::Value *dst, llvm::Value *src, llvm::Instruction *target = nullptr, llvm::Type *dstType = nullptr) {
     using namespace llvm;
-    MDNode *md = nullptr;
-    MDNode *targetMD = nullptr;
-    MDNode *constInfoMD = nullptr;
-    MDNode *openMPIndirectMD = nullptr;
-
-    if (Instruction *from = dyn_cast<Instruction>(src)) {
-      md = from->getMetadata(INPUT_INFO_METADATA);
-      targetMD = from->getMetadata(TARGET_METADATA);
-      constInfoMD = from->getMetadata(CONST_INFO_METADATA);
-      openMPIndirectMD = from->getMetadata(INDIRECT_METADATA);
-    } else if (GlobalObject *from = dyn_cast<GlobalObject>(src)) {
-      md = from->getMetadata(INPUT_INFO_METADATA);
-      targetMD = from->getMetadata(TARGET_METADATA);
-    } else if (Argument *arg = dyn_cast<Argument>(src)) {
-      MDNode *mdargs = arg->getParent()->getMetadata(FUNCTION_ARGS_METADATA);
-      if (mdargs) {
-        Constant *mdtid = cast<ConstantAsMetadata>(
-                              mdargs->getOperand(arg->getArgNo() * 2).get())
-                              ->getValue();
-        unsigned tid = cast<ConstantInt>(mdtid)->getZExtValue();
-        if (tid == 1U)
-          md = cast<MDNode>(mdargs->getOperand(arg->getArgNo() * 2 + 1).get());
-      }
-    }
-    if (!md && target) {
-      md = target->getMetadata(INPUT_INFO_METADATA);
-      targetMD = target->getMetadata(TARGET_METADATA);
-    }
-    if (md) {
-      if (Instruction *to = dyn_cast<Instruction>(dst))
-        to->setMetadata(INPUT_INFO_METADATA, md);
-      else if (GlobalObject *to = dyn_cast<GlobalObject>(dst))
-        to->setMetadata(INPUT_INFO_METADATA, md);
-    }
-    if (targetMD) {
-      if (Instruction *to = dyn_cast<Instruction>(dst))
-        to->setMetadata(TARGET_METADATA, targetMD);
-      else if (GlobalObject *to = dyn_cast<GlobalObject>(dst))
-        to->setMetadata(TARGET_METADATA, targetMD);
-    }
-    if (constInfoMD) {
-      if (Instruction *to = dyn_cast<Instruction>(dst)) {
-        Instruction *from = cast<Instruction>(src);
-        if (to->getNumOperands() == from->getNumOperands())
-          to->setMetadata(CONST_INFO_METADATA, constInfoMD);
-      }
+    using namespace taffo;
+    std::shared_ptr<ValueInfo> srcInfo = TaffoInfo::getInstance().getValueInfo(*src);
+    if (srcInfo) {
+      std::shared_ptr<ValueInfo> dstInfo = srcInfo->clone();
+      dstInfo->setUnwrappedType(dstType);
+      TaffoInfo::getInstance().setValueInfo(*dst, dstInfo);
     }
 
-    if (openMPIndirectMD) {
+    //TODO check old impl because I don't know what this does
+    /*if (openMPIndirectMD) {
       if (auto *to = dyn_cast<Instruction>(dst)) {
         to->setMetadata(INDIRECT_METADATA, openMPIndirectMD);
       }
-    }
+    }*/
 
     return dst;
   }
 
-  void updateFPTypeMetadata(llvm::Value *v, bool isSigned, int fracBitsAmt,
-                            int bitsAmt)
-  {
-    using namespace llvm;
-    using namespace mdutils;
-    MetadataManager &mdmgr = MetadataManager::getMetadataManager();
-    InputInfo *ii = dyn_cast_or_null<InputInfo>(mdmgr.retrieveMDInfo(v));
-    if (!ii)
+  void updateFPTypeMetadata(llvm::Value *v, bool isSigned, int fracBitsAmt, int bitsAmt) {
+    using namespace taffo;
+    std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*v);
+    std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(valueInfo);
+    if (!scalarInfo)
       return;
-    InputInfo *newII = cast<InputInfo>(ii->clone());
-    newII->IType.reset(new FPType(bitsAmt, fracBitsAmt, isSigned));
-    mdmgr.setMDInfoMetadata(v, newII);
+    std::shared_ptr<ScalarInfo> newScalarInfo = std::static_ptr_cast<ScalarInfo>(scalarInfo->clone());
+    newScalarInfo->numericType.reset(new FixpType(bitsAmt, fracBitsAmt, isSigned));
+    TaffoInfo::getInstance().setValueInfo(*v, newScalarInfo);
   }
 
-  void updateConstTypeMetadata(llvm::Value *v, unsigned opIdx,
-                               const FixedPointType &t)
-  {
+  void updateConstTypeMetadata(llvm::Value *v, unsigned opIdx, const FixedPointType &t) {
     using namespace llvm;
-    using namespace mdutils;
+    using namespace taffo;
     Instruction *i = dyn_cast<Instruction>(v);
-    // TODO: handle case when IRBuilder does constant folding, and v is a
-    // constant.
+    // TODO: handle case when IRBuilder does constant folding, and v is a constant.
     if (!i)
       return;
-    const Value *op = i->getOperand(opIdx);
+    Value *op = i->getOperand(opIdx);
     if (!isa<Constant>(op))
       return;
-    MetadataManager &mdmgr = MetadataManager::getMetadataManager();
-    SmallVector<InputInfo *, 2U> cinfo;
-    mdmgr.retrieveConstInfo(*i, cinfo);
-    if (cinfo.empty())
-      return;
-    assert(opIdx < cinfo.size() &&
-           "Const info metadata has wrong number of fields.");
-    if (cinfo[opIdx] != nullptr) {
-      InputInfo newII = *cinfo[opIdx];
-      newII.IType.reset(new FPType(t.scalarBitsAmt(), t.scalarFracBitsAmt(),
-                                   t.scalarIsSigned()));
-      cinfo[opIdx] = &newII;
-      mdmgr.setConstInfoMetadata(*i, cinfo);
-    }
+    std::shared_ptr<ValueInfo> opInfo = TaffoInfo::getInstance().getValueInfo(*op);
+    std::shared_ptr<ScalarInfo> opScalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(opInfo);
+    if (opScalarInfo)
+      opScalarInfo->numericType =
+        std::make_shared<FixpType>(t.scalarBitsAmt(), t.scalarFracBitsAmt(), t.scalarIsSigned());
   }
 
   int getLoopNestingLevelOfValue(llvm::Value *v);
 
-  template <class T>
-  llvm::Constant *createConstantDataSequentialFP(llvm::ConstantDataSequential *cds,
-                                                 const FixedPointType &fixpt);
+  template <class T> llvm::Constant *createConstantDataSequentialFP(llvm::ConstantDataSequential *cds, const FixedPointType &fixpt);
 
-  mdutils::InputInfo *getInputInfo(llvm::Value *v);
-
-  bool associateFixFormat(mdutils::InputInfo *II, FixedPointType &iofixpt);
+  bool associateFixFormat(const std::shared_ptr<taffo::ScalarInfo> &II, FixedPointType &iofixpt);
 
   void convertIndirectCalls(llvm::Module &m);
 
@@ -684,7 +610,6 @@ llvm::Value *adjustBufferSize(llvm::Value *OrigSize, llvm::Type *OldTy, llvm::Ty
 
 } // namespace flttofix
 
-
 #undef DEBUG_TYPE
 
-#endif
+#endif //__LLVM_FLOAT_TO_FIXED_PASS_H__

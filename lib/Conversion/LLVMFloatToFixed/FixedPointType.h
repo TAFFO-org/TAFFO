@@ -1,29 +1,19 @@
-#include "InputInfo.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/User.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include <fstream>
-
-
 #ifndef __FIXED_POINT_TYPE_H__
 #define __FIXED_POINT_TYPE_H__
 
+#include "TaffoInfo/ValueInfo.hpp"
+
+#include <llvm/ADT/Statistic.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/CommandLine.h>
+#include <fstream>
+
 #define DEBUG_TYPE "taffo-conversion"
 
+namespace flttofix {
 
-namespace flttofix
-{
-
-
-class FixedPointType
-{
+class FixedPointType {
 public:
   enum FloatStandard {
     Float_NotFloat = -1,
@@ -79,100 +69,100 @@ public:
    *  @param signd If the resulting fixed point type is signed */
   FixedPointType(llvm::Type *llvmtype, bool signd = true);
 
-  FixedPointType(mdutils::TType *mdtype);
+  FixedPointType(taffo::NumericType *mdtype);
 
-  static FixedPointType get(mdutils::MDInfo *mdnfo, int *enableConversion = nullptr);
+  static FixedPointType get(taffo::ValueInfo *mdnfo, int *enableConversion = nullptr);
 
   std::string toString() const;
 
   llvm::Type *scalarToLLVMType(llvm::LLVMContext &ctxt) const;
   llvm::Type *toLLVMType(llvm::Type *srct, bool *hasfloats) const;
 
-  inline bool &scalarIsSigned(void)
+  bool &scalarIsSigned()
   {
     assert(!structData && "fixed point type not a scalar");
     return scalarData.isSigned;
   };
 
-  inline bool scalarIsSigned(void) const
+  bool scalarIsSigned() const
   {
     assert(!structData && "fixed point type not a scalar");
     return scalarData.isSigned;
   };
 
-  inline int &scalarFracBitsAmt(void)
+  int &scalarFracBitsAmt()
   {
     assert(!structData && "fixed point type not a scalar");
     assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
     return scalarData.fracBitsAmt;
   };
 
-  inline int scalarFracBitsAmt(void) const
+  int scalarFracBitsAmt() const
   {
     assert(!structData && "fixed point type not a scalar");
     assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
     return scalarData.fracBitsAmt;
   };
 
-  inline int &scalarBitsAmt(void)
+  int &scalarBitsAmt()
   {
     assert(!structData && "fixed point type not a scalar");
     assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
     return scalarData.bitsAmt;
   };
 
-  inline int scalarBitsAmt(void) const
+  int scalarBitsAmt() const
   {
     assert(!structData && "fixed point type not a scalar");
     assert(scalarData.floatStandard == Float_NotFloat && "this type is a float!");
     return scalarData.bitsAmt;
   };
 
-  inline int scalarIntegerBitsAmt(void) const
+  int scalarIntegerBitsAmt() const
   {
     return scalarBitsAmt() - scalarFracBitsAmt();
   }
 
-  inline int structSize(void) const
+  int structSize() const
   {
     assert(structData && "fixed point type not a struct");
     return structData->size();
   }
 
-  inline FixedPointType &structItem(int n)
+  FixedPointType &structItem(int n)
   {
     assert(structData && "fixed point type not a struct");
     return (*structData)[n];
   }
 
-  inline FixedPointType structItem(int n) const
+  FixedPointType structItem(int n) const
   {
     assert(structData && "fixed point type not a struct");
     return (*structData)[n];
   }
 
-  inline bool isInvalid(void) const
+  bool isInvalid() const
   {
     return !structData && (scalarData.bitsAmt == 0) && (scalarData.floatStandard == Float_NotFloat);
   }
 
-  inline bool isFixedPoint() const
+  bool isFixedPoint() const
   {
     return !structData && scalarData.floatStandard == Float_NotFloat;
   }
 
-  inline bool isFloatingPoint() const
+  bool isFloatingPoint() const
   {
     return !structData && scalarData.floatStandard != Float_NotFloat;
   }
 
-  inline FloatStandard getFloatingPointStandard() const
+  FloatStandard getFloatingPointStandard() const
   {
     assert(scalarData.floatStandard != Float_NotFloat);
     return scalarData.floatStandard;
   }
 
-  inline bool isRecursivelyInvalid(void) const
+  bool isRecursivelyInvalid() const
   {
     if (!structData)
       return isInvalid();

@@ -32,13 +32,13 @@ VRAFunctionStore::newFunctionStore(CodeInterpreter &CI)
   return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()));
 }
 
-void VRAFunctionStore::setRetVal(NodePtrT RetVal)
+void VRAFunctionStore::setRetVal(std::shared_ptr<ValueInfo> RetVal)
 {
   if (!RetVal)
     return;
 
-  if (RangeNodePtrT RetRange = std::dynamic_ptr_cast<VRARangeNode>(RetVal)) {
-    RangeNodePtrT ReturnRange = std::dynamic_ptr_cast_or_null<VRARangeNode>(ReturnValue);
+  if (std::shared_ptr<ValueInfoWithRange> RetRange = std::dynamic_ptr_cast<ValueInfoWithRange>(RetVal)) {
+    std::shared_ptr<ValueInfoWithRange> ReturnRange = std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(ReturnValue);
     ReturnValue = getUnionRange(ReturnRange, RetRange);
   } else {
     ReturnValue = RetVal;
@@ -46,7 +46,7 @@ void VRAFunctionStore::setRetVal(NodePtrT RetVal)
 }
 
 void VRAFunctionStore::setArgumentRanges(const llvm::Function &F,
-                                         const std::list<NodePtrT> &AARanges)
+                                         const std::list<std::shared_ptr<ValueInfo>> &AARanges)
 {
   assert(AARanges.size() == F.arg_size() && "Mismatch between number of actual and formal parameters.");
   auto derived_info_it = AARanges.begin();

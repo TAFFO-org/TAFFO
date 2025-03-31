@@ -40,9 +40,10 @@ cl::opt<std::string> InputFilename(cl::Positional, cl::Required,
 
 int main(int argc, char *argv[])
 {
+  // TODO FIX SOON!
   /* The initialization section is mostly copied from the
    * source code of opt */
-  InitLLVM X(argc, argv);
+  /*InitLLVM X(argc, argv);
 
   LLVMContext c;
 
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
   if (!mainfunc) {
     std::cout << "No main function found!\n";
     return 1;
-  }
+  }*/
   
   /* WARNING: always remember that the various PassManagers do NOT take
    * ownership of modules, but they DO take ownership of PASSES.
@@ -88,7 +89,7 @@ int main(int argc, char *argv[])
    * TBH I find this behavior kinda dumb. */
   
   /* remove all functions (when possible) */
-  for (Function& fun: m->functions()) {
+  /*for (Function& fun: m->functions()) {
     if (&fun != mainfunc && isFunctionInlinable(&fun)) {
       fun.addFnAttr(Attribute::AlwaysInline);
       fun.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
@@ -98,12 +99,12 @@ int main(int argc, char *argv[])
   passManager.add(createAlwaysInlinerLegacyPass());
   passManager.add(createGlobalDCEPass());
   passManager.add(createLoopSimplifyPass());
-  passManager.run(*m);
+  passManager.run(*m);*/
   
   /* do the actual work; jump to TaffoMLFeatureAnalysisPass.cpp pls */
-  legacy::FunctionPassManager funPassManager(m.get());
+  /*legacy::FunctionPassManager funPassManager(m.get());
   funPassManager.add(new TaffoMLFeatureAnalysisPass());
   funPassManager.run(*mainfunc);
   
-  return 0;
+  return 0;*/
 }

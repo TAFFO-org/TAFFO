@@ -15,10 +15,10 @@
 #ifndef ERRORPROPAGATOR_H
 #define ERRORPROPAGATOR_H
 
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/CommandLine.h>
 
 #include "FunctionCopyMap.h"
 #include "RangeErrorMap.h"

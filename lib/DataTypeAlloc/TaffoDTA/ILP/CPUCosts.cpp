@@ -1,11 +1,11 @@
 #include "CPUCosts.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/ADT/Statistic.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
 #include <algorithm>
 #include <cassert>
 #include <fstream>
@@ -218,7 +218,8 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       type = getType(N, tmpString, context, module);
       auto *first_alloca = builder.CreateAlloca(type);
       auto *second_alloca = builder.CreateAlloca(type);
-      auto *first_load = builder.CreateLoad(first_alloca->getType()->getPointerElementType(), first_alloca);
+      // TODO FIX SOON!
+      /*auto *first_load = builder.CreateLoad(first_alloca->getType()->getPointerElementType(), first_alloca);
       auto *second_load = builder.CreateLoad(second_alloca->getType()->getPointerElementType(), second_alloca);
       if (tmpString.find("ADD") == 0) {
         if (type->isIntegerTy())
@@ -253,9 +254,10 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
       second_load->eraseFromParent();
       first_load->eraseFromParent();
       second_alloca->eraseFromParent();
-      first_alloca->eraseFromParent();
+      first_alloca->eraseFromParent();*/
     } else {
-      int first_start = 5;
+      // TODO FIX SOON!
+      /*int first_start = 5;
       int second_start = tmpString.find("_", first_start) + 1;
       llvm::Type *first_type = getType(first_start, tmpString, context, module);
       llvm::Type *second_type = getType(second_start, tmpString, context, module);
@@ -280,7 +282,7 @@ void CPUCosts::LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &
         first_alloca->eraseFromParent();
       inst = nullptr;
       first_load = nullptr;
-      first_alloca = nullptr;
+      first_alloca = nullptr;*/
     }
     costsMap.insert({decodeId(tmpString), cost_inst});
   }

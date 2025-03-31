@@ -1,14 +1,10 @@
-#include "CudaKernelPatcher.h"
-#include "OpenCLKernelPatcher.h"
-#include "Metadata.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Transforms/IPO/OpenMPOpt.h"
-
-#include <string>
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "CudaKernelPatcher.hpp"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Transforms/IPO/OpenMPOpt.h>
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -69,6 +65,7 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std:
   }
   
   CallI->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*CallI);
 }
 
 void createCudaKernelTrampoline(Module &M, Function& KernF)
@@ -130,17 +127,39 @@ void createCudaKernelTrampoline(Module &M, Function& KernF)
   Builder.CreateCall(KernF.getFunctionType(), &KernF, Loads);
   Builder.CreateRetVoid();
 
-  /* Add metadata for identification */
-  mdutils::MetadataManager::setOpenCLCloneTrampolineMetadata(NewF, &KernF);
-
+  taffo::TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
   LLVM_DEBUG(dbgs() << "Created trampoline:\n" << *NewF);
+}
+
+#define CUDA_KERNEL_METADATA "nvvm.annotations"
+static void getCudaKernels(llvm::Module &M, llvm::SmallVectorImpl<llvm::Function *> &Fs) {
+  NamedMDNode *MD = M.getNamedMetadata(CUDA_KERNEL_METADATA);
+
+  if (!MD)
+    return;
+
+  for (auto *Op : MD->operands()) {
+    if (Op->getNumOperands() < 2)
+      continue;
+    MDString *KindID = dyn_cast<MDString>(Op->getOperand(1));
+    if (!KindID || KindID->getString() != "kernel")
+      continue;
+
+    Function *KernelFn = mdconst::dyn_extract_or_null<Function>(Op->getOperand(0));
+    if (!KernelFn)
+      continue;
+
+    Fs.append({KernelFn});
+  }
+
+  return;
 }
 
 void taffo::createCudaKernelTrampolines(Module &M)
 {
   LLVM_DEBUG(dbgs() << "Creating Cuda trampolines...\n");
   SmallVector<Function *, 2> KernFs;
-  mdutils::MetadataManager::getCudaKernels(M, KernFs);
+  getCudaKernels(M, KernFs);
   for (Function *F: KernFs) {
     LLVM_DEBUG(dbgs() << "Found Cuda kernel function " << F->getName() << "\n");
     createCudaKernelTrampoline(M, *F);

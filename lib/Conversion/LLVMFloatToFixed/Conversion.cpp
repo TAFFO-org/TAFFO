@@ -1,19 +1,17 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/NoFolder.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Analysis/ConstantFolding.h"
+
+#include <llvm/ADT/APFloat.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/NoFolder.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Analysis/ConstantFolding.h>
 #include <cassert>
 #include <cmath>
 
@@ -28,20 +26,17 @@ Value *ConversionError = (Value *)(&ConversionError);
 Value *Unsupported = (Value *)(&Unsupported);
 
 
-void FloatToFixed::performConversion(
-    Module &m,
-    std::vector<Value *> &q)
-{
-
-  for (auto i = q.begin(); i != q.end();) {
-    Value *v = *i;
+void FloatToFixed::performConversion(Module &m, std::vector<Value *> &q) {
+  for (auto iter = q.begin(); iter != q.end();) {
+    Value *v = *iter;
 
     // Removes all taffo-related annotations from ll file
     if (CallInst *anno = dyn_cast<CallInst>(v)) {
       if (anno->getCalledFunction()) {
-        if (anno->getCalledFunction()->getName() == "llvm.var.annotation") {
+        if (anno->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
           anno->eraseFromParent();
-          i = q.erase(i);
+          TaffoInfo::getInstance().eraseValue(*anno);
+          iter = q.erase(iter);
           continue;
         }
       }
@@ -49,15 +44,15 @@ void FloatToFixed::performConversion(
 
     LLVM_DEBUG(dbgs()
                << "\n-------------------------------------* performConversion *-------------------------------------\n");
-    LLVM_DEBUG(dbgs() << "  [no conv ] " << valueInfo(v)->noTypeConversion << "\n");
+    LLVM_DEBUG(dbgs() << "  [no conv ] " << getConversionInfo(v)->noTypeConversion << "\n");
     LLVM_DEBUG(dbgs() << "  [value   ] " << *v << "\n");
     if (Instruction *i = dyn_cast<Instruction>(v))
       LLVM_DEBUG(dbgs() << "  [function] " << i->getFunction()->getName() << "\n");
 
-    FixedPointType NewType = valueInfo(v)->fixpType;
+    FixedPointType NewType = getConversionInfo(v)->fixpType;
     LLVM_DEBUG(dbgs() << "  [req. ty.] " << NewType.toString() << "\n");
     Value *newv = convertSingleValue(m, v, NewType);
-    valueInfo(v)->fixpType = NewType;
+    getConversionInfo(v)->fixpType = NewType;
     if (newv) {
       operandPool[v] = newv;
       LLVM_DEBUG(dbgs() << "  [out  ty.] " << NewType.toString() << "\n");
@@ -71,22 +66,22 @@ void FloatToFixed::performConversion(
         Instruction *oldinst = dyn_cast<Instruction>(v);
         newinst->setDebugLoc(oldinst->getDebugLoc());
       }
-      cpMetaData(newv, v);
+      cpMetaData(newv, v, nullptr, NewType.toLLVMType(v->getType(), nullptr));
       if (newv != v) {
-        if (hasInfo(newv)) {
-          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << valueInfo(newv)->fixpType << ")\n");
-          if (!(valueInfo(newv)->fixpType == valueInfo(v)->fixpType)) {
+        if (hasConversionInfo(newv)) {
+          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << getConversionInfo(newv)->fixpType << ")\n");
+          if (!(getConversionInfo(newv)->fixpType == getConversionInfo(v)->fixpType)) {
             LLVM_DEBUG(dbgs() << "FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!\n");
             abort();
           }
         } else {
-          *newValueInfo(newv) = *valueInfo(v);
+          *newConversionInfo(newv) = *getConversionInfo(v);
         }
       }
     } else {
       LLVM_DEBUG(dbgs() << "  [output  ] CONVERSION ERROR\n");
     }
-    i++;
+    iter++;
   }
 }
 
@@ -100,23 +95,21 @@ Value *FloatToFixed::createPlaceholder(Type *type, BasicBlock *where, StringRef 
 
 
 /* also inserts the new value in the basic blocks, alongside the old one */
-Value *FloatToFixed::convertSingleValue(Module &m, Value *val, FixedPointType &fixpt)
-{
+Value *FloatToFixed::convertSingleValue(Module &m, Value *val, FixedPointType &fixpt) {
   Value *res = Unsupported;
 
-  if (valueInfo(val)->isArgumentPlaceholder) {
+  if (getConversionInfo(val)->isArgumentPlaceholder) {
     return matchOp(val);
   } else if (Constant *con = dyn_cast<Constant>(val)) {
-    /* Since constants never change, there is never anything to substitute
-     * in them */
-    if (!valueInfo(con)->noTypeConversion)
+    /* Since constants never change, there is never anything to substitute in them */
+    if (!getConversionInfo(con)->noTypeConversion)
       res = convertConstant(con, fixpt, TypeMatchPolicy::RangeOverHintMaxFrac);
     else
       res = con;
   } else if (Instruction *instr = dyn_cast<Instruction>(val)) {
     res = convertInstruction(m, instr, fixpt);
   } else if (Argument *argument = dyn_cast<Argument>(val)) {
-    if (isFloatType(argument->getType()))
+    if (getUnwrappedType(argument)->isFloatTy())
       res = translateOrMatchOperand(val, fixpt, nullptr);
     else
       res = val;
@@ -129,15 +122,14 @@ Value *FloatToFixed::convertSingleValue(Module &m, Value *val, FixedPointType &f
 /* do not use on pointer operands */
 /* In iofixpt there is also the source type*/
 Value *
-FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instruction *ip, TypeMatchPolicy typepol, bool wasHintForced)
-{
+FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instruction *ip, TypeMatchPolicy typepol, bool wasHintForced) {
   LLVM_DEBUG(dbgs() << "translateOrMatchOperand of " << *val << "\n");
   
   // FIXME: handle all the cases, we need more info about destination!
   if (typepol == TypeMatchPolicy::ForceHint) {
     LLVM_DEBUG(dbgs() << "translateOrMatchOperand: forcing hint as requested!\n");
     FixedPointType origfixpt = iofixpt;
-    llvm::Value *tmp = translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::RangeOverHintMaxFrac, true);
+    Value *tmp = translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::RangeOverHintMaxFrac, true);
     return genConvertFixedToFixed(tmp, iofixpt, origfixpt, ip);
   }
 
@@ -151,13 +143,13 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
     // The value has to be converted into a floating point value, convert it, full stop.
     if (iofixpt.isFloatingPoint()) {
       LLVM_DEBUG(dbgs() << "translateOrMatchOperand: converting converted value to floating point\n");
-      return genConvertFixedToFixed(res, valueInfo(res)->fixpType, iofixpt, ip);
+      return genConvertFixedToFixed(res, getConversionInfo(res)->fixpType, iofixpt, ip);
     }
 
     // Converting Floating point to whatever
-    if (valueInfo(res)->fixpType.isFloatingPoint()) {
+    if (getConversionInfo(res)->fixpType.isFloatingPoint()) {
       LLVM_DEBUG(dbgs() << "translateOrMatchOperand: Converting floating point to whatever.\n";);
-      LLVM_DEBUG(dbgs() << "Is floating, calling subroutine, " << valueInfo(res)->fixpType.toString() << " --> " << iofixpt.toString() << "\n";);
+      LLVM_DEBUG(dbgs() << "Is floating, calling subroutine, " << getConversionInfo(res)->fixpType.toString() << " --> " << iofixpt.toString() << "\n";);
       LLVM_DEBUG(dbgs() << "This value will be converted to fixpoint: ";);
       LLVM_DEBUG(val->print(dbgs()););
       LLVM_DEBUG(dbgs() << "\n";);
@@ -167,11 +159,12 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
       if (iofixpt.isFixedPoint()) {
         if (!wasHintForced) {
           // In this case we try to choose the best fixed point type!
-          auto info = getInputInfo(val);
-          if (!info || !info->IRange) {
+          std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*val);
+          std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(valueInfo);
+          if (!scalarInfo || !scalarInfo->range) {
             LLVM_DEBUG(dbgs() << "No metadata found, rolling with the suggested type and hoping for the best!\n");
           } else {
-            associateFixFormat(info, iofixpt);
+            associateFixFormat(scalarInfo, iofixpt);
             LLVM_DEBUG(dbgs() << "We have a new fixed point suggested type: " << iofixpt.toString() << "\n";);
           }
         } else {
@@ -179,10 +172,10 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
         }
       }
 
-      return genConvertFixedToFixed(res, valueInfo(res)->fixpType, iofixpt, ip);
+      return genConvertFixedToFixed(res, getConversionInfo(res)->fixpType, iofixpt, ip);
     }
 
-    if (!valueInfo(val)->noTypeConversion) {
+    if (!getConversionInfo(val)->noTypeConversion) {
       /* the value has been successfully converted to fixed point in a previous step */
       LLVM_DEBUG(dbgs() << "translateOrMatchOperand: value has been converted in the past, not adding any extra conversion\n");
       iofixpt = fixPType(res);
@@ -226,11 +219,11 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
    * from VRA before giving up and using the suggested type */
   // Do this hack only if the final wanted type is a fixed point, otherwise we can go ahead
   if (iofixpt.isFixedPoint()) {
-    mdutils::MDInfo *mdi = mdutils::MetadataManager::getMetadataManager().retrieveMDInfo(val);
-    if (mdutils::InputInfo *ii = dyn_cast_or_null<mdutils::InputInfo>(mdi)) {
-      if (ii->IRange) {
+    std::shared_ptr<ValueInfo> mdi = TaffoInfo::getInstance().getValueInfo(*val);
+    if (std::shared_ptr<ScalarInfo> ii = std::dynamic_ptr_cast_or_null<ScalarInfo>(mdi)) {
+      if (ii->range) {
         FixedPointTypeGenError err;
-        mdutils::FPType fpt = taffo::fixedPointTypeFromRange(*(ii->IRange), &err, iofixpt.scalarBitsAmt());
+        FixpType fpt = fixedPointTypeFromRange(*(ii->range), &err, iofixpt.scalarBitsAmt());
         if (err != FixedPointTypeGenError::InvalidRange)
           iofixpt = FixedPointType(&fpt);
       }
@@ -240,14 +233,13 @@ FloatToFixed::translateOrMatchOperand(Value *val, FixedPointType &iofixpt, Instr
   return genConvertFloatToFix(val, iofixpt, ip);
 }
 
-bool FloatToFixed::associateFixFormat(mdutils::InputInfo *II, FixedPointType &iofixpt)
-{
-  mdutils::Range *rng = II->IRange.get();
+bool FloatToFixed::associateFixFormat(const std::shared_ptr<ScalarInfo> &II, FixedPointType &iofixpt) {
+  Range *rng = II->range.get();
   assert(rng && "No range info!");
 
   FixedPointTypeGenError fpgerr;
   // Using default parameters of DTA
-  mdutils::FPType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
+  FixpType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
   assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
 
   iofixpt = FixedPointType(res.isSigned(), res.getPointPos(), res.getWidth());

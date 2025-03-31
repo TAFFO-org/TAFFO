@@ -1,77 +1,44 @@
 #include "TypeUtils.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
+
+#include "TaffoInfo/TaffoInfo.hpp"
+
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
 
 #define DEBUG_TYPE "taffo"
-
 
 using namespace taffo;
 using namespace llvm;
 
+Type *taffo::getUnwrappedType(const Value *value) {
+  if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*value))
+    return valueInfo->getUnwrappedType();
+  if (std::optional<DeducedPointerType> pointerType = TaffoInfo::getInstance().getDeducedPointerType(*value))
+    return pointerType->unwrappedType;
+  Type *type;
+  if (const Function *fun = dyn_cast<Function>(value))
+    type = fun->getReturnType();
+  else if (const GlobalValue *globalValue = dyn_cast<GlobalValue>(value))
+    type = globalValue->getValueType();
+  else
+    type = value->getType();
 
-Type *taffo::fullyUnwrapPointerOrArrayType(Type *srct)
-{
-  if (srct->isPointerTy()) {
-    return fullyUnwrapPointerOrArrayType(srct->getPointerElementType());
-  } else if (srct->isArrayTy()) {
-    return fullyUnwrapPointerOrArrayType(srct->getArrayElementType());
-  }
-  return srct;
+  bool done = false;
+  while (!done)
+    if (type->isArrayTy())
+      type = type->getArrayElementType();
+    else
+      done = true;
+  return type;
 }
 
-
-bool taffo::isFloatType(Type *srct)
-{
-  return fullyUnwrapPointerOrArrayType(srct)->isFloatingPointTy();
-}
-
-
-bool taffo::typecheckMetadata(llvm::Type *T, mdutils::MDInfo *II)
-{
-  assert(T);
-  assert(II);
-  LLVM_DEBUG(dbgs() << "[typecheckMetadata] Typechecking " << II->toString() << " against LLVM type " << *T << "\n");
-  llvm::Type *UT = fullyUnwrapPointerOrArrayType(T);
-
-  if (UT->isSingleValueType() && isa<mdutils::InputInfo>(II)) {
-    LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check OK\n");
-    return true;
-  }
-
-  if (UT->isStructTy() && isa<mdutils::StructInfo>(II)) {
-    auto *ST = dyn_cast<StructType>(UT);
-    auto *SI = dyn_cast<mdutils::StructInfo>(II);
-    if (UT->getStructNumElements() != SI->size()) {
-      LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed: struct member count mismatch\n");
-      return false;
-    }
-    for (unsigned i = 0; i < SI->size(); i++) {
-      mdutils::MDInfo *IIField = SI->getField(i).get();
-      auto *TyField = ST->elements()[i];
-      if (IIField != nullptr) {
-        if (!typecheckMetadata(TyField, IIField)) {
-          LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed for one of the struct fields\n");
-          return false;
-        }
-      }
-    }
-    LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check OK\n");
-    return true;
-  }
-  
-  LLVM_DEBUG(dbgs() << "[typecheckMetadata] Check failed: struct/single value mismatch\n");
-  return false;
-}
-
-
-mdutils::FPType taffo::fixedPointTypeFromRange(
-    const mdutils::Range &rng,
+FixpType taffo::fixedPointTypeFromRange(
+    const Range &rng,
     FixedPointTypeGenError *outerr,
     int totalBits,
     int fracThreshold,
     int maxTotalBits,
-    int totalBitsIncrement)
-{
+    int totalBitsIncrement) {
   if (outerr)
     *outerr = FixedPointTypeGenError::NoError;
 
@@ -79,7 +46,7 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
     LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains NaN\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::InvalidRange;
-    return mdutils::FPType(totalBits, 0, true);
+    return FixpType(totalBits, 0, true);
   }
 
   bool isSigned = rng.Min < 0;
@@ -88,7 +55,7 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
     LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains +/-inf. Overflow may occur!\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::UnboundedRange;
-    return mdutils::FPType(totalBits, 0, isSigned);
+    return FixpType(totalBits, 0, isSigned);
   }
 
   double max = std::max(std::abs(rng.Min), std::abs(rng.Max));
@@ -145,5 +112,5 @@ mdutils::FPType taffo::fixedPointTypeFromRange(
     }
   }
 
-  return mdutils::FPType(bitsAmt, fracBitsAmt, isSigned);
+  return FixpType(bitsAmt, fracBitsAmt, isSigned);
 }

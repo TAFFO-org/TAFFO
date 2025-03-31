@@ -17,7 +17,7 @@
 #include "RangeErrorMap.h"
 
 #include "TypeUtils.h"
-#include "llvm/Support/Debug.h"
+#include <llvm/Support/Debug.h>
 #include <utility>
 
 #define DEBUG_TYPE "errorprop"

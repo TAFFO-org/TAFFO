@@ -16,8 +16,8 @@
 #ifndef ERRORPROPAGATOR_FUNCTIONCOPYMAP_H
 #define ERRORPROPAGATOR_FUNCTIONCOPYMAP_H
 
-#include "llvm/IR/Function.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include <llvm/IR/Function.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include <map>
 
 #define DEBUG_TYPE "errorprop"

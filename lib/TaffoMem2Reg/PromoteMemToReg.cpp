@@ -14,42 +14,37 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PromoteMemToReg.h"
-#include "TaffoUtils/Metadata.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/IteratedDominanceFrontier.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/User.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Config/llvm-config.h"
-#include <algorithm>
+#include "PromoteMemToReg.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/Statistic.h>
+#include <llvm/ADT/Twine.h>
+#include <llvm/Analysis/AssumptionCache.h>
+#include <llvm/Analysis/InstructionSimplify.h>
+#include <llvm/Analysis/IteratedDominanceFrontier.h>
+#include <llvm/Analysis/ValueTracking.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/CFG.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DIBuilder.h>
+#include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/Dominators.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/User.h>
+#include <llvm/Support/Casting.h>
+#include <llvm/Transforms/Utils/Local.h>
+#include <llvm/Config/llvm-config.h>
 #include <cassert>
 #include <iterator>
 #include <utility>
@@ -342,9 +337,11 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
           continue;
         }
         Inst->eraseFromParent();
+        TaffoInfo::getInstance().eraseValue(*Inst);
       }
     }
     I->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*I);
   }
 }
 
@@ -415,6 +412,7 @@ static bool rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info,
 
     LI->replaceAllUsesWith(ReplVal);
     LI->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*LI);
     LBI.deleteValue(LI);
   }
 
@@ -429,15 +427,19 @@ static bool rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info,
       DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
       ConvertDebugDeclareToDebugValue(DII, Info.OnlyStore, DIB);
       DII->eraseFromParent();
+      TaffoInfo::getInstance().eraseValue(*DII);
     } else if (DII->getExpression()->startsWithDeref()) {
       DII->eraseFromParent();
+      TaffoInfo::getInstance().eraseValue(*DII);
     }
   }
   // Remove the (now dead) store and alloca.
   Info.OnlyStore->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*Info.OnlyStore);
   LBI.deleteValue(Info.OnlyStore);
 
   AI->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*AI);
   return true;
 }
 
@@ -519,6 +521,7 @@ static bool promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
     }
 
     LI->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*LI);
     LBI.deleteValue(LI);
   }
 
@@ -533,15 +536,19 @@ static bool promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
       }
     }
     SI->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*SI);
     LBI.deleteValue(SI);
   }
 
   AI->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*AI);
 
   // The alloca's debuginfo can be removed as well.
   for (DbgVariableIntrinsic *DII : Info.DbgUsers)
-    if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+    if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref()) {
       DII->eraseFromParent();
+      TaffoInfo::getInstance().eraseValue(*DII);
+    }
 
   ++NumLocalPromoted;
   return true;
@@ -568,6 +575,7 @@ void PromoteMem2Reg::run() {
     if (AI->use_empty()) {
       // If there are no uses of the alloca, just delete it now.
       AI->eraseFromParent();
+      TaffoInfo::getInstance().eraseValue(*AI);
 
       // Remove the alloca from the Allocas list, since it has been processed
       RemoveFromAllocasList(AllocaNum);
@@ -679,13 +687,16 @@ void PromoteMem2Reg::run() {
     if (!A->use_empty())
       A->replaceAllUsesWith(PoisonValue::get(A->getType()));
     A->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*A);
   }
 
   // Remove alloca's dbg.declare instrinsics from the function.
   for (auto &DbgUsers : AllocaDbgUsers) {
     for (auto *DII : DbgUsers)
-      if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+      if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref()) {
         DII->eraseFromParent();
+        TaffoInfo::getInstance().eraseValue(*DII);
+      }
   }
 
   // Loop over all of the PHI nodes and see if there are any that we can get
@@ -715,6 +726,7 @@ void PromoteMem2Reg::run() {
       if (V) {
         PN->replaceAllUsesWith(V);
         PN->eraseFromParent();
+        TaffoInfo::getInstance().eraseValue(*PN);
         NewPhiNodes.erase(I++);
         EliminatedAPHI = true;
         continue;
@@ -878,14 +890,10 @@ bool PromoteMem2Reg::QueuePhiNode(BasicBlock *BB, unsigned AllocaNo,
   ++NumPHIInsert;
   PhiToAllocaMap[PN] = AllocaNo;
 
-  // TAFFO-SPECIFIC: Transfer metadata from the alloca to the phi node.
-  auto& MM = mdutils::MetadataManager::getMetadataManager();
-  mdutils::InputInfo *II = MM.retrieveInputInfo(*A);
+  // TAFFO-SPECIFIC: Transfer metadata from the alloca to the phi node
+  std::shared_ptr<ValueInfo> II = TaffoInfo::getInstance().getValueInfo(*A);
   if (II)
-    MM.setInputInfoMetadata(*PN, *II);
-  int IIWeight = MM.retrieveInputInfoInitWeightMetadata(A);
-  if (IIWeight >= 0)
-    mdutils::MetadataManager::setInputInfoInitWeightMetadata(PN, IIWeight);
+    TaffoInfo::getInstance().setValueInfo(*PN, II);
   LLVM_DEBUG(dbgs() << "TaffoMem2Reg: Copied TAFFO metadata from '" << *A << 
       "' to new phi '" << *PN << "'\n");
 
@@ -988,6 +996,7 @@ NextIteration:
       // Anything using the load now uses the current value.
       LI->replaceAllUsesWith(V);
       LI->eraseFromParent();
+      TaffoInfo::getInstance().eraseValue(*LI);
     } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
       // Delete this instruction and mark the name as the current holder of the
       // value
@@ -1009,6 +1018,7 @@ NextIteration:
         if (DII->isAddressOfVariable())
           ConvertDebugDeclareToDebugValue(DII, SI, DIB);
       SI->eraseFromParent();
+      TaffoInfo::getInstance().eraseValue(*SI);
     }
   }
 

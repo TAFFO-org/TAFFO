@@ -5,9 +5,9 @@
 #ifndef TAFFO_LOOPANALYZERUTIL_H
 #define TAFFO_LOOPANALYZERUTIL_H
 
-#include "llvm/IR/Instruction.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/PassManager.h"
+#include <llvm/IR/Instruction.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/IR/PassManager.h>
 
 #define DEBUG_TYPE "taffo-dta"
 

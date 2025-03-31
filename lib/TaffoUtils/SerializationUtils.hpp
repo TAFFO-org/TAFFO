@@ -1,0 +1,83 @@
+#ifndef TAFFO_SERIALIZATION_UTILS_HPP
+#define TAFFO_SERIALIZATION_UTILS_HPP
+
+#include <nlohmann/json.hpp>
+#include <llvm/IR/Type.h>
+#include <sstream>
+
+using json = nlohmann::ordered_json;
+
+namespace taffo {
+
+/**
+ * @brief Interface for objects that can be serialized and deserialized.
+ *
+ * This abstract class defines the interface required for converting objects to and from JSON.
+ */
+class Serializable {
+public:
+  /**
+   * @brief Serializes the object to JSON.
+   *
+   * @return A json object representing the serialized state.
+   */
+  virtual json serialize() const = 0;
+
+  /**
+   * @brief Deserializes the object from JSON.
+   *
+   * @param j A json object containing the serialized state.
+   */
+  virtual void deserialize(const json &j) = 0;
+
+  virtual ~Serializable() = default;
+};
+
+/**
+ * @brief Interface for objects that can be converted to a string.
+ *
+ * Classes implementing Printable must provide a string representation via toString().
+ */
+class Printable {
+public:
+  /**
+   * @brief Returns a string representation of the object.
+   *
+   * @return A std::string representing the object.
+   */
+  virtual std::string toString() const = 0;
+
+  virtual ~Printable() = default;
+};
+
+// Overload of << to print Printable to std::ostream
+inline std::ostream &operator<<(std::ostream &os, const Printable &obj) {
+  os << obj.toString();
+  return os;
+}
+
+// Overload of << to print Printable to llvm::raw_ostream
+inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Printable &obj) {
+  os << obj.toString();
+  return os;
+}
+
+// toString function for llvm objects that have a print(llvm::raw_ostream&) method
+static std::string toString(const auto *obj)
+requires requires(const decltype(*obj) &o, llvm::raw_ostream &os) { { o.print(os) } -> std::same_as<void>; }
+{
+  std::string str;
+  llvm::raw_string_ostream os(str);
+  obj->print(os);
+  return os.str();
+}
+
+inline std::string formatNumber(unsigned int digits, unsigned int number) {
+  std::ostringstream oss;
+  oss << std::setw(int(digits)) << std::setfill('0') << number;
+  return oss.str();
+}
+
+} // namespace taffo
+
+#endif //TAFFO_SERIALIZATION_UTILS_HPP

@@ -1,7 +1,7 @@
-#include "llvm/Support/Debug.h"
-
 #ifndef TAFFOUTILS_DEBUGUTILS_H
 #define TAFFOUTILS_DEBUGUTILS_H
+
+#include <llvm/Support/Debug.h>
 
 #ifndef NDEBUG
 

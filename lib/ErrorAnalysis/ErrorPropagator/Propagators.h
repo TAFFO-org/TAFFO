@@ -17,8 +17,8 @@
 #define ERRORPROPAGATOR_PROPAGATORS_H
 
 #include "RangeErrorMap.h"
-#include "llvm/Analysis/MemorySSA.h"
-#include "llvm/IR/Instruction.h"
+#include <llvm/Analysis/MemorySSA.h>
+#include <llvm/IR/Instruction.h>
 
 #define DEBUG_TYPE "errorprop"
 

@@ -1,20 +1,19 @@
 #include "BufferIDFiles.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/YAMLParser.h"
+#include <llvm/Support/ErrorOr.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/YAMLParser.h>
 #include <fstream>
 
 using namespace llvm;
+using namespace taffo;
 using namespace tuner;
-using namespace mdutils;
 
-
-static std::unique_ptr<TType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *Node)
+static std::unique_ptr<NumericType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *Node)
 {
   yaml::MappingNode *MapNode = dyn_cast<yaml::MappingNode>(Node);
   if (!MapNode) {
     SM.PrintMessage(Node->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected mapping specifying the type");
-    return std::unique_ptr<TType>(nullptr);
+    return std::unique_ptr<NumericType>(nullptr);
   }
   
   std::map<std::string, std::string> Map;
@@ -22,7 +21,7 @@ static std::unique_ptr<TType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *No
     yaml::ScalarNode *Key = dyn_cast<yaml::ScalarNode>(Item.getKey());
     if (!Key) {
       SM.PrintMessage(Item.getKey()->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected scalar");
-      return std::unique_ptr<TType>(nullptr);
+      return std::unique_ptr<NumericType>(nullptr);
     }
     SmallVector<char> KeyStorage;
     StringRef KeyStr = Key->getValue(KeyStorage);
@@ -30,7 +29,7 @@ static std::unique_ptr<TType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *No
     yaml::ScalarNode *Value = dyn_cast<yaml::ScalarNode>(Item.getValue());
     if (!Value) {
       SM.PrintMessage(Item.getValue()->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected scalar");
-      return std::unique_ptr<TType>(nullptr);
+      return std::unique_ptr<NumericType>(nullptr);
     }
     SmallVector<char> ValueStorage;
     StringRef ValueStr = Value->getValue(ValueStorage);
@@ -39,20 +38,20 @@ static std::unique_ptr<TType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *No
   }
 
   int ClassID = atoi(Map["Class"].c_str());
-  if (ClassID == TType::K_FPType) {
+  if (ClassID == NumericType::K_FixpType) {
     int SWidth = atoi(Map["SWidth"].c_str());
     int PointPos = atoi(Map["PointPos"].c_str());
-    return std::unique_ptr<TType>(new FPType(SWidth, PointPos));
+    return std::unique_ptr<NumericType>(new FixpType(SWidth, PointPos));
   }
   
-  if (ClassID == TType::K_FloatType) {
+  if (ClassID == NumericType::K_FloatType) {
     FloatType::FloatStandard FloatStandard = (FloatType::FloatStandard)atoi(Map["FloatStandard"].c_str());
     double GreatestNumber = atof(Map["GreatestNumber"].c_str());
-    return std::unique_ptr<TType>(new FloatType(FloatStandard, GreatestNumber));
+    return std::unique_ptr<NumericType>(new FloatType(FloatStandard, GreatestNumber));
   }
   
   SM.PrintMessage(Node->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Invalid Class");
-  return std::unique_ptr<TType>(nullptr);
+  return std::unique_ptr<NumericType>(nullptr);
 }
 
 static bool ReadBufferIDFileImpl(std::string Fn, BufferIDTypeMap& OutMap)
@@ -83,7 +82,7 @@ static bool ReadBufferIDFileImpl(std::string Fn, BufferIDTypeMap& OutMap)
     SmallVector<char> KeyStorage;
     StringRef KeyStr = Key->getValue(KeyStorage);
 
-    std::unique_ptr<TType> T = ReadTypeFromYAMLNode(SM, Item.getValue());
+    std::unique_ptr<NumericType> T = ReadTypeFromYAMLNode(SM, Item.getValue());
     if (T.get()) {
       OutMap[KeyStr.str()] = std::move(T);
     } else {
@@ -110,13 +109,13 @@ void tuner::WriteBufferIDFile(std::string Fn, BufferIDTypeMap& Map)
   Stm << "---" << std::endl;
   for (auto& Pair: Map) {
     Stm << "\"" << Pair.first << "\" : ";
-    TType *T = Pair.second.get();
+    NumericType *T = Pair.second.get();
     if (FloatType *FloatT = dyn_cast<FloatType>(T)) {
       Stm << "{ " <<
         "Class: " << FloatT->getKind() << ", " <<
         "FloatStandard: " << FloatT->getStandard() << ", " <<
         "GreatestNumber: " << FloatT->getGreatestNumber() << " }";
-    } else if (FPType *FPT = dyn_cast<FPType>(T)) {
+    } else if (FixpType *FPT = dyn_cast<FixpType>(T)) {
       Stm << "{ " <<
         "Class: " << FPT->getKind() << ", " <<
         "SWidth: " << FPT->getSWidth() << ", " <<

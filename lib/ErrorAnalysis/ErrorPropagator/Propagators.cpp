@@ -17,10 +17,10 @@
 #include "AffineForms.h"
 #include "MemSSARE.h"
 #include "Metadata.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/CommandLine.h"
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/CommandLine.h>
 
 #define DEBUG_TYPE "errorprop"
 

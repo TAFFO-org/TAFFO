@@ -1,19 +1,13 @@
 #ifndef TAFFO_CODE_SCHEDULER_HPP
 #define TAFFO_CODE_SCHEDULER_HPP
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Casting.h"
-#include <memory>
-
-#include "PtrCasts.hpp"
-#include <Metadata.h>
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/IR/PassManager.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
-namespace taffo
-{
+namespace taffo {
 
 class CodeInterpreter;
 class CodeAnalyzer;
@@ -83,7 +77,7 @@ protected:
 
 struct FunctionScope {
   FunctionScope(std::shared_ptr<AnalysisStore> FS)
-      : FunctionStore(FS), BBAnalyzers(), EvalCount() {}
+      : FunctionStore(FS) {}
 
   std::shared_ptr<AnalysisStore> FunctionStore;
   llvm::DenseMap<llvm::BasicBlock *, std::shared_ptr<CodeAnalyzer>> BBAnalyzers;
@@ -141,7 +135,7 @@ private:
   bool updateRecursionCount(llvm::Function *F);
 };
 
-} // end namespace taffo
+} // namespace taffo
 
 #undef DEBUG_TYPE
 

@@ -17,11 +17,11 @@
 
 #include "FixedPoint.h"
 #include "Metadata.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Argument.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Support/Casting.h>
 #include <map>
 
 #define DEBUG_TYPE "errorprop"

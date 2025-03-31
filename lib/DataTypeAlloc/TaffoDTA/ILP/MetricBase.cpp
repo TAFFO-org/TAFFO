@@ -1,61 +1,64 @@
 #include "MetricBase.h"
+
+#include "PtrCasts.hpp"
 #include "Optimizer.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/Support/Debug.h"
+
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Operator.h>
+#include <llvm/Support/Debug.h>
 
 extern llvm::cl::opt<int> TotalBits;
 extern llvm::cl::opt<int> FracThreshold;
 
-using namespace tuner;
-using namespace mdutils;
 using namespace std;
+using namespace llvm;
 using namespace taffo;
+using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-bool MetricBase::valueHasInfo(llvm::Value *value) { return opt->valueHasInfo(value); }
+bool MetricBase::valueHasInfo(Value *value) { return opt->valueHasInfo(value); }
 
-tuner::Model &MetricBase::getModel() { return opt->model; }
+Model &MetricBase::getModel() { return opt->model; }
 
-std::unordered_map<std::string, llvm::Function *> &
+std::unordered_map<std::string, Function *> &
 MetricBase::getFunctions_still_to_visit()
 {
   return opt->functions_still_to_visit;
 }
 
-std::vector<llvm::Function *> &MetricBase::getCall_stack() { return opt->call_stack; }
+std::vector<Function *> &MetricBase::getCall_stack() { return opt->call_stack; }
 
-DenseMap<llvm::Value *, std::shared_ptr<tuner::OptimizerInfo>> &
+DenseMap<Value *, std::shared_ptr<OptimizerInfo>> &
 MetricBase::getValueToVariableName()
 {
   return opt->valueToVariableName;
 }
 
-std::stack<shared_ptr<tuner::OptimizerInfo>> &MetricBase::getRetStack()
+std::stack<shared_ptr<OptimizerInfo>> &MetricBase::getRetStack()
 {
   return opt->retStack;
 }
 
 void MetricBase::addDisabledSkipped() { opt->DisabledSkipped++; }
 
-shared_ptr<tuner::OptimizerInfo> MetricBase::getInfoOfValue(llvm::Value *value)
+shared_ptr<OptimizerInfo> MetricBase::getInfoOfValue(Value *value)
 {
   return opt->getInfoOfValue(value);
 }
 
-tuner::TaffoTuner *MetricBase::getTuner() { return opt->tuner; }
-tuner::PhiWatcher &MetricBase::getPhiWatcher() { return opt->phiWatcher; }
-std::unordered_map<std::string, llvm::Function *> &MetricBase::getKnown_functions()
+TaffoTuner *MetricBase::getTuner() { return opt->tuner; }
+PhiWatcher &MetricBase::getPhiWatcher() { return opt->phiWatcher; }
+std::unordered_map<std::string, Function *> &MetricBase::getKnown_functions()
 {
   return opt->known_functions;
 }
-tuner::MemWatcher &MetricBase::getMemWatcher() { return opt->memWatcher; }
-tuner::CPUCosts &MetricBase::getCpuCosts() { return opt->cpuCosts; }
+MemWatcher &MetricBase::getMemWatcher() { return opt->memWatcher; }
+CPUCosts &MetricBase::getCpuCosts() { return opt->cpuCosts; }
 
 
-shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
+shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
 {
   // Constant variable should, in general, not be saved anywhere.
   // In fact, the same constant may be used in different ways, but by the fact that
@@ -64,7 +67,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
   LLVM_DEBUG(dbgs() << "Processing constant...\n";);
 
   if (dyn_cast_or_null<GlobalObject>(constant)) {
-    if (getTuner()->hasInfo(constant)) {
+    if (getTuner()->hasTunerInfo(constant)) {
       llvm_unreachable("This should already have been handled!");
     } else {
       LLVM_DEBUG(dbgs() << "Trying to process a non float global...\n";);
@@ -89,7 +92,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
       Range rangeInfo(min, max);
 
       FixedPointTypeGenError fpgerr;
-      FPType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
+      FixpType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
       if (fpgerr != FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(dbgs() << "Error generating infos for constant propagation!"
                           << "\n";);
@@ -98,7 +101,7 @@ shared_ptr<tuner::OptimizerInfo> MetricBase::processConstant(Constant *constant)
 
       // ENOB should not be considered for constant.... It is a constant and will be converted as best as possible
       // WE DO NOT SAVE CONSTANTS INFO!
-      auto info = allocateNewVariableForValue(constantFP, make_shared<FPType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
+      auto info = allocateNewVariableForValue(constantFP, make_shared<FixpType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
       info->setReferToConstant(true);
       return info;
     }
@@ -146,7 +149,7 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp
     }
     LLVM_DEBUG(dbgs() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
-    auto optInfo_t = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(getInfoOfValue(operand));
+    auto optInfo_t = dynamic_ptr_cast<OptimizerPointerInfo>(getInfoOfValue(operand));
     if (!optInfo_t) {
       LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
       return nullptr;
@@ -160,7 +163,7 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp
     }
     // This will only contain displacements for struct fields...
     for (unsigned int i = 0; i < offset.size(); i++) {
-      auto structInfo = dynamic_ptr_cast_or_null<OptimizerStructInfo>(optInfo);
+      auto structInfo = dynamic_ptr_cast<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
         LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
         return nullptr;
@@ -184,19 +187,19 @@ void emitError(string stringhina)
 
 shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_ptr<StructInfo> pInfo, string name)
 {
-  shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->size());
+  shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->numFields());
 
   int i = 0;
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {
-    if (auto structInfo = dynamic_ptr_cast_or_null<StructInfo>(*it)) {
+    if (auto structInfo = dynamic_ptr_cast<StructInfo>(*it)) {
       optInfo->setField(i, loadStructInfo(glob, structInfo, (name + "_" + to_string(i))));
-    } else if (auto ii = dyn_cast_or_null<InputInfo>(it->get())) {
-      auto fptype = dynamic_ptr_cast_or_null<FPType>(ii->IType);
+    } else if (auto ii = dyn_cast_or_null<ScalarInfo>(it->get())) {
+      auto fptype = dynamic_ptr_cast<FixpType>(ii->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
 
       } else {
-        auto info = allocateNewVariableForValue(glob, fptype, ii->IRange, ii->IError, false,
+        auto info = allocateNewVariableForValue(glob, fptype, ii->range, ii->error, false,
                                                 name + "_" + to_string(i));
         optInfo->setField(i, info);
       }
@@ -210,9 +213,9 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
 }
 
 
-void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> valueInfo)
+void MetricBase::handleGEPInstr(Instruction *gep, shared_ptr<TunerInfo> valueInfo)
 {
-  const llvm::GetElementPtrInst *gep_i = dyn_cast<llvm::GetElementPtrInst>(gep);
+  const GetElementPtrInst *gep_i = dyn_cast<GetElementPtrInst>(gep);
   LLVM_DEBUG(dbgs() << "Handling GEP. \n";);
 
   Value *operand = gep_i->getOperand(0);
@@ -239,7 +242,7 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
       LLVM_DEBUG(dbgs() << "Operand pointer info missing; probably trying to access a non float element, bailing out.\n";);
       return;
     }
-    auto optInfo_t = tuner::dynamic_ptr_cast_or_null<tuner::OptimizerPointerInfo>(baseinfo);
+    auto optInfo_t = dynamic_ptr_cast<OptimizerPointerInfo>(baseinfo);
     if (!optInfo_t) {
       LLVM_DEBUG(dbgs() << "Operand pointer info has the wrong type!! Probably trying to access a non float element, bailing out.\n";);
       LLVM_DEBUG(dbgs() << "wrong info: " << baseinfo->toString() << "\n");
@@ -254,7 +257,7 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
 
     // This will only contain displacements for struct fields...
     for (unsigned int i = 0; i < offset.size(); i++) {
-      auto structInfo = dynamic_ptr_cast_or_null<OptimizerStructInfo>(optInfo);
+      auto structInfo = dynamic_ptr_cast<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
         LLVM_DEBUG(dbgs() << "Pointer value info kind is not struct, probably trying to access a non float element, bailing out.\n";);
         return;
@@ -271,15 +274,15 @@ void MetricBase::handleGEPInstr(llvm::Instruction *gep, shared_ptr<ValueInfo> va
   emitError("Cannot extract GEPOffset!");
 }
 
-bool MetricBase::extractGEPOffset(const llvm::Type *source_element_type,
-                                  const llvm::iterator_range<llvm::User::const_op_iterator> indices,
+bool MetricBase::extractGEPOffset(const Type *source_element_type,
+                                  const iterator_range<User::const_op_iterator> indices,
                                   std::vector<unsigned> &offset)
 {
   assert(source_element_type != nullptr);
   LLVM_DEBUG((dbgs() << "extractGEPOffset() BEGIN\n"););
 
   for (auto idx_it = indices.begin(); idx_it != indices.end(); ++idx_it) {
-    if (isa<llvm::ArrayType>(source_element_type) || isa<llvm::VectorType>(source_element_type) || isa<llvm::PointerType>(source_element_type)) {
+    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type) || isa<PointerType>(source_element_type)) {
       // This is needed to skip the array element in array of structures
       // In facts, we treats arrays as "scalar" things, so we just do not want to deal with them
       source_element_type = source_element_type->getContainedType(0);
@@ -287,7 +290,7 @@ bool MetricBase::extractGEPOffset(const llvm::Type *source_element_type,
       continue;
     }
   
-    const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(*idx_it);
+    const ConstantInt *int_i = dyn_cast<ConstantInt>(*idx_it);
     if (int_i) {
       int n = static_cast<int>(int_i->getSExtValue());
 
@@ -306,9 +309,9 @@ bool MetricBase::extractGEPOffset(const llvm::Type *source_element_type,
   return true;
 }
 
-void MetricBase::handleFCmp(Instruction *instr, shared_ptr<ValueInfo> valueInfo)
+void MetricBase::handleFCmp(Instruction *instr, shared_ptr<TunerInfo> valueInfo)
 {
-  assert(instr->getOpcode() == llvm::Instruction::FCmp && "Operand mismatch!");
+  assert(instr->getOpcode() == Instruction::FCmp && "Operand mismatch!");
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
@@ -322,14 +325,14 @@ void MetricBase::handleFCmp(Instruction *instr, shared_ptr<ValueInfo> valueInfo)
     return;
   }
 
-  if (auto scalar = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info1)) {
+  if (auto scalar = dynamic_ptr_cast<OptimizerScalarInfo>(info1)) {
     if (scalar->doesReferToConstant()) {
       LLVM_DEBUG(dbgs() << "Info1 is a constant, skipping as no further cast cost will be introduced.\n";);
       return;
     }
   }
 
-  if (auto scalar = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info2)) {
+  if (auto scalar = dynamic_ptr_cast<OptimizerScalarInfo>(info2)) {
     if (scalar->doesReferToConstant()) {
       LLVM_DEBUG(dbgs() << "Info2 is a constant, skipping as no further cast cost will be introduced.\n";);
       return;
@@ -358,7 +361,7 @@ void MetricBase::openMemLoop(LoadInst *load, Value *value)
 
 
 shared_ptr<OptimizerScalarInfo>
-MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEquality, shared_ptr<ValueInfo> valueInfos)
+MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEquality, shared_ptr<TunerInfo> valueInfos)
 {
   auto info1 = getInfoOfValue(op1);
 
@@ -367,13 +370,13 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
     return nullptr;
   }
 
-  auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfos->metadata);
+  auto inputInfo = dynamic_ptr_cast<ScalarInfo>(valueInfos->metadata);
   if (!inputInfo) {
     LLVM_DEBUG(dbgs() << "No info on destination, bailing out, bug in VRA?\n";);
     return nullptr;
   }
 
-  auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
+  auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return nullptr;
@@ -382,8 +385,8 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
   shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError);
+  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->range,
+                                                                       inputInfo->error);
 
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
 
@@ -393,7 +396,7 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
 
 shared_ptr<OptimizerScalarInfo>
 MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
-                              shared_ptr<ValueInfo> valueInfos)
+                              shared_ptr<TunerInfo> valueInfos)
 {
   auto info1 = getInfoOfValue(op1);
   auto info2 = getInfoOfValue(op2);
@@ -403,13 +406,13 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
     return nullptr;
   }
 
-  auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfos->metadata);
+  auto inputInfo = dynamic_ptr_cast<ScalarInfo>(valueInfos->metadata);
   if (!inputInfo) {
     LLVM_DEBUG(dbgs() << "No info on destination, bailing out, bug in VRA?\n";);
     return nullptr;
   }
 
-  auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
+  auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return nullptr;
@@ -421,8 +424,8 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
 
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->IRange,
-                                                                       inputInfo->IError);
+  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->range,
+                                                                       inputInfo->error);
 
   opt->insertTypeEqualityConstraint(varCast1, varCast2, forceFixEquality);
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
@@ -431,11 +434,11 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
 }
 
 
-void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
+void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
 {
   const auto *call_i = dyn_cast<CallBase>(instruction);
   if (!call_i) {
-    llvm_unreachable("Cannot cast a call instruction to llvm::CallBase");
+    llvm_unreachable("Cannot cast a call instruction to CallBase");
     return;
   }
 
@@ -443,7 +446,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
   // Therefore this should be added as a cost, not simply ignored
 
   // fetch function name
-  llvm::Function *callee = call_i->getCalledFunction();
+  Function *callee = call_i->getCalledFunction();
   if (callee == nullptr) {
     emitError("Indirect calls not supported!");
     return;
@@ -457,27 +460,27 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
   auto function = getKnown_functions().find(calledFunctionName);
   if (function == getKnown_functions().end()) {
     const auto intrinsicsID = callee->getIntrinsicID();
-    if (intrinsicsID != llvm::Intrinsic::not_intrinsic) {
+    if (intrinsicsID != Intrinsic::not_intrinsic) {
       switch (intrinsicsID) {
         // TODO: implement the rest of the libc...
-        /*case llvm::Intrinsic::log2:
-        case llvm::Intrinsic::sqrt:
-        case llvm::Intrinsic::powi:
-        case llvm::Intrinsic::sin:
-        case llvm::Intrinsic::cos:
-        case llvm::Intrinsic::pow:
-        case llvm::Intrinsic::exp:
-        case llvm::Intrinsic::exp2:
-        case llvm::Intrinsic::log:
-        case llvm::Intrinsic::log10:
-        case llvm::Intrinsic::fma:
-        case llvm::Intrinsic::fabs:
-        case llvm::Intrinsic::floor:
-        case llvm::Intrinsic::ceil:
-        case llvm::Intrinsic::trunc:
-        case llvm::Intrinsic::rint:
-        case llvm::Intrinsic::nearbyint:
-        case llvm::Intrinsic::round:*/
+        /*case Intrinsic::log2:
+        case Intrinsic::sqrt:
+        case Intrinsic::powi:
+        case Intrinsic::sin:
+        case Intrinsic::cos:
+        case Intrinsic::pow:
+        case Intrinsic::exp:
+        case Intrinsic::exp2:
+        case Intrinsic::log:
+        case Intrinsic::log10:
+        case Intrinsic::fma:
+        case Intrinsic::fabs:
+        case Intrinsic::floor:
+        case Intrinsic::ceil:
+        case Intrinsic::trunc:
+        case Intrinsic::rint:
+        case Intrinsic::nearbyint:
+        case Intrinsic::round:*/
         // FIXME: we, for now, emulate the support for these intrinsic; in the real case, these calls have
         //  their counterpart in all the versions, so they can be treated in some other ways
 
@@ -497,16 +500,16 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
 
   // Allocating variable for result: all returns will have the same type, and therefore a cast, if needed
   shared_ptr<OptimizerInfo> retInfo;
-  if (auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata)) {
+  if (auto inputInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata)) {
     if (instruction->getType()->isFloatingPointTy()) {
-      auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
+      auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
       if (fptype) {
         LLVM_DEBUG(dbgs() << fptype->toString();
                    dbgs() << "\n";
                    dbgs() << "Info: " << inputInfo->toString() << "\n";);
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
-                                                                             inputInfo->IRange,
-                                                                             inputInfo->IError);
+                                                                             inputInfo->range,
+                                                                             inputInfo->error);
         retInfo = result;
         LLVM_DEBUG(dbgs() << "Allocated variable for returns.\n";);
       } else {
@@ -515,7 +518,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
     } else {
       LLVM_DEBUG(dbgs() << "Has metadata but is not a floating point!!!\n";);
     }
-  } else if (auto pInfo = dynamic_ptr_cast_or_null<StructInfo>(valueInfo->metadata)) {
+  } else if (auto pInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
     auto info = loadStructInfo(instruction, pInfo, "");
     saveInfoForValue(instruction, info);
     retInfo = info;
@@ -560,11 +563,11 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
   // We will have, when enabled, math functions. In this case these will be handled here!
 
   // if not a whitelisted then try to fetch it from Module
-  // fetch llvm::Function
+  // fetch Function
   if (function != getKnown_functions().end()) {
     LLVM_DEBUG(dbgs() << ("The function belongs to the current module.\n"););
-    // got the llvm::Function
-    llvm::Function *f = function->second;
+    // got the Function
+    Function *f = function->second;
 
     // check for recursion
     size_t call_count = 0;
@@ -590,11 +593,11 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
     // FIXME: this branch is totally avoided as it is handled before, make the correct corrections
     // the function was not found in current module: it is undeclared
     const auto intrinsicsID = callee->getIntrinsicID();
-    if (intrinsicsID == llvm::Intrinsic::not_intrinsic) {
+    if (intrinsicsID == Intrinsic::not_intrinsic) {
       // TODO: handle case of external function call: element must be in original type form and result is forced to be a double
     } else {
       switch (intrinsicsID) {
-      case llvm::Intrinsic::memcpy:
+      case Intrinsic::memcpy:
         // handleMemCpyIntrinsics(call_i);
         llvm_unreachable("Memcpy not handled atm!");
         break;
@@ -610,15 +613,15 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<ValueInfo> valu
 }
 
 
-void MetricBase::handleReturn(Instruction *instr, shared_ptr<ValueInfo> valueInfo)
+void MetricBase::handleReturn(Instruction *instr, shared_ptr<TunerInfo> valueInfo)
 {
-  const auto *ret_i = dyn_cast<llvm::ReturnInst>(instr);
+  const auto *ret_i = dyn_cast<ReturnInst>(instr);
   if (!ret_i) {
     llvm_unreachable("Could not convert Return Instruction to ReturnInstr");
     return;
   }
 
-  llvm::Value *ret_val = ret_i->getReturnValue();
+  Value *ret_val = ret_i->getReturnValue();
 
   if (!ret_val) {
     LLVM_DEBUG(dbgs() << "Handling return void, doing nothing.\n";);
@@ -641,7 +644,7 @@ void MetricBase::handleReturn(Instruction *instr, shared_ptr<ValueInfo> valueInf
     return;
   }
 
-  auto infoLinear = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
+  auto infoLinear = dynamic_ptr_cast<OptimizerScalarInfo>(info);
   if (!infoLinear) {
     llvm_unreachable("Structure return still not handled!");
   }
@@ -665,9 +668,9 @@ void MetricBase::saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInf
   LLVM_DEBUG(dbgs() << "Updating info of pointer...\n";);
 
   // PointerInfo() -> PointerInfo() -> Value[s]
-  auto info_old = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(info);
+  auto info_old = dynamic_ptr_cast<OptimizerPointerInfo>(info);
   assert(info_old && info_old->getOptInfo()->getKind() == OptimizerInfo::K_Pointer);
-  info_old = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(info_old->getOptInfo());
+  info_old = dynamic_ptr_cast<OptimizerPointerInfo>(info_old->getOptInfo());
   assert(info_old);
   // We here should have info about the pointed element
   auto info_old_pointee = info_old->getOptInfo();
@@ -677,9 +680,9 @@ void MetricBase::saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInf
   }
 
   // Same code but for new data
-  auto info_new = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(pointerInfo);
+  auto info_new = dynamic_ptr_cast<OptimizerPointerInfo>(pointerInfo);
   assert(info_new && info_new->getOptInfo()->getKind() == OptimizerInfo::K_Pointer);
-  info_new = dynamic_ptr_cast_or_null<OptimizerPointerInfo>(info_new->getOptInfo());
+  info_new = dynamic_ptr_cast<OptimizerPointerInfo>(info_new->getOptInfo());
   assert(info_new);
   // We here should have info about the pointed element
   auto info_new_pointee = info_new->getOptInfo();
@@ -705,7 +708,7 @@ void MetricBase::saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInf
 }
 
 
-void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
+void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
 {
 
   assert(instruction && "Instruction is nullptr");
@@ -716,14 +719,14 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
   assert(call_i && "Cannot cast instruction to call!");
   shared_ptr<OptimizerScalarInfo> retInfo;
   // handling return value. We will force it to be in the original type.
-  if (auto inputInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata)) {
-    if (inputInfo->IRange && instruction->getType()->isFloatingPointTy()) {
-      auto fptype = dynamic_ptr_cast_or_null<FPType>(inputInfo->IType);
+  if (auto inputInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata)) {
+    if (inputInfo->range && instruction->getType()->isFloatingPointTy()) {
+      auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
       if (fptype) {
         LLVM_DEBUG(dbgs() << fptype->toString(););
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
-                                                                             inputInfo->IRange,
-                                                                             inputInfo->IError,
+                                                                             inputInfo->range,
+                                                                             inputInfo->error,
                                                                              true,
                                                                              "",
                                                                              true,
@@ -736,7 +739,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
     } else {
       LLVM_DEBUG(dbgs() << "The call does not return a floating point value.\n";);
     }
-  } else if (auto pInfo = dynamic_ptr_cast_or_null<StructInfo>(valueInfo->metadata)) {
+  } else if (auto pInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
     emitError("The function considered returns a struct [?]\n");
     return;
   } else {
@@ -785,7 +788,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
 
     /*if (const generic_range_ptr_t arg_info = fetchInfo(*arg_it)) {*/
     // If the error is a scalar, collect it also as a scalar
-    auto arg_info_scalar = dynamic_ptr_cast_or_null<OptimizerScalarInfo>(info);
+    auto arg_info_scalar = dynamic_ptr_cast<OptimizerScalarInfo>(info);
     if (arg_info_scalar) {
       // Ok, we have info and it is a scalar, let's hope that it's not a pointer
       if ((*arg_it)->getType()->isFloatTy()) {
@@ -820,7 +823,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Valu
 }
 
 
-void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<ValueInfo> valueInfo)
+void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
 {
   if (!valueInfo) {
     LLVM_DEBUG(dbgs() << "No value info, skipping...\n";);
@@ -836,26 +839,26 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<ValueInfo> va
 
 
   if (!alloca->getAllocatedType()->isPointerTy()) {
-    if (valueInfo->metadata->getKind() == MDInfo::K_Field) {
+    if (valueInfo->metadata->getKind() == ValueInfo::K_Scalar) {
       LLVM_DEBUG(dbgs() << " ^ This is a real field\n";);
-      auto fieldInfo = dynamic_ptr_cast_or_null<InputInfo>(valueInfo->metadata);
+      auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
       if (!fieldInfo) {
         LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
         return;
       }
 
-      auto fptype = dynamic_ptr_cast_or_null<FPType>(fieldInfo->IType);
+      auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;
       }
-      auto info = allocateNewVariableForValue(alloca, fptype, fieldInfo->IRange, fieldInfo->IError,
+      auto info = allocateNewVariableForValue(alloca, fptype, fieldInfo->range, fieldInfo->error,
                                               false);
       saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(info));
-    } else if (valueInfo->metadata->getKind() == MDInfo::K_Struct) {
+    } else if (valueInfo->metadata->getKind() == ValueInfo::K_Struct) {
       LLVM_DEBUG(dbgs() << " ^ This is a real structure\n";);
 
-      auto fieldInfo = dynamic_ptr_cast_or_null<StructInfo>(valueInfo->metadata);
+      auto fieldInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata);
       if (!fieldInfo) {
         LLVM_DEBUG(dbgs() << "No struct info. Bailing out.\n";);
         return;

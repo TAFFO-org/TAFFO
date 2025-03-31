@@ -1,87 +1,58 @@
 #include "LLVMFloatToFixedPass.h"
-#include "Metadata.h"
+#include "PtrCasts.hpp"
 #include "TypeUtils.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include <iostream>
-#include <sstream>
 
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/raw_ostream.h>
+#include <iostream>
 
 using namespace llvm;
-using namespace flttofix;
-using namespace mdutils;
 using namespace taffo;
+using namespace flttofix;
 
 #define DEBUG_TYPE "taffo-conversion"
 
+void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &variables, bool functionAnnotation) {
+  for (GlobalVariable &gv : m.globals())
+    if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(gv))
+      parseMetaData(&variables, valueInfo, &gv);
 
-void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &variables, bool functionAnnotation)
-{
-  MetadataManager &MDManager = MetadataManager::getMetadataManager();
-
-  for (GlobalVariable &gv : m.globals()) {
-    MDInfo *MDI = MDManager.retrieveMDInfo(&gv);
-    if (MDI) {
-      parseMetaData(&variables, MDI, &gv);
-    }
-  }
   if (functionAnnotation)
     removeNoFloatTy(variables);
 }
 
-// No, I was not mad at all
-InputInfo *FloatToFixed::getInputInfo(Value *v)
-{
-  MetadataManager &MDManager = MetadataManager::getMetadataManager();
-  MDInfo *MDI = MDManager.retrieveMDInfo(v);
-
-  if (auto *fpInfo = dyn_cast_or_null<InputInfo>(MDI)) {
-    return fpInfo;
-  }
-
-  return nullptr;
-}
-
-
-void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value *> &variables, bool argumentsOnly)
-{
-  MetadataManager &MDManager = MetadataManager::getMetadataManager();
-
-  SmallVector<mdutils::MDInfo *, 5> argsII;
-  MDManager.retrieveArgumentInputInfo(f, argsII);
-  auto arg = f.arg_begin();
-  for (auto itII = argsII.begin(); itII != argsII.end(); itII++) {
-    if (*itII != nullptr) {
+void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value *> &variables, bool argumentsOnly) {
+  for (Argument &arg : f.args()) {
+    if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg)) {
       /* Don't enqueue function arguments because they will be handled by
        * the function cloning step */
-      parseMetaData(nullptr, *itII, arg);
+      parseMetaData(nullptr, argInfo, &arg);
     }
-    arg++;
   }
 
   if (argumentsOnly)
     return;
 
-  for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
-    MDInfo *MDI = MDManager.retrieveMDInfo(&(*iIt));
-    if (MDI) {
-      parseMetaData(&variables, MDI, &(*iIt));
+  for (Instruction &inst : instructions(f))
+    if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst)) {
+      parseMetaData(&variables, valueInfo, &inst);
+      /*for (Use &use : inst.operands()) {
+        Value *operand = use.get();
+        if (std::shared_ptr<ValueInfo> operandInfo = TaffoInfo::getInstance().getValueInfo(*operand))
+          parseMetaData(&variables, operandInfo, operand);
+      }*/
     }
-  }
 }
 
-
-void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res)
-{
+void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res) {
   for (Function &f : m.functions()) {
     bool argsOnly = false;
-    if (f.getMetadata(SOURCE_FUN_METADATA)) {
+    if (TaffoInfo::getInstance().isTaffoFunction(f)) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << " skipping function body of " << f.getName()
                         << " because it is cloned\n");
       functionPool[&f] = nullptr;
@@ -99,10 +70,9 @@ void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res
 }
 
 
-bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *raw, Value *instr)
-{
-  if (hasInfo(instr)) {
-    auto existing = valueInfo(instr);  
+bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared_ptr<ValueInfo> raw, Value *instr) {
+  if (hasConversionInfo(instr)) {
+    auto existing = getConversionInfo(instr);
     if (existing->isArgumentPlaceholder) {
       LLVM_DEBUG(dbgs() << "Skipping MD collection for " << *instr << " because it's a placeholder and has fake metadata anyway\n");
       return false;
@@ -111,17 +81,17 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
 
   LLVM_DEBUG(dbgs() << "Collecting metadata for: " << *instr << "\n");
 
-  ValueInfo vi;
+  ConversionInfo vi;
 
   vi.isBacktrackingNode = false;
   vi.fixpTypeRootDistance = 0;
-  vi.origType = instr->getType();
+  vi.origType = raw->getUnwrappedType();
 
-  if (InputInfo *fpInfo = dyn_cast<InputInfo>(raw)) {
-    if (!fpInfo->IEnableConversion)
+  if (std::shared_ptr<ScalarInfo> fpInfo = std::dynamic_ptr_cast<ScalarInfo>(raw)) {
+    if (!fpInfo->isConversionEnabled())
       return false;
     if (!instr->getType()->isVoidTy()) {
-      TType *fpt = dyn_cast_or_null<TType>(fpInfo->IType.get());
+      NumericType *fpt = dyn_cast_or_null<NumericType>(fpInfo->numericType.get());
       if (!fpt) {
         LLVM_DEBUG(dbgs() << "Type in metadata is null! ");
         if (isKnownConvertibleWithIncompleteMetadata(instr)) {
@@ -132,7 +102,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
           return false;
         }
       } else {
-        assert(!(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy()) &&
+        assert(!(getUnwrappedType(instr)->isStructTy()) &&
           "input info / actual type mismatch");
         vi.fixpType = FixedPointType(fpt);
       }
@@ -140,12 +110,12 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
       vi.fixpType = FixedPointType();
     }
 
-  } else if (StructInfo *fpInfo = dyn_cast<StructInfo>(raw)) {
+  } else if (std::shared_ptr<StructInfo> fpInfo = std::dynamic_ptr_cast<StructInfo>(raw)) {
     if (!instr->getType()->isVoidTy()) {
-      assert(fullyUnwrapPointerOrArrayType(instr->getType())->isStructTy() &&
+      assert(getUnwrappedType(instr)->isStructTy() &&
              "input info / actual type mismatch");
       int enableConversion = 0;
-      vi.fixpType = FixedPointType::get(fpInfo, &enableConversion);
+      vi.fixpType = FixedPointType::get(fpInfo.get(), &enableConversion);
       if (enableConversion == 0) {
         LLVM_DEBUG(dbgs() << "Conversion not enabled.\n");
         return false;
@@ -160,7 +130,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value *> *variables, MDInfo *ra
 
   if (variables)
     variables->insert(instr);
-  *newValueInfo(instr) = vi;
+  *newConversionInfo(instr) = vi;
 
   LLVM_DEBUG(dbgs() << "Type deducted: " << vi.fixpType.toString() << "\n");
 
@@ -186,9 +156,10 @@ void FloatToFixed::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
     }
 
     while (ty->isArrayTy() || ty->isPointerTy()) {
-      if (ty->isPointerTy())
+      // TODO FIX SOON!
+      /*if (ty->isPointerTy())
         ty = ty->getPointerElementType();
-      else
+      else*/
         ty = ty->getArrayElementType();
     }
     if (!ty->isFloatingPointTy()) {

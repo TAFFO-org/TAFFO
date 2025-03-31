@@ -1,7 +1,7 @@
-#ifndef OPEN_CL_KERNEL_PATCHER_H
-#define OPEN_CL_KERNEL_PATCHER_H
+#ifndef OPEN_CL_KERNEL_PATCHER_HPP
+#define OPEN_CL_KERNEL_PATCHER_HPP
 
-#include "llvm/IR/Module.h"
+#include <llvm/IR/Module.h>
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -14,4 +14,4 @@ void createOpenCLKernelTrampolines(llvm::Module &M);
 
 #undef DEBUG_TYPE
 
-#endif
+#endif // OPEN_CL_KERNEL_PATCHER_HPP

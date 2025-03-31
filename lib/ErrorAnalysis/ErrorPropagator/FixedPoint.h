@@ -20,11 +20,11 @@
 
 #include "AffineForms.h"
 #include "InputInfo.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Metadata.h"
+#include <llvm/ADT/APInt.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Metadata.h>
 
 #define DEBUG_TYPE "errorprop"
 

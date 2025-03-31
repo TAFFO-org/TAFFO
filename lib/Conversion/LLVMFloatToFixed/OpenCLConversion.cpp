@@ -1,14 +1,12 @@
 #include "LLVMFloatToFixedPass.h"
-#include "Metadata.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/Metadata.h"
+#include <llvm/IR/Operator.h>
+#include <llvm/IR/Metadata.h>
 
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
-
 
 bool FloatToFixed::isSupportedOpenCLFunction(Function *F)
 {
@@ -22,7 +20,6 @@ bool FloatToFixed::isSupportedOpenCLFunction(Function *F)
     return true;
   return false;
 }
-
 
 Value *FloatToFixed::convertOpenCLCall(CallBase *C)
 {
@@ -50,12 +47,12 @@ Value *FloatToFixed::convertOpenCLCall(CallBase *C)
     TheBuffer = BC->getOperand(0);
   }
   Value *NewBuffer = matchOp(TheBuffer);
-  if (!NewBuffer || !hasInfo(NewBuffer)) {
+  if (!NewBuffer || !hasConversionInfo(NewBuffer)) {
     LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
     return Unsupported;
   }
   LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << valueInfo(NewBuffer)->fixpType.toString() << "\n");
+  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << getConversionInfo(NewBuffer)->fixpType.toString() << "\n");
   Type *VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value *NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy) {
@@ -80,22 +77,21 @@ Value *FloatToFixed::convertOpenCLCall(CallBase *C)
   return C;
 }
 
-
 void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module *M)
 {
   LLVM_DEBUG(dbgs() << "Cleaning up OpenCL trampolines inserted by Initializer...\n");
   SmallVector<Function *, 4> FuncsToDelete;
 
   for (Function& F: M->functions()) {
-    Function *KernF = nullptr;
-    mdutils::MetadataManager::retrieveOpenCLCloneTrampolineMetadata(&F, &KernF);
+    Function *KernF = TaffoInfo::getInstance().getOpenCLTrampoline(F);
     if (!KernF)
       continue;
-    
-    MDNode *MDN = KernF->getMetadata(CLONED_FUN_METADATA);
-    assert(MDN && "OpenCL kernel function with trampoline but no cloned function??");
-    ValueAsMetadata *MDNewKernF = cast<ValueAsMetadata>(MDN->getOperand(0U));
-    Function *NewKernF = cast<Function>(MDNewKernF->getValue());
+
+    //TODO check: there may be more clones
+    SmallPtrSet<Function*, 2> clone;
+    TaffoInfo::getInstance().getTaffoFunctions(*KernF, clone);
+    Function *NewKernF = *clone.begin();
+    assert(NewKernF && "OpenCL kernel function with trampoline but no cloned function??");
     Function *NewFixpKernF = functionPool[NewKernF];
     assert(NewFixpKernF && "OpenCL kernel function cloned but not converted????");
 
@@ -125,8 +121,9 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module *M)
     }
   }
 
-  for (Function *F: FuncsToDelete) {
-    F->eraseFromParent();
+  for (Function *f: FuncsToDelete) {
+    f->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*f);
   }
   LLVM_DEBUG(dbgs() << "Finished!\n");
 }

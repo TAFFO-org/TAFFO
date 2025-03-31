@@ -2,34 +2,31 @@
 #include "RangeOperations.hpp"
 #include "VRAnalyzer.hpp"
 #include "TypeUtils.h"
-#include "llvm/IR/Operator.h"
+#include <llvm/IR/Operator.h>
 
 using namespace llvm;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-vra"
 
-void VRAGlobalStore::convexMerge(const AnalysisStore &Other)
-{
-  // Since llvm::dyn_cast<T>() does not do cross-casting, we must do this:
-  if (llvm::isa<VRAnalyzer>(Other)) {
-    VRAStore::convexMerge(llvm::cast<VRAStore>(llvm::cast<VRAnalyzer>(Other)));
-  } else if (llvm::isa<VRAGlobalStore>(Other)) {
-    VRAStore::convexMerge(llvm::cast<VRAStore>(llvm::cast<VRAGlobalStore>(Other)));
+void VRAGlobalStore::convexMerge(const AnalysisStore &Other) {
+  // Since dyn_cast<T>() does not do cross-casting, we must do this:
+  if (isa<VRAnalyzer>(Other)) {
+    VRAStore::convexMerge(cast<VRAStore>(cast<VRAnalyzer>(Other)));
+  } else if (isa<VRAGlobalStore>(Other)) {
+    VRAStore::convexMerge(cast<VRAStore>(cast<VRAGlobalStore>(Other)));
   } else {
-    VRAStore::convexMerge(llvm::cast<VRAStore>(llvm::cast<VRAFunctionStore>(Other)));
+    VRAStore::convexMerge(cast<VRAStore>(cast<VRAFunctionStore>(Other)));
   }
 }
 
 std::shared_ptr<CodeAnalyzer>
-VRAGlobalStore::newCodeAnalyzer(CodeInterpreter &CI)
-{
+VRAGlobalStore::newCodeAnalyzer(CodeInterpreter &CI) {
   return std::make_shared<VRAnalyzer>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()), CI);
 }
 
 std::shared_ptr<AnalysisStore>
-VRAGlobalStore::newFunctionStore(CodeInterpreter &CI)
-{
+VRAGlobalStore::newFunctionStore(CodeInterpreter &CI) {
   return std::make_shared<VRAFunctionStore>(std::static_ptr_cast<VRALogger>(CI.getGlobalStore()->getLogger()));
 }
 
@@ -37,101 +34,78 @@ VRAGlobalStore::newFunctionStore(CodeInterpreter &CI)
 // Metadata Processing
 ////////////////////////////////////////////////////////////////////////////////
 
-bool VRAGlobalStore::isValidRange(const mdutils::Range *rng) const
-{
+bool VRAGlobalStore::isValidRange(const Range *rng) const {
   return rng != nullptr && !std::isnan(rng->Min) && !std::isnan(rng->Max);
 }
 
-void VRAGlobalStore::harvestMetadata(Module &M)
-{
-  using namespace mdutils;
-  MetadataManager &MDManager = MetadataManager::getMetadataManager();
-
-  for (const llvm::GlobalVariable &v : M.globals()) {
+void VRAGlobalStore::harvestValueInfo(Module &m) {
+  for (GlobalVariable &v : m.globals()) {
     // retrieve info about global var v, if any
-    const InputInfo *II = MDManager.retrieveInputInfo(v);
-    if (II && isValidRange(II->IRange.get())) {
-      auto SN = std::make_shared<VRAScalarNode>(
-          make_range(II->IRange->Min, II->IRange->Max, II->isFinal()));
-      UserInput[&v] = SN;
-      DerivedRanges[&v] = std::make_shared<VRAPtrNode>(SN);
-    } else if (const StructInfo *SI = MDManager.retrieveStructInfo(v)) {
-      auto SN = std::static_ptr_cast<VRARangeNode>(
-          harvestStructMD(SI, fullyUnwrapPointerOrArrayType(v.getType())));
-      UserInput[&v] = SN;
-      DerivedRanges[&v] = SN;
+    std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(v);
+    if (valueInfo) {
+      auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
+      if (scalarInfo && isValidRange(scalarInfo->range.get())) {
+        UserInput[&v] = scalarInfo;
+        DerivedRanges[&v] = std::make_shared<PointerInfo>(scalarInfo);
+      } else if (auto structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
+        UserInput[&v] = structInfo;
+        DerivedRanges[&v] = structInfo;
+      }
     } else if (v.getValueType()->isStructTy()) {
-      DerivedRanges[&v] = std::make_shared<VRAStructNode>();
+      DerivedRanges[&v] = StructInfo::constructFromLLVMType(v.getValueType());
     } else {
-      NodePtrT Const = fetchConstant(&v);
-      if (Const && Const->getKind() == VRANode::VRAScalarNodeK)
-        DerivedRanges[&v] = std::make_shared<VRAPtrNode>(Const);
-      else if (Const && Const->getKind() == VRANode::VRAPtrNodeK)
-        DerivedRanges[&v] = Const;
+      std::shared_ptr<ValueInfo> constInfo = fetchConstant(&v);
+      if (constInfo && isa<ScalarInfo>(constInfo.get()))
+        DerivedRanges[&v] = std::make_shared<PointerInfo>(constInfo);
+      else if (constInfo && isa<PointerInfo>(constInfo.get()))
+        DerivedRanges[&v] = constInfo;
       else
-        DerivedRanges[&v] = std::make_shared<VRAPtrNode>();
+        DerivedRanges[&v] = std::make_shared<PointerInfo>(nullptr);
     }
   }
 
-  for (llvm::Function &f : M.functions()) {
+  for (Function &f : m.functions()) {
     if (f.empty())
       continue;
-
     // retrieve info about function parameters
-    SmallVector<mdutils::MDInfo *, 5U> argsII;
-    MDManager.retrieveArgumentInputInfo(f, argsII);
-    SmallVector<int, 5U> argsW;
-    MetadataManager::retrieveInputInfoInitWeightMetadata(&f, argsW);
-    auto itII = argsII.begin();
-    auto itW = argsW.begin();
-    for (const Argument &formal_arg : f.args()) {
-      if (itII == argsII.end())
-        break;
-      if (itW != argsW.end()) {
-        if (*itW == 1U) {
-          if (auto UINode = harvestStructMD(*itII,
-                                            fullyUnwrapPointerOrArrayType(formal_arg.getType()))) {
-            UserInput[&formal_arg] = std::static_ptr_cast<VRARangeNode>(UINode);
-          }
-        }
-        ++itW;
-      } else {
-        if (auto UINode = harvestStructMD(*itII,
-                                          fullyUnwrapPointerOrArrayType(formal_arg.getType()))) {
-          UserInput[&formal_arg] = std::static_ptr_cast<VRARangeNode>(UINode);
+    for (Argument &arg : f.args()) {
+      int argWeight = TaffoInfo::getInstance().getValueWeight(arg);
+      if (argWeight == 1) {
+        if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg)) {
+          if (std::shared_ptr<PointerInfo> argPointerInfo = std::dynamic_ptr_cast<PointerInfo>(argInfo))
+            UserInput[&arg] = argPointerInfo->getUnwrappedInfo();
+          else
+            UserInput[&arg] = std::static_ptr_cast<ValueInfoWithRange>(argInfo);
         }
       }
-      ++itII;
     }
 
     // retrieve info about instructions, for each basic block bb
-    for (const llvm::BasicBlock &bb : f) {
-      for (const llvm::Instruction &i : bb) {
+    for (BasicBlock &bb : f) {
+      for (Instruction &inst : bb) {
         // fetch info about Instruction i
-        MDInfo *MDI = MDManager.retrieveMDInfo(&i);
-        if (!MDI)
+        std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst);
+        if (!valueInfo)
           continue;
         // only retain info of instruction i if its weight is lesser than
         // the weight of all of its parents
-        int weight = MDManager.retrieveInputInfoInitWeightMetadata(&i);
+        int weight = TaffoInfo::getInstance().getValueWeight(inst);
         bool root = true;
         if (weight > 0) {
-          if (isa<AllocaInst>(i)) {
+          if (isa<AllocaInst>(inst)) {
             // Kludge for alloca not to be always roots
             root = false;
           }
-          for (auto &v : i.operands()) {
-            int parentWeight = -1;
-            if (Argument *a = dyn_cast<Argument>(v.get())) {
-              parentWeight = argsW[a->getArgNo()];
-            } else if (isa<Instruction>(v.get()) || isa<GlobalVariable>(v.get())) {
-              parentWeight = MDManager.retrieveInputInfoInitWeightMetadata(v.get());
-            } else {
+          for (auto &u : inst.operands()) {
+            Value *v = u.get();
+            int parentWeight;
+            if (isa<Instruction>(v) || isa<GlobalVariable>(v) || isa<Argument>(v))
+              parentWeight = TaffoInfo::getInstance().getValueWeight(*v);
+            else
               continue;
-            }
             // only consider parameters with the same metadata
-            MDInfo *MDIV = MDManager.retrieveMDInfo(v.get());
-            if (MDIV != MDI)
+            std::shared_ptr<ValueInfo> parentInfo = TaffoInfo::getInstance().getValueInfo(*v);
+            if (parentInfo != valueInfo)
               continue;
             if (parentWeight < weight) {
               root = false;
@@ -142,19 +116,14 @@ void VRAGlobalStore::harvestMetadata(Module &M)
         if (!root)
           continue;
         LLVM_DEBUG(Logger->lineHead();
-                   dbgs() << " Considering input metadata of " << i << " (weight=" << weight << ")\n");
-        if (InputInfo *II = dyn_cast<InputInfo>(MDI)) {
-          if (isValidRange(II->IRange.get())) {
-            const llvm::Value *i_ptr = &i;
-            UserInput[i_ptr] = std::make_shared<VRAScalarNode>(
-                make_range(II->IRange->Min, II->IRange->Max, II->isFinal()));
-          }
-        } else if (StructInfo *SI = dyn_cast<StructInfo>(MDI)) {
-          if (!i.getType()->isVoidTy()) {
-            const llvm::Value *i_ptr = &i;
-            UserInput[i_ptr] = std::static_ptr_cast<VRARangeNode>(
-                harvestStructMD(SI, fullyUnwrapPointerOrArrayType(i_ptr->getType())));
-          }
+                   dbgs() << " Considering input valueInfo of " << inst << " (weight=" << weight << ")\n");
+        if (auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
+          if (isValidRange(scalarInfo->range.get()))
+            UserInput[&inst] = scalarInfo;
+        }
+        else if (auto structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
+          if (!inst.getType()->isVoidTy())
+            UserInput[&inst] = structInfo;
         }
       }
     }
@@ -163,105 +132,44 @@ void VRAGlobalStore::harvestMetadata(Module &M)
   return;
 }
 
-NodePtrT
-VRAGlobalStore::harvestStructMD(const mdutils::MDInfo *MD, const llvm::Type *T)
-{
-  using namespace mdutils;
-  if (MD == nullptr) {
-    return nullptr;
-
-  } else if (T->isArrayTy()) {
-    return harvestStructMD(MD, T->getArrayElementType());
-
-  } else if (T->isPointerTy() && !T->getPointerElementType()->isStructTy()) {
-    return std::make_shared<VRAPtrNode>(harvestStructMD(MD, T->getPointerElementType()));
-
-  } else if (const InputInfo *II = llvm::dyn_cast<InputInfo>(MD)) {
-    if (isValidRange(II->IRange.get()))
-      return std::make_shared<VRAScalarNode>(
-          make_range(II->IRange->Min, II->IRange->Max, II->isFinal()));
-    else
-      return nullptr;
-
-  } else if (const StructInfo *SI = llvm::dyn_cast<StructInfo>(MD)) {
-    if (T->isPointerTy())
-      T = T->getPointerElementType();
-    assert(T->isStructTy());
-
-    llvm::SmallVector<NodePtrT, 4U> Fields;
-    unsigned Idx = 0;
-    for (auto it = SI->begin(); it != SI->end(); it++) {
-      Fields.push_back(harvestStructMD(it->get(), T->getStructElementType(Idx)));
-      ++Idx;
-    }
-
-    return std::make_shared<VRAStructNode>(Fields);
-  }
-
-  llvm_unreachable("unknown type of MDInfo");
-}
-
-void VRAGlobalStore::saveResults(llvm::Module &M)
-{
-  using namespace mdutils;
-  MetadataManager &MDManager = MetadataManager::getMetadataManager();
-  for (llvm::GlobalVariable &v : M.globals()) {
-    const RangeNodePtrT range = fetchRangeNode(&v);
-    if (range) {
-      // retrieve info about global var v, if any
-      if (MDInfo *mdi = MDManager.retrieveMDInfo(&v)) {
-        std::shared_ptr<MDInfo> cpymdi(mdi->clone());
-        updateMDInfo(cpymdi, range);
-        MDManager.setMDInfoMetadata(&v, cpymdi.get());
+void VRAGlobalStore::saveResults(Module &m) {
+  for (GlobalVariable &v : m.globals()) {
+    if (const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange = fetchRangeNode(&v)) {
+      // retrieve existing info about global var v, if any
+      if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(v)) {
+        std::shared_ptr<ValueInfo> copiedValueInfo = valueInfo->clone();
+        updateValueInfo(copiedValueInfo, valueInfoWithRange);
+        TaffoInfo::getInstance().setValueInfo(v, copiedValueInfo);
       } else {
-        std::shared_ptr<MDInfo> newmdi = toMDInfo(range);
-        MDManager.setMDInfoMetadata(&v, newmdi.get());
+        std::shared_ptr<ValueInfo> newValueInfo = valueInfoWithRange;
+        TaffoInfo::getInstance().setValueInfo(v, newValueInfo);
       }
     }
   } // end globals
 
-  for (Function &f : M.functions()) {
-    // arg range
-    SmallVector<MDInfo *, 5U> argsII;
-    MDManager.retrieveArgumentInputInfo(f, argsII);
-    if (argsII.size() == f.getFunctionType()->getNumParams()) {
-      /* argsII.size() != f.getNumOperands() when there was no metadata
-       * on the arguments in the first place */
-      SmallVector<std::shared_ptr<MDInfo>, 5U> newII;
-      newII.reserve(f.arg_size());
-      auto argsIt = argsII.begin();
-      for (Argument &arg : f.args()) {
-        if (const RangeNodePtrT range = fetchRangeNode(&arg)) {
-          if (argsIt != argsII.end() && *argsIt != nullptr) {
-            std::shared_ptr<MDInfo> cpymdi((*argsIt)->clone());
-            updateMDInfo(cpymdi, range);
-            newII.push_back(cpymdi);
-            *argsIt = cpymdi.get();
-          } else {
-            std::shared_ptr<MDInfo> newmdi = toMDInfo(range);
-            newII.push_back(newmdi);
-            *argsIt = newmdi.get();
-          }
-        }
-        ++argsIt;
+  for (Function &f : m.functions()) {
+    for (Argument &arg : f.args())
+      if (const std::shared_ptr<ValueInfoWithRange> argInfoWithRange = fetchRangeNode(&arg)) {
+        if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg))
+          updateValueInfo(argInfo, argInfoWithRange);
+        else
+          TaffoInfo::getInstance().setValueInfo(arg, argInfoWithRange);
       }
-      MDManager.setArgumentInputInfoMetadata(f, argsII);
-    }
 
     // retrieve info about instructions, for each basic block bb
     for (BasicBlock &bb : f) {
-      for (Instruction &i : bb) {
-        setConstRangeMetadata(MDManager, i);
-        if (i.getOpcode() == llvm::Instruction::Store)
+      for (Instruction &inst : bb) {
+        setConstRangeMetadata(inst);
+        if (inst.getOpcode() == Instruction::Store)
           continue;
-        if (const RangeNodePtrT range = fetchRangeNode(&i)) {
-          if (MDInfo *mdi = MDManager.retrieveMDInfo(&i)) {
-            std::shared_ptr<MDInfo> cpymdi(mdi->clone());
-            updateMDInfo(cpymdi, range);
-            MDManager.setMDInfoMetadata(&i, cpymdi.get());
-          } else if (std::shared_ptr<MDInfo> newmdi = toMDInfo(range)) {
-            if (std::isa_ptr<InputInfo>(newmdi) || fullyUnwrapPointerOrArrayType(i.getType())->isStructTy()) {
-              MDManager.setMDInfoMetadata(&i, newmdi.get());
+        if (const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange = fetchRangeNode(&inst)) {
+          if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst)) {
+            std::shared_ptr<ValueInfo> copiedValueInfo = valueInfo->clone();
+            updateValueInfo(copiedValueInfo, valueInfoWithRange);
+            TaffoInfo::getInstance().setValueInfo(inst, copiedValueInfo);
+          } else if (std::shared_ptr<ValueInfo> newValueInfo = valueInfoWithRange) {
+            if (std::isa_ptr<ScalarInfo>(newValueInfo) || getUnwrappedType(&inst)->isStructTy()) {
+              TaffoInfo::getInstance().setValueInfo(inst, newValueInfo);
             }
           }
         }
@@ -271,62 +179,29 @@ void VRAGlobalStore::saveResults(llvm::Module &M)
   return;
 }
 
-std::shared_ptr<mdutils::MDInfo>
-VRAGlobalStore::toMDInfo(const RangeNodePtrT r)
-{
-  using namespace mdutils;
-  if (r == nullptr)
-    return nullptr;
-  if (const std::shared_ptr<VRAScalarNode> Scalar =
-          std::dynamic_ptr_cast<VRAScalarNode>(r)) {
-    if (range_ptr_t SRange = Scalar->getRange()) {
-      return std::make_shared<InputInfo>(nullptr,
-                                         std::make_shared<Range>(SRange->min(), SRange->max()),
-                                         nullptr);
-    }
-    return nullptr;
-  } else if (const std::shared_ptr<VRAStructNode> structr =
-                 std::dynamic_ptr_cast<VRAStructNode>(r)) {
-    SmallVector<std::shared_ptr<mdutils::MDInfo>, 4U> fields;
-    fields.reserve(structr->fields().size());
-    for (const NodePtrT& f : structr->fields()) {
-      fields.push_back(toMDInfo(fetchRange(f)));
-    }
-    return std::make_shared<StructInfo>(fields);
-  }
-  llvm_unreachable("Unknown range type.");
-}
-
-void VRAGlobalStore::updateMDInfo(std::shared_ptr<mdutils::MDInfo> mdi,
-                                  const RangeNodePtrT r)
-{
-  using namespace mdutils;
-  if (mdi == nullptr || r == nullptr)
+void VRAGlobalStore::updateValueInfo(
+  const std::shared_ptr<ValueInfo> &valueInfo, const std::shared_ptr<ValueInfoWithRange> &valueInfoWithRange) {
+  if (!valueInfo || !valueInfoWithRange)
     return;
-  if (const std::shared_ptr<VRAScalarNode> Scalar =
-          std::dynamic_ptr_cast<VRAScalarNode>(r)) {
-    if (range_ptr_t SRange = Scalar->getRange()) {
-      if (std::shared_ptr<InputInfo> ii = std::dynamic_ptr_cast<InputInfo>(mdi)) {
-        ii->IRange.reset(new Range(SRange->min(), SRange->max()));
+  if (const std::shared_ptr<ScalarInfo> newScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfoWithRange)) {
+    if (std::shared_ptr<Range> range = newScalarInfo->range) {
+      if (std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
+        scalarInfo->range = std::make_shared<Range>(*range);
       } else {
         LLVM_DEBUG(dbgs() << "WARNING: mismatch between computed range type and metadata.\n");
       }
     }
-  } else if (const std::shared_ptr<VRAStructNode> structr =
-                 std::dynamic_ptr_cast<VRAStructNode>(r)) {
-    if (std::shared_ptr<StructInfo> si = std::dynamic_ptr_cast<StructInfo>(mdi)) {
-      auto derfield_it = structr->fields().begin();
-      auto derfield_end = structr->fields().end();
-      for (StructInfo::size_type i = 0; i < si->size(); ++i) {
-        if (derfield_it == derfield_end)
+  } else if (const std::shared_ptr<StructInfo> newStructInfo = std::dynamic_ptr_cast<StructInfo>(valueInfoWithRange)) {
+    if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
+      auto newFieldsIter = newStructInfo->begin();
+      for (int i = 0; i < structInfo->numFields(); i++) {
+        if (newFieldsIter == newStructInfo->end())
           break;
-        std::shared_ptr<mdutils::MDInfo> mdfield = si->getField(i);
-        if (mdfield)
-          updateMDInfo(mdfield, fetchRange(*derfield_it));
+        if (std::shared_ptr<ValueInfo> field = structInfo->getField(i))
+          updateValueInfo(field, fetchRange(*newFieldsIter));
         else
-          si->setField(i, toMDInfo(fetchRange(*derfield_it)));
-
-        ++derfield_it;
+          structInfo->setField(i, fetchRange(*newFieldsIter));
+        newFieldsIter++;
       }
     }
   } else {
@@ -334,236 +209,189 @@ void VRAGlobalStore::updateMDInfo(std::shared_ptr<mdutils::MDInfo> mdi,
   }
 }
 
-void VRAGlobalStore::setConstRangeMetadata(mdutils::MetadataManager &MDManager,
-                                           llvm::Instruction &i)
-{
-  using namespace mdutils;
-  unsigned opCode = i.getOpcode();
-  if (!(i.isBinaryOp() || i.isUnaryOp() || opCode == Instruction::Store || opCode == Instruction::Call || opCode == Instruction::Invoke))
+void VRAGlobalStore::setConstRangeMetadata(Instruction &inst) {
+  unsigned opCode = inst.getOpcode();
+  if (!(inst.isBinaryOp() || inst.isUnaryOp() || opCode == Instruction::Store || opCode == Instruction::Call || opCode == Instruction::Invoke))
     return;
 
-  bool hasConstOp = false;
-  for (const Value *op : i.operands()) {
-    if (isa<Constant>(op)) {
-      hasConstOp = true;
-      break;
+  for (Value *op : inst.operands()) {
+    if (ConstantFP *floatConst = dyn_cast<ConstantFP>(op)) {
+      APFloat apf = floatConst->getValueAPF();
+      bool discard;
+      apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToAway, &discard);
+      double value = apf.convertToDouble();
+      auto constInfo = std::make_shared<ScalarInfo>(
+          floatConst->getType(),
+          nullptr,
+          std::make_shared<Range>(value, value));
+      TaffoInfo::getInstance().setConstantInfo(*floatConst, inst, constInfo);
     }
-  }
-
-  SmallVector<std::unique_ptr<InputInfo>, 2U> CInfoPtr;
-  SmallVector<InputInfo *, 2U> CInfo;
-  CInfo.reserve(i.getNumOperands());
-  if (hasConstOp) {
-    for (const Value *op : i.operands()) {
-      if (const ConstantFP *c = dyn_cast<ConstantFP>(op)) {
-        APFloat apf = c->getValueAPF();
-        bool discard;
-        apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToAway, &discard);
-        double value = apf.convertToDouble();
-        CInfoPtr.push_back(std::unique_ptr<InputInfo>(new InputInfo(nullptr,
-                                                                    std::make_shared<Range>(value, value),
-                                                                    nullptr)));
-        CInfo.push_back(CInfoPtr.back().get());
-      } else {
-        CInfo.push_back(nullptr);
-      }
-    }
-    MDManager.setConstInfoMetadata(i, CInfo);
   }
 }
 
+std::shared_ptr<Range> VRAGlobalStore::fetchRange(const Value *v) {
+  if (const std::shared_ptr<Range> derived = VRAStore::fetchRange(v))
+    return derived;
 
-const range_ptr_t
-VRAGlobalStore::fetchRange(const llvm::Value *V)
-{
-  if (const range_ptr_t Derived = VRAStore::fetchRange(V)) {
-    return Derived;
-  }
-
-  if (const RangeNodePtrT InputRange = getUserInput(V)) {
-    saveValueRange(V, InputRange);
-    if (const std::shared_ptr<VRAScalarNode> InputScalar =
-            std::dynamic_ptr_cast<VRAScalarNode>(InputRange)) {
-      return InputScalar->getRange();
-    }
+  if (const std::shared_ptr<ValueInfoWithRange> inputRange = getUserInput(v)) {
+    saveValueRange(v, inputRange);
+    if (const std::shared_ptr<ScalarInfo> InputScalar = std::dynamic_ptr_cast<ScalarInfo>(inputRange))
+      return InputScalar->range;
   }
 
   return nullptr;
 }
 
-NodePtrT
-VRAGlobalStore::getNode(const llvm::Value *v)
-{
-  NodePtrT Node = VRAStore::getNode(v);
-  if (Node)
-    return Node;
+std::shared_ptr<ValueInfo> VRAGlobalStore::getNode(const Value *v) {
+  std::shared_ptr<ValueInfo> valueInfo = VRAStore::getNode(v);
+  if (valueInfo)
+    return valueInfo;
 
-  if (const llvm::Constant *Const = llvm::dyn_cast_or_null<llvm::Constant>(v)) {
-    NodePtrT K = fetchConstant(Const);
-    DerivedRanges[v] = K;
-    return K;
+  if (const Constant *constant = dyn_cast_or_null<Constant>(v)) {
+    std::shared_ptr<ValueInfo> constantInfo = fetchConstant(constant);
+    DerivedRanges[v] = constantInfo;
+    return constantInfo;
   }
 
   return nullptr;
 }
 
-const RangeNodePtrT
-VRAGlobalStore::fetchRangeNode(const llvm::Value *V)
-{
-  const RangeNodePtrT Derived = VRAStore::fetchRangeNode(V);
+std::shared_ptr<ValueInfoWithRange> VRAGlobalStore::fetchRangeNode(const Value *v) {
+  const std::shared_ptr<ValueInfoWithRange> derived = VRAStore::fetchRangeNode(v);
 
-  if (const RangeNodePtrT InputRange = getUserInput(V)) {
-    if (Derived && std::isa_ptr<VRAStructNode>(Derived)) {
-      return fillRangeHoles(Derived, InputRange);
-    }
-    const auto ScalarInput = std::dynamic_ptr_cast<VRAScalarNode>(InputRange);
-    if (ScalarInput && ScalarInput->isFinal()) {
-      return InputRange;
-    }
+  if (const std::shared_ptr<ValueInfoWithRange> inputRange = getUserInput(v)) {
+    if (derived && std::isa_ptr<StructInfo>(derived))
+      return fillRangeHoles(derived, inputRange);
+
+    const auto scalarInput = std::dynamic_ptr_cast<ScalarInfo>(inputRange);
+    if (scalarInput && scalarInput->isFinal())
+      return inputRange;
   }
 
-  return Derived;
+  return derived;
 }
 
-RangeNodePtrT
-VRAGlobalStore::getUserInput(const llvm::Value *V) const
-{
-  auto UIt = UserInput.find(V);
-  if (UIt != UserInput.end()) {
-    return UIt->second;
-  }
+std::shared_ptr<ValueInfoWithRange> VRAGlobalStore::getUserInput(const Value *v) const {
+  auto iter = UserInput.find(v);
+  if (iter != UserInput.end())
+    return iter->second;
   return nullptr;
 }
 
-NodePtrT
-VRAGlobalStore::fetchConstant(const llvm::Constant *kval)
-{
-  if (const llvm::ConstantInt *int_i = dyn_cast<llvm::ConstantInt>(kval)) {
-    const num_t k = static_cast<num_t>(int_i->getSExtValue());
-    return std::make_shared<VRAScalarNode>(make_range(k, k));
+std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant *constant) {
+  if (const ConstantInt *intConst = dyn_cast<ConstantInt>(constant)) {
+    const double val = static_cast<double>(intConst->getSExtValue());
+    return std::make_shared<ScalarInfo>(intConst->getType(), nullptr, std::make_shared<Range>(val, val));
   }
-  if (const llvm::ConstantFP *fp_i = dyn_cast<llvm::ConstantFP>(kval)) {
-    APFloat tmp = fp_i->getValueAPF();
+  if (const ConstantFP *floatConst = dyn_cast<ConstantFP>(constant)) {
+    APFloat floatVal = floatConst->getValueAPF();
     bool losesInfo;
-    tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
-    const num_t k = static_cast<num_t>(tmp.convertToDouble());
-    return std::make_shared<VRAScalarNode>(make_range(k, k));
+    floatVal.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
+    const double doubleVal = floatVal.convertToDouble();
+    return std::make_shared<ScalarInfo>(floatConst->getType(), nullptr, std::make_shared<Range>(doubleVal, doubleVal));
   }
-  if (isa<llvm::ConstantTokenNone>(kval)) {
-    LLVM_DEBUG(Logger->logInfo("Warning: treating llvm::ConstantTokenNone as 0"));
-    return std::make_shared<VRAScalarNode>(make_range(0, 0));
+  if (isa<ConstantTokenNone>(constant)) {
+    LLVM_DEBUG(Logger->logInfo("Warning: treating ConstantTokenNone as 0"));
+    return std::make_shared<ScalarInfo>(constant->getType(), nullptr, std::make_shared<Range>(0, 0));
   }
-  if (isa<llvm::ConstantPointerNull>(kval)) {
-    LLVM_DEBUG(Logger->logInfo("Warning: found llvm::ConstantPointerNull"));
-    return std::make_shared<VRAPtrNode>();
+  if (isa<ConstantPointerNull>(constant)) {
+    LLVM_DEBUG(Logger->logInfo("Warning: found ConstantPointerNull"));
+    return std::make_shared<PointerInfo>(nullptr);
   }
-  if (isa<llvm::UndefValue>(kval)) {
-    LLVM_DEBUG(Logger->logInfo("Warning: treating llvm::UndefValue as nullptr"));
+  if (isa<UndefValue>(constant)) {
+    LLVM_DEBUG(Logger->logInfo("Warning: treating UndefValue as nullptr"));
     return nullptr;
   }
-  if (const llvm::ConstantAggregateZero *agg_zero_i = dyn_cast<llvm::ConstantAggregateZero>(kval)) {
-    llvm::Type *zero_type = agg_zero_i->getType();
-    if (llvm::dyn_cast<llvm::StructType>(zero_type)) {
-      llvm::SmallVector<NodePtrT, 1U> Fields;
-      const unsigned num_elements = agg_zero_i->getElementCount().getFixedValue();
+  if (const ConstantAggregateZero *zeroAggConst = dyn_cast<ConstantAggregateZero>(constant)) {
+    Type *zeroAggConstType = zeroAggConst->getType();
+    if (isa<StructType>(zeroAggConstType)) {
+      SmallVector<std::shared_ptr<ValueInfo>, 2> Fields;
+      const unsigned num_elements = zeroAggConst->getElementCount().getFixedValue();
       Fields.reserve(num_elements);
-      for (unsigned i = 0; i < num_elements; i++) {
-        Fields.push_back(fetchConstant(agg_zero_i->getElementValue(i)));
-      }
-      return std::make_shared<VRAStructNode>(Fields);
-    } else if (dyn_cast<llvm::ArrayType>(zero_type)) {
+      for (unsigned i = 0; i < num_elements; i++)
+        Fields.push_back(fetchConstant(zeroAggConst->getElementValue(i)));
+      return std::make_shared<StructInfo>(cast<StructType>(zeroAggConstType), Fields);
+    }
+    if (isa<ArrayType>(zeroAggConstType) || isa<VectorType>(zeroAggConstType)) {
       // arrayType or VectorType
-      const unsigned any_value = 0U;
-      return fetchConstant(agg_zero_i->getElementValue(any_value));
-    } else if (dyn_cast<llvm::VectorType>(zero_type)) {
-      // arrayType or VectorType
-      const unsigned any_value = 0U;
-      return fetchConstant(agg_zero_i->getElementValue(any_value));
+      return fetchConstant(zeroAggConst->getElementValue(0U));
     }
     LLVM_DEBUG(Logger->logInfo("Found aggrated zeros which is neither struct neither array neither vector"));
     return nullptr;
   }
-  if (const llvm::ConstantDataSequential *seq =
-          dyn_cast<llvm::ConstantDataSequential>(kval)) {
-    const unsigned num_elements = seq->getNumElements();
-    range_ptr_t seq_range = nullptr;
-    for (unsigned i = 0; i < num_elements; i++) {
-      range_ptr_t other_range =
-          std::static_ptr_cast<VRAScalarNode>(fetchConstant(seq->getElementAsConstant(i)))->getRange();
-      seq_range = getUnionRange(seq_range, other_range);
+  if (const ConstantDataSequential *constSeq = dyn_cast<ConstantDataSequential>(constant)) {
+    const unsigned numElements = constSeq->getNumElements();
+    std::shared_ptr<Range> seqRange = nullptr;
+    for (unsigned i = 0; i < numElements; i++) {
+      std::shared_ptr<Range> otherRange = std::static_ptr_cast<ScalarInfo>(fetchConstant(constSeq->getElementAsConstant(i)))->range;
+      seqRange = getUnionRange(seqRange, otherRange);
     }
-    return std::make_shared<VRAScalarNode>(seq_range);
+    return std::make_shared<ScalarInfo>(constSeq->getType(), nullptr, seqRange);
   }
-  if (isa<llvm::ConstantData>(kval)) {
+  if (isa<ConstantData>(constant)) {
     // FIXME should never happen -- all subcases handled before
-    LLVM_DEBUG(Logger->logInfo("Extract value from llvm::ConstantData not implemented yet"));
+    LLVM_DEBUG(Logger->logInfo("Extract value from ConstantData not implemented yet"));
     return nullptr;
   }
-  if (const llvm::ConstantExpr *cexp_i = dyn_cast<llvm::ConstantExpr>(kval)) {
-    if (isa<GEPOperator>(cexp_i)) {
-      llvm::Value *pointer_op = cexp_i->getOperand(0U);
-      llvm::Type *source_element_type =
-          llvm::cast<llvm::PointerType>(pointer_op->getType()->getScalarType())->getPointerElementType();
-      llvm::SmallVector<unsigned, 1U> offset;
-      if (extractGEPOffset(source_element_type,
-                           llvm::iterator_range<llvm::User::const_op_iterator>(cexp_i->op_begin() + 1,
-                                                                               cexp_i->op_end()),
-                           offset)) {
-        return std::make_shared<VRAGEPNode>(getNode(pointer_op), offset);
+  if (const ConstantExpr *constExpr = dyn_cast<ConstantExpr>(constant)) {
+    if (auto gepOperator = dyn_cast<GEPOperator>(constExpr)) {
+      Value *ptrOperand = gepOperator->getOperand(0);
+      SmallVector<unsigned, 1> offset;
+      if (extractGEPOffset(gepOperator->getSourceElementType(),
+        iterator_range(constExpr->op_begin() + 1, constExpr->op_end()), offset)) {
+        return std::make_shared<GEPInfo>(getNode(ptrOperand), offset, constExpr->getType());
       }
     }
-    LLVM_DEBUG(Logger->logInfo("Could not fold a llvm::ConstantExpr"));
+    LLVM_DEBUG(Logger->logInfo("Could not fold a ConstantExpr"));
     return nullptr;
   }
-  if (const llvm::ConstantAggregate *aggr_i = dyn_cast<llvm::ConstantAggregate>(kval)) {
+  if (const ConstantAggregate *constAggr = dyn_cast<ConstantAggregate>(constant)) {
     // TODO implement
-    if (dyn_cast<llvm::ConstantStruct>(aggr_i)) {
+    if (dyn_cast<ConstantStruct>(constAggr)) {
       LLVM_DEBUG(Logger->logInfo("Constant structs not supported yet"));
       return nullptr;
-    } else {
-      // ConstantArray or ConstantVector
-      RangeNodePtrT res = nullptr;
-      for (unsigned idx = 0U; idx < aggr_i->getNumOperands(); ++idx) {
-        RangeNodePtrT element = std::dynamic_ptr_cast_or_null<VRARangeNode>(
-            fetchConstant(aggr_i->getAggregateElement(idx)));
-        res = getUnionRange(res, element);
-      }
-      return res;
     }
+    // ConstantArray or ConstantVector
+    std::shared_ptr<ValueInfoWithRange> range = nullptr;
+    for (unsigned idx = 0; idx < constAggr->getNumOperands(); idx++) {
+      std::shared_ptr<ValueInfoWithRange> elementRange =
+        std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(fetchConstant(constAggr->getAggregateElement(idx)));
+      range = getUnionRange(range, elementRange);
+    }
+    return range;
     return nullptr;
   }
-  if (isa<llvm::BlockAddress>(kval)) {
-    LLVM_DEBUG(Logger->logInfo("Could not fetch range from llvm::BlockAddress"));
+  if (isa<BlockAddress>(constant)) {
+    LLVM_DEBUG(Logger->logInfo("Could not fetch range from BlockAddress"));
     return nullptr;
   }
-  if (isa<llvm::GlobalValue>(kval)) {
-    if (const llvm::GlobalVariable *gvar_i = dyn_cast<llvm::GlobalVariable>(kval)) {
-      if (gvar_i->hasInitializer()) {
-        const llvm::Constant *init_val = gvar_i->getInitializer();
-        if (init_val) {
-          return std::make_shared<VRAPtrNode>(fetchConstant(init_val));
-        }
+  if (isa<GlobalValue>(constant)) {
+    if (const auto *globalVarConst = dyn_cast<GlobalVariable>(constant)) {
+      if (globalVarConst->hasInitializer()) {
+        const Constant *initVal = globalVarConst->getInitializer();
+        if (initVal)
+          return std::make_shared<PointerInfo>(fetchConstant(initVal));
       }
       LLVM_DEBUG(Logger->logInfo("Could not derive range from a Global Variable"));
       return nullptr;
     }
-    if (const llvm::GlobalAlias *alias_i = dyn_cast<llvm::GlobalAlias>(kval)) {
+    if (const auto *globalAlias = dyn_cast<GlobalAlias>(constant)) {
       LLVM_DEBUG(Logger->logInfo("Found alias"));
-      const llvm::Constant *aliasee = alias_i->getAliasee();
-      return (aliasee) ? fetchConstant(aliasee) : nullptr;
+      const Constant *aliasee = globalAlias->getAliasee();
+      return aliasee ? fetchConstant(aliasee) : nullptr;
     }
-    if (isa<llvm::Function>(kval)) {
+    if (isa<Function>(constant)) {
       LLVM_DEBUG(Logger->logInfo("Could not derive range from a Constant Function"));
       return nullptr;
     }
-    if (isa<llvm::GlobalIFunc>(kval)) {
+    if (isa<GlobalIFunc>(constant)) {
       LLVM_DEBUG(Logger->logInfo("Could not derive range from a Function declaration"));
       return nullptr;
     }
     // this line should never be reached
-    LLVM_DEBUG(Logger->logInfo("Could not fetch range from llvm::GlobalValue"));
+    LLVM_DEBUG(Logger->logInfo("Could not fetch range from GlobalValue"));
     return nullptr;
   }
-  LLVM_DEBUG(Logger->logInfo("Could not fetch range from llvm::Constant"));
+  LLVM_DEBUG(Logger->logInfo("Could not fetch range from Constant"));
   return nullptr;
 }

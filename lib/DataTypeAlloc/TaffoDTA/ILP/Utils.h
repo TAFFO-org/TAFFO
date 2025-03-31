@@ -1,6 +1,6 @@
 #pragma once
 
-#include "llvm/IR/Value.h"
+#include <llvm/IR/Value.h>
 #include <string>
 
 #define DEBUG_TYPE "taffo-dta"

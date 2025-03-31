@@ -1,11 +1,11 @@
 #include "TaffoDTA.h"
 #include "ILP/Utils.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/Support/Debug.h"
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Operator.h>
+#include <llvm/Support/Debug.h>
 
 using namespace llvm;
 

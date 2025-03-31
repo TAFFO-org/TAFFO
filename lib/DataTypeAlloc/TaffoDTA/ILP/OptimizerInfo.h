@@ -1,24 +1,15 @@
 #ifndef __TAFFO_DTA_OPTIMIZERINFO_H__
 #define __TAFFO_DTA_OPTIMIZERINFO_H__
 
-#include "InputInfo.h"
-#include "Metadata.h"
-#include "TypeUtils.h"
 #include "TaffoDTA.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
+
+#include <llvm/ADT/Statistic.h>
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner
-{
-using namespace std;
-class OptimizerInfo
-{
+namespace tuner {
+
+class OptimizerInfo {
 public:
   enum OptimizerInfoKind {
     K_Struct,
@@ -51,41 +42,41 @@ private:
 /// Structure containing pointers to Type, Range, and initial Error
 /// of an LLVM Value.
 struct OptimizerScalarInfo : public OptimizerInfo {
-  std::shared_ptr<string> baseName;
+  std::shared_ptr<std::string> baseName;
   unsigned minBits;
   unsigned maxBits;
   unsigned totalBits;
   bool isSigned;
-  string overridedEnob;
-  shared_ptr<mdutils::Range> range;
+  std::string overridedEnob;
+  std::shared_ptr<taffo::Range> range;
 
   bool referToConstant;
 
 
-  OptimizerScalarInfo(string _variableName, unsigned _minBits, unsigned _maxBits, unsigned _totalBits,
-                      bool _isSigned, mdutils::Range _range, string _overriddenEnob)
+  OptimizerScalarInfo(std::string _variableName, unsigned _minBits, unsigned _maxBits, unsigned _totalBits,
+                      bool _isSigned, taffo::Range _range, std::string _overriddenEnob)
       : OptimizerInfo(K_Field), referToConstant(false)
   {
     minBits = _minBits;
     maxBits = _maxBits;
-    baseName = make_shared<string>(_variableName);
+    baseName = make_shared<std::string>(_variableName);
     totalBits = _totalBits;
     isSigned = _isSigned;
-    range = make_shared<mdutils::Range>(_range);
+    range = std::make_shared<taffo::Range>(_range);
     overridedEnob = _overriddenEnob;
   }
 
-  shared_ptr<mdutils::Range> getRange()
+  std::shared_ptr<taffo::Range> getRange()
   {
     return range;
   }
 
-  const string getBaseName() const
+  const std::string getBaseName() const
   {
     return *baseName.get();
   }
 
-  string getOverridedEnob()
+  std::string getOverridedEnob()
   {
     return overridedEnob;
   }
@@ -122,52 +113,52 @@ struct OptimizerScalarInfo : public OptimizerInfo {
     return maxBits;
   }
 
-  const string getFixedSelectedVariable()
+  const std::string getFixedSelectedVariable()
   {
     return *baseName + "_fixp";
   }
 
-  const string getFloatSelectedVariable()
+  const std::string getFloatSelectedVariable()
   {
     return *baseName + "_float";
   }
 
-  const string getDoubleSelectedVariable()
+  const std::string getDoubleSelectedVariable()
   {
     return *baseName + "_double";
   }
 
-  const string getHalfSelectedVariable()
+  const std::string getHalfSelectedVariable()
   {
     return *baseName + "_Half";
   }
 
-  const string getQuadSelectedVariable()
+  const std::string getQuadSelectedVariable()
   {
     return *baseName + "_Quad";
   }
 
-  const string getFP80SelectedVariable()
+  const std::string getFP80SelectedVariable()
   {
     return *baseName + "_FP80";
   }
 
-  const string getPPC128SelectedVariable()
+  const std::string getPPC128SelectedVariable()
   {
     return *baseName + "_PPC128";
   }
 
-  const string getBF16SelectedVariable()
+  const std::string getBF16SelectedVariable()
   {
     return *baseName + "_BF16";
   }
 
-  const string getFractBitsVariable()
+  const std::string getFractBitsVariable()
   {
     return *baseName + "_fixbits";
   }
 
-  const string getRealEnobVariable()
+  const std::string getRealEnobVariable()
   {
     if (!overridedEnob.empty()) {
       return overridedEnob;
@@ -175,7 +166,7 @@ struct OptimizerScalarInfo : public OptimizerInfo {
     return *baseName + "_enob";
   }
 
-  const string getBaseEnobVariable()
+  const std::string getBaseEnobVariable()
   {
     return *baseName + "_enob";
   }
@@ -190,7 +181,7 @@ struct OptimizerScalarInfo : public OptimizerInfo {
     return isSigned;
   }
 
-  void overrideEnob(string newEnob)
+  void overrideEnob(std::string newEnob)
   {
     overridedEnob = newEnob;
   }
@@ -322,14 +313,14 @@ private:
   std::shared_ptr<OptimizerInfo> optInfo;
 
 public:
-  OptimizerPointerInfo(shared_ptr<OptimizerInfo> pointee)
+  OptimizerPointerInfo(std::shared_ptr<OptimizerInfo> pointee)
       : OptimizerInfo(K_Pointer)
   {
     assert(pointee && "Pointee should not be null!");
     optInfo = pointee;
   }
 
-  const shared_ptr<OptimizerInfo> &getOptInfo() const
+  const std::shared_ptr<OptimizerInfo> &getOptInfo() const
   {
     return optInfo;
   }

@@ -1,14 +1,13 @@
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
+
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/Transforms/Utils/ValueMapper.h>
 #include <map>
 
 using namespace llvm;
@@ -19,22 +18,21 @@ using namespace flttofix;
 
 /// Retrieve the indirect calls converted into trampolines and re-use the
 /// original indirect functions.
-void FloatToFixed::convertIndirectCalls(llvm::Module &m)
-{
+void FloatToFixed::convertIndirectCalls(Module &m) {
   using handler_function = void (FloatToFixed::*)(
-      llvm::CallInst * patchedDirectCall, llvm::Function * indirectFunction);
+      CallInst * patchedDirectCall, Function * indirectFunction);
   const std::map<const std::string, handler_function> indirectCallFunctions = {
       {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}};
 
-  std::vector<llvm::CallInst *> trampolineCalls;
+  std::vector<CallInst *> trampolineCalls;
 
   // Retrieve the trampoline calls using the INDIRECT_METADATA
-  for (llvm::Function &curFunction : m) {
+  for (Function &curFunction : m) {
     for (auto instructionIt = inst_begin(curFunction);
          instructionIt != inst_end(curFunction); instructionIt++) {
       if (auto curCallInstruction =
-              llvm::dyn_cast<llvm::CallInst>(&(*instructionIt))) {
-        if (curCallInstruction->getMetadata(INDIRECT_METADATA)) {
+              dyn_cast<CallInst>(&(*instructionIt))) {
+        if (TaffoInfo::getInstance().isIndirectFunction(*curCallInstruction)) {
           trampolineCalls.push_back(curCallInstruction);
         }
       }
@@ -43,9 +41,7 @@ void FloatToFixed::convertIndirectCalls(llvm::Module &m)
 
   // Convert the trampoline calls
   for (auto trampolineCall : trampolineCalls) {
-    auto *metadata = dyn_cast<ValueAsMetadata>(
-        *trampolineCall->getMetadata(INDIRECT_METADATA)->op_begin());
-    auto *indirectFunction = dyn_cast_or_null<Function>(metadata->getValue());
+    auto *indirectFunction = TaffoInfo::getInstance().getIndirectFunction(*trampolineCall);
 
     if (indirectFunction == nullptr) {
       LLVM_DEBUG(dbgs() << "Blocking the following conversion for failed "
@@ -75,7 +71,7 @@ void FloatToFixed::handleKmpcFork(CallInst *patchedDirectCall,
   // Get the fixp call instruction to use it as an argument for the restored
   // library function
   auto fixpCallInstr = entryBlock->getTerminator()->getPrevNode();
-  assert(llvm::isa<llvm::CallInst>(fixpCallInstr) &&
+  assert(isa<CallInst>(fixpCallInstr) &&
          "expected a CallInst to the outlined function");
   auto fixpCall = cast<CallInst>(fixpCallInstr);
 
@@ -96,4 +92,5 @@ void FloatToFixed::handleKmpcFork(CallInst *patchedDirectCall,
 
   // Remove the patched direct call
   patchedDirectCall->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*patchedDirectCall);
 }

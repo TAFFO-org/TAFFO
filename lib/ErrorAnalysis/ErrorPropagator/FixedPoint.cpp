@@ -15,8 +15,8 @@
 
 #include <cmath>
 #include "FixedPoint.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/ADT/StringExtras.h"
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/ADT/StringExtras.h>
 
 #define DEBUG_TYPE "errorprop"
 

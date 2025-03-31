@@ -1,19 +1,17 @@
-#include "IndirectCallPatcher.h"
-#include "Metadata.h"
-#include "TaffoInitializerPass.h"
-#include "TypeUtils.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "IndirectCallPatcher.hpp"
+
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "TaffoInitializerPass.hpp"
+#include <llvm/ADT/Statistic.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include <unordered_set>
 #include <map>
 
@@ -24,9 +22,7 @@ using namespace llvm;
 
 /// Check recursively whether an unsupported function is called.
 bool containsUnsupportedFunctions(
-    const llvm::Function *function,
-    std::unordered_set<Function *> traversedFunctions)
-{
+    const llvm::Function *function, std::unordered_set<Function *> traversedFunctions) {
   static const std::vector<std::string> prefixBlocklist{"__kmpc_omp_task",
                                                         "__kmpc_reduce"};
 
@@ -37,7 +33,7 @@ bool containsUnsupportedFunctions(
       auto functionName = curCallFunction->getName();
 
       if (any_of(prefixBlocklist, [&](const std::string &prefix) {
-            return functionName.startswith(prefix);
+            return functionName.starts_with(prefix);
           })) {
         return true;
       } else if (traversedFunctions.find(curCallFunction) ==
@@ -57,9 +53,7 @@ bool containsUnsupportedFunctions(
 /// attach the OMP disabled metadata to the the shared variables.
 void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     CallInst *curCallInstruction, const CallBase *curCall,
-                    Function *indirectFunction)
-{
-
+                    Function *indirectFunction) {
   auto microTaskOperand =
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
   auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
@@ -74,15 +68,10 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                          "unsupported parallel region"
                       << *curCallInstruction << "\n");
 
-    auto *constantPointerNull =
-        ConstantPointerNull::get(PointerType::get(Type::getInt32Ty((m.getContext())), 0));
-    MDNode *metadataNode =
-        MDNode::get(m.getContext(), ValueAsMetadata::get(constantPointerNull));
-
     for (auto *sharedArgument = curCall->arg_begin() + 2;
          sharedArgument < curCall->arg_end(); sharedArgument++)
       if (auto *sharedVarInstr = dyn_cast<Instruction>(*sharedArgument))
-        sharedVarInstr->setMetadata(OMP_DISABLED_METADATA, metadataNode);
+        taffo::TaffoInfo::getInstance().disableConversion(*sharedVarInstr);
   };
 
   std::vector<Type *> paramsFunc;
@@ -152,10 +141,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
   trampolineCallInstruction->insertBefore(curCallInstruction);
   trampolineCallInstruction->setDebugLoc(curCallInstruction->getDebugLoc());
 
-  MDNode *indirectFunctionRef = MDNode::get(
-      curCallInstruction->getContext(), ValueAsMetadata::get(indirectFunction));
-  trampolineCallInstruction->setMetadata(INDIRECT_METADATA,
-                                         indirectFunctionRef);
+  TaffoInfo::getInstance().setIndirectFunction(*trampolineCallInstruction, *indirectFunction);
 
   // Save the old instruction to delete it later
   toDelete.push_back(curCallInstruction);
@@ -166,8 +152,7 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
 /// Check if the given call is indirect and handle it with the dedicated handler.
 void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                         CallInst *curCallInstruction, const CallBase *curCall,
-                        Function *indirectFunction)
-{
+                        Function *indirectFunction) {
   using handler_function = void (*)(const llvm::Module &m,
                                     std::vector<llvm::Instruction *> &toDelete,
                                     llvm::CallInst *curCallInstruction,
@@ -211,5 +196,6 @@ void taffo::manageIndirectCalls(llvm::Module &m)
   // iterator
   for (auto inst : toDelete) {
     inst->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*inst);
   }
 }

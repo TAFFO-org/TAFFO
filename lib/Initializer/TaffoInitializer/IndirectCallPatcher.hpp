@@ -1,9 +1,7 @@
-#ifndef TAFFO_INDIRECTCALLPATCHER_H
-#define TAFFO_INDIRECTCALLPATCHER_H
+#ifndef TAFFO_INDIRECTCALLPATCHER_HPP
+#define TAFFO_INDIRECTCALLPATCHER_HPP
 
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/AbstractCallSite.h"
-#include <list>
+#include <llvm/IR/AbstractCallSite.h>
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -20,8 +18,9 @@ namespace taffo
 /// Check whether indirect calls are present in the given module, and patch them with dedicated trampoline calls.
 /// The trampolines enable subsequent passes to better analyze the indirect calls.
 void manageIndirectCalls(llvm::Module &m);
+
 } // namespace taffo
 
 #undef DEBUG_TYPE
 
-#endif // TAFFO_INDIRECTCALLPATCHER_H
+#endif // TAFFO_INDIRECTCALLPATCHER_HPP

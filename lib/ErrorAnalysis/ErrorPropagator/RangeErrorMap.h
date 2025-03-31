@@ -20,10 +20,10 @@
 #include "FixedPoint.h"
 #include "Metadata.h"
 #include "StructErrorMap.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Value.h"
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Value.h>
 #include <map>
 
 #define DEBUG_TYPE "errorprop"

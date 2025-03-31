@@ -11,11 +11,8 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   VRAFunctionStore.cpp
 
   ADDITIONAL_HEADERS
-  PtrCasts.hpp
   RangeOperationsCallWhitelist.hpp
   RangeOperations.hpp
-  Range.hpp
-  RangeNode.hpp
   ValueRangeAnalysis.hpp
   CodeInterpreter.hpp
   VRAStore.hpp
@@ -26,5 +23,5 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
-  )
+)
 set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

@@ -9,13 +9,13 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   CudaKernelPatcher.cpp
 
   ADDITIONAL_HEADERS
-  TaffoInitializerPass.h
-  AnnotationParser.h
-  IndirectCallPatcher.h
-  OpenCLKernelPatcher.h
-  CudaKernelPatcher.h
+  TaffoInitializerPass.hpp
+  AnnotationParser.hpp
+  IndirectCallPatcher.hpp
+  OpenCLKernelPatcher.hpp
+  CudaKernelPatcher.hpp
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoUtils
-  )
+)
 set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

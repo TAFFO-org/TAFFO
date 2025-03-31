@@ -1,23 +1,20 @@
-#include "AnnotationParser.h"
-#include "Metadata.h"
-#include "TaffoInitializerPass.h"
+#include "TaffoInitializerPass.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "AnnotationParser.hpp"
 #include "TypeUtils.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include <iostream>
-#include <sstream>
+
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/raw_ostream.h>
 
 using namespace llvm;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-init"
-
 
 /**
  * @brief Looks for the global starting point
@@ -29,8 +26,7 @@ using namespace taffo;
  * @param[in,out] M The module to search
  * @return the function annotated as global starting point if present, nullptr otherwise
  */
-Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
-{
+Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M) {
   GlobalVariable *StartFuncGlob = nullptr;
 
   for (GlobalVariable &Global : M.globals()) {
@@ -59,10 +55,10 @@ Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
     report_fatal_error("__taffo_vra_starting_function initialized incorrectly!");
 
   StartFuncGlob->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*StartFuncGlob);
 
   return Res;
 }
-
 
 /**
  * @brief Parses the the annotated global variables and functions
@@ -76,15 +72,14 @@ Function *TaffoInitializer::findStartingPointFunctionGlobal(Module &M)
  * @param[in] functionAnnotation the selector for the type of Value to parse
  */
 void TaffoInitializer::readGlobalAnnotations(Module &m,
-                                             MultiValueMap<Value *, ValueInfo> &variables,
-                                             bool functionAnnotation)
-{
+                                             ConvQueueType &variables,
+                                             bool functionAnnotation) {
   GlobalVariable *globAnnos = m.getGlobalVariable("llvm.global.annotations");
 
-  if (globAnnos != NULL) {
-    if (ConstantArray *annos = dyn_cast<ConstantArray>(globAnnos->getInitializer())) {
+  if (globAnnos != nullptr) {
+    if (auto *annos = dyn_cast<ConstantArray>(globAnnos->getInitializer())) {
       for (unsigned i = 0, n = annos->getNumOperands(); i < n; i++) {
-        if (ConstantStruct *anno = dyn_cast<ConstantStruct>(annos->getOperand(i))) {
+        if (auto *anno = dyn_cast<ConstantStruct>(annos->getOperand(i))) {
           /* Structure of the expression (ConstantStruct operand #0 is the expression):
            * [OpType] operand,
            * [BitCast] *function,
@@ -92,7 +87,7 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
            * [GetElementPtr] *filename,
            * [Int] source code line
            */
-          if (ConstantExpr *expr = dyn_cast<ConstantExpr>(anno->getOperand(0))) {
+          if (auto *expr = dyn_cast<ConstantExpr>(anno->getOperand(0))) {
             if (expr->getOpcode() == Instruction::BitCast && (functionAnnotation ^ !isa<Function>(expr->getOperand(0)))) {
               parseAnnotation(variables, cast<ConstantExpr>(anno->getOperand(1)), expr->getOperand(0));
             }
@@ -105,7 +100,6 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
     removeNoFloatTy(variables);
 }
 
-
 /**
  * @brief Parses the annotated local variables inside a function
  *
@@ -114,26 +108,25 @@ void TaffoInitializer::readGlobalAnnotations(Module &m,
  * @param[in] f the function to search
  * @param[out] variables the map of annotated variables and their metadata
  */
-void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Value *, ValueInfo> &variables)
-{
+void TaffoInitializer::readLocalAnnotations(Function &f, ConvQueueType &annotatedValues) {
   bool found = false;
-  for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
-    if (CallInst *call = dyn_cast<CallInst>(&(*iIt))) {
+  for (Instruction &inst : instructions(f)) {
+    if (auto *call = dyn_cast<CallInst>(&inst)) {
       if (!call->getCalledFunction())
         continue;
-
-      if (call->getCalledFunction()->getName() == "llvm.var.annotation") {
+      if (call->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
         bool startingPoint = false;
-        parseAnnotation(variables, cast<ConstantExpr>(iIt->getOperand(1)), iIt->getOperand(0), &startingPoint);
+        Value *annotatedValue = inst.getOperand(0);
+        Value *annotationValue = inst.getOperand(1);
+        parseAnnotation(annotatedValues, annotatedValue, annotationValue, &startingPoint);
         found |= startingPoint;
       }
     }
   }
   if (found) {
-    mdutils::MetadataManager::setStartingPoint(f);
+    TaffoInfo::getInstance().addStartingPoint(f);
   }
 }
-
 
 /**
  * @brief Parses the annotated local variables inside a module
@@ -144,26 +137,22 @@ void TaffoInitializer::readLocalAnnotations(llvm::Function &f, MultiValueMap<Val
  * @param m the module to search
  * @param res the map of annotated variables and their metadata
  */
-void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Value *, ValueInfo> &res)
-{
+void TaffoInitializer::readAllLocalAnnotations(Module &m, ConvQueueType &res) {
   for (Function &f : m.functions()) {
-    MultiValueMap<Value *, ValueInfo> t;
-    readLocalAnnotations(f, t);
-    res.insert(res.end(), t.begin(), t.end());
+    ConvQueueType annotatedValues;
+    readLocalAnnotations(f, annotatedValues);
+    res.insert(annotatedValues.begin(), annotatedValues.end());
 
-       /* Otherwise dce pass ignores the function (removed also where it's not required).
-     *   Don't remove for OCL trampolines because we want to keep the useless code there
+    /* Otherwise dce pass ignores the function (removed also where it's not required).
+     * Don't remove for OCL trampolines because we want to keep the useless code there
      * deliberately. These trampolines will be removed by conversion later anyway. */
-    if (!f.hasMetadata(INIT_OCL_TRAMPOLINE_METADATA)) {
+    if (!TaffoInfo::getInstance().isOpenCLTrampoline(f))
       f.removeFnAttr(Attribute::OptimizeNone);
-    }
   }
 
-  if (!mdutils::MetadataManager::hasStartingPoint(m)) {
-    mdutils::MetadataManager::defaultStartingPoint(m);
-  }
+  if (!TaffoInfo::getInstance().hasStartingPoint(m))
+    TaffoInfo::getInstance().addDefaultStartingPoint(m);
 }
-
 
 /**
  * @brief Parses the annotation associated with a Value (function or variable)
@@ -182,73 +171,52 @@ void TaffoInitializer::readAllLocalAnnotations(llvm::Module &m, MultiValueMap<Va
  *
  * @return @c true if the annotation is correctly parsed, @c false otherwise
  */
-bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variables,
-                                       ConstantExpr *annoPtrInst, Value *instr,
-                                       bool *startingPoint)
-{
-  ValueInfo vi;
+bool TaffoInitializer::parseAnnotation(
+    ConvQueueType &annotatedValues, Value *annotatedValue, Value *annotationValue, bool *startingPoint) {
+  auto *annotationContent = dyn_cast<GlobalVariable>(annotationValue);
+  if (!annotationContent)
+    return false;
+  auto *annotationStrConstant = dyn_cast<ConstantDataSequential>(annotationContent->getInitializer());
+  if (!annotationStrConstant || !annotationStrConstant->isString())
+    return false;
+  StringRef annotationStr = annotationStrConstant->getAsString();
 
-  if (annoPtrInst->getOpcode() != Instruction::GetElementPtr)
-    return false;
-  auto *annoContent = dyn_cast<GlobalVariable>(annoPtrInst->getOperand(0));
-  if (!annoContent)
-    return false;
-  auto *annoStr = dyn_cast<ConstantDataSequential>(annoContent->getInitializer());
-  if (!annoStr)
-    return false;
-  if (!(annoStr->isString()))
-    return false;
-
-  StringRef annstr = annoStr->getAsString();
   AnnotationParser parser;
-  if (!parser.parseAnnotationString(annstr)) {
-    errs() << "TAFFO annotation parser syntax error: \n";
-    errs() << "  In annotation: \"" << annstr << "\"\n";
-    errs() << "  " << parser.lastError() << "\n";
-    report_fatal_error("Annotation syntax incorrect!");
-    // TODO: use llvm::Error and propagate it (as soon as it is possible...)
+  if (!parser.parseAnnotationString(annotationStr, getUnwrappedType(annotatedValue))) {
+    errs() << "TAFFO Annotation parser error: \n"
+           << "  In annotation: \"" << annotationStr << "\" of value " << *annotatedValue << "\n"
+           << "  " << parser.lastError() << "\n";
+    report_fatal_error("Error parsing annotation!");
+    // TODO: use Error and propagate it (as soon as it is possible...)
     // return false;
   }
-  Type *TyCheck = instr->getType();
-  if (Instruction *I = dyn_cast<Instruction>(instr))
-    TyCheck = I->getOperand(0)->getType();
-  else if (Function *F = dyn_cast<Function>(instr))
-    TyCheck = F->getReturnType();
-  if (!typecheckMetadata(TyCheck, parser.metadata.get())) {
-    errs() << "TAFFO typechecker error:\n";
-    errs() << "  In annotation: \"" << annstr << "\"\n";
-    errs() << "  Type does not look like LLVM type " << *TyCheck << "\n";
-    report_fatal_error("Annotation typecheck failed!");
-    // TODO: use llvm::Error and propagate it (as soon as it is possible...)
-    // return false;
-  }
-  vi.fixpTypeRootDistance = 0;
+
+  ConvQueueInfo valueConvQueueInfo;
+  valueConvQueueInfo.rootDistance = 0;
+
   if (!parser.backtracking)
-    vi.backtrackingDepthLeft = 0;
+    valueConvQueueInfo.backtrackingDepthLeft = 0;
   else
-    vi.backtrackingDepthLeft = parser.backtrackingDepth;
-  vi.metadata = parser.metadata;
+    valueConvQueueInfo.backtrackingDepthLeft = parser.backtrackingDepth;
   if (startingPoint)
     *startingPoint = parser.startingPoint;
-  vi.target = parser.target;
-  vi.bufferID = parser.bufferID;
 
-  if (auto *toconv = dyn_cast<Instruction>(instr)) {
-    variables.push_back(toconv->getOperand(0), vi);
-  } else if (auto *fun = dyn_cast<Function>(instr)) {
-    enabledFunctions.insert(fun);
-    for (auto user : fun->users()) {
-      if (!(isa<CallInst>(user) || isa<InvokeInst>(user)))
+  std::shared_ptr<ValueInfo> &valueInfo = valueConvQueueInfo.valueInfo;
+  valueInfo = parser.valueInfo;
+
+  if (auto *annotatedFun = dyn_cast<Function>(annotatedValue)) {
+    enabledFunctions.insert(annotatedFun);
+    for (auto user : annotatedFun->users()) {
+      if (!isa<CallInst>(user) && !isa<InvokeInst>(user))
         continue;
-      variables.push_back(user, vi);
+      annotatedValues.insert({user, valueConvQueueInfo});
     }
   } else {
-    variables.push_back(instr, vi);
+    annotatedValues.insert({annotatedValue, valueConvQueueInfo});
   }
 
   return true;
 }
-
 
 /**
  * Removes Values not having a float type from the map
@@ -259,15 +227,14 @@ bool TaffoInitializer::parseAnnotation(MultiValueMap<Value *, ValueInfo> &variab
  *
  * @param[in,out] res the map of annotated values and their metadata
  */
-void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo> &res)
-{
+void TaffoInitializer::removeNoFloatTy(ConvQueueType &res) {
   for (auto PIt : res) {
     Type *ty;
-    Value *it = PIt->first;
+    Value *it = PIt.first;
 
-    if (AllocaInst *alloca = dyn_cast<AllocaInst>(it)) {
+    if (auto *alloca = dyn_cast<AllocaInst>(it)) {
       ty = alloca->getAllocatedType();
-    } else if (GlobalVariable *global = dyn_cast<GlobalVariable>(it)) {
+    } else if (auto *global = dyn_cast<GlobalVariable>(it)) {
       ty = global->getType();
     } else if (isa<CallInst>(it) || isa<InvokeInst>(it)) {
       ty = it->getType();
@@ -280,9 +247,10 @@ void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo> &res)
     }
 
     while (ty->isArrayTy() || ty->isPointerTy()) {
-      if (ty->isPointerTy())
+      // TODO FIX SOON!
+      /*if (ty->isPointerTy())
         ty = ty->getPointerElementType();
-      else
+      else*/
         ty = ty->getArrayElementType();
     }
     if (!ty->isFloatingPointTy()) {
@@ -293,46 +261,43 @@ void TaffoInitializer::removeNoFloatTy(MultiValueMap<Value *, ValueInfo> &res)
   }
 }
 
-
 /**
  * @brief Shows all the annotated objects (global and local variables, functions) in a module
  *
  * @param[in] m the module to show
  */
-void TaffoInitializer::printAnnotatedObj(Module &m)
-{
-  MultiValueMap<Value *, ValueInfo> res;
+void TaffoInitializer::printAnnotatedObj(Module &m) {
+  ConvQueueType res;
 
   readGlobalAnnotations(m, res, true);
-  errs() << "Annotated Function: \n";
+  errs() << "Annotated Function:\n";
   if (!res.empty()) {
-    for (auto it : res) {
-      errs() << " -> " << *it->first << "\n";
+    for (const auto &it : res) {
+      errs() << " -> " << *it.first << "\n";
     }
     errs() << "\n";
   }
 
   res.clear();
   readGlobalAnnotations(m, res);
-  errs() << "Global Set: \n";
+  errs() << "Global Set:\n";
   if (!res.empty()) {
-    for (auto it : res) {
-      errs() << " -> " << *it->first << "\n";
+    for (const auto &it : res) {
+      errs() << " -> " << *it.first << "\n";
     }
     errs() << "\n";
   }
 
-  for (auto fIt = m.begin(), fItEnd = m.end(); fIt != fItEnd; fIt++) {
-    Function &f = *fIt;
-    errs().write_escaped(f.getName()) << " : ";
+  for (auto &f : m) {
+    errs() << "Function ";
+    errs().write_escaped(f.getName()) << ":\n";
     res.clear();
     readLocalAnnotations(f, res);
     if (!res.empty()) {
-      errs() << "\nLocal Set: \n";
-      for (auto it : res) {
-        errs() << " -> " << *it->first << "\n";
+      errs() << " Local Set:\n";
+      for (const auto &it : res) {
+        errs() << "  -> " << *it.first << "\n";
       }
     }
-    errs() << "\n";
   }
 }

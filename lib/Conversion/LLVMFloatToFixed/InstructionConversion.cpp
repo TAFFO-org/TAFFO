@@ -1,23 +1,19 @@
 #include "DataTypeAlloc/TaffoDTA/DTAConfig.h"
 #include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/NoFolder.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/NoFolder.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include <cassert>
-#include <cmath>
 
 using namespace llvm;
 using namespace flttofix;
@@ -25,11 +21,8 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-
 /* also inserts the new value in the basic blocks, alongside the old one */
-Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
-                                        FixedPointType &fixpt)
-{
+Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, FixedPointType &fixpt) {
   Value *res = Unsupported;
   if (AllocaInst *alloca = dyn_cast<AllocaInst>(val)) {
     res = convertAlloca(alloca, fixpt);
@@ -68,8 +61,8 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
     res = fallback(dyn_cast<Instruction>(val), fixpt);
   }
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) &&
-      !hasInfo(res)) {
-    if (isFloatType(val->getType()) && !valueInfo(val)->noTypeConversion) {
+      !hasConversionInfo(res)) {
+    if (getUnwrappedType(val)->isFloatTy() && !getConversionInfo(val)->noTypeConversion) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
       if (res->hasName())
@@ -78,7 +71,7 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
         tmp << val->getName().str() << ".";
       tmp << fixpt;
       res->setName(tmp.str());
-    } else if (valueInfo(val)->noTypeConversion) {
+    } else if (getConversionInfo(val)->noTypeConversion) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
       if (res->hasName())
@@ -104,7 +97,7 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val,
 Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
                                    const FixedPointType &fixpt)
 {
-  if (valueInfo(alloca)->noTypeConversion)
+  if (getConversionInfo(alloca)->noTypeConversion)
     return alloca;
   Type *prevt = alloca->getAllocatedType();
   Type *newt = getLLVMFixedPointTypeForFloatType(prevt, fixpt);
@@ -121,8 +114,7 @@ Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
 }
 
 
-Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt, Module &m)
-{
+Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt, Module &m) {
   Value *ptr = load->getPointerOperand();
   Value *newptr = operandPool[ptr];
   if (newptr == ConversionError)
@@ -131,18 +123,18 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt, Module &
     return Unsupported;
   if (isConvertedFixedPoint(newptr)) {
     fixpt = fixPType(newptr);
-    Type *PELType = newptr->getType()->getPointerElementType();
+    Type *PELType = TaffoInfo::getInstance().getValueInfo(*newptr)->getUnwrappedType();
     Align align;
-    if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, load->getFunction())) {
+    /*if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || MetadataManager::isCudaKernel(m, load->getFunction())) {
       align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8);
-    } else {
+    } else*/ {
       align = load->getAlign();
     }
     LoadInst *newinst =
         new LoadInst(PELType, newptr, Twine(), load->isVolatile(), align,
                      load->getOrdering(), load->getSyncScopeID());
     newinst->insertAfter(load);
-    if (valueInfo(load)->noTypeConversion) {
+    if (getConversionInfo(load)->noTypeConversion) {
       assert(newinst->getType()->isIntegerTy() &&
              "DTA bug; improperly tagged struct/pointer!");
       return genConvertFixToFloat(newinst, fixPType(newptr), load->getType());
@@ -153,15 +145,14 @@ Value *FloatToFixed::convertLoad(LoadInst *load, FixedPointType &fixpt, Module &
 }
 
 
-Value *FloatToFixed::convertStore(StoreInst *store, Module &m)
-{
+Value *FloatToFixed::convertStore(StoreInst *store, Module &m) {
   Value *ptr = store->getPointerOperand();
   Value *val = store->getValueOperand();
   Value *newptr = matchOp(ptr);
   if (!newptr)
     return nullptr;
   Value *newval;
-  Type *peltype = newptr->getType()->getPointerElementType();
+  Type *peltype = TaffoInfo::getInstance().getValueInfo(*newptr)->getUnwrappedType();
   if (isFloatingPointToConvert(val)) {
     /* value is converted (thus we can match it) */
     if (isConvertedFixedPoint(newptr)) {
@@ -218,9 +209,9 @@ Value *FloatToFixed::convertStore(StoreInst *store, Module &m)
   if (!newval)
     return nullptr;
   Align align;
-  if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, store->getFunction())) {
+  /*if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m, store->getFunction())) {
     align = Align(fullyUnwrapPointerOrArrayType(peltype)->getScalarSizeInBits() / 8);
-  } else {
+  } else */{
     align = store->getAlign();
   }
   StoreInst *newinst =
@@ -241,7 +232,7 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
                           << *(gep->getPointerOperand()) << "\nmatchOp return \n"
                           << *newval << "\n");
   if (!newval)
-    return valueInfo(gep)->noTypeConversion ? Unsupported : nullptr;
+    return getConversionInfo(gep)->noTypeConversion ? Unsupported : nullptr;
   if (!isConvertedFixedPoint(newval)) {
     /* just replace the arguments, they should stay the same type */
     return Unsupported;
@@ -251,17 +242,15 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, FixedPointType &fixpt)
   fixpt = tempFixpt.unwrapIndexList(type, gep->indices());
   /* if conversion is disabled, we can extract values that didn't get a type
    * change, but we cannot extract values that didn't */
-  if (valueInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid())
+  if (getConversionInfo(gep)->noTypeConversion && !fixpt.isRecursivelyInvalid())
     return Unsupported;
   std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
-  return builder.CreateInBoundsGEP(newval->getType()->getPointerElementType(), newval, idxlist);
+  return builder.CreateInBoundsGEP(TaffoInfo::getInstance().getValueInfo(*newval)->getUnwrappedType(), newval, idxlist);
 }
 
 
-Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
-                                         FixedPointType &fixpt)
-{
-  if (valueInfo(exv)->noTypeConversion)
+Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv, FixedPointType &fixpt) {
+  if (getConversionInfo(exv)->noTypeConversion)
     return Unsupported;
   IRBuilder<NoFolder> builder(exv);
   Value *oldval = exv->getAggregateOperand();
@@ -278,11 +267,8 @@ Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv,
   return newi;
 }
 
-
-Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
-                                        FixedPointType &fixpt)
-{
-  if (valueInfo(inv)->noTypeConversion)
+Value *FloatToFixed::convertInsertValue(InsertValueInst *inv, FixedPointType &fixpt) {
+  if (getConversionInfo(inv)->noTypeConversion)
     return Unsupported;
   IRBuilder<NoFolder> builder(inv);
   Value *oldAggVal = inv->getAggregateOperand();
@@ -304,11 +290,9 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv,
   return builder.CreateInsertValue(newAggVal, newInsertVal, idxlist);
 }
 
-
-Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
-{
+Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt) {
   if (!phi->getType()->isFloatingPointTy() ||
-      valueInfo(phi)->noTypeConversion) {
+      getConversionInfo(phi)->noTypeConversion) {
     /* in the conversion chain the floating point number was converted to
      * an int at some point; we just upgrade the incoming values in place */
     /* if all of our incoming values were not converted, we want to propagate
@@ -350,9 +334,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, FixedPointType &fixpt)
   return newphi;
 }
 
-
-Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
-{
+Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt) {
   if (!isFloatingPointToConvert(sel))
     return Unsupported;
   /* the condition is always a bool (i1) or a vector of bools */
@@ -370,8 +352,7 @@ Value *FloatToFixed::convertSelect(SelectInst *sel, FixedPointType &fixpt)
 }
 
 
-Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
-{
+Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt) {
   /* If the function return a float the new return type will be a fix point of
    * type fixpt, otherwise the return type is left unchanged.*/
   Function *oldF = call->getCalledFunction();
@@ -400,7 +381,7 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   std::vector<Value *> convArgs;
   std::vector<Type *> typeArgs;
   std::vector<std::pair<int, FixedPointType>> fixArgs; // for match right function
-  if (isFloatType(oldF->getReturnType())) {
+  if (getUnwrappedType(oldF)->isFloatTy()) {
     fixArgs.push_back(
         std::pair<int, FixedPointType>(-1, fixpt)); // ret value in signature
   }
@@ -409,14 +390,14 @@ Value *FloatToFixed::convertCall(CallBase *call, FixedPointType &fixpt)
   auto *f_arg = newF->arg_begin();
   while (call_arg != call->arg_end()) {
     Value *thisArgument;
-    if (!hasInfo(f_arg)) {
-      if (!hasInfo(*call_arg)) {
+    if (!hasConversionInfo(f_arg)) {
+      if (!hasConversionInfo(*call_arg)) {
         thisArgument = *call_arg;
       } else {
         thisArgument = fallbackMatchValue(*call_arg, f_arg->getType(), call);
       }
-    } else if (hasInfo(*call_arg) &&
-               valueInfo(*call_arg)->noTypeConversion == false) {
+    } else if (hasConversionInfo(*call_arg) &&
+               getConversionInfo(*call_arg)->noTypeConversion == false) {
       FixedPointType argfpt, funfpt;
       argfpt = fixPType(*call_arg);
       funfpt = fixPType(&(*f_arg));
@@ -486,7 +467,7 @@ Value *FloatToFixed::convertRet(ReturnInst *ret, FixedPointType &fixpt)
   Value *oldv = ret->getReturnValue();
   if (!oldv) // AKA return void
     return ret;
-  if (!isFloatingPointToConvert(ret) || valueInfo(ret)->noTypeConversion) {
+  if (!isFloatingPointToConvert(ret) || getConversionInfo(ret)->noTypeConversion) {
     // if return an int we shouldn't return a fix point, go into fallback
     return Unsupported;
   }
@@ -504,7 +485,7 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr,
                                     const FixedPointType &fixpt)
 {
   if (!instr->getType()->isFloatingPointTy() ||
-      valueInfo(instr)->noTypeConversion)
+      getConversionInfo(instr)->noTypeConversion)
     return Unsupported;
 
   unsigned int opc = instr->getOpcode();
@@ -541,7 +522,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr,
   /* Instruction::[Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
    * are handled by the fallback function, not here */
   if (!instr->getType()->isFloatingPointTy() ||
-      valueInfo(instr)->noTypeConversion)
+      getConversionInfo(instr)->noTypeConversion)
     return Unsupported;
 
   int opc = instr->getOpcode();
@@ -837,7 +818,7 @@ Value *FloatToFixed::convertCmp(FCmpInst *fcmp)
   Value *op2 = fcmp->getOperand(1);
   FixedPointType cmptype;
   FixedPointType t1, t2;
-  bool hasinfo1 = hasInfo(op1), hasinfo2 = hasInfo(op2);
+  bool hasinfo1 = hasConversionInfo(op1), hasinfo2 = hasConversionInfo(op2);
   bool isOneFloat = false;
   if (hasinfo1 && hasinfo2) {
     t1 = fixPType(op1);
@@ -951,7 +932,7 @@ Value *FloatToFixed::convertCast(CastInst *cast, const FixedPointType &fixpt)
 
   IRBuilder<NoFolder> builder(cast->getNextNode());
   Value *operand = cast->getOperand(0);
-  if (valueInfo(cast)->noTypeConversion)
+  if (getConversionInfo(cast)->noTypeConversion)
     return Unsupported;
   if (BitCastInst *bc = dyn_cast<BitCastInst>(cast)) {
     Value *newOperand = operandPool[operand];
@@ -1009,7 +990,7 @@ Value *FloatToFixed::fallback(Instruction *unsupp, FixedPointType &fixpt)
     }
   }
   Instruction *tmp;
-  if (valueInfo(unsupp)->noTypeConversion == false && !unsupp->isTerminator()) {
+  if (getConversionInfo(unsupp)->noTypeConversion == false && !unsupp->isTerminator()) {
     tmp = unsupp->clone();
     if (!tmp->getType()->isVoidTy())
       tmp->setName(unsupp->getName() + ".flt");
@@ -1023,7 +1004,7 @@ Value *FloatToFixed::fallback(Instruction *unsupp, FixedPointType &fixpt)
   LLVM_DEBUG(dbgs() << "  mutated operands to:\n"
                     << *tmp << "\n");
   if (tmp->getType()->isFloatingPointTy() &&
-      valueInfo(unsupp)->noTypeConversion == false) {
+      getConversionInfo(unsupp)->noTypeConversion == false) {
     Value *fallbackv =
         genConvertFloatToFix(tmp, fixpt, getFirstInsertionPointAfter(tmp));
     if (tmp->hasName())

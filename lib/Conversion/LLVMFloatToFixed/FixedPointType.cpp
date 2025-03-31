@@ -1,25 +1,19 @@
 #include "FixedPointType.h"
+
 #include "LLVMFloatToFixedPass.h"
 #include "TypeUtils.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/raw_ostream.h>
 #include <sstream>
 
-
 using namespace llvm;
-using namespace flttofix;
-using namespace mdutils;
 using namespace taffo;
+using namespace flttofix;
 
 #define DEBUG_TYPE "taffo-conversion"
-
 
 FixedPointType::FixedPointType()
 {
@@ -39,7 +33,7 @@ FixedPointType::FixedPointType(Type *llvmtype, bool signd)
 {
   structData = nullptr;
   scalarData.isSigned = signd;
-  if (isFloatType(llvmtype)) {
+  if (llvmtype->isFloatTy()) {
     scalarData.fracBitsAmt = 0;
     scalarData.bitsAmt = 0;
 
@@ -81,12 +75,12 @@ FixedPointType::FixedPointType(const ArrayRef<FixedPointType> &elems)
 }
 
 
-FixedPointType::FixedPointType(TType *mdtype)
+FixedPointType::FixedPointType(NumericType *mdtype)
 {
   structData = nullptr;
-  FPType *fpt;
+  FixpType *fpt;
   FloatType *flt;
-  if (mdtype && (fpt = dyn_cast<FPType>(mdtype))) {
+  if (mdtype && (fpt = dyn_cast<FixpType>(mdtype))) {
     scalarData.bitsAmt = fpt->getWidth();
     scalarData.fracBitsAmt = fpt->getPointPos();
     scalarData.isSigned = fpt->isSigned();
@@ -103,16 +97,16 @@ FixedPointType::FixedPointType(TType *mdtype)
 }
 
 
-FixedPointType FixedPointType::get(MDInfo *mdnfo, int *enableConversion)
+FixedPointType FixedPointType::get(ValueInfo *mdnfo, int *enableConversion)
 {
   if (mdnfo == nullptr) {
     return FixedPointType();
 
-  } else if (InputInfo *ii = dyn_cast<InputInfo>(mdnfo)) {
-    if (ii->IEnableConversion) {
+  } else if (ScalarInfo *ii = dyn_cast<ScalarInfo>(mdnfo)) {
+    if (ii->isConversionEnabled()) {
       if (enableConversion)
         (*enableConversion)++;
-      return FixedPointType(ii->IType.get());
+      return FixedPointType(ii->numericType.get());
     } else {
       return FixedPointType();
     }
@@ -202,7 +196,8 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, const iterator_ran
   FixedPointType tempFixpt = *this;
   for (Value *a : indices) {
     if (resolvedType->isPointerTy()) {
-      resolvedType = resolvedType->getPointerElementType();
+      // TODO FIX SOON!
+      //resolvedType = resolvedType->getPointerElementType();
     } else if (resolvedType->isArrayTy()) {
       resolvedType = resolvedType->getArrayElementType();
     } else if (resolvedType->isVectorTy()) {
@@ -227,7 +222,8 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned>
   FixedPointType tempFixpt = *this;
   for (unsigned n : indices) {
     if (resolvedType->isPointerTy()) {
-      resolvedType = resolvedType->getPointerElementType();
+      // TODO FIX SOON!
+      //resolvedType = resolvedType->getPointerElementType();
     } else if (resolvedType->isArrayTy()) {
       resolvedType = resolvedType->getArrayElementType();
     } else if (resolvedType->isVectorTy()) {
@@ -243,13 +239,13 @@ FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned>
 }
 
 
-Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const
-{
+Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const {
   // this == baset
   if (srct->isPointerTy()) {
-    Type *enc = toLLVMType(srct->getPointerElementType(), hasfloats);
+    // TODO FIX SOON!
+    /*Type *enc = toLLVMType(srct->getPointerElementType(), hasfloats);
     if (enc)
-      return enc->getPointerTo(srct->getPointerAddressSpace());
+      return enc->getPointerTo(srct->getPointerAddressSpace());*/
     return nullptr;
 
   } else if (srct->isArrayTy()) {

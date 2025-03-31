@@ -1,11 +1,10 @@
 #include "LLVMFloatToFixedPass.h"
-#include "Metadata.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/Metadata.h"
+
+#include <llvm/IR/Operator.h>
 
 using namespace llvm;
-using namespace flttofix;
 using namespace taffo;
+using namespace flttofix;
 
 #define DEBUG_TYPE "taffo-conversion"
 
@@ -43,12 +42,12 @@ Value *FloatToFixed::convertCudaCall(CallBase *C)
     TheBuffer = BC->getOperand(0);
   }
   Value *NewBuffer = matchOp(TheBuffer);
-  if (!NewBuffer || !hasInfo(NewBuffer)) {
+  if (!NewBuffer || !hasConversionInfo(NewBuffer)) {
     LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
     return Unsupported;
   }
   LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << valueInfo(NewBuffer)->fixpType.toString() << "\n");
+  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << getConversionInfo(NewBuffer)->fixpType.toString() << "\n");
   Type *VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value *NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy) {

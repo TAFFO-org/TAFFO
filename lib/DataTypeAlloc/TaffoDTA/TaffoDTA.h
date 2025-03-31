@@ -1,29 +1,31 @@
 #ifndef __TAFFO_TUNER_PASS_H__
 #define __TAFFO_TUNER_PASS_H__
 
-#include "InputInfo.h"
-#include "Metadata.h"
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "TypeUtils.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
+
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/PassManager.h>
 #include <string>
 #include <map>
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner
-{
+namespace tuner {
 
-bool isMergeable(mdutils::FPType *fpv, mdutils::FPType *fpu);
-std::shared_ptr<mdutils::FPType> merge(mdutils::FPType *fpv, mdutils::FPType *fpu);
-std::shared_ptr<mdutils::TType> merge(mdutils::TType *fpv, mdutils::TType *fpu);
+bool isMergeable(const std::shared_ptr<taffo::FixpType> &fpv,
+                 const std::shared_ptr<taffo::FixpType> &fpu);
+std::shared_ptr<taffo::FixpType> merge(const std::shared_ptr<taffo::FixpType> &fpv,
+                                       const std::shared_ptr<taffo::FixpType> &fpu);
+std::shared_ptr<taffo::NumericType> merge(const std::shared_ptr<taffo::NumericType> &fpv,
+                                          const std::shared_ptr<taffo::NumericType> &fpu);
 
-struct ValueInfo {
-  std::shared_ptr<mdutils::MDInfo> metadata;
-  std::shared_ptr<mdutils::TType> initialType;
+struct TunerInfo {
+  std::shared_ptr<taffo::ValueInfo> metadata;
+  std::shared_ptr<taffo::NumericType> initialType;
   std::optional<std::string> bufferID;
 };
 
@@ -31,13 +33,13 @@ struct FunInfo {
   llvm::Function *newFun;
   /* {function argument index, type of argument}
    * argument idx is -1 for return value */
-  std::vector<std::pair<int, std::shared_ptr<mdutils::MDInfo>>> fixArgs;
+  std::vector<std::pair<int, std::shared_ptr<taffo::ValueInfo>>> fixArgs;
 };
 
 class TaffoTuner : public llvm::PassInfoMixin<TaffoTuner> {
 public:
   /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value *, std::shared_ptr<ValueInfo>> info;
+  llvm::DenseMap<llvm::Value *, std::shared_ptr<TunerInfo>> info;
   /* original function -> cloned function map */
   llvm::DenseMap<llvm::Function *, std::vector<FunInfo>> functionPool;
   /* buffer ID sets */
@@ -50,9 +52,9 @@ public:
   
   void retrieveBufferID(llvm::Value *V);
 
-  bool processMetadataOfValue(llvm::Value *v, mdutils::MDInfo *MDI);
+  bool processMetadataOfValue(llvm::Value *v, const std::shared_ptr<taffo::ValueInfo>& valueInfo);
 
-  bool associateFixFormat(mdutils::InputInfo &rng, llvm::Value *V);
+  bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo> &scalarInfo, llvm::Value *value);
 
   void sortQueue(std::vector<llvm::Value *> &vals,
                  llvm::SmallPtrSetImpl<llvm::Value *> &valset);
@@ -73,9 +75,8 @@ public:
   void mergeBufferIDSets();
 
   void restoreTypesAcrossFunctionCall(llvm::Value *arg_or_call_param);
-  void setTypesOnFunctionArgumentFromCallArgument(llvm::Value *call_param, std::shared_ptr<mdutils::MDInfo> finalMd);
-  void setTypesOnCallArgumentFromFunctionArgument(
-      llvm::Argument *arg, std::shared_ptr<mdutils::MDInfo> finalMd);
+  void setTypesOnFunctionArgumentFromCallArgument(llvm::Value *call_param, std::shared_ptr<taffo::ValueInfo> finalMd);
+  void setTypesOnCallArgumentFromFunctionArgument(llvm::Argument *arg, std::shared_ptr<taffo::ValueInfo> finalMd);
 
   std::vector<llvm::Function *> collapseFunction(llvm::Module &m);
 
@@ -85,43 +86,38 @@ public:
 
   void attachFunctionMetaData(llvm::Module &m);
 
-  std::shared_ptr<ValueInfo> valueInfo(llvm::Value *val)
+  std::shared_ptr<TunerInfo> getTunerInfo(llvm::Value *val)
   {
     auto vi = info.find(val);
     if (vi == info.end()) {
       LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
-      info[val] = std::make_shared<ValueInfo>(ValueInfo());
+      info[val] = std::make_shared<TunerInfo>(TunerInfo());
       return info[val];
     } else {
       return vi->getSecond();
     }
   }
 
-  bool hasInfo(llvm::Value *val) { return info.find(val) != info.end(); }
+  bool hasTunerInfo(llvm::Value *val) { return info.find(val) != info.end(); }
 
-  bool conversionDisabled(llvm::Value *val)
-  {
+  bool conversionDisabled(llvm::Value *val) {
     if (llvm::isa<llvm::Constant>(val))
       return false;
     if (llvm::isa<llvm::Argument>(val)) {
-      if (!hasInfo(val))
+      if (!hasTunerInfo(val))
         return true;
-      return !(valueInfo(val)->metadata &&
-               valueInfo(val)->metadata->getEnableConversion());
+      return !(getTunerInfo(val)->metadata && getTunerInfo(val)->metadata->isConversionEnabled());
     }
-    mdutils::MetadataManager &MDManager =
-        mdutils::MetadataManager::getMetadataManager();
-    mdutils::MDInfo *mdi = MDManager.retrieveMDInfo(val);
-    return !(mdi && mdi->getEnableConversion()) && incomingValuesDisabled(val);
+    std::shared_ptr<taffo::ValueInfo> valueInfo = taffo::TaffoInfo::getInstance().getValueInfo(*val);
+    return !(valueInfo && valueInfo->isConversionEnabled()) && incomingValuesDisabled(val);
   }
 
-  bool incomingValuesDisabled(llvm::Value *v)
-  {
+  bool incomingValuesDisabled(llvm::Value *v) {
     using namespace llvm;
-    if (!taffo::isFloatType(v->getType()))
+    if (!taffo::getUnwrappedType(v)->isFloatTy())
       return true;
 
-    if (PHINode *phi = dyn_cast<PHINode>(v)) {
+    if (auto *phi = dyn_cast<PHINode>(v)) {
       bool disabled = false;
       for (Value *inc : phi->incoming_values()) {
         if (!isa<PHINode>(inc) && conversionDisabled(inc)) {
@@ -136,7 +132,7 @@ public:
   }
 
 #ifdef TAFFO_BUILD_ILP_DTA
-  bool overwriteType(std::shared_ptr<mdutils::MDInfo> old, std::shared_ptr<mdutils::MDInfo> model);
+  bool overwriteType(std::shared_ptr<taffo::ValueInfo> old, std::shared_ptr<taffo::ValueInfo> model);
 #endif // TAFFO_BUILD_ILP_DTA
 
   template <typename AnalysisT>

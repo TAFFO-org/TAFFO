@@ -1,17 +1,13 @@
 #include "Model.h"
 #include "DebugUtils.h"
-#include "InputInfo.h"
-#include "Metadata.h"
 #include "OptimizerInfo.h"
 #include "TypeUtils.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
+
+#include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/raw_ostream.h>
 #include <cassert>
 #include <cmath>
 
@@ -20,10 +16,12 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-using namespace tuner;
+using namespace std;
 using namespace llvm;
-void Model::insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide /*, string&  comment*/)
-{
+using namespace taffo;
+using namespace tuner;
+
+void Model::insertLinearConstraint(const vector<pair<string, double>> &variables, ConstraintType constraintType, double rightSide /*, string&  comment*/) {
   // modelFile << "inserting constraint: ";
   // solver.Add(x + 7 * y <= 17.5)
   // Example of

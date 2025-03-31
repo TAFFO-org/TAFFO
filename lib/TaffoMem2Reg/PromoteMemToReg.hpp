@@ -11,13 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TAFFO_MEM2REG_PROMOTEMEMTOREG_H
-#define TAFFO_MEM2REG_PROMOTEMEMTOREG_H
+#ifndef TAFFO_MEM2REG_PROMOTEMEMTOREG_HPP
+#define TAFFO_MEM2REG_PROMOTEMEMTOREG_HPP
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/AssumptionCache.h"
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Dominators.h>
+#include <llvm/Analysis/AssumptionCache.h>
 
 namespace taffo {
 
@@ -41,4 +41,4 @@ void PromoteMemToReg(llvm::ArrayRef<llvm::AllocaInst *> Allocas, llvm::Dominator
 
 } // End taffo namespace
 
-#endif
+#endif // TAFFO_MEM2REG_PROMOTEMEMTOREG_HPP
