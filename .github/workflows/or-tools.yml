@@ -11,7 +11,7 @@ jobs:
     
     steps:
       - name: or-tools
-        uses: actions/checkout@v4
+        uses: actions/cache@v4
         id: or-cache
         with:
           # A list of files, directories, and wildcard patterns to cache and restore
