@@ -54,7 +54,7 @@ jobs:
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         uses: llvm/actions/get-llvm-project-src/@main
         with:
-          ref: f28c006a5895fc0e329fe15fead81e37457cb1d1
+          ref: 3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff
           repo: llvm/llvm-project
 
       - name: Build and Test
