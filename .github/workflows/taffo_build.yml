@@ -41,7 +41,7 @@ jobs:
         sudo apt install -y build-essential cmake lsb-release
         
     - name: or-tools
-      uses: actions/checkout@v4
+      uses: actions/cache@v4
       id: or-cache
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
@@ -51,7 +51,7 @@ jobs:
         restore-keys: "ortools"
         
     - name: LLVM
-      uses: actions/checkout@v4
+      uses: actions/cache@v4
       id: llvm-cache
       with:
         # A list of files, directories, and wildcard patterns to cache and restore
@@ -60,7 +60,7 @@ jobs:
         key: "llvm"
         restore-keys: "llvm"
         
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
         
     
     - name: Configure CMake
