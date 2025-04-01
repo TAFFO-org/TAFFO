@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
     steps:
       - name: LLVM cache check
-        uses: actions/cache@v3.2.0-beta.1
+        uses: actions/cache@v4
         id: llvm-cache
         with:
           # A list of files, directories, and wildcard patterns to cache and restore
@@ -31,7 +31,7 @@ jobs:
       # actions/checkout deletes any existing files in the new git directory,
       # so this needs to either run before ccache-action or it has to use
       # clean: false.
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         with:
           fetch-depth: 250
@@ -70,7 +70,7 @@ jobs:
 
       - name: Cache
         if: steps.llvm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v3.2.0-beta.1
+        uses: actions/cache@v4
         with:
           path: "/home/runner/llvm"
           key: "llvm"
