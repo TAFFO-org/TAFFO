@@ -2,6 +2,7 @@
 #define TAFFO_BIMAP_HPP
 
 #include <map>
+#include <cassert>
 
 /**
  * @brief Comparator for pointers to Value objects.
