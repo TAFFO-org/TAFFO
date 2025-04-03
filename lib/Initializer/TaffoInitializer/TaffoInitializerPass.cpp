@@ -403,7 +403,7 @@ void TaffoInitializer::generateFunctionSpace(
     for (auto newValue : newVals) {
       auto *newInst = dyn_cast<Instruction>(newValue);
       if (!newInst || !TaffoInfo::getInstance().hasValueInfo(*newInst))
-        setValueInfo(newValue, vals[newValue]);
+        setValueInfo(newValue, vals.at(newValue));
     }
 
     /* Reconstruct the value info for the values which are in the top-level
@@ -485,32 +485,31 @@ Function *TaffoInitializer::createFunctionAndQueue(
       continue;
     }
 
-    ConvQueueInfo &callConvQueueInfo = vals[callOperand];
+    ConvQueueInfo &callOperandQueueInfo = vals[callOperand];
     ConvQueueInfo argumentConvQueueInfo;
     vals.insert(newArgumentI, argumentConvQueueInfo);
 
     std::shared_ptr<ValueInfo> &argumentInfo = argumentConvQueueInfo.valueInfo;
-    const std::shared_ptr<ValueInfo> &callInfo = callConvQueueInfo.valueInfo;
+    const std::shared_ptr<ValueInfo> &callOperandInfo = callOperandQueueInfo.valueInfo;
 
     // Mark the argument itself (set it as a new root as well in VRA-less mode)
-    argumentInfo = callInfo->clone();
-    argumentConvQueueInfo.rootDistance = std::max(callConvQueueInfo.rootDistance, callConvQueueInfo.rootDistance + 1);
+    argumentInfo = callOperandInfo->clone();
+    argumentConvQueueInfo.rootDistance = std::max(callOperandQueueInfo.rootDistance, callOperandQueueInfo.rootDistance + 1);
     if (!allocaOfArgument)
       roots.insert(newArgumentI, argumentConvQueueInfo);
 
     if (allocaOfArgument) {
-      ConvQueueInfo allocaConvQueueInfo;
-      vals.insert(allocaOfArgument, allocaConvQueueInfo);
+      ConvQueueInfo& allocaConvQueueInfo = vals[allocaOfArgument];
       std::shared_ptr<ValueInfo> &allocaInfo = allocaConvQueueInfo.valueInfo;
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root in VRA-less mode
-      allocaInfo = callInfo->clone();
-      allocaConvQueueInfo.rootDistance = std::max(callConvQueueInfo.rootDistance, callConvQueueInfo.rootDistance + 2);
+      allocaInfo = callOperandInfo->clone();
+      allocaConvQueueInfo.rootDistance = std::max(callOperandQueueInfo.rootDistance, callOperandQueueInfo.rootDistance + 2);
       roots.insert(allocaOfArgument, allocaConvQueueInfo);
     }
 
     // Propagate BufferID
-    argumentInfo->bufferId = callInfo->bufferId;
+    argumentInfo->bufferId = callOperandInfo->bufferId;
 
     LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed\n");
     LLVM_DEBUG(dbgs() << "    md = " << argumentInfo->toString() << "\n");

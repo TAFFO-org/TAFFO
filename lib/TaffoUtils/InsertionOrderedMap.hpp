@@ -290,6 +290,20 @@ public:
   /**
    * @brief Accesses the mapped value corresponding to the given key.
    *
+   * If the key is not present throw an error
+   *
+   * @param key The key to access.
+   * @return Reference to the associated Value.
+   */
+  Value& at(const Key &key) {
+    auto it = map.find(key);
+    assert(it != map.end() && "Value must be present");
+    return it->second.first;
+  }
+
+  /**
+   * @brief Accesses the mapped value corresponding to the given key.
+   *
    * If the key is not present, a new element is created with a default-constructed Value
    * and the key is recorded at the end.
    *

@@ -20,6 +20,13 @@ struct ConvQueueInfo {
   unsigned int backtrackingDepthLeft = 0;
   unsigned int rootDistance = UINT_MAX;
   std::shared_ptr<ValueInfo> valueInfo;
+  std::string dump() {
+    std::string ret;
+    ret += "backtrackingDepthLeft: " + std::to_string(backtrackingDepthLeft) + "\n";
+    ret += "rootDistance: " + std::to_string(rootDistance) + "\n";
+    ret += "valueInfo: " + ( valueInfo ? valueInfo->toString() : "" ) + "\n";
+    return ret;
+  }
 };
 
 class TaffoInitializer : public llvm::PassInfoMixin<TaffoInitializer> {
