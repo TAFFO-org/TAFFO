@@ -13,10 +13,10 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   MathIntrinsicConversion.cpp
 
   ADDITIONAL_HEADERS
-  FixedPointType.h
-  LLVMFloatToFixedPass.h
+  FixedPointType.hpp
+  LLVMFloatToFixedPass.hpp
 )
 target_link_libraries(obj.${SELF} PUBLIC
-  TaffoUtils
+  TaffoCommon
   )
 set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

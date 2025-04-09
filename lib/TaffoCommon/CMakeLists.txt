@@ -1,4 +1,4 @@
-set(SELF TaffoUtils)
+set(SELF TaffoCommon)
 
 add_library(${SELF} STATIC
   TaffoInfo/TaffoInfo.hpp
@@ -11,19 +11,21 @@ add_library(${SELF} STATIC
   TaffoInfo/RangeInfo.cpp
   MetadataManager.hpp
   MetadataManager.cpp
-  Logger.hpp
-  Logger.cpp
-  InsertionOrderedMap.hpp
-  BiMap.hpp
+  Containers/InsertionOrderedMap.hpp
+  Containers/BiMap.hpp
+  Debug/DebugUtils.hpp
+  Debug/Logger.hpp
+  Debug/Logger.cpp
+  Types/TransparentType.hpp
+  Types/TransparentType.cpp
+  Types/TypeUtils.hpp
+  Types/TypeUtils.cpp
   PtrCasts.hpp
   SerializationUtils.hpp
-  TypeUtils.h
-  TypeUtils.cpp
-  DebugUtils.h
   MemSSAUtils.cpp
   MemSSAUtils.hpp
   WriteModule.cpp
-  WriteModule.h
+  WriteModule.hpp
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${SELF} PUBLIC nlohmann_json::nlohmann_json)

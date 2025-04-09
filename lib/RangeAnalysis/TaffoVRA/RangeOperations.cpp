@@ -5,13 +5,13 @@
 
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APSInt.h>
-#include <llvm/Support/Debug.h>
+#include <llvm/Support/Casting.h>
 #include <assert.h>
-#include <limits>
 #include <map>
 
 #define DEBUG_TYPE "taffo-vra"
 
+using namespace llvm;
 using namespace taffo;
 
 //-----------------------------------------------------------------------------
@@ -25,36 +25,36 @@ taffo::handleBinaryInstruction(const std::shared_ptr<Range> op1,
                                const unsigned OpCode)
 {
   switch (OpCode) {
-  case llvm::Instruction::Add:
-  case llvm::Instruction::FAdd:
+  case Instruction::Add:
+  case Instruction::FAdd:
     return handleAdd(op1, op2);
     break;
-  case llvm::Instruction::Sub:
-  case llvm::Instruction::FSub:
+  case Instruction::Sub:
+  case Instruction::FSub:
     return handleSub(op1, op2);
     break;
-  case llvm::Instruction::Mul:
-  case llvm::Instruction::FMul:
+  case Instruction::Mul:
+  case Instruction::FMul:
     return handleMul(op1, op2);
     break;
-  case llvm::Instruction::UDiv:
-  case llvm::Instruction::SDiv:
-  case llvm::Instruction::FDiv:
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::FDiv:
     return handleDiv(op1, op2);
     break;
-  case llvm::Instruction::URem:
-  case llvm::Instruction::SRem:
-  case llvm::Instruction::FRem:
+  case Instruction::URem:
+  case Instruction::SRem:
+  case Instruction::FRem:
     return handleRem(op1, op2);
     break;
-  case llvm::Instruction::Shl:
+  case Instruction::Shl:
     return handleShl(op1, op2);
-  case llvm::Instruction::LShr: // TODO implement
-  case llvm::Instruction::AShr:
+  case Instruction::LShr: // TODO implement
+  case Instruction::AShr:
     return handleAShr(op1, op2);
-  case llvm::Instruction::And: // TODO implement
-  case llvm::Instruction::Or:  // TODO implement
-  case llvm::Instruction::Xor: // TODO implement
+  case Instruction::And: // TODO implement
+  case Instruction::Or:  // TODO implement
+  case Instruction::Xor: // TODO implement
     break;
   default:
     assert(false); // unsupported operation
@@ -71,7 +71,7 @@ taffo::handleUnaryInstruction(const std::shared_ptr<Range> op,
     return nullptr;
 
   switch (OpCode) {
-  case llvm::Instruction::FNeg:
+  case Instruction::FNeg:
     return std::make_shared<Range>(-op->Max, -op->Min);
     break;
   default:
@@ -85,39 +85,39 @@ taffo::handleUnaryInstruction(const std::shared_ptr<Range> op,
 std::shared_ptr<Range>
 taffo::handleCastInstruction(const std::shared_ptr<Range> scalar,
                              const unsigned OpCode,
-                             const llvm::Type *dest)
+                             const Type *dest)
 {
   switch (OpCode) {
-  case llvm::Instruction::Trunc:
+  case Instruction::Trunc:
     return handleTrunc(scalar, dest);
     break;
-  case llvm::Instruction::ZExt:
-  case llvm::Instruction::SExt:
+  case Instruction::ZExt:
+  case Instruction::SExt:
     return copyRange(scalar);
     break;
-  case llvm::Instruction::FPToUI:
+  case Instruction::FPToUI:
     return handleCastToUI(scalar);
     break;
-  case llvm::Instruction::FPToSI:
+  case Instruction::FPToSI:
     return handleCastToSI(scalar);
     break;
-  case llvm::Instruction::UIToFP:
-  case llvm::Instruction::SIToFP:
+  case Instruction::UIToFP:
+  case Instruction::SIToFP:
     return copyRange(scalar);
     break;
-  case llvm::Instruction::FPTrunc:
+  case Instruction::FPTrunc:
     return handleFPTrunc(scalar, dest);
-  case llvm::Instruction::FPExt:
+  case Instruction::FPExt:
     return copyRange(scalar);
     break;
-  case llvm::Instruction::PtrToInt:
-  case llvm::Instruction::IntToPtr:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
     return handleCastToSI(scalar);
     break;
-  case llvm::Instruction::BitCast: // TODO check
+  case Instruction::BitCast: // TODO check
     return copyRange(scalar);
     break;
-  case llvm::Instruction::AddrSpaceCast:
+  case Instruction::AddrSpaceCast:
     return copyRange(scalar);
     break;
   default:
@@ -148,12 +148,12 @@ taffo::handleMathCallInstruction(const std::list<std::shared_ptr<Range>> &ops,
 /** Handle call to known math functions. Return nullptr if unknown */
 std::shared_ptr<Range>
 taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
-                     const llvm::CmpInst::Predicate pred)
+                     const CmpInst::Predicate pred)
 {
   switch (pred) {
-  case llvm::CmpInst::Predicate::FCMP_FALSE:
+  case CmpInst::Predicate::FCMP_FALSE:
     return getAlwaysFalse();
-  case llvm::CmpInst::Predicate::FCMP_TRUE:
+  case CmpInst::Predicate::FCMP_TRUE:
     return getAlwaysTrue();
   default:
     break;
@@ -173,9 +173,9 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
 
   // NOTE: not dealing with Ordered / Unordered variants
   switch (pred) {
-  case llvm::CmpInst::Predicate::FCMP_OEQ:
-  case llvm::CmpInst::Predicate::FCMP_UEQ:
-  case llvm::CmpInst::Predicate::ICMP_EQ:
+  case CmpInst::Predicate::FCMP_OEQ:
+  case CmpInst::Predicate::FCMP_UEQ:
+  case CmpInst::Predicate::ICMP_EQ:
     if (lhs->Min == lhs->Max && rhs->Min == rhs->Max && lhs->Min == rhs->Min) {
       return getAlwaysTrue();
     } else if (lhs->Max < rhs->Min || rhs->Max < lhs->Min) {
@@ -184,10 +184,10 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
       return getGenericBoolRange();
     }
     break;
-  case llvm::CmpInst::Predicate::FCMP_OGT:
-  case llvm::CmpInst::Predicate::FCMP_UGT:
-  case llvm::CmpInst::Predicate::ICMP_UGT:
-  case llvm::CmpInst::Predicate::ICMP_SGT:
+  case CmpInst::Predicate::FCMP_OGT:
+  case CmpInst::Predicate::FCMP_UGT:
+  case CmpInst::Predicate::ICMP_UGT:
+  case CmpInst::Predicate::ICMP_SGT:
     if (lhs->Min > rhs->Max) {
       return getAlwaysTrue();
     } else if (lhs->Max <= rhs->Min) {
@@ -196,10 +196,10 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
       return getGenericBoolRange();
     }
     break;
-  case llvm::CmpInst::Predicate::FCMP_OGE:
-  case llvm::CmpInst::Predicate::FCMP_UGE:
-  case llvm::CmpInst::Predicate::ICMP_UGE:
-  case llvm::CmpInst::Predicate::ICMP_SGE:
+  case CmpInst::Predicate::FCMP_OGE:
+  case CmpInst::Predicate::FCMP_UGE:
+  case CmpInst::Predicate::ICMP_UGE:
+  case CmpInst::Predicate::ICMP_SGE:
     if (lhs->Min >= rhs->Max) {
       return getAlwaysTrue();
     } else if (lhs->Max < rhs->Min) {
@@ -208,10 +208,10 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
       return getGenericBoolRange();
     }
     break;
-  case llvm::CmpInst::Predicate::FCMP_OLT:
-  case llvm::CmpInst::Predicate::FCMP_ULT:
-  case llvm::CmpInst::Predicate::ICMP_ULT:
-  case llvm::CmpInst::Predicate::ICMP_SLT:
+  case CmpInst::Predicate::FCMP_OLT:
+  case CmpInst::Predicate::FCMP_ULT:
+  case CmpInst::Predicate::ICMP_ULT:
+  case CmpInst::Predicate::ICMP_SLT:
     if (lhs->Max < rhs->Min) {
       return getAlwaysTrue();
     } else if (lhs->Min >= rhs->Max) {
@@ -220,10 +220,10 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
       return getGenericBoolRange();
     }
     break;
-  case llvm::CmpInst::Predicate::FCMP_OLE:
-  case llvm::CmpInst::Predicate::FCMP_ULE:
-  case llvm::CmpInst::Predicate::ICMP_ULE:
-  case llvm::CmpInst::Predicate::ICMP_SLE:
+  case CmpInst::Predicate::FCMP_OLE:
+  case CmpInst::Predicate::FCMP_ULE:
+  case CmpInst::Predicate::ICMP_ULE:
+  case CmpInst::Predicate::ICMP_SLE:
     if (lhs->Max <= rhs->Min) {
       return getAlwaysTrue();
     } else if (lhs->Min > rhs->Max) {
@@ -232,9 +232,9 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
       return getGenericBoolRange();
     }
     break;
-  case llvm::CmpInst::Predicate::FCMP_ONE:
-  case llvm::CmpInst::Predicate::FCMP_UNE:
-  case llvm::CmpInst::Predicate::ICMP_NE:
+  case CmpInst::Predicate::FCMP_ONE:
+  case CmpInst::Predicate::FCMP_UNE:
+  case CmpInst::Predicate::ICMP_NE:
     if (lhs->Min == lhs->Max && rhs->Min == rhs->Max && lhs->Min == rhs->Min) {
       return getAlwaysFalse();
     } else if (lhs->Max < rhs->Min || rhs->Max < lhs->Min) {
@@ -243,8 +243,8 @@ taffo::handleCompare(const std::list<std::shared_ptr<Range>> &ops,
       return getGenericBoolRange();
     }
     break;
-  case llvm::CmpInst::Predicate::FCMP_ORD: // none of the operands is NaN
-  case llvm::CmpInst::Predicate::FCMP_UNO: // one of the operand is NaN
+  case CmpInst::Predicate::FCMP_ORD: // none of the operands is NaN
+  case CmpInst::Predicate::FCMP_UNO: // one of the operand is NaN
     // TODO implement
     break;
   default:
@@ -447,7 +447,7 @@ taffo::handleAShr(const std::shared_ptr<Range> op1, const std::shared_ptr<Range>
 /** Trunc */
 std::shared_ptr<Range>
 taffo::handleTrunc(const std::shared_ptr<Range> op,
-                   const llvm::Type *dest)
+                   const Type *dest)
 {
   using namespace llvm;
   if (!op)
@@ -457,10 +457,10 @@ taffo::handleTrunc(const std::shared_ptr<Range> op,
   APSInt imin(64U, true), imax(64U, true);
   bool isExact;
   APFloat(op->Min).convertToInteger(imin,
-                                      llvm::APFloatBase::roundingMode::TowardNegative,
+                                      APFloatBase::roundingMode::TowardNegative,
                                       &isExact);
   APFloat(op->Max).convertToInteger(imax,
-                                      llvm::APFloatBase::roundingMode::TowardPositive,
+                                      APFloatBase::roundingMode::TowardPositive,
                                       &isExact);
   APSInt new_imin(imin.trunc(itype->getBitWidth()));
   APSInt new_imax(imax.trunc(itype->getBitWidth()));
@@ -495,30 +495,30 @@ taffo::handleCastToSI(const std::shared_ptr<Range> op)
 /** FPTrunc */
 std::shared_ptr<Range>
 taffo::handleFPTrunc(const std::shared_ptr<Range> gop,
-                     const llvm::Type *dest)
+                     const Type *dest)
 {
   if (!gop) {
     return nullptr;
   }
   assert(dest && dest->isFloatingPointTy() && "Non-floating-point destination Type.");
 
-  llvm::APFloat apmin(gop->Min);
-  llvm::APFloat apmax(gop->Max);
+  APFloat apmin(gop->Min);
+  APFloat apmax(gop->Max);
   // Convert with most conservative rounding mode
   bool losesInfo;
   apmin.convert(dest->getFltSemantics(),
-                llvm::APFloatBase::rmTowardNegative,
+                APFloatBase::rmTowardNegative,
                 &losesInfo);
   apmax.convert(dest->getFltSemantics(),
-                llvm::APFloatBase::rmTowardPositive,
+                APFloatBase::rmTowardPositive,
                 &losesInfo);
 
   // Convert back to double
-  apmin.convert(llvm::APFloat::IEEEdouble(),
-                llvm::APFloatBase::rmTowardNegative,
+  apmin.convert(APFloat::IEEEdouble(),
+                APFloatBase::rmTowardNegative,
                 &losesInfo);
-  apmax.convert(llvm::APFloat::IEEEdouble(),
-                llvm::APFloatBase::rmTowardPositive,
+  apmax.convert(APFloat::IEEEdouble(),
+                APFloatBase::rmTowardPositive,
                 &losesInfo);
   return std::make_shared<Range>(apmin.convertToDouble(), apmax.convertToDouble());
 }
@@ -583,7 +583,7 @@ std::shared_ptr<ValueInfoWithRange> taffo::copyRange(const std::shared_ptr<Value
     return std::static_ptr_cast<ValueInfoWithRange>(op_s->clone());
 
   const std::shared_ptr<StructInfo> op_s = std::static_ptr_cast<StructInfo>(op);
-  llvm::SmallVector<std::shared_ptr<ValueInfo>, 4> new_fields;
+  SmallVector<std::shared_ptr<ValueInfo>, 4> new_fields;
   unsigned num_fields = op_s->numFields();
   new_fields.reserve(num_fields);
   for (unsigned i = 0; i < num_fields; i++) {
@@ -597,7 +597,7 @@ std::shared_ptr<ValueInfoWithRange> taffo::copyRange(const std::shared_ptr<Value
       new_fields.push_back(nullptr);
     }
   }
-  return std::make_shared<StructInfo>(nullptr, new_fields);
+  return std::make_shared<StructInfo>(new_fields);
 }
 
 std::shared_ptr<Range>
@@ -659,13 +659,13 @@ taffo::getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1,
           std::dynamic_ptr_cast<ScalarInfo>(op1)) {
     const std::shared_ptr<ScalarInfo> sop2 =
         std::static_ptr_cast<ScalarInfo>(op2);
-    return std::make_shared<ScalarInfo>(op1->getUnwrappedType(), nullptr, getUnionRange(sop1->range, sop2->range));
+    return std::make_shared<ScalarInfo>(nullptr, getUnionRange(sop1->range, sop2->range));
   }
 
   const std::shared_ptr<StructInfo> op1_s = std::static_ptr_cast<StructInfo>(op1);
   const std::shared_ptr<StructInfo> op2_s = std::static_ptr_cast<StructInfo>(op2);
   unsigned num_fields = std::max(op1_s->numFields(), op2_s->numFields());
-  llvm::SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
+  SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
   new_fields.reserve(num_fields);
   for (unsigned i = 0; i < num_fields; ++i) {
     const std::shared_ptr<ValueInfo> op1_f = op1_s->getField(i);
@@ -676,12 +676,12 @@ taffo::getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1,
                                          std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(op2_s->getField(i))));
     }
   }
-  return std::make_shared<StructInfo>(nullptr, new_fields);
+  return std::make_shared<StructInfo>(new_fields);
 }
 
 std::shared_ptr<ValueInfoWithRange>
-taffo::fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> src,
-                      const std::shared_ptr<ValueInfoWithRange> dst)
+taffo::fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> &src,
+                      const std::shared_ptr<ValueInfoWithRange> &dst)
 {
   if (!src)
     return copyRange(dst);
@@ -690,7 +690,7 @@ taffo::fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> src,
   }
   const std::shared_ptr<StructInfo> src_s = std::static_ptr_cast<StructInfo>(src);
   const std::shared_ptr<StructInfo> dst_s = std::static_ptr_cast<StructInfo>(dst);
-  llvm::SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
+  SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
   unsigned num_fields = src_s->numFields();
   new_fields.reserve(num_fields);
   for (unsigned i = 0; i < num_fields; ++i) {
@@ -702,5 +702,5 @@ taffo::fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> src,
                                           std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(dst_s->getField(i))));
     }
   }
-  return std::make_shared<StructInfo>(nullptr, new_fields);
+  return std::make_shared<StructInfo>(new_fields);
 }

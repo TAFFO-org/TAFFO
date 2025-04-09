@@ -91,3 +91,9 @@ and the `readme`s in the integration test directory.
 
 **Notice:** Some integration tests do not work in the current version of TAFFO.
 This is a known issue and will be fixed in a later revision.
+
+## How to debug TAFFO
+
+TODO
+
+Insert the line `settings set target.load-cwd-lldbinit true` in file `.lldbinit` in you home directory

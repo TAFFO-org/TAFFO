@@ -1,7 +1,7 @@
 #ifndef TAFFO_METADATA_MANAGER_HPP
 #define TAFFO_METADATA_MANAGER_HPP
 
-#include "BiMap.hpp"
+#include "Containers/BiMap.hpp"
 
 #include <llvm/Analysis/LoopInfo.h>
 

@@ -1,17 +1,12 @@
-#include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
+#include "LLVMFloatToFixedPass.hpp"
+#include "Types/TypeUtils.hpp"
+
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APSInt.h>
-#include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Analysis/OptimizationRemarkEmitter.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/InstIterator.h>
-#include <llvm/IR/InstrTypes.h>
-#include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
 #include <llvm/Support/raw_ostream.h>
 #include <cassert>
 #include <cmath>
@@ -22,10 +17,10 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt, TypeMatchPolicy typepol) {
+Constant *FloatToFixed::convertConstant(Constant *flt, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol) {
   if (dyn_cast<UndefValue>(flt)) {
     return UndefValue::get(
-        getLLVMFixedPointTypeForFloatType(flt->getType(), fixpt));
+        getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*flt), fixpt));
   }
   if (GlobalVariable *gvar = dyn_cast<GlobalVariable>(flt)) {
     return convertGlobalVariable(gvar, fixpt);
@@ -35,9 +30,9 @@ Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt, Ty
     return convertConstantAggregate(cag, fixpt, typepol);
   } else if (ConstantDataSequential *cds =
                  dyn_cast<ConstantDataSequential>(flt)) {
-    return convertConstantDataSequential(cds, fixpt);
+    return convertConstantDataSequential(cds, std::static_ptr_cast<FixedPointScalarType>(fixpt));
   } else if (dyn_cast<ConstantAggregateZero>(flt)) {
-    Type *newt = getLLVMFixedPointTypeForFloatType(flt->getType(), fixpt);
+    Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*flt), fixpt);
     return ConstantAggregateZero::get(newt);
   } else if (ConstantExpr *cexp = dyn_cast<ConstantExpr>(flt)) {
     return convertConstantExpr(cexp, fixpt, typepol);
@@ -46,7 +41,7 @@ Constant *FloatToFixed::convertConstant(Constant *flt, FixedPointType &fixpt, Ty
 }
 
 Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
-                                            FixedPointType &fixpt,
+                                            std::shared_ptr<FixedPointType> &fixpt,
                                             TypeMatchPolicy typepol)
 {
   if (isa<GEPOperator>(cexp)) {
@@ -60,9 +55,9 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
       return nullptr;
 
     if (typepol == TypeMatchPolicy::ForceHint)
-      assert(fixpt == fixPType(newval) && "type adjustment forbidden...");
+      assert(fixpt == getFixpType(newval) && "type adjustment forbidden...");
     else
-      fixpt = fixPType(newval);
+      fixpt = getFixpType(newval);
 
     std::vector<Constant *> vals;
     for (unsigned int i = 1; i < cexp->getNumOperands(); i++) {
@@ -78,10 +73,10 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
   return nullptr;
 }
 
-Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob, FixedPointType &fixpt) {
+Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob, std::shared_ptr<FixedPointType> &fixpt) {
   bool hasfloats = false;
-  Type *prevt = TaffoInfo::getInstance().getValueInfo(*glob)->getUnwrappedType();
-  Type *newt = getLLVMFixedPointTypeForFloatType(prevt, fixpt, &hasfloats);
+  Type *prevt = getUnwrappedType(glob);
+  Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*glob), fixpt, &hasfloats);
   if (!newt)
     return nullptr;
   if (!hasfloats)
@@ -104,7 +99,7 @@ Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob, FixedPointTy
 
 
 Constant *
-FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, FixedPointType &fixpt, TypeMatchPolicy typepol)
+FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol)
 {
   std::vector<Constant *> consts;
   for (unsigned int i = 0; i < cag->getNumOperands(); i++) {
@@ -142,15 +137,15 @@ FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, FixedPointType &f
 template <class T>
 Constant *
 FloatToFixed::createConstantDataSequential(ConstantDataSequential *cds,
-                                           const FixedPointType &fixpt)
+                                           const std::shared_ptr<FixedPointType> &fixpt)
 {
   std::vector<T> newConsts;
 
   for (unsigned int i = 0; i < cds->getNumElements(); i++) {
     APFloat thiselem = cds->getElementAsAPFloat(i);
     APSInt fixval;
-    if (!convertAPFloat(thiselem, fixval, nullptr, fixpt)) {
-      LLVM_DEBUG(dbgs() << *cds << " conv failed because an apfloat cannot be converted to " << fixpt << "\n");
+    if (!convertAPFloat(thiselem, fixval, nullptr, std::static_ptr_cast<FixedPointScalarType>(fixpt))) {
+      LLVM_DEBUG(dbgs() << *cds << " conv failed because an apfloat cannot be converted to " << *fixpt << "\n");
       return nullptr;
     }
     newConsts.push_back(fixval.getExtValue());
@@ -163,7 +158,7 @@ FloatToFixed::createConstantDataSequential(ConstantDataSequential *cds,
 }
 
 template <class T>
-Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *cds, const FixedPointType &fixpt)
+Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *cds, const std::shared_ptr<FixedPointType> &fixpt)
 {
   std::vector<T> newConsts;
 
@@ -182,27 +177,27 @@ Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *c
 }
 
 
-Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cds, const FixedPointType &fixpt) {
+Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cds, const std::shared_ptr<FixedPointScalarType> &fixpt) {
   if (!getUnwrappedType(cds)->isFloatTy())
     return cds;
 
-  if (fixpt.isFixedPoint()) {
-    if (fixpt.scalarBitsAmt() <= 8)
+  if (fixpt->isFixedPoint()) {
+    if (fixpt->getBits() <= 8)
       return createConstantDataSequential<uint8_t>(cds, fixpt);
-    else if (fixpt.scalarBitsAmt() <= 16)
+    else if (fixpt->getBits() <= 16)
       return createConstantDataSequential<uint16_t>(cds, fixpt);
-    else if (fixpt.scalarBitsAmt() <= 32)
+    else if (fixpt->getBits() <= 32)
       return createConstantDataSequential<uint32_t>(cds, fixpt);
-    else if (fixpt.scalarBitsAmt() <= 64)
+    else if (fixpt->getBits() <= 64)
       return createConstantDataSequential<uint64_t>(cds, fixpt);
   }
 
-  if (fixpt.isFloatingPoint()) {
-    if (fixpt.getFloatingPointStandard() == FixedPointType::Float_float) {
+  if (fixpt->isFloatingPoint()) {
+    if (fixpt->getFloatStandard() == FixedPointScalarType::Float_float) {
       return createConstantDataSequentialFP<float>(cds, fixpt);
     }
 
-    if (fixpt.getFloatingPointStandard() == FixedPointType::Float_double) {
+    if (fixpt->getFloatStandard() == FixedPointScalarType::Float_double) {
       return createConstantDataSequentialFP<double>(cds, fixpt);
     }
     // As the sequential data does not accept anything different from float or double, we are doomed.
@@ -210,34 +205,35 @@ Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cd
     llvm_unreachable("You cannot have anything different from float or double here, my friend!");
   }
 
-  LLVM_DEBUG(dbgs() << fixpt << " too big for ConstantDataArray/Vector; 64 bit max\n");
+  LLVM_DEBUG(dbgs() << *fixpt << " too big for ConstantDataArray/Vector; 64 bit max\n");
   return nullptr;
 }
 
 
 Constant *
-FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointType &fixpt, TypeMatchPolicy typepol)
+FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol)
 {
   APFloat val = fpc->getValueAPF();
   APSInt fixval;
 
 
   // Old workflow, convert the value to a fixed point value
-  if (fixpt.isFixedPoint()) {
+  if (fixpt->isFixedPoint()) {
     if (!isHintPreferredPolicy(typepol)) {
       APFloat tmp(val);
       bool precise = false;
       tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmTowardNegative, &precise);
       double dblval = tmp.convertToDouble();
-      int nbits = fixpt.scalarBitsAmt();
+      int nbits = std::static_ptr_cast<FixedPointScalarType>(fixpt)->getBits();
       Range range(dblval, dblval);
       int minflt = isMaxIntPolicy(typepol) ? -1 : 0;
       FixpType t = fixedPointTypeFromRange(range, nullptr, nbits, minflt);
-      fixpt = FixedPointType(&t);
+      fixpt = std::make_shared<FixedPointScalarType>(&t);
     }
 
-    if (convertAPFloat(val, fixval, context, fixpt)) {
-      Type *intty = fixpt.scalarToLLVMType(fpc->getContext());
+    std::shared_ptr<FixedPointScalarType> scalarFixpt = std::static_ptr_cast<FixedPointScalarType>(fixpt);
+    if (convertAPFloat(val, fixval, context, scalarFixpt)) {
+      Type *intty = scalarFixpt->scalarToLLVMType(fpc->getContext());
       return ConstantInt::get(intty, fixval);
     } else {
       return nullptr;
@@ -246,8 +242,9 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
 
 
   // Just "convert", actually recast, the value to the correct data type if using floating point data
-  if (fixpt.isFloatingPoint()) {
-    Type *intty = fixpt.scalarToLLVMType(fpc->getContext());
+  if (fixpt->isFloatingPoint()) {
+    std::shared_ptr<FixedPointScalarType> scalarFixpt = std::static_pointer_cast<FixedPointScalarType>(fixpt);
+    Type *intty = scalarFixpt->scalarToLLVMType(fpc->getContext());
     bool loosesInfo;
 
     val.convert(intty->getFltSemantics(), APFloatBase::rmTowardPositive, &loosesInfo);
@@ -259,15 +256,15 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, FixedPointTy
 }
 
 
-bool FloatToFixed::convertAPFloat(APFloat val, APSInt &fixval, Instruction *context, const FixedPointType &fixpt)
+bool FloatToFixed::convertAPFloat(APFloat val, APSInt &fixval, Instruction *context, const std::shared_ptr<FixedPointScalarType> &fixpt)
 {
   bool precise = false;
 
-  APFloat exp(pow(2.0, fixpt.scalarFracBitsAmt()));
+  APFloat exp(pow(2.0, fixpt->getFractionalBits()));
   exp.convert(val.getSemantics(), APFloat::rmTowardNegative, &precise);
   val.multiply(exp, APFloat::rmTowardNegative);
 
-  fixval = APSInt(fixpt.scalarBitsAmt(), !fixpt.scalarIsSigned());
+  fixval = APSInt(fixpt->getBits(), !fixpt->isSigned());
   APFloat::opStatus cvtres = val.convertToInteger(fixval, APFloat::rmTowardNegative, &precise);
 
   if (cvtres != APFloat::opStatus::opOK && context) {

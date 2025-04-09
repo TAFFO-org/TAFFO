@@ -2,7 +2,8 @@
 
 #include "MemSSAUtils.hpp"
 #include "RangeOperations.hpp"
-#include "TypeUtils.h"
+#include "Types/TypeUtils.hpp"
+
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/Support/Debug.h>
 
@@ -302,12 +303,12 @@ void VRAnalyzer::handleMallocCall(const CallBase *CB) {
   LLVM_DEBUG(Logger->logInfo("malloc-like"));
   const Type *AllocatedType = nullptr;
 
-  std::shared_ptr<ValueInfoWithRange> inputInfo = getGlobalStore()->getUserInput(CB);
+  auto inputInfo = getGlobalStore()->getUserInput(CB);
   if (AllocatedType && AllocatedType->isStructTy()) {
     if (inputInfo && std::isa_ptr<StructInfo>(inputInfo)) {
-      DerivedRanges[CB] = inputInfo;
+      DerivedRanges[CB] = inputInfo->clone();
     } else {
-      DerivedRanges[CB] = std::make_shared<StructInfo>(nullptr, 0);
+      DerivedRanges[CB] = std::make_shared<StructInfo>(0);
     }
     LLVM_DEBUG(Logger->logInfoln("struct"));
   }
@@ -317,7 +318,7 @@ void VRAnalyzer::handleMallocCall(const CallBase *CB) {
         DerivedRanges[CB] = std::make_shared<PointerInfo>(inputInfo);
       } else if (isCallocLike(CB->getCalledFunction())) {
         DerivedRanges[CB] =
-            std::make_shared<PointerInfo>(std::make_shared<ScalarInfo>(nullptr, nullptr, std::make_shared<Range>(0, 0)));
+            std::make_shared<PointerInfo>(std::make_shared<ScalarInfo>(nullptr, std::make_shared<Range>(0, 0)));
       } else {
         DerivedRanges[CB] = std::make_shared<PointerInfo>(nullptr);
       }
@@ -367,21 +368,21 @@ void VRAnalyzer::handleReturn(const Instruction *ret)
   }
 }
 
-void VRAnalyzer::handleAllocaInstr(const Instruction *I)
-{
-  const AllocaInst *AI = cast<AllocaInst>(I);
+void VRAnalyzer::handleAllocaInstr(Instruction *I) {
+  AllocaInst *allocaInst = cast<AllocaInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
-  const std::shared_ptr<ValueInfoWithRange> InputRange = getGlobalStore()->getUserInput(I);
-  if (AI->getAllocatedType()->isStructTy()) {
-    if (InputRange && std::isa_ptr<StructInfo>(InputRange)) {
-      DerivedRanges[I] = InputRange;
+  const auto inputValueInfo = getGlobalStore()->getUserInput(I);
+  auto allocatedType = TaffoInfo::getInstance().getTransparentType(*allocaInst);
+  if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(allocatedType)) {
+    if (inputValueInfo && std::isa_ptr<StructInfo>(inputValueInfo)) {
+      DerivedRanges[I] = inputValueInfo->clone();
     } else {
-      DerivedRanges[I] = std::make_shared<StructInfo>(nullptr, 0);
+      DerivedRanges[I] = StructInfo::createFromTransparentType(structType);
     }
     LLVM_DEBUG(Logger->logInfoln("struct"));
   } else {
-    if (InputRange && std::isa_ptr<ScalarInfo>(InputRange)) {
-      DerivedRanges[I] = std::make_shared<PointerInfo>(InputRange);
+    if (inputValueInfo && std::isa_ptr<ScalarInfo>(inputValueInfo)) {
+      DerivedRanges[I] = std::make_shared<PointerInfo>(inputValueInfo);
     } else {
       DerivedRanges[I] = std::make_shared<PointerInfo>(nullptr);
     }
@@ -459,11 +460,11 @@ void VRAnalyzer::handleGEPInstr(const Instruction *I) {
                         Offset)) {
     return;
   }
-  Node = std::make_shared<GEPInfo>(getNode(gepInst->getPointerOperand()), Offset, gepInst->getType());
+  Node = std::make_shared<GEPInfo>(getNode(gepInst->getPointerOperand()), Offset);
   setNode(I, Node);
 }
 
-void VRAnalyzer::handleBitCastInstr(const Instruction *I) {
+void VRAnalyzer::handleBitCastInstr(Instruction *I) {
   LLVM_DEBUG(Logger->logInstruction(I));
   if (std::shared_ptr<ValueInfo> Node = getNode(I->getOperand(0U))) {
     bool InputIsStruct = getUnwrappedType(I->getOperand(0U))->isStructTy();
@@ -507,7 +508,7 @@ void VRAnalyzer::handlePhiNode(const Instruction *phi)
     return;
   }
   LLVM_DEBUG(Logger->logInstruction(phi));
-  std::shared_ptr<ValueInfoWithRange> res = copyRange(getGlobalStore()->getUserInput(phi));
+  auto res = copyRange(getGlobalStore()->getUserInput(phi));
   for (unsigned index = 0U; index < phi_n->getNumIncomingValues(); index++) {
     const Value *op = phi_n->getIncomingValue(index);
     std::shared_ptr<ValueInfo> op_node = getNode(op);
@@ -556,16 +557,16 @@ std::shared_ptr<Range> VRAnalyzer::fetchRange(const Value *v) {
 std::shared_ptr<ValueInfoWithRange> VRAnalyzer::fetchRangeNode(const Value *v) {
   if (const std::shared_ptr<ValueInfoWithRange> Derived = VRAStore::fetchRangeNode(v)) {
     if (std::isa_ptr<StructInfo>(Derived)) {
-      if (std::shared_ptr<ValueInfoWithRange> InputRange = getGlobalStore()->getUserInput(v)) {
+      if (auto InputRange = getGlobalStore()->getUserInput(v)) {
         // fill null input_range fields with corresponding derived fields
-        return fillRangeHoles(Derived, InputRange);
+        return fillRangeHoles(Derived, InputRange->clone<ValueInfoWithRange>());
       }
     }
     return Derived;
   }
 
-  if (const std::shared_ptr<ValueInfoWithRange> InputRange = getGlobalStore()->getUserInput(v))
-    return InputRange;
+  if (const auto InputRange = getGlobalStore()->getUserInput(v))
+    return InputRange->clone<ValueInfoWithRange>();
 
   return nullptr;
 }
@@ -583,7 +584,7 @@ std::shared_ptr<ValueInfo> VRAnalyzer::getNode(const Value *v) {
   if (Node && Node->getKind() == ValueInfo::K_Scalar) {
     auto UserInput = std::dynamic_ptr_cast_or_null<ScalarInfo>(getGlobalStore()->getUserInput(v));
     if (UserInput && UserInput->isFinal())
-      Node = UserInput;
+      Node = UserInput->clone();
   }
 
   return Node;

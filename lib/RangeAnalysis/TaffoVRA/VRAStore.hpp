@@ -45,7 +45,7 @@ protected:
                         const llvm::iterator_range<llvm::User::const_op_iterator> indices,
                         llvm::SmallVectorImpl<unsigned> &offset) const;
   std::shared_ptr<ValueInfo> loadNode(const std::shared_ptr<ValueInfo> &valueInfo, llvm::SmallVectorImpl<unsigned> &Offset) const;
-  void storeNode(std::shared_ptr<ValueInfo> dst, const std::shared_ptr<ValueInfo> &src, llvm::SmallVectorImpl<unsigned> &offset);
+  void storeNode(const std::shared_ptr<ValueInfo> &dst, const std::shared_ptr<ValueInfo> &src, llvm::SmallVectorImpl<unsigned> &offset);
   std::shared_ptr<ValueInfoWithRange> fetchRange(const   std::shared_ptr<ValueInfo> &valueInfo, llvm::SmallVectorImpl<unsigned> &offset) const;
 
   VRAStore(VRAStoreKind K, std::shared_ptr<VRALogger> L)

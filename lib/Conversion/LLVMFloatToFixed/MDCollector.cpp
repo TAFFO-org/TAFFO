@@ -1,6 +1,6 @@
-#include "LLVMFloatToFixedPass.h"
+#include "LLVMFloatToFixedPass.hpp"
 #include "PtrCasts.hpp"
-#include "TypeUtils.h"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Constants.h>
@@ -26,7 +26,7 @@ void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &varia
     removeNoFloatTy(variables);
 }
 
-void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value *> &variables, bool argumentsOnly) {
+void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value*> &variables, bool argumentsOnly) {
   for (Argument &arg : f.args()) {
     if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg)) {
       /* Don't enqueue function arguments because they will be handled by
@@ -39,14 +39,8 @@ void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value *> &vari
     return;
 
   for (Instruction &inst : instructions(f))
-    if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst)) {
+    if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst))
       parseMetaData(&variables, valueInfo, &inst);
-      /*for (Use &use : inst.operands()) {
-        Value *operand = use.get();
-        if (std::shared_ptr<ValueInfo> operandInfo = TaffoInfo::getInstance().getValueInfo(*operand))
-          parseMetaData(&variables, operandInfo, operand);
-      }*/
-    }
 }
 
 void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res) {
@@ -85,7 +79,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
 
   vi.isBacktrackingNode = false;
   vi.fixpTypeRootDistance = 0;
-  vi.origType = raw->getUnwrappedType();
+  vi.origType = getUnwrappedType(instr);
 
   if (std::shared_ptr<ScalarInfo> fpInfo = std::dynamic_ptr_cast<ScalarInfo>(raw)) {
     if (!fpInfo->isConversionEnabled())
@@ -96,7 +90,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
         LLVM_DEBUG(dbgs() << "Type in metadata is null! ");
         if (isKnownConvertibleWithIncompleteMetadata(instr)) {
           LLVM_DEBUG(dbgs() << "Since I like this instruction I'm going to give it the benefit of the doubt.\n");
-          vi.fixpType = FixedPointType();
+          vi.fixpType = std::make_shared<FixedPointScalarType>();
         } else {
           LLVM_DEBUG(dbgs() << "Ignoring metadata for this instruction.\n");
           return false;
@@ -104,10 +98,10 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
       } else {
         assert(!(getUnwrappedType(instr)->isStructTy()) &&
           "input info / actual type mismatch");
-        vi.fixpType = FixedPointType(fpt);
+        vi.fixpType = std::make_shared<FixedPointScalarType>(fpt);
       }
     } else {
-      vi.fixpType = FixedPointType();
+      vi.fixpType = std::make_shared<FixedPointScalarType>();
     }
 
   } else if (std::shared_ptr<StructInfo> fpInfo = std::dynamic_ptr_cast<StructInfo>(raw)) {
@@ -115,13 +109,13 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
       assert(getUnwrappedType(instr)->isStructTy() &&
              "input info / actual type mismatch");
       int enableConversion = 0;
-      vi.fixpType = FixedPointType::get(fpInfo.get(), &enableConversion);
+      vi.fixpType = std::make_shared<FixedPointStructType>(fpInfo, &enableConversion);
       if (enableConversion == 0) {
         LLVM_DEBUG(dbgs() << "Conversion not enabled.\n");
         return false;
       }
     } else {
-      vi.fixpType = FixedPointType();
+      vi.fixpType = std::make_shared<FixedPointScalarType>();
     }
 
   } else {
@@ -132,7 +126,7 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
     variables->insert(instr);
   *newConversionInfo(instr) = vi;
 
-  LLVM_DEBUG(dbgs() << "Type deducted: " << vi.fixpType.toString() << "\n");
+  LLVM_DEBUG(dbgs() << "Type deducted: " << *vi.fixpType << "\n");
 
   return true;
 }

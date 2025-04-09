@@ -1,7 +1,7 @@
 #include "TaffoInitializerPass.hpp"
-#include "TaffoInfo/TaffoInfo.hpp"
 #include "AnnotationParser.hpp"
-#include "TypeUtils.h"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Constants.h>

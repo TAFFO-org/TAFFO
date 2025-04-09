@@ -1,5 +1,4 @@
-#include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
+#include "LLVMFloatToFixedPass.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>

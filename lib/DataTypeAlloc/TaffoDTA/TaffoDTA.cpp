@@ -1,6 +1,6 @@
 #include "TaffoDTA.h"
 
-#include "Logger.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "DTAConfig.h"
 #include "BufferIDFiles.h"
@@ -161,13 +161,13 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
   }
 
   bool skippedAll = true;
-  Type *fuwt = getUnwrappedType(v);
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, Type*>, 8> queue({std::make_pair(newValueInfo, fuwt)});
+  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getTransparentType(*v);
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, std::shared_ptr<TransparentType>>, 8> queue({std::make_pair(newValueInfo, transparentType)});
 
   while (!queue.empty()) {
-    std::pair<std::shared_ptr<ValueInfo>, Type*> elem = queue.pop_back_val();
+    const auto &[valueInfo, transparentType] = queue.pop_back_val();
 
-    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(elem.first)) {
+    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
       if (forceEnableConv)
         scalarInfo->conversionEnabled = true;
 
@@ -177,7 +177,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
         scalarInfo->conversionEnabled = true;
       }
 
-      if (!elem.first->getUnwrappedType()->isFloatTy()) {
+      if (!transparentType->isFloatType()) {
         LLVM_DEBUG(dbgs() << "[Info] Skipping a member of " << *v << " because not a float\n");
         continue;
       }
@@ -187,17 +187,17 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
         skippedAll = false;
       }
 
-    } else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(elem.first)) {
-      if (!elem.second->isStructTy()) {
+    } else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo)) {
+      if (!transparentType->isStructType()) {
         LLVM_DEBUG(dbgs() << "[ERROR] found non conforming structinfo " << structInfo->toString() << " on value " << *v
                           << "\n");
-        LLVM_DEBUG(dbgs() << "contained type " << *elem.second << " is not a struct type\n");
+        LLVM_DEBUG(dbgs() << "contained type " << *transparentType << " is not a struct type\n");
         LLVM_DEBUG(dbgs() << "The top-level MDInfo was " << valueInfo->toString() << "\n");
         llvm_unreachable("Non-conforming StructInfo.");
       }
-      for (const std::shared_ptr<ValueInfo> &field : *structInfo)
-        if (field)
-          queue.push_back(std::make_pair(field, field->getUnwrappedType()));
+      for (unsigned int i = 0; i < structInfo->numFields(); i++)
+        if (const std::shared_ptr<ValueInfo> &field = structInfo->getField(i))
+          queue.push_back(std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
 
     } else {
       llvm_unreachable("unknown mdinfo subclass");
@@ -216,7 +216,6 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
   }
   return !skippedAll;
 }
-
 
 bool TaffoTuner::associateFixFormat(std::shared_ptr<ScalarInfo> &scalarInfo, Value *value) {
   if (!scalarInfo->isConversionEnabled()) {
@@ -328,7 +327,6 @@ bool TaffoTuner::associateFixFormat(std::shared_ptr<ScalarInfo> &scalarInfo, Val
   return false;
 }
 
-
 void TaffoTuner::sortQueue(std::vector<Value *> &vals,
                            SmallPtrSetImpl<Value *> &valset) {
   // Topological sort by means of a reversed DFS.
@@ -375,10 +373,10 @@ void TaffoTuner::sortQueue(std::vector<Value *> &vals,
             } else if (utype->isStructTy() && ctype->isStructTy() && ctype->canLosslesslyBitCastTo(utype)) {
               getTunerInfo(u)->metadata = getTunerInfo(c)->metadata->clone();
             } else {
-              if (utype->isStructTy())
-                getTunerInfo(u)->metadata = StructInfo::constructFromLLVMType(utype);
+              if (auto userStructType = std::dynamic_ptr_cast<TransparentStructType>(TaffoInfo::getInstance().getTransparentType(*u)))
+                getTunerInfo(u)->metadata = StructInfo::createFromTransparentType(userStructType);
               else
-                getTunerInfo(u)->metadata = std::make_shared<ScalarInfo>(getUnwrappedType(u));
+                getTunerInfo(u)->metadata = std::make_shared<ScalarInfo>();
               LLVM_DEBUG(dbgs() << "not copying metadata of " << *c << " to " << *u
                                 << " because one value has struct typing and the other has not.\n");
             }

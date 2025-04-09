@@ -6,7 +6,7 @@
 #include "CPUCosts.h"
 #include "Model.h"
 #include "OptimizerInfo.h"
-#include "TypeUtils.h"
+#include "Types/TypeUtils.hpp"
 #include "PhiWatcher.h"
 #include "MemWatcher.h"
 

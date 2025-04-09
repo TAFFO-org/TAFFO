@@ -33,8 +33,7 @@ using namespace taffo;
 
 STATISTIC(NumPromoted, "Number of alloca's promoted");
 
-static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
-                                    AssumptionCache &AC) {
+static bool promoteMemoryToRegister(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   std::vector<AllocaInst *> Allocas;
   BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
   bool Changed = false;
@@ -60,8 +59,13 @@ static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
 }
 
 PreservedAnalyses TaffoMem2Reg::run(Function &F, FunctionAnalysisManager &AM) {
+  static bool initializedTaffoInfo = false;
+
   Module &M = *F.getParent();
-  TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", M);
+  if (!initializedTaffoInfo) {
+    TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", M);
+    initializedTaffoInfo = true;
+  }
 
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);

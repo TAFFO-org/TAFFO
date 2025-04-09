@@ -110,7 +110,7 @@ std::shared_ptr<Range> getUnionRange(const std::shared_ptr<Range> op1, const std
 
 std::shared_ptr<ValueInfoWithRange> getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1, const std::shared_ptr<ValueInfoWithRange> op2);
 
-std::shared_ptr<ValueInfoWithRange> fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> src, const std::shared_ptr<ValueInfoWithRange> dst);
+std::shared_ptr<ValueInfoWithRange> fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> &src, const std::shared_ptr<ValueInfoWithRange> &dst);
 
 } // namespace taffo
 

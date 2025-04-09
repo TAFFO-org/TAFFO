@@ -2,7 +2,7 @@
 #define __TAFFO_TUNER_PASS_H__
 
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeUtils.h"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallPtrSet.h>

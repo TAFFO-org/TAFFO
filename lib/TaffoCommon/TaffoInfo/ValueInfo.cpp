@@ -1,19 +1,12 @@
 #include "ValueInfo.hpp"
 
-#include "TaffoInfo.hpp"
 #include "MetadataManager.hpp"
-#include "PtrCasts.hpp"
 
 using namespace llvm;
 using namespace taffo;
 
 json ValueInfo::serialize() const {
-  json j;
-  if (getUnwrappedType())
-    j["type"] = taffo::toString(getUnwrappedType());
-  else
-    j["type"] = nullptr;
-
+  json j = json::object();
   if (target.has_value())
     j["target"] = target.value();
   if (bufferId.has_value())
@@ -26,20 +19,16 @@ void ValueInfo::deserialize(const json &j) {
     target = j["target"].get<std::string>();
   if (j.contains("bufferId") && !j["bufferId"].is_null())
     bufferId = j["bufferId"].get<std::string>();
-
-  if (!j["type"].is_null())
-    unwrappedType = TaffoInfo::getInstance().getType(j["type"]);
 }
 
 void ValueInfo::copyFrom(const ValueInfo &other) {
-  unwrappedType = other.unwrappedType;
   target = other.target;
   bufferId = other.bufferId;
 }
 
 ScalarInfo &ScalarInfo::operator=(const ScalarInfo &other) {
   if (this != &other) {
-    copyFrom((ValueInfo &) other);
+    copyFrom(other);
     this->numericType = other.numericType;
     this->range = other.range;
     this->error = other.error;
@@ -49,12 +38,12 @@ ScalarInfo &ScalarInfo::operator=(const ScalarInfo &other) {
   return *this;
 }
 
-std::shared_ptr<ValueInfo> ScalarInfo::clone() const {
+std::shared_ptr<ValueInfo> ScalarInfo::cloneImpl() const {
   std::shared_ptr<NumericType> newNumericType = numericType ? numericType->clone() : nullptr;
   std::shared_ptr<Range> newRange = range ? std::make_shared<Range>(*range) : nullptr;
   std::shared_ptr<double> newError = error ? std::make_shared<double>(*error) : nullptr;
   std::shared_ptr<ScalarInfo> copy = std::make_shared<ScalarInfo>(
-      getUnwrappedType(), newNumericType, newRange, newError, conversionEnabled, final);
+    newNumericType, newRange, newError, conversionEnabled, final);
   copy->copyFrom(*this);
   return copy;
 }
@@ -130,37 +119,30 @@ void ScalarInfo::deserialize(const json &j) {
   final = j["final"].get<bool>();
 }
 
-std::shared_ptr<StructInfo> StructInfo::constructFromLLVMType(
-    Type *type, SmallDenseMap<Type *, std::shared_ptr<StructInfo>> *recursionMap) {
-  std::unique_ptr<SmallDenseMap<Type *, std::shared_ptr<StructInfo>>> _recursionMap;
-  if (!recursionMap) {
-    _recursionMap.reset(new SmallDenseMap<Type *, std::shared_ptr<StructInfo>>());
-    recursionMap = _recursionMap.get();
-  }
+std::shared_ptr<StructInfo> StructInfo::createFromTransparentType(const std::shared_ptr<TransparentStructType> &structType) {
+  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> recursionMap;
+  return createFromTransparentType(structType, recursionMap);
+}
 
-  auto rec = recursionMap->find(type);
-  if (rec != recursionMap->end()) {
-    return rec->getSecond();
-  }
+std::shared_ptr<StructInfo> StructInfo::createFromTransparentType(
+  const std::shared_ptr<TransparentType> &type,
+  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap)
+{
+  auto iter = recursionMap.find(type);
+  if (iter != recursionMap.end())
+    return iter->second;
 
-  unsigned int c = type->getNumContainedTypes();
-
-  if (c == 0 || type->isFunctionTy()) {
-    recursionMap->insert({type, nullptr});
-    return nullptr;
-  }
-
-  if (auto *structType = dyn_cast<StructType>(type)) {
+  if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(type)) {
+    unsigned int numFields = structType->getNumFieldTypes();
     FieldsType fields;
-    std::shared_ptr<StructInfo> res = std::make_shared<StructInfo>(StructInfo(structType, c));
-    recursionMap->insert({structType, res});
-    for (unsigned int i = 0; i < c; i++) {
-      res->getField(i) = constructFromLLVMType(structType->getElementType(i), recursionMap);
-    }
+    auto res = std::make_shared<StructInfo>(StructInfo(numFields));
+    recursionMap.insert({structType, res});
+    for (unsigned int i = 0; i < numFields; i++)
+      res->setField(i, createFromTransparentType(structType->getFieldType(i), recursionMap));
     return res;
   }
 
-  return constructFromLLVMType(type->getContainedType(0), recursionMap);
+  return nullptr;
 }
 
 bool StructInfo::isConversionEnabled() const {
@@ -188,21 +170,21 @@ bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*> &visited
 
 std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef<unsigned> indices) {
   Type *resolvedType = type;
-  std::shared_ptr<ValueInfo> resolvedInfo(this);
+  std::shared_ptr<ValueInfo> resolvedInfo = this->clone();
   for (unsigned idx : indices) {
     if (resolvedInfo == nullptr)
       break;
     if (resolvedType->isStructTy()) {
       resolvedType = resolvedType->getContainedType(idx);
       resolvedInfo = cast<StructInfo>(resolvedInfo.get())->getField(idx);
-    } else {
-      resolvedType = resolvedType->getContainedType(idx);
     }
+    else
+      resolvedType = resolvedType->getContainedType(idx);
   }
   return resolvedInfo;
 }
 
-std::shared_ptr<ValueInfo> StructInfo::clone() const {
+std::shared_ptr<ValueInfo> StructInfo::cloneImpl() const {
   FieldsType newFields;
   for (const std::shared_ptr<ValueInfo> &field : Fields) {
     if (field)
@@ -210,7 +192,7 @@ std::shared_ptr<ValueInfo> StructInfo::clone() const {
     else
       newFields.push_back(nullptr);
   }
-  return std::make_shared<StructInfo>(getUnwrappedType(), newFields);
+  return std::make_shared<StructInfo>(newFields);
 }
 
 std::string StructInfo::toString() const {
@@ -260,7 +242,7 @@ void StructInfo::deserialize(const json &j) {
         field->deserialize(fieldJson);
         Fields.push_back(field);
       } else if (fieldKind == "StructInfo") {
-        auto field = std::make_shared<StructInfo>(nullptr, 0);
+        auto field = std::make_shared<StructInfo>(0);
         field->deserialize(fieldJson);
         Fields.push_back(field);
       } else {
@@ -282,8 +264,8 @@ bool PointerInfo::isConversionEnabled() const {
   return true; //TODO
 }
 
-std::shared_ptr<ValueInfo> PointerInfo::clone() const {
-  std::shared_ptr<PointerInfo> copy = std::make_shared<PointerInfo>(pointed, getUnwrappedType());
+std::shared_ptr<ValueInfo> PointerInfo::cloneImpl() const {
+  std::shared_ptr<PointerInfo> copy = std::make_shared<PointerInfo>(pointed);
   copy->copyFrom(*this);
   return copy;
 }
@@ -304,8 +286,8 @@ bool GEPInfo::isConversionEnabled() const {
   return true; //TODO
 }
 
-std::shared_ptr<ValueInfo> GEPInfo::clone() const {
-  std::shared_ptr<GEPInfo> copy = std::make_shared<GEPInfo>(pointed, offset, getUnwrappedType());
+std::shared_ptr<ValueInfo> GEPInfo::cloneImpl() const {
+  std::shared_ptr<GEPInfo> copy = std::make_shared<GEPInfo>(pointed, offset);
   copy->copyFrom(*this);
   return copy;
 }

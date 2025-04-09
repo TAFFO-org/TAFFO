@@ -34,7 +34,7 @@ if (TAFFO_BUILD_ILP_DTA)
 endif ()
 
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY ${DTA_SRC})
-target_link_libraries(obj.${SELF} PUBLIC TaffoUtils)
+target_link_libraries(obj.${SELF} PUBLIC TaffoCommon)
 target_include_directories(obj.${SELF} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (TAFFO_BUILD_ILP_DTA)

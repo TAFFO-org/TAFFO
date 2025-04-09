@@ -5,7 +5,7 @@
 #include "Initializer/TaffoInitializer/TaffoInitializerPass.hpp"
 #include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
 #include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
-#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
+#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.hpp"
 //#include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
 #include "TaffoMem2Reg/Mem2Reg.hpp"
 

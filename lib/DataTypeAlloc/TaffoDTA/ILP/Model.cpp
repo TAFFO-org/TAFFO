@@ -1,10 +1,9 @@
 #include "Model.h"
-#include "DebugUtils.h"
+#include "Debug/DebugUtils.hpp"
 #include "OptimizerInfo.h"
-#include "TypeUtils.h"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>

@@ -30,25 +30,25 @@ float ex0(float t, float resistance, float frequency, float inductance,
 {
   float pi = 3.14159265359f;
   float impedance_re = resistance;
-  float __attribute__((annotate("scalar(range(-1, 4) final)"))) impedance_im = ((2.0f * pi) * frequency) * inductance;
-  float __attribute__((annotate("scalar(range(-1, 2503) final)"))) denom = (impedance_re * impedance_re) + (impedance_im * impedance_im);
+  float __attribute__((annotate("scalar(range(-1, 4))"))) impedance_im = ((2.0f * pi) * frequency) * inductance;
+  float __attribute__((annotate("scalar(range(-1, 2503))"))) denom = (impedance_re * impedance_re) + (impedance_im * impedance_im);
   float re_tmp = (maxVoltage * impedance_re) ;
   float im_tmp = (maxVoltage * impedance_im) ;
    im_tmp = -im_tmp;
 
   float  current_re = re_tmp / denom;
   float  current_im = im_tmp / denom;
-  float __attribute__((annotate("scalar(range(-1, 11) final)"))) maxCurrent =
+  float __attribute__((annotate("scalar(range(-1, 11))"))) maxCurrent =
       sqrt(((current_re * current_re) + (current_im * current_im)));
 
 
-  float __attribute__((annotate("scalar(range(-1, 4) final)"))) theta = atan((current_im / current_re));
+  float __attribute__((annotate("scalar(range(-1, 4))"))) theta = atan((current_im / current_re));
   float cos_1 = (2.0f * pi);
   float cos_2 = (cos_1 * frequency);
   float cos_3 = ( cos_2 * t);
-  float __attribute__((annotate("scalar(range(-8478652928, 13320812) final)"))) cos_4 = cos_3 ;
-  float __attribute__((annotate("scalar(range(-8478652928, 13320812) final)"))) cos_5 = cos(cos_4);
-  float __attribute__((annotate("scalar(range(-8478652928, 13320812) final)")))  mmaxCurrent = maxCurrent;
+  float __attribute__((annotate("scalar(range(-8478652928, 13320812))"))) cos_4 = cos_3 ;
+  float __attribute__((annotate("scalar(range(-8478652928, 13320812))"))) cos_5 = cos(cos_4);
+  float __attribute__((annotate("scalar(range(-8478652928, 13320812))")))  mmaxCurrent = maxCurrent;
   float __attribute__((annotate("scalar(range(-8478652928, 13320812))")))  tmp = mmaxCurrent * cos_5;
   return tmp;
 }
@@ -56,13 +56,13 @@ float ex0(float t, float resistance, float frequency, float inductance,
 int main()
 {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 5;
-  float __attribute__((annotate("target('main') scalar(range(-2, 300) final)")))
+  float __attribute__((annotate("target('main') scalar(range(-2, 300))")))
   t[len];
-  float __attribute__((annotate("scalar(range(-10, 50) final)"))) resistance[len];
-  float __attribute__((annotate("scalar(range(-10, 100) final)"))) frequency[len];
-  float __attribute__((annotate("scalar(range(-2, 2) final)")))
+  float __attribute__((annotate("scalar(range(-10, 50))"))) resistance[len];
+  float __attribute__((annotate("scalar(range(-10, 100))"))) frequency[len];
+  float __attribute__((annotate("scalar(range(-2, 2))")))
   inductance[len];
-  float __attribute__((annotate("scalar(range(-2, 12) final)"))) maxVoltage[len];
+  float __attribute__((annotate("scalar(range(-2, 12))"))) maxVoltage[len];
   float __attribute__((annotate("scalar(range(-8478652928, 13320812))"))) res[len];
   for (int i = 0; i < len; ++i) {
 

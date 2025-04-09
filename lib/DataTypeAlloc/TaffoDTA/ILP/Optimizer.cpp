@@ -759,7 +759,7 @@ shared_ptr<ValueInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> in
     return result;
   } else if (info->getKind() == OptimizerInfo::K_Struct) {
     auto sti = std::dynamic_ptr_cast<OptimizerStructInfo>(info);
-    auto result = make_shared<StructInfo>(nullptr, sti->size());
+    auto result = make_shared<StructInfo>(sti->size());
     for (unsigned int i = 0; i < sti->size(); i++) {
       result->setField(i, buildDataHierarchy(sti->getField(i)));
     }

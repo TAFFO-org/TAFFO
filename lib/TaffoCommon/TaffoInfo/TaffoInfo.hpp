@@ -1,9 +1,9 @@
 #ifndef TAFFO_TAFFOINFO_HPP
 #define TAFFO_TAFFOINFO_HPP
 
-#include "TypeDeducer/DeducedPointerType.hpp"
+#include "Types/TransparentType.hpp"
 #include "ValueInfo.hpp"
-#include "../BiMap.hpp"
+#include "../Containers/BiMap.hpp"
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
@@ -22,9 +22,9 @@ public:
 
   static TaffoInfo &getInstance();
 
-  void setDeducedPointerTypes(const llvm::DenseMap<llvm::Value*, DeducedPointerType> &deducedPointerTypes);
-  void setDeducedPointerType(llvm::Value &v, const DeducedPointerType &t);
-  std::optional<DeducedPointerType> getDeducedPointerType(const llvm::Value &v) const;
+  void setTransparentType(llvm::Value &v, const std::shared_ptr<TransparentType> &t);
+  std::shared_ptr<TransparentType> getTransparentType(llvm::Value &v);
+  bool hasTransparentType(const llvm::Value &v);
 
   void addStartingPoint(llvm::Function &f);
   void addDefaultStartingPoint(llvm::Module &m);
@@ -43,7 +43,6 @@ public:
   bool isConversionDisabled(llvm::Instruction &i) const;
 
   void setValueInfo(llvm::Value &v, const std::shared_ptr<ValueInfo> &vi);
-  void setConstantInfo(llvm::Constant &constant, llvm::Instruction &userInst, const std::shared_ptr<ScalarInfo> &constInfo);
   std::shared_ptr<ValueInfo> getValueInfo(const llvm::Value &v) const;
   bool hasValueInfo(const llvm::Value &v) const;
 
@@ -71,13 +70,13 @@ public:
   llvm::Type *getType(const std::string &typeId) const;
 
   void eraseValue(llvm::Value &v);
-  void eraseValue(llvm::Function &f);
+  void eraseLoop(llvm::Loop &l);
 
   void dumpToFile(const std::string &filePath, llvm::Module &m);
   void initializeFromFile(const std::string &filePath, llvm::Module &m);
 
 private:
-  llvm::DenseMap<llvm::Value*, DeducedPointerType> deducedPointerTypes;
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<TransparentType>> transparentTypes;
 
   llvm::SmallVector<llvm::Function*> startingPoints;
   llvm::SmallDenseMap<llvm::CallInst*, llvm::Function*> indirectFunctions;
@@ -89,7 +88,6 @@ private:
 
   llvm::DenseMap<llvm::Value*, std::shared_ptr<ValueInfo>> valueInfo;
   llvm::DenseMap<llvm::Value*, int> valueWeights;
-  llvm::DenseMap<llvm::Constant*, llvm::SmallPtrSet<llvm::Instruction*, 2>> constantUsers;
 
   llvm::DenseMap<llvm::Function*, unsigned int> maxRecursionCount;
   llvm::DenseMap<llvm::Loop*, unsigned int> loopUnrollCount;
@@ -97,6 +95,7 @@ private:
   llvm::DenseMap<llvm::Instruction*, std::shared_ptr<CmpErrorInfo>> cmpError;
 
   llvm::SmallPtrSet<llvm::Value*, 4> erasedValues;
+  llvm::SmallPtrSet<llvm::Loop*, 4> erasedLoops;
 
   BiMap<std::string, llvm::Value*> idValueMapping;
   BiMap<std::string, llvm::Loop*> idLoopMapping;
@@ -104,6 +103,7 @@ private:
   unsigned int idCounter;
   unsigned int idDigits;
   json jsonRepresentation;
+  std::string logContextTag = "TaffoInfo";
 
   TaffoInfo() : idCounter(0), idDigits(1) {}
 

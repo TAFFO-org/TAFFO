@@ -1,12 +1,12 @@
 #ifndef TAFFOUTILS_TYPEUTILS_H
 #define TAFFOUTILS_TYPEUTILS_H
 
-#include "TaffoInfo/ValueInfo.hpp"
+#include "../TaffoInfo/ValueInfo.hpp"
 #include <llvm/IR/Constants.h>
 
 namespace taffo {
 
-llvm::Type *getUnwrappedType(const llvm::Value *value);
+llvm::Type *getUnwrappedType(llvm::Value *value);
 
 enum class FixedPointTypeGenError {
   NoError = 0,

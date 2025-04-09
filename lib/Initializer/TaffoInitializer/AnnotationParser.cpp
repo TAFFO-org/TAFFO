@@ -59,7 +59,7 @@ bool AnnotationParser::parseOldSyntax(Type *type) {
   else
     return false;
 
-  auto info = std::make_shared<ScalarInfo>(type, nullptr, nullptr, nullptr, true);
+  auto info = std::make_shared<ScalarInfo>(nullptr, nullptr, nullptr, true);
   info->target = target;
   valueInfo = info;
 
@@ -189,7 +189,7 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
     error = "Duplicated content definition in this context";
     return false;
   }
-  auto *scalarInfo = new ScalarInfo(type, nullptr, nullptr, nullptr, true);
+  auto *scalarInfo = new ScalarInfo(nullptr, nullptr, nullptr, true);
   thisValueInfo.reset(scalarInfo);
 
   while (!peek(")")) {
@@ -327,7 +327,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
     error = "Empty structures not allowed";
     return false;
   }
-  auto *structInfo = new StructInfo(structType, fields);
+  auto *structInfo = new StructInfo(fields);
   thisValueInfo.reset(structInfo);
   return true;
 }

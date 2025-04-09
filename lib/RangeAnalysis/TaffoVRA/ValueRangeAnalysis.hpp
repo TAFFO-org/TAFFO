@@ -2,7 +2,7 @@
 #define TAFFO_VALUE_RANGE_ANALYSIS_HPP
 
 #include "CodeInterpreter.hpp"
-#include <llvm/IR/Module.h>
+
 #include <llvm/IR/PassManager.h>
 #include <llvm/Support/CommandLine.h>
 

@@ -1,7 +1,7 @@
-#include "LLVMFloatToFixedPass.h"
+#include "LLVMFloatToFixedPass.hpp"
 
-#include "Logger.hpp"
-#include "TypeUtils.h"
+#include "Debug/Logger.hpp"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Analysis/LoopInfo.h>
@@ -239,7 +239,7 @@ void FloatToFixed::openPhiLoop(PHINode *phi)
   phi->replaceAllUsesWith(info.placeh_noconv);
   cpMetaData(info.placeh_noconv, phi);
   if (isFloatingPointToConvert(phi)) {
-    Type *convt = getLLVMFixedPointTypeForFloatType(phi->getType(), fixPType(phi));
+    Type *convt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*phi), getFixpType(phi));
     info.placeh_conv = createPlaceholder(convt, phi->getParent(), "phi_conv");
     *(newConversionInfo(info.placeh_conv)) = *(getConversionInfo(phi));
     cpMetaData(info.placeh_conv, phi);
@@ -269,7 +269,7 @@ void FloatToFixed::closePhiLoops()
       info.placeh_noconv->replaceAllUsesWith(origphi);
     if (!substphi) {
       LLVM_DEBUG(dbgs() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
-      substphi = translateOrMatchAnyOperandAndType(origphi, fixPType(origphi));
+      substphi = translateOrMatchAnyOperandAndType(origphi, getFixpType(origphi));
       assert(substphi && "phi conversion has failed");
     }
 
@@ -340,7 +340,7 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals) {
       if (!hasConversionInfo(u)) {
         LLVM_DEBUG(dbgs() << "[WARNING] Value " << *u << " will not be converted because it has no metadata\n");
         newConversionInfo(u)->noTypeConversion = true;
-        getConversionInfo(u)->origType = TaffoInfo::getInstance().getValueInfo(*u)->getUnwrappedType();
+        getConversionInfo(u)->origType = getUnwrappedType(u);
       }
 
       LLVM_DEBUG(dbgs() << "[U] " << *u << "\n");
@@ -354,10 +354,9 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals) {
 
   for (Value *v : vals) {
     assert(hasConversionInfo(v) && "all values in the queue should have a valueInfo by now");
-    if (fixPType(v).isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v)) && !isKnownConvertibleWithIncompleteMetadata(v)) {
-      LLVM_DEBUG(dbgs() << "[WARNING] Value " << *v
-                        << " will not be converted because its metadata is incomplete\n");
-      LLVM_DEBUG(dbgs() << " (Apparent type of the value: " << fixPType(v).toString() << ")\n");
+    if (getFixpType(v)->isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v)) && !isKnownConvertibleWithIncompleteMetadata(v)) {
+      LLVM_DEBUG(dbgs() << "[WARNING] Value " << *v << " will not be converted because its metadata is incomplete\n");
+      LLVM_DEBUG(dbgs() << " (Apparent type of the value: " << *getFixpType(v) << ")\n");
       getConversionInfo(v)->noTypeConversion = true;
     }
 
@@ -514,9 +513,14 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
       newIt->setName(oldIt->getName());
       origValToCloned.insert(std::make_pair(oldIt, newIt));
     }
-    SmallVector<ReturnInst *, 100> returns;
+    SmallVector<ReturnInst*, 100> returns;
     CloneFunctionInto(newF, oldF, origValToCloned, CloneFunctionChangeType::GlobalChanges, returns);
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
+
+    TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+    for (const auto &[oldValue, newValue] : origValToCloned)
+      if (std::shared_ptr<ValueInfo> oldValueInfo = taffoInfo.getValueInfo(*oldValue))
+        taffoInfo.setValueInfo(*newValue, oldValueInfo);
 
     /* CloneFunctionInto also fixes the attributes of the arguments.
      * This is not exactly what we want for OpenCL kernels because the alignment
@@ -543,15 +547,15 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
     }
     LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF << "\n");
 
-    std::vector<Value *> newVals; // propagate fixp conversion
+    std::vector<Value*> newVals; // propagate fixp conversion
     oldIt = oldF->arg_begin();
     newIt = newF->arg_begin();
     for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
       if (oldIt->getType() != newIt->getType()) {
-        FixedPointType fixtype = getConversionInfo(oldIt)->fixpType;
+        std::shared_ptr<FixedPointType> fixtype = getConversionInfo(oldIt)->fixpType;
 
         // append fixp info to arg name
-        newIt->setName(newIt->getName() + "." + fixtype.toString());
+        newIt->setName(newIt->getName() + "." + fixtype->toString());
 
         /* Create a fake value to maintain type consistency because
          * createFixFun has RAUWed all arguments
@@ -567,7 +571,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
           Use &U = *(newIt->uses().begin());
           U.set(placehValue);
         }
-        *(newConversionInfo(placehValue)) = *(getConversionInfo(oldIt));
+        *newConversionInfo(placehValue) = *getConversionInfo(oldIt);
         operandPool[placehValue] = newIt;
 
         getConversionInfo(placehValue)->isArgumentPlaceholder = true;
@@ -577,7 +581,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
         std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(*oldIt);
         if (std::shared_ptr<ScalarInfo> argScalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(argInfo)) {
           std::shared_ptr<ValueInfo> newInfo = argScalarInfo->clone();
-          newInfo->setUnwrappedType(getUnwrappedType(placehValue));
+          TaffoInfo::getInstance().setTransparentType(*placehValue, TaffoInfo::getInstance().getTransparentType(*oldIt)->clone());
           TaffoInfo::getInstance().setValueInfo(*placehValue, newInfo);
          }
 
@@ -591,14 +595,12 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
     readLocalMetadata(*newF, localFix);
     newVals.insert(newVals.end(), localFix.begin(), localFix.end());
 
-    /* Make sure that the new arguments have correct ValueInfo */
+    /* Make sure that the new arguments have correct ConversionInfo */
     oldIt = oldF->arg_begin();
     newIt = newF->arg_begin();
-    for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
-      if (oldIt->getType() != newIt->getType()) {
-        *(getConversionInfo(newIt)) = *(getConversionInfo(oldIt));
-      }
-    }
+    for (; oldIt != oldF->arg_end(); oldIt++, newIt++)
+      if (oldIt->getType() != newIt->getType())
+        *getConversionInfo(newIt) = *getConversionInfo(oldIt);
 
     /* Copy the return type on the call instruction to all the return
      * instructions */
@@ -649,7 +651,6 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
   vals.resize(removei);
 }
 
-
 Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
 {
   LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
@@ -663,34 +664,34 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
     return nullptr;
   }
 
-  std::vector<Type *> typeArgs;
-  std::vector<std::pair<int, FixedPointType>> fixArgs; // for match already converted function
+  std::vector<Type*> argsLLVMTypes;
+  std::vector<std::pair<int, std::shared_ptr<FixedPointType>>> argsFixedPointTypes; // for match already converted function
 
   std::string suffix;
   if (getUnwrappedType(oldF)->isFloatTy()) { // ret value in signature
-    FixedPointType retValType = getConversionInfo(call)->fixpType;
-    suffix = retValType.toString();
-    fixArgs.push_back(std::pair(-1, retValType));
-  } else {
-    suffix = "fixp";
+    std::shared_ptr<FixedPointType> retValType = getConversionInfo(call)->fixpType->clone();
+    suffix = retValType->toString();
+    argsFixedPointTypes.push_back(std::pair(-1, retValType));
   }
+  else
+    suffix = "fixp";
 
   int i = 0;
   for (auto arg = oldF->arg_begin(); arg != oldF->arg_end(); arg++, i++) {
     Value *v = dyn_cast<Value>(arg);
     Type *newTy;
     if (hasConversionInfo(v)) {
-      fixArgs.push_back(std::pair(i, getConversionInfo(v)->fixpType));
+      argsFixedPointTypes.push_back(std::pair(i, getConversionInfo(v)->fixpType->clone()));
       newTy = getLLVMFixedPointTypeForFloatValue(v);
-    } else {
-      newTy = v->getType();
     }
-    typeArgs.push_back(newTy);
+    else
+      newTy = v->getType();
+    argsLLVMTypes.push_back(newTy);
   }
 
   Function *newF = functionPool[oldF]; // check if is previously converted
   if (newF) {
-    LLVM_DEBUG(dbgs() << *(call) << " use already converted function : " << newF->getName() << " " << *newF->getType() << "\n";);
+    LLVM_DEBUG(dbgs() << *call << " use already converted function : " << newF->getName() << " " << *newF->getType() << "\n");
     if (old)
       *old = true;
     return newF;
@@ -699,22 +700,20 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
     *old = false;
 
   Type *retType = oldF->getReturnType();
-  if (hasConversionInfo(call)) {
+  if (hasConversionInfo(call))
     if (!getConversionInfo(call)->noTypeConversion)
       retType = getLLVMFixedPointTypeForFloatValue(call);
-  }
 
   FunctionType *newFunTy = FunctionType::get(
-      getUnwrappedType(oldF)->isFloatTy() ? retType : oldF->getReturnType(),
-      typeArgs, oldF->isVarArg());
+      TaffoInfo::getInstance().getTransparentType(*oldF)->isFloatType() ? retType : oldF->getReturnType(),
+      argsLLVMTypes, oldF->isVarArg());
 
-  LLVM_DEBUG({
+  LLVM_DEBUG(
     dbgs() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
-    for (auto pair : fixArgs) {
-      dbgs() << "(" << pair.first << ", " << pair.second << ") ";
-    }
+    for (auto [argIndex, fixedPointType] : argsFixedPointTypes)
+      dbgs() << "(" << argIndex << ", " << *fixedPointType << ") ";
     dbgs() << "\n";
-  });
+  );
 
   newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
   LLVM_DEBUG(dbgs() << "created function\n" << *newF << "\n");
@@ -734,7 +733,7 @@ void FloatToFixed::printConversionQueue(const std::vector<Value*> &vals) {
   for (Value *val : vals) {
     LLVM_DEBUG(dbgs() << "bt=" << getConversionInfo(val)->isBacktrackingNode << " ";);
     LLVM_DEBUG(dbgs() << "noconv=" << getConversionInfo(val)->noTypeConversion << " ";);
-    LLVM_DEBUG(dbgs() << "type=" << getConversionInfo(val)->fixpType << " ";);
+    LLVM_DEBUG(dbgs() << "type=" << *getConversionInfo(val)->fixpType << " ";);
     if (Instruction *i = dyn_cast<Instruction>(val)) {
       LLVM_DEBUG(dbgs() << " fun='" << i->getFunction()->getName() << "' ";);
     }

@@ -1,7 +1,9 @@
 #include "VRAGlobalStore.hpp"
 #include "RangeOperations.hpp"
 #include "VRAnalyzer.hpp"
-#include "TypeUtils.h"
+#include "Types/TypeUtils.hpp"
+#include "Debug/Logger.hpp"
+
 #include <llvm/IR/Operator.h>
 
 using namespace llvm;
@@ -9,14 +11,14 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-vra"
 
-void VRAGlobalStore::convexMerge(const AnalysisStore &Other) {
+void VRAGlobalStore::convexMerge(const AnalysisStore &other) {
   // Since dyn_cast<T>() does not do cross-casting, we must do this:
-  if (isa<VRAnalyzer>(Other)) {
-    VRAStore::convexMerge(cast<VRAStore>(cast<VRAnalyzer>(Other)));
-  } else if (isa<VRAGlobalStore>(Other)) {
-    VRAStore::convexMerge(cast<VRAStore>(cast<VRAGlobalStore>(Other)));
+  if (isa<VRAnalyzer>(other)) {
+    VRAStore::convexMerge(cast<VRAStore>(cast<VRAnalyzer>(other)));
+  } else if (isa<VRAGlobalStore>(other)) {
+    VRAStore::convexMerge(cast<VRAStore>(cast<VRAGlobalStore>(other)));
   } else {
-    VRAStore::convexMerge(cast<VRAStore>(cast<VRAFunctionStore>(Other)));
+    VRAStore::convexMerge(cast<VRAStore>(cast<VRAFunctionStore>(other)));
   }
 }
 
@@ -39,9 +41,10 @@ bool VRAGlobalStore::isValidRange(const Range *rng) const {
 }
 
 void VRAGlobalStore::harvestValueInfo(Module &m) {
+  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
   for (GlobalVariable &v : m.globals()) {
     // retrieve info about global var v, if any
-    std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(v);
+    std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(v);
     if (valueInfo) {
       auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
       if (scalarInfo && isValidRange(scalarInfo->range.get())) {
@@ -51,8 +54,8 @@ void VRAGlobalStore::harvestValueInfo(Module &m) {
         UserInput[&v] = structInfo;
         DerivedRanges[&v] = structInfo;
       }
-    } else if (v.getValueType()->isStructTy()) {
-      DerivedRanges[&v] = StructInfo::constructFromLLVMType(v.getValueType());
+    } else if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(taffoInfo.getTransparentType(v))) {
+      DerivedRanges[&v] = StructInfo::createFromTransparentType(structType);
     } else {
       std::shared_ptr<ValueInfo> constInfo = fetchConstant(&v);
       if (constInfo && isa<ScalarInfo>(constInfo.get()))
@@ -69,9 +72,9 @@ void VRAGlobalStore::harvestValueInfo(Module &m) {
       continue;
     // retrieve info about function parameters
     for (Argument &arg : f.args()) {
-      int argWeight = TaffoInfo::getInstance().getValueWeight(arg);
+      int argWeight = taffoInfo.getValueWeight(arg);
       if (argWeight == 1) {
-        if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg)) {
+        if (std::shared_ptr<ValueInfo> argInfo = taffoInfo.getValueInfo(arg)) {
           if (std::shared_ptr<PointerInfo> argPointerInfo = std::dynamic_ptr_cast<PointerInfo>(argInfo))
             UserInput[&arg] = argPointerInfo->getUnwrappedInfo();
           else
@@ -84,12 +87,12 @@ void VRAGlobalStore::harvestValueInfo(Module &m) {
     for (BasicBlock &bb : f) {
       for (Instruction &inst : bb) {
         // fetch info about Instruction i
-        std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst);
+        std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(inst);
         if (!valueInfo)
           continue;
         // only retain info of instruction i if its weight is lesser than
         // the weight of all of its parents
-        int weight = TaffoInfo::getInstance().getValueWeight(inst);
+        int weight = taffoInfo.getValueWeight(inst);
         bool root = true;
         if (weight > 0) {
           if (isa<AllocaInst>(inst)) {
@@ -100,11 +103,11 @@ void VRAGlobalStore::harvestValueInfo(Module &m) {
             Value *v = u.get();
             int parentWeight;
             if (isa<Instruction>(v) || isa<GlobalVariable>(v) || isa<Argument>(v))
-              parentWeight = TaffoInfo::getInstance().getValueWeight(*v);
+              parentWeight = taffoInfo.getValueWeight(*v);
             else
               continue;
             // only consider parameters with the same metadata
-            std::shared_ptr<ValueInfo> parentInfo = TaffoInfo::getInstance().getValueInfo(*v);
+            std::shared_ptr<ValueInfo> parentInfo = taffoInfo.getValueInfo(*v);
             if (parentInfo != valueInfo)
               continue;
             if (parentWeight < weight) {
@@ -133,16 +136,17 @@ void VRAGlobalStore::harvestValueInfo(Module &m) {
 }
 
 void VRAGlobalStore::saveResults(Module &m) {
+  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
   for (GlobalVariable &v : m.globals()) {
     if (const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange = fetchRangeNode(&v)) {
       // retrieve existing info about global var v, if any
-      if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(v)) {
+      if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(v)) {
         std::shared_ptr<ValueInfo> copiedValueInfo = valueInfo->clone();
         updateValueInfo(copiedValueInfo, valueInfoWithRange);
-        TaffoInfo::getInstance().setValueInfo(v, copiedValueInfo);
+        taffoInfo.setValueInfo(v, copiedValueInfo);
       } else {
         std::shared_ptr<ValueInfo> newValueInfo = valueInfoWithRange;
-        TaffoInfo::getInstance().setValueInfo(v, newValueInfo);
+        taffoInfo.setValueInfo(v, newValueInfo);
       }
     }
   } // end globals
@@ -150,10 +154,10 @@ void VRAGlobalStore::saveResults(Module &m) {
   for (Function &f : m.functions()) {
     for (Argument &arg : f.args())
       if (const std::shared_ptr<ValueInfoWithRange> argInfoWithRange = fetchRangeNode(&arg)) {
-        if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg))
+        if (std::shared_ptr<ValueInfo> argInfo = taffoInfo.getValueInfo(arg))
           updateValueInfo(argInfo, argInfoWithRange);
         else
-          TaffoInfo::getInstance().setValueInfo(arg, argInfoWithRange);
+          taffoInfo.setValueInfo(arg, argInfoWithRange);
       }
 
     // retrieve info about instructions, for each basic block bb
@@ -163,13 +167,13 @@ void VRAGlobalStore::saveResults(Module &m) {
         if (inst.getOpcode() == Instruction::Store)
           continue;
         if (const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange = fetchRangeNode(&inst)) {
-          if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst)) {
+          if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(inst)) {
             std::shared_ptr<ValueInfo> copiedValueInfo = valueInfo->clone();
             updateValueInfo(copiedValueInfo, valueInfoWithRange);
-            TaffoInfo::getInstance().setValueInfo(inst, copiedValueInfo);
+            taffoInfo.setValueInfo(inst, copiedValueInfo);
           } else if (std::shared_ptr<ValueInfo> newValueInfo = valueInfoWithRange) {
             if (std::isa_ptr<ScalarInfo>(newValueInfo) || getUnwrappedType(&inst)->isStructTy()) {
-              TaffoInfo::getInstance().setValueInfo(inst, newValueInfo);
+              taffoInfo.setValueInfo(inst, newValueInfo);
             }
           }
         }
@@ -194,7 +198,7 @@ void VRAGlobalStore::updateValueInfo(
   } else if (const std::shared_ptr<StructInfo> newStructInfo = std::dynamic_ptr_cast<StructInfo>(valueInfoWithRange)) {
     if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
       auto newFieldsIter = newStructInfo->begin();
-      for (int i = 0; i < structInfo->numFields(); i++) {
+      for (unsigned int i = 0; i < structInfo->numFields(); i++) {
         if (newFieldsIter == newStructInfo->end())
           break;
         if (std::shared_ptr<ValueInfo> field = structInfo->getField(i))
@@ -221,10 +225,9 @@ void VRAGlobalStore::setConstRangeMetadata(Instruction &inst) {
       apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToAway, &discard);
       double value = apf.convertToDouble();
       auto constInfo = std::make_shared<ScalarInfo>(
-          floatConst->getType(),
           nullptr,
           std::make_shared<Range>(value, value));
-      TaffoInfo::getInstance().setConstantInfo(*floatConst, inst, constInfo);
+      TaffoInfo::getInstance().setValueInfo(*floatConst, constInfo);
     }
   }
 }
@@ -233,7 +236,8 @@ std::shared_ptr<Range> VRAGlobalStore::fetchRange(const Value *v) {
   if (const std::shared_ptr<Range> derived = VRAStore::fetchRange(v))
     return derived;
 
-  if (const std::shared_ptr<ValueInfoWithRange> inputRange = getUserInput(v)) {
+  if (std::shared_ptr<ValueInfoWithRange> inputRange = getUserInput(v)) {
+    inputRange = inputRange->clone<ValueInfoWithRange>();
     saveValueRange(v, inputRange);
     if (const std::shared_ptr<ScalarInfo> InputScalar = std::dynamic_ptr_cast<ScalarInfo>(inputRange))
       return InputScalar->range;
@@ -259,7 +263,8 @@ std::shared_ptr<ValueInfo> VRAGlobalStore::getNode(const Value *v) {
 std::shared_ptr<ValueInfoWithRange> VRAGlobalStore::fetchRangeNode(const Value *v) {
   const std::shared_ptr<ValueInfoWithRange> derived = VRAStore::fetchRangeNode(v);
 
-  if (const std::shared_ptr<ValueInfoWithRange> inputRange = getUserInput(v)) {
+  if (auto inputRange = getUserInput(v)) {
+    inputRange = inputRange->clone<ValueInfoWithRange>();
     if (derived && std::isa_ptr<StructInfo>(derived))
       return fillRangeHoles(derived, inputRange);
 
@@ -281,18 +286,18 @@ std::shared_ptr<ValueInfoWithRange> VRAGlobalStore::getUserInput(const Value *v)
 std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant *constant) {
   if (const ConstantInt *intConst = dyn_cast<ConstantInt>(constant)) {
     const double val = static_cast<double>(intConst->getSExtValue());
-    return std::make_shared<ScalarInfo>(intConst->getType(), nullptr, std::make_shared<Range>(val, val));
+    return std::make_shared<ScalarInfo>(nullptr, std::make_shared<Range>(val, val));
   }
   if (const ConstantFP *floatConst = dyn_cast<ConstantFP>(constant)) {
     APFloat floatVal = floatConst->getValueAPF();
     bool losesInfo;
     floatVal.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
     const double doubleVal = floatVal.convertToDouble();
-    return std::make_shared<ScalarInfo>(floatConst->getType(), nullptr, std::make_shared<Range>(doubleVal, doubleVal));
+    return std::make_shared<ScalarInfo>(nullptr, std::make_shared<Range>(doubleVal, doubleVal));
   }
   if (isa<ConstantTokenNone>(constant)) {
     LLVM_DEBUG(Logger->logInfo("Warning: treating ConstantTokenNone as 0"));
-    return std::make_shared<ScalarInfo>(constant->getType(), nullptr, std::make_shared<Range>(0, 0));
+    return std::make_shared<ScalarInfo>(nullptr, std::make_shared<Range>(0, 0));
   }
   if (isa<ConstantPointerNull>(constant)) {
     LLVM_DEBUG(Logger->logInfo("Warning: found ConstantPointerNull"));
@@ -310,7 +315,7 @@ std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant *constan
       Fields.reserve(num_elements);
       for (unsigned i = 0; i < num_elements; i++)
         Fields.push_back(fetchConstant(zeroAggConst->getElementValue(i)));
-      return std::make_shared<StructInfo>(cast<StructType>(zeroAggConstType), Fields);
+      return std::make_shared<StructInfo>(Fields);
     }
     if (isa<ArrayType>(zeroAggConstType) || isa<VectorType>(zeroAggConstType)) {
       // arrayType or VectorType
@@ -326,7 +331,7 @@ std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant *constan
       std::shared_ptr<Range> otherRange = std::static_ptr_cast<ScalarInfo>(fetchConstant(constSeq->getElementAsConstant(i)))->range;
       seqRange = getUnionRange(seqRange, otherRange);
     }
-    return std::make_shared<ScalarInfo>(constSeq->getType(), nullptr, seqRange);
+    return std::make_shared<ScalarInfo>(nullptr, seqRange);
   }
   if (isa<ConstantData>(constant)) {
     // FIXME should never happen -- all subcases handled before
@@ -339,7 +344,7 @@ std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant *constan
       SmallVector<unsigned, 1> offset;
       if (extractGEPOffset(gepOperator->getSourceElementType(),
         iterator_range(constExpr->op_begin() + 1, constExpr->op_end()), offset)) {
-        return std::make_shared<GEPInfo>(getNode(ptrOperand), offset, constExpr->getType());
+        return std::make_shared<GEPInfo>(getNode(ptrOperand), offset);
       }
     }
     LLVM_DEBUG(Logger->logInfo("Could not fold a ConstantExpr"));

@@ -1,11 +1,11 @@
 #ifndef TAFFO_TYPE_DEDUCER_PASS_HPP
 #define TAFFO_TYPE_DEDUCER_PASS_HPP
 
-#include "DeducedPointerType.hpp"
-#include "InsertionOrderedMap.hpp"
+#include "Types/TransparentType.hpp"
+#include "Containers/InsertionOrderedMap.hpp"
 
 #include <llvm/IR/PassManager.h>
-#include <set>
+#include <unordered_set>
 
 namespace taffo {
 
@@ -14,15 +14,19 @@ public:
   llvm::PreservedAnalyses run(llvm::Module &m, llvm::ModuleAnalysisManager &);
 
 private:
-  InsertionOrderedMap<llvm::Value*, DeducedPointerType> deducedTypes;
-  llvm::DenseMap<llvm::Value*, std::set<DeducedPointerType>> candidateTypes;
+  using CandidateSet = std::unordered_set<std::shared_ptr<TransparentType>>;
 
-  DeducedPointerType deducePointerType(llvm::Value *value);
-  DeducedPointerType deduceFunctionPointerType(llvm::Function *function);
-  DeducedPointerType deduceArgumentPointerType(llvm::Argument *argument);
-  DeducedPointerType getDeducedType(llvm::Value *value, unsigned int additionalIndirections = 0) const;
-  DeducedPointerType getBestCandidateType(const std::set<DeducedPointerType> &candidates) const;
-  void logDeducedTypes() const;
+  InsertionOrderedMap<llvm::Value*, std::shared_ptr<TransparentType>> deducedTypes;
+  llvm::DenseMap<llvm::Value*, CandidateSet> candidateTypes;
+
+  std::shared_ptr<TransparentType> deducePointerType(llvm::Value *value);
+  std::shared_ptr<TransparentType> deduceFunctionPointerType(llvm::Function *function);
+  std::shared_ptr<TransparentType> deduceArgumentPointerType(llvm::Argument *argument);
+  std::shared_ptr<TransparentType> getDeducedType(llvm::Value *value) const;
+  std::shared_ptr<TransparentType> getBestCandidateType(const CandidateSet &candidates) const;
+
+  void logDeduction(llvm::Value *value, const std::shared_ptr<TransparentType> &bestCandidate, const CandidateSet &candidates);
+  void logDeducedTypes();
 };
 
 } // namespace taffo

@@ -72,11 +72,11 @@ private:
 
   void handleReturn(const llvm::Instruction *ret);
 
-  void handleAllocaInstr(const llvm::Instruction *I);
+  void handleAllocaInstr(llvm::Instruction *I);
   void handleStoreInstr(const llvm::Instruction *store);
   void handleLoadInstr(llvm::Instruction *load);
   void handleGEPInstr(const llvm::Instruction *gep);
-  void handleBitCastInstr(const llvm::Instruction *I);
+  void handleBitCastInstr(llvm::Instruction *I);
 
   void handleCmpInstr(const llvm::Instruction *cmp);
   void handlePhiNode(const llvm::Instruction *phi);

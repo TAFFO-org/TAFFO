@@ -1,6 +1,6 @@
 #include "ValueRangeAnalysis.hpp"
 
-#include "Logger.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "VRAGlobalStore.hpp"
 

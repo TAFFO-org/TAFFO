@@ -19,10 +19,10 @@ int main()
 {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 3;
   float
-      __attribute__((annotate("target('main') scalar(range(-500, 500) final)")))
+      __attribute__((annotate("target('main') scalar(range(-500, 500))")))
       u[len];
-  float __attribute__((annotate("scalar(range(-20, 20000) final)"))) v[len];
-  float __attribute__((annotate("scalar(range(-50, 50) final)"))) T[len];
+  float __attribute__((annotate("scalar(range(-20, 20000))"))) v[len];
+  float __attribute__((annotate("scalar(range(-50, 50))"))) T[len];
 
   float res[len];
 

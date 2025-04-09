@@ -17,10 +17,10 @@ float ex0(float a, float b, float c) {
 int main()
 {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 3;
-  float __attribute__((annotate("target('main') scalar(range(-9, 9) final)")))
+  float __attribute__((annotate("target('main') scalar(range(-9, 9))")))
   a[len];
-  float __attribute__((annotate("scalar(range(-9, -9) final)"))) b[len];
-  float __attribute__((annotate("scalar(range(-9, 9) final)"))) c[len];
+  float __attribute__((annotate("scalar(range(-9, -9))"))) b[len];
+  float __attribute__((annotate("scalar(range(-9, 9))"))) c[len];
 
   float res[len];
 

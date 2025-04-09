@@ -44,7 +44,7 @@ void VRAStore::saveValueRange(const Value *v, const std::shared_ptr<Range> range
   if (!range)
     return;
   // TODO: make specialized version of this to avoid creating useless node
-  saveValueRange(v, std::make_shared<ScalarInfo>(v->getType(), nullptr, range));
+  saveValueRange(v, std::make_shared<ScalarInfo>(nullptr, range));
 }
 
 void VRAStore::saveValueRange(const Value *v, const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange) {
@@ -123,7 +123,7 @@ std::shared_ptr<ScalarInfo> VRAStore::assignScalarRange(
   if (scalarDst->isFinal())
     return scalarDst;
   std::shared_ptr<Range> unionRange = getUnionRange(scalarDst->range, scalarSrc->range);
-  return std::make_shared<ScalarInfo>(dst->getUnwrappedType(), nullptr, unionRange);
+  return std::make_shared<ScalarInfo>(nullptr, unionRange);
 }
 
 void VRAStore::assignStructNode(const std::shared_ptr<ValueInfo> &dst, const std::shared_ptr<ValueInfo> &src) const {
@@ -153,7 +153,7 @@ void VRAStore::storeNode(const std::shared_ptr<ValueInfo> dst, const std::shared
   storeNode(dst, src, Offset);
 }
 
-void VRAStore::storeNode(std::shared_ptr<ValueInfo> dst, const std::shared_ptr<ValueInfo> &src, SmallVectorImpl<unsigned> &offset) {
+void VRAStore::storeNode(const std::shared_ptr<ValueInfo> &dst, const std::shared_ptr<ValueInfo> &src, SmallVectorImpl<unsigned> &offset) {
   if (!(dst && src))
     return;
   std::shared_ptr<ValueInfo> pointed = nullptr;
@@ -178,7 +178,7 @@ void VRAStore::storeNode(std::shared_ptr<ValueInfo> dst, const std::shared_ptr<V
       } else {
         std::shared_ptr<ValueInfo> field = structDst->getField(offset.back());
         if (!field) {
-          field = std::make_shared<StructInfo>(nullptr, 0);
+          field = std::make_shared<StructInfo>(0);
           structDst->setField(offset.back(), field);
         }
         offset.pop_back();

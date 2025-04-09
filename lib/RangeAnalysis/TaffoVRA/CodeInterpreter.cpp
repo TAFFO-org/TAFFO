@@ -16,9 +16,7 @@
 namespace taffo
 {
 
-void CodeInterpreter::interpretFunction(llvm::Function *F,
-                                        std::shared_ptr<AnalysisStore> FunctionStore)
-{
+void CodeInterpreter::interpretFunction(llvm::Function *F, std::shared_ptr<AnalysisStore> FunctionStore) {
   DEBUG_WITH_TYPE(GlobalStore->getLogger()->getDebugType(),
                   GlobalStore->getLogger()->logStartFunction(F));
   if (!FunctionStore) {

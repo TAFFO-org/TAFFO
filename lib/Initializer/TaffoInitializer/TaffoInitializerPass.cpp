@@ -1,9 +1,9 @@
 #include "TaffoInitializerPass.hpp"
 
-#include "Logger.hpp"
+#include "Debug/Logger.hpp"
+#include "Types/TypeUtils.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "IndirectCallPatcher.hpp"
-#include "TypeUtils.h"
 #include "PtrCasts.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "CudaKernelPatcher.hpp"
@@ -279,31 +279,32 @@ void TaffoInitializer::buildConversionQueueForRootValues(const ConvQueueType &ro
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
-void TaffoInitializer::createUserInfo(
-    const Value *value, const ConvQueueInfo &valueConvQueueInfo, Value *user, ConvQueueInfo &userConvQueueInfo) {
-  const std::shared_ptr<ValueInfo> &valueInfo = valueConvQueueInfo.valueInfo;
-  const unsigned int &valueRootDistance = valueConvQueueInfo.rootDistance;
+void TaffoInitializer::createUserInfo(Value *value, ConvQueueInfo &valueConvQueueInfo, Value *user, ConvQueueInfo &userConvQueueInfo) {
+  std::shared_ptr<ValueInfo> &valueInfo = valueConvQueueInfo.valueInfo;
+  unsigned int &valueRootDistance = valueConvQueueInfo.rootDistance;
   std::shared_ptr<ValueInfo> &userInfo = userConvQueueInfo.valueInfo;
   unsigned int &userRootDistance = userConvQueueInfo.rootDistance;
+  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
   /* Propagate metadata from the instruction closest to a root */
   if (userRootDistance > std::max(valueRootDistance, valueRootDistance + 1)) {
     userRootDistance = std::max(valueRootDistance, valueRootDistance + 1);
     LLVM_DEBUG(dbgs() << "  " << __FUNCTION__ << ":\n");
     LLVM_DEBUG(dbgs() << "   updated root distance: " << userRootDistance << "\n");
-    Type *valueType = getUnwrappedType(value);
-    Type *userType = getUnwrappedType(user);
+    std::shared_ptr<TransparentType> valueType = taffoInfo.getTransparentType(*value);
+    std::shared_ptr<TransparentType> userType = taffoInfo.getTransparentType(*user);
     LLVM_DEBUG(dbgs() << "   valueType = " << *valueType << ", valueInfo = " << (valueInfo ? valueInfo->toString() : "(null)") << "\n");
     LLVM_DEBUG(dbgs() << "   userType = " << *userType << ", userInfo = " << (userInfo ? userInfo->toString() : "(null)") << "\n");
-    if (!valueType->isStructTy() && !userType->isStructTy()) { //TODO FIX SOON
+    if (isa<CallInst>(user))
+      userInfo = std::make_shared<ScalarInfo>(nullptr, nullptr, nullptr, true);
+    else if (!valueType->isStructType() && !userType->isStructType()) { //TODO FIX SOON
       userInfo = valueInfo->clone();
-      userInfo->setUnwrappedType(userType);
       LLVM_DEBUG(dbgs() << "   copied userInfo " << userInfo->toString() << " from valueInfo " << valueInfo->toString() << "\n");
     }
     else {
-      userInfo = StructInfo::constructFromLLVMType(userType);
-      if (!userInfo)
-        userInfo = std::make_shared<ScalarInfo>(
-            userType, nullptr, nullptr, nullptr, true);
+      if (userType->isStructType())
+        userInfo = StructInfo::createFromTransparentType(std::static_ptr_cast<TransparentStructType>(userType));
+      else
+        userInfo = std::make_shared<ScalarInfo>(nullptr, nullptr, nullptr, true);
       LLVM_DEBUG(dbgs() << "   created userInfo " << userInfo->toString() << " because valueType != userType\n");
     }
   }
@@ -440,38 +441,46 @@ Function *TaffoInitializer::createFunctionAndQueue(
       oldF->getFunctionType(), oldF->getLinkage(),
       oldF->getName(), oldF->getParent());
 
-  ValueToValueMapTy mapArgs; // Create Val2Val mapping and clone function
-  Function::arg_iterator newArgumentI = newF->arg_begin();
-  Function::arg_iterator oldArgumentI = oldF->arg_begin();
-  for (; oldArgumentI != oldF->arg_end(); oldArgumentI++, newArgumentI++) {
-    newArgumentI->setName(oldArgumentI->getName());
-    mapArgs.insert(std::make_pair(oldArgumentI, newArgumentI));
+  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+
+  // Create Val2Val mapping and clone function
+  ValueToValueMapTy valueMap;
+  for (auto &&[oldArg, newArg] : zip(oldF->args(), newF->args())) {
+    newArg.setName(oldArg.getName());
+    valueMap.insert({&oldArg, &newArg});
   }
-  SmallVector<ReturnInst *, 100> returns;
-  CloneFunctionInto(newF, oldF, mapArgs, CloneFunctionChangeType::GlobalChanges, returns);
+  SmallVector<ReturnInst*, 100> returns;
+  CloneFunctionInto(newF, oldF, valueMap, CloneFunctionChangeType::GlobalChanges, returns);
+  for (auto &&[oldValue, newValue] : valueMap) {
+    if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*oldValue))
+      taffoInfo.setValueInfo(*newValue, valueInfo);
+    if (taffoInfo.hasTransparentType(*oldValue))
+      taffoInfo.setTransparentType(*newValue, taffoInfo.getTransparentType(*const_cast<Value*>(oldValue)));
+  }
+  if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*oldF))
+    taffoInfo.setValueInfo(*newF, valueInfo);
+  if (taffoInfo.hasTransparentType(*oldF))
+    taffoInfo.setTransparentType(*newF, taffoInfo.getTransparentType(*oldF));
+
   if (!OpenCLKernelMode && !CudaKernelMode)
     newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
+
   FunctionCloned++;
 
   ConvQueueType roots;
-  oldArgumentI = oldF->arg_begin();
-  newArgumentI = newF->arg_begin();
   LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
   LLVM_DEBUG(dbgs() << "  CallBase instr " << *call << " [" << call->getFunction()->getName() << "]\n");
-  for (int i = 0; oldArgumentI != oldF->arg_end(); oldArgumentI++, newArgumentI++, i++) {
-    auto user_begin = newArgumentI->user_begin();
-    if (user_begin == newArgumentI->user_end()) {
-      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, value has no uses\n");
+  for (Argument &newArg : newF->args()) {
+    auto user_begin = newArg.user_begin();
+    if (user_begin == newArg.user_end()) {
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << newArg.getArgNo() << " skipped, value has no uses\n");
       continue;
     }
 
-
-
-    Value *callOperand = call->getOperand(i);
+    Value *callOperand = call->getOperand(newArg.getArgNo());
     Value *allocaOfArgument = user_begin->getOperand(1);
 
-
-    for (; user_begin != newArgumentI->user_end(); ++user_begin) {
+    for (; user_begin != newArg.user_end(); ++user_begin) {
       if (auto *store = dyn_cast<StoreInst>(*user_begin)) {
         allocaOfArgument = store->getOperand(1);
       }
@@ -481,13 +490,13 @@ Function *TaffoInitializer::createFunctionAndQueue(
       allocaOfArgument = nullptr;
 
     if (!vals.contains(callOperand)) {
-      LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " skipped, callOperand has no valueInfo\n");
+      LLVM_DEBUG(dbgs() << "  Arg nr. " << newArg.getArgNo() << " skipped, callOperand has no valueInfo\n");
       continue;
     }
 
     ConvQueueInfo &callOperandQueueInfo = vals[callOperand];
     ConvQueueInfo argumentConvQueueInfo;
-    vals.insert(newArgumentI, argumentConvQueueInfo);
+    vals.insert(&newArg, argumentConvQueueInfo);
 
     std::shared_ptr<ValueInfo> &argumentInfo = argumentConvQueueInfo.valueInfo;
     const std::shared_ptr<ValueInfo> &callOperandInfo = callOperandQueueInfo.valueInfo;
@@ -496,10 +505,10 @@ Function *TaffoInitializer::createFunctionAndQueue(
     argumentInfo = callOperandInfo->clone();
     argumentConvQueueInfo.rootDistance = std::max(callOperandQueueInfo.rootDistance, callOperandQueueInfo.rootDistance + 1);
     if (!allocaOfArgument)
-      roots.insert(newArgumentI, argumentConvQueueInfo);
+      roots.insert(&newArg, argumentConvQueueInfo);
 
     if (allocaOfArgument) {
-      ConvQueueInfo& allocaConvQueueInfo = vals[allocaOfArgument];
+      ConvQueueInfo &allocaConvQueueInfo = vals[allocaOfArgument];
       std::shared_ptr<ValueInfo> &allocaInfo = allocaConvQueueInfo.valueInfo;
       // Mark the alloca used for the argument (in O0 opt lvl)
       // let it be a root in VRA-less mode
@@ -511,8 +520,8 @@ Function *TaffoInitializer::createFunctionAndQueue(
     // Propagate BufferID
     argumentInfo->bufferId = callOperandInfo->bufferId;
 
-    LLVM_DEBUG(dbgs() << "  Arg nr. " << i << " processed\n");
-    LLVM_DEBUG(dbgs() << "    md = " << argumentInfo->toString() << "\n");
+    LLVM_DEBUG(dbgs() << "  Arg nr. " << newArg.getArgNo() << " processed\n");
+    LLVM_DEBUG(dbgs() << "    vi = " << *argumentInfo << "\n");
     if (allocaOfArgument)
       LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
   }

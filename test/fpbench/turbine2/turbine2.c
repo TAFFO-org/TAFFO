@@ -18,10 +18,10 @@ float ex0(float v, float w, float r)
 int main()
 {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 3;
-  float __attribute__((annotate("target('main') scalar(range(-5, 0) final)")))
+  float __attribute__((annotate("target('main') scalar(range(-5, 0))")))
   v[len];
-  float __attribute__((annotate("scalar(range(0, 1) final)"))) w[len];
-  float __attribute__((annotate("scalar(range(3.8, 7.8) final)"))) e[len];
+  float __attribute__((annotate("scalar(range(0, 1))"))) w[len];
+  float __attribute__((annotate("scalar(range(3.8, 7.8))"))) e[len];
 
   float res[len];
 

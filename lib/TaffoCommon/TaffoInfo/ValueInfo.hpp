@@ -3,10 +3,10 @@
 
 #include "NumericInfo.hpp"
 #include "RangeInfo.hpp"
+#include "Types/TransparentType.hpp"
 #include "SerializationUtils.hpp"
+#include "PtrCasts.hpp"
 
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/ADT/DenseMap.h>
 #include <llvm/IR/Instructions.h>
 
 namespace taffo {
@@ -26,31 +26,31 @@ public:
     K_GetElementPointer
   };
 
-  ValueInfo(ValueInfoKind kind, llvm::Type *unwrappedType = nullptr)
-  : kind(kind), unwrappedType(unwrappedType) {}
+  ValueInfo(ValueInfoKind kind) : kind(kind) {}
 
   virtual ~ValueInfo() = default;
 
   ValueInfoKind getKind() const { return kind; }
-
-  virtual void setUnwrappedType(llvm::Type *t) { unwrappedType = t; }
-  virtual llvm::Type *getUnwrappedType() const { return unwrappedType; }
 
   std::optional<std::string> getTarget() { return target; }
   std::optional<std::string> getBufferId() { return bufferId; }
 
   virtual bool isConversionEnabled() const = 0;
 
-  virtual std::shared_ptr<ValueInfo> clone() const = 0;
+  template<typename ValueInfoT = ValueInfo>
+  std::shared_ptr<ValueInfoT> clone() const {
+    return std::dynamic_ptr_cast<ValueInfoT>(cloneImpl());
+  }
+
   json serialize() const override;
   void deserialize(const json &j) override;
 
 protected:
   void copyFrom(const ValueInfo &other);
+  virtual std::shared_ptr<ValueInfo> cloneImpl() const = 0;
 
 private:
   const ValueInfoKind kind;
-  llvm::Type *unwrappedType;
   std::optional<std::string> target;
   std::optional<std::string> bufferId;
 };
@@ -61,7 +61,7 @@ public:
     return valueInfo->getKind() == K_Scalar || valueInfo->getKind() == K_Struct;
   }
 
-  ValueInfoWithRange(ValueInfoKind kind, llvm::Type *type = nullptr) : ValueInfo(kind, type) {}
+  ValueInfoWithRange(ValueInfoKind kind) : ValueInfo(kind) {}
 };
 
 /// Structure containing pointers to Type, Range, and initial Error
@@ -75,13 +75,12 @@ struct ScalarInfo : public ValueInfoWithRange {
   bool conversionEnabled;
   bool final;
 
-  ScalarInfo(llvm::Type *type,
-             std::shared_ptr<NumericType> numericType = nullptr,
+  ScalarInfo(std::shared_ptr<NumericType> numericType = nullptr,
              std::shared_ptr<Range> range = nullptr,
              std::shared_ptr<double> error = nullptr,
              bool conversionEnabled = false,
              bool final = false)
-  : ValueInfoWithRange(K_Scalar, type),
+  : ValueInfoWithRange(K_Scalar),
   numericType(numericType), range(range), error(error),
   conversionEnabled(conversionEnabled), final(final) {}
 
@@ -90,54 +89,49 @@ struct ScalarInfo : public ValueInfoWithRange {
 
   ScalarInfo &operator=(const ScalarInfo &other);
 
-  std::shared_ptr<ValueInfo> clone() const override;
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
+
+private:
+  std::shared_ptr<ValueInfo> cloneImpl() const override;
 };
 
 class StructInfo : public ValueInfoWithRange {
 private:
-  using FieldsType = llvm::SmallVector<std::shared_ptr<ValueInfo>, 4U>;
+  using FieldsType = llvm::SmallVector<std::shared_ptr<ValueInfo>, 4>;
 
 public:
   using iterator = FieldsType::iterator;
   using const_iterator = FieldsType::const_iterator;
-  using size_type = FieldsType::size_type;
 
-  /** Builds a StructInfo with the recursive structure of the specified
-   *  LLVM Type. All non-struct struct members are set to nullptr.
-   *  @returns Either a StructInfo, or nullptr if the type does not
-   *    contain any structure. */
-  static std::shared_ptr<StructInfo> constructFromLLVMType(
-      llvm::Type *type, llvm::SmallDenseMap<llvm::Type*, std::shared_ptr<StructInfo>> *recursionMap = nullptr);
+  /**
+   * Builds a StructInfo with the recursive structure of the specified
+   * TransparentType. All non-struct struct members are set to nullptr.
+   */
+  static std::shared_ptr<StructInfo> createFromTransparentType(const std::shared_ptr<TransparentStructType> &structType);
 
   static bool classof(const ValueInfo *valueInfo) { return valueInfo->getKind() == K_Struct; }
 
-  StructInfo(llvm::StructType *type, unsigned int numFields)
-  : ValueInfoWithRange(K_Struct, type), Fields(numFields, nullptr) {}
+  StructInfo(unsigned int numFields)
+  : ValueInfoWithRange(K_Struct), Fields(numFields, nullptr) {}
 
-  StructInfo(llvm::StructType *type, const llvm::ArrayRef<std::shared_ptr<ValueInfo>> SInfos)
-  : ValueInfoWithRange(K_Struct, type), Fields(SInfos.begin(), SInfos.end()) {}
+  StructInfo(const llvm::ArrayRef<std::shared_ptr<ValueInfo>> SInfos)
+  : ValueInfoWithRange(K_Struct), Fields(SInfos.begin(), SInfos.end()) {}
 
   iterator begin() { return Fields.begin(); }
   iterator end() { return Fields.end(); }
   const_iterator begin() const { return Fields.begin(); }
   const_iterator end() const { return Fields.end(); }
 
-  size_type numFields() const { return Fields.size(); }
-  std::shared_ptr<ValueInfo> getField(size_type i) { return Fields[i]; }
-  void setField(size_type i, std::shared_ptr<ValueInfo> field) { Fields[i] = std::move(field); }
+  unsigned int numFields() const { return Fields.size(); }
+  std::shared_ptr<ValueInfo> getField(unsigned int i) { return Fields[i]; }
+  void setField(unsigned int i, std::shared_ptr<ValueInfo> field) { Fields[i] = std::move(field); }
 
   bool isConversionEnabled() const override;
 
-  llvm::StructType* getUnwrappedType() const override {
-    return llvm::cast<llvm::StructType>(ValueInfo::getUnwrappedType());
-  }
-
   std::shared_ptr<ValueInfo> resolveFromIndexList(llvm::Type *type, llvm::ArrayRef<unsigned> indices);
 
-  std::shared_ptr<ValueInfo> clone() const override;
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
@@ -145,7 +139,13 @@ public:
 private:
   FieldsType Fields;
 
+  static std::shared_ptr<StructInfo> createFromTransparentType(
+    const std::shared_ptr<TransparentType> &type,
+    std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap);
+
   bool isConversionEnabled(llvm::SmallPtrSetImpl<const StructInfo*> &visited) const;
+
+  std::shared_ptr<ValueInfo> cloneImpl() const override;
 };
 
 class PointerInfo : public ValueInfo {
@@ -154,8 +154,8 @@ public:
     return valueInfo->getKind() == K_Pointer || valueInfo->getKind() == K_GetElementPointer;
   }
 
-  PointerInfo(const std::shared_ptr<ValueInfo> &pointed, llvm::Type *type = nullptr)
-  : ValueInfo(K_Pointer, type), pointed(pointed) {}
+  PointerInfo(const std::shared_ptr<ValueInfo> &pointed)
+  : ValueInfo(K_Pointer), pointed(pointed) {}
 
   void setPointed(const std::shared_ptr<ValueInfo> &p) { pointed = p; }
   std::shared_ptr<ValueInfo> getPointed() const { return pointed; }
@@ -163,7 +163,6 @@ public:
   std::shared_ptr<ValueInfoWithRange> getUnwrappedInfo() const;
   bool isConversionEnabled() const override;
 
-  std::shared_ptr<ValueInfo> clone() const override;
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
@@ -171,31 +170,34 @@ public:
 protected:
   std::shared_ptr<ValueInfo> pointed;
 
-  PointerInfo(ValueInfoKind kind, const std::shared_ptr<ValueInfo> &pointed, llvm::Type *type = nullptr)
-  : ValueInfo(kind, type), pointed(pointed) {}
+  PointerInfo(ValueInfoKind kind, const std::shared_ptr<ValueInfo> &pointed)
+  : ValueInfo(kind), pointed(pointed) {}
+
+  std::shared_ptr<ValueInfo> cloneImpl() const override;
 };
 
 class GEPInfo : public PointerInfo {
 public:
   static bool classof(const ValueInfo *valueInfo) { return valueInfo->getKind() == K_GetElementPointer; }
 
-  GEPInfo(const std::shared_ptr<ValueInfo> &pointed, llvm::Type *type = nullptr)
-  : PointerInfo(K_GetElementPointer, pointed, type) {}
+  GEPInfo(const std::shared_ptr<ValueInfo> &pointed)
+  : PointerInfo(K_GetElementPointer, pointed) {}
 
-  GEPInfo(const std::shared_ptr<ValueInfo> &pointed, const llvm::ArrayRef<unsigned> offset, llvm::Type *type = nullptr)
-  : PointerInfo(K_GetElementPointer, pointed, type), offset(offset.begin(), offset.end()) {}
+  GEPInfo(const std::shared_ptr<ValueInfo> &pointed, const llvm::ArrayRef<unsigned> offset)
+  : PointerInfo(K_GetElementPointer, pointed), offset(offset.begin(), offset.end()) {}
 
   llvm::ArrayRef<unsigned> getOffset() const { return offset; }
 
   bool isConversionEnabled() const override;
 
-  std::shared_ptr<ValueInfo> clone() const override;
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
 
 private:
   llvm::SmallVector<unsigned, 1> offset;
+
+  std::shared_ptr<ValueInfo> cloneImpl() const override;
 };
 
 /// Struct containing info about a possible comparison error.

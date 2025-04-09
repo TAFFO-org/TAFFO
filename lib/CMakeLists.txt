@@ -1,5 +1,5 @@
 add_subdirectory(InstructionMix)
-add_subdirectory(TaffoUtils)
+add_subdirectory(TaffoCommon)
 
 add_subdirectory(TypeDeducer)
 add_subdirectory(Initializer)
@@ -21,7 +21,7 @@ add_llvm_library(Taffo MODULE
   ../cmake/dummy.cpp
 
   LINK_LIBS
-  TaffoUtils
+  TaffoCommon
   stdc++
   m
 

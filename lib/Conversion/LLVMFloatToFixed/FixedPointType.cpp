@@ -1,310 +1,265 @@
-#include "FixedPointType.h"
+#include "FixedPointType.hpp"
 
-#include "LLVMFloatToFixedPass.h"
-#include "TypeUtils.h"
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/InstIterator.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/Module.h>
-#include <llvm/Support/raw_ostream.h>
+#include "LLVMFloatToFixedPass.hpp"
+
 #include <sstream>
+
+#define DEBUG_TYPE "taffo-conversion"
 
 using namespace llvm;
 using namespace taffo;
 using namespace flttofix;
 
-#define DEBUG_TYPE "taffo-conversion"
-
-FixedPointType::FixedPointType()
-{
-  structData = nullptr;
-  scalarData = {false, 0, 0, FloatStandard::Float_NotFloat};
+std::shared_ptr<TransparentType> FixedPointType::toTransparentType(const std::shared_ptr<TransparentType> &srcType, bool *hasFloats) const {
+  std::shared_ptr<TransparentType> newType = srcType->clone();
+  bool floats = toTransparentType(newType);
+  if (hasFloats)
+    *hasFloats = floats;
+  return newType;
 }
 
-
-FixedPointType::FixedPointType(bool s, int f, int b)
-{
-  structData = nullptr;
-  scalarData = {s, f, b, FloatStandard::Float_NotFloat};
-}
-
-
-FixedPointType::FixedPointType(Type *llvmtype, bool signd)
-{
-  structData = nullptr;
-  scalarData.isSigned = signd;
-  if (llvmtype->isFloatTy()) {
-    scalarData.fracBitsAmt = 0;
-    scalarData.bitsAmt = 0;
-
-    if (llvmtype->getTypeID() == Type::TypeID::HalfTyID) {
-      scalarData.floatStandard = FloatStandard::Float_half;
-    } else if (llvmtype->getTypeID() == Type::TypeID::DoubleTyID) {
-      scalarData.floatStandard = FloatStandard::Float_double;
-    } else if (llvmtype->getTypeID() == Type::TypeID::FloatTyID) {
-      scalarData.floatStandard = FloatStandard::Float_float;
-    } else if (llvmtype->getTypeID() == Type::TypeID::FP128TyID) {
-      scalarData.floatStandard = FloatStandard::Float_fp128;
-    } else if (llvmtype->getTypeID() == Type::TypeID::PPC_FP128TyID) {
-      scalarData.floatStandard = FloatStandard::Float_ppc_fp128;
-    } else if (llvmtype->getTypeID() == Type::TypeID::X86_FP80TyID) {
-      scalarData.floatStandard = FloatStandard::Float_x86_fp80;
-    } else if (llvmtype->getTypeID() == Type::TypeID::BFloatTyID) {
-      scalarData.floatStandard = FloatStandard::Float_bfloat;
-    } else {
-      // Invalid...
-      scalarData.floatStandard = FloatStandard::Float_NotFloat;
+std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::shared_ptr<TransparentType> &srcType, ArrayRef<unsigned int> indices) {
+  std::shared_ptr<TransparentType> resolvedType = srcType;
+  std::shared_ptr<FixedPointType> resolvedFixpType = this->clone();
+  for (unsigned int index : indices) {
+    if (resolvedType->isPointerType())
+      resolvedType = resolvedType->getPointerElementType();
+    else if (resolvedType->isStructType()) {
+      resolvedType = std::static_ptr_cast<TransparentStructType>(resolvedType)->getFieldType(index);
+      resolvedFixpType = std::static_ptr_cast<FixedPointStructType>(resolvedFixpType)->getFieldType(index);
     }
-
-  } else if (llvmtype->isIntegerTy()) {
-    scalarData.fracBitsAmt = 0;
-    scalarData.bitsAmt = llvmtype->getIntegerBitWidth();
-    scalarData.floatStandard = FloatStandard::Float_NotFloat;
-  } else {
-    scalarData.isSigned = false;
-    scalarData.fracBitsAmt = 0;
-    scalarData.bitsAmt = 0;
-    scalarData.floatStandard = FloatStandard::Float_NotFloat;
-  }
-}
-
-
-FixedPointType::FixedPointType(const ArrayRef<FixedPointType> &elems)
-{
-  structData.reset(new SmallVector<FixedPointType, 2>(elems.begin(), elems.end()));
-}
-
-
-FixedPointType::FixedPointType(NumericType *mdtype)
-{
-  structData = nullptr;
-  FixpType *fpt;
-  FloatType *flt;
-  if (mdtype && (fpt = dyn_cast<FixpType>(mdtype))) {
-    scalarData.bitsAmt = fpt->getWidth();
-    scalarData.fracBitsAmt = fpt->getPointPos();
-    scalarData.isSigned = fpt->isSigned();
-    scalarData.floatStandard = FloatStandard::Float_NotFloat;
-  } else if (mdtype && (flt = dyn_cast<FloatType>(mdtype))) {
-    scalarData.bitsAmt = 0;
-    scalarData.fracBitsAmt = 0;
-    scalarData.isSigned = true;
-    scalarData.floatStandard = static_cast<FloatStandard>(flt->getStandard());
-
-  } else {
-    scalarData = {false, 0, 0, FloatStandard::Float_NotFloat};
-  }
-}
-
-
-FixedPointType FixedPointType::get(ValueInfo *mdnfo, int *enableConversion)
-{
-  if (mdnfo == nullptr) {
-    return FixedPointType();
-
-  } else if (ScalarInfo *ii = dyn_cast<ScalarInfo>(mdnfo)) {
-    if (ii->isConversionEnabled()) {
-      if (enableConversion)
-        (*enableConversion)++;
-      return FixedPointType(ii->numericType.get());
-    } else {
-      return FixedPointType();
+    /*
+    else if (resolvedType->isArrayTy()) {
+      resolvedType = resolvedType->getArrayElementType();
     }
-
-  } else if (StructInfo *si = dyn_cast<StructInfo>(mdnfo)) {
-    SmallVector<FixedPointType, 2> elems;
-    for (auto i = si->begin(); i != si->end(); i++) {
-      elems.push_back(FixedPointType::get(i->get(), enableConversion));
-    }
-    return FixedPointType(elems);
-  }
-  assert(0 && "unknown type of MDInfo");
-  return FixedPointType();
-}
-
-
-Type *FixedPointType::scalarToLLVMType(LLVMContext &ctxt) const
-{
-  assert(!structData && "fixed point type not a scalar");
-  if (scalarData.floatStandard == Float_NotFloat) {
-    return Type::getIntNTy(ctxt, scalarData.bitsAmt);
-  } else {
-    switch (scalarData.floatStandard) {
-    case Float_half: /*16-bit floating-point value*/
-      return Type::getHalfTy(ctxt);
-    case Float_float: /*32-bit floating-point value*/
-      return Type::getFloatTy(ctxt);
-    case Float_double: /*64-bit floating-point value*/
-      return Type::getDoubleTy(ctxt);
-    case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
-      return Type::getFP128Ty(ctxt);
-    case Float_x86_fp80: /*80-bit floating-point value (X87)*/
-      return Type::getX86_FP80Ty(ctxt);
-    case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
-      return Type::getPPC_FP128Ty(ctxt);
-    case Float_bfloat: /*128-bit floating-point value (two 64-bits)*/
-      return Type::getBFloatTy(ctxt);
-    case Float_NotFloat:
-    default:
-      dbgs() << "getting LLVMType of " << scalarData.floatStandard << "\n";
-      llvm_unreachable("This should've been handled before");
-    }
-  }
-}
-
-
-std::string FixedPointType::Primitive::toString() const
-{
-  std::stringstream stm;
-  if (floatStandard == Float_NotFloat) {
-    if (isSigned)
-      stm << "s";
+    else if (resolvedType->isVectorTy()) {
+      resolvedType = resolvedType->getContainedType(0);
+    }*/ //TODO FIX SOOON
     else
-      stm << "u";
+      llvm_unreachable("Unsupported type in GEP");
+  }
+  return resolvedFixpType;
+}
 
-    stm << bitsAmt - fracBitsAmt << "_" << fracBitsAmt << "fixp";
+std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::shared_ptr<TransparentType> &srcType, iterator_range<const Use*> indices) {
+  SmallVector<unsigned int, 4> indicesVector;
+  for (Value *val : indices) {
+    auto constantIndex = dyn_cast<ConstantInt>(val);
+    // The constant value of the index is only used to navigate struct types.
+    // In other cases indicesVector is only used to count pointer indirections,
+    // so only its cardinality matters and not the values themselves
+    indicesVector.push_back(constantIndex ? constantIndex->getZExtValue() : 0);
+  }
+  return unwrapIndexList(srcType, indicesVector);
+}
+
+FixedPointScalarType::FixedPointScalarType()
+: sign(false), bits(0), fractionalBits(0), floatStandard(NotFloat) {}
+
+FixedPointScalarType::FixedPointScalarType(bool isSigned, int bits, int fractionalBits)
+: sign(isSigned), bits(bits), fractionalBits(fractionalBits), floatStandard(NotFloat) {}
+
+FixedPointScalarType::FixedPointScalarType(Type *type, bool isSigned)
+: sign(isSigned) {
+  if (type->isFloatTy()) {
+    bits = 0;
+    fractionalBits = 0;
+    if (type->getTypeID() == Type::HalfTyID)
+      floatStandard = Float_half;
+    else if (type->getTypeID() == Type::DoubleTyID)
+      floatStandard = Float_double;
+    else if (type->getTypeID() == Type::FloatTyID)
+      floatStandard = Float_float;
+    else if (type->getTypeID() == Type::FP128TyID)
+      floatStandard = Float_fp128;
+    else if (type->getTypeID() == Type::PPC_FP128TyID)
+      floatStandard = Float_ppc_fp128;
+    else if (type->getTypeID() == Type::X86_FP80TyID)
+      floatStandard = Float_x86_fp80;
+    else if (type->getTypeID() == Type::BFloatTyID)
+      floatStandard = Float_bfloat;
+    else
+      floatStandard = NotFloat;
+  } else if (type->isIntegerTy()) {
+    bits = type->getIntegerBitWidth();
+    fractionalBits = 0;
+    floatStandard = NotFloat;
   } else {
-    stm << floatStandard << "flp";
+    sign = false;
+    bits = 0;
+    fractionalBits = 0;
+    floatStandard = NotFloat;
   }
-  return stm.str();
 }
 
-
-std::string FixedPointType::toString() const
-{
-  std::stringstream stm;
-
-  if (!structData) {
-    stm << scalarData.toString();
+FixedPointScalarType::FixedPointScalarType(NumericType *numericType) {
+  if (numericType) {
+    if (auto *fpt = dyn_cast<FixpType>(numericType)) {
+      bits = fpt->getWidth();
+      fractionalBits = fpt->getPointPos();
+      sign = fpt->isSigned();
+      floatStandard = NotFloat;
+    } else if (auto *flt = dyn_cast<FloatType>(numericType)) {
+      bits = 0;
+      fractionalBits = 0;
+      sign = true;
+      floatStandard = static_cast<FloatStandard>(flt->getStandard());
+    } else {
+      sign = false;
+      bits = 0;
+      fractionalBits = 0;
+      floatStandard = NotFloat;
+    }
   } else {
-    stm << '<';
-    for (size_t i = 0; i < structData->size(); i++) {
-      stm << (*structData)[i].toString();
-      if (i != structData->size() - 1)
-        stm << ',';
-    }
-    stm << '>';
+    sign = false;
+    bits = 0;
+    fractionalBits = 0;
+    floatStandard = NotFloat;
   }
-
-  return stm.str();
 }
 
+FixedPointScalarType::FixedPointScalarType(const FixedPointScalarType &other)
+: sign(other.sign), bits(other.bits), fractionalBits(other.fractionalBits), floatStandard(other.floatStandard) {}
 
-FixedPointType FixedPointType::unwrapIndexList(Type *valType, const iterator_range<const Use *> indices)
-{
-  Type *resolvedType = valType;
-  FixedPointType tempFixpt = *this;
-  for (Value *a : indices) {
-    if (resolvedType->isPointerTy()) {
-      // TODO FIX SOON!
-      //resolvedType = resolvedType->getPointerElementType();
-    } else if (resolvedType->isArrayTy()) {
-      resolvedType = resolvedType->getArrayElementType();
-    } else if (resolvedType->isVectorTy()) {
-      resolvedType = resolvedType->getContainedType(0);
-    } else if (resolvedType->isStructTy()) {
-      ConstantInt *val = dyn_cast<ConstantInt>(a);
-      assert(val && "non-constant index for struct in GEP");
-      int n = val->getZExtValue();
-      resolvedType = resolvedType->getStructElementType(n);
-      tempFixpt = tempFixpt.structItem(n);
-    } else {
-      assert(0 && "unsupported type in GEP");
-    }
-  }
-  return tempFixpt;
+bool FixedPointScalarType::isInvalid() const {
+  return bits == 0 && floatStandard == NotFloat;
 }
 
-
-FixedPointType FixedPointType::unwrapIndexList(Type *valType, ArrayRef<unsigned> indices)
-{
-  Type *resolvedType = valType;
-  FixedPointType tempFixpt = *this;
-  for (unsigned n : indices) {
-    if (resolvedType->isPointerTy()) {
-      // TODO FIX SOON!
-      //resolvedType = resolvedType->getPointerElementType();
-    } else if (resolvedType->isArrayTy()) {
-      resolvedType = resolvedType->getArrayElementType();
-    } else if (resolvedType->isVectorTy()) {
-      resolvedType = resolvedType->getContainedType(0);
-    } else if (resolvedType->isStructTy()) {
-      resolvedType = resolvedType->getStructElementType(n);
-      tempFixpt = tempFixpt.structItem(n);
-    } else {
-      assert(0 && "unsupported type in GEP");
-    }
+Type* FixedPointScalarType::scalarToLLVMType(LLVMContext &context) const {
+  if (floatStandard == NotFloat)
+    return Type::getIntNTy(context, bits);
+  switch (floatStandard) {
+    case Float_half:      // 16-bit floating-point value
+      return Type::getHalfTy(context);
+    case Float_float:     // 32-bit floating-point value
+      return Type::getFloatTy(context);
+    case Float_double:    // 64-bit floating-point value
+      return Type::getDoubleTy(context);
+    case Float_fp128:     // 128-bit floating-point value (112-bit mantissa)
+      return Type::getFP128Ty(context);
+    case Float_x86_fp80:  // 80-bit floating-point value (X87)
+      return Type::getX86_FP80Ty(context);
+    case Float_ppc_fp128: // 128-bit floating-point value (two 64-bits)
+      return Type::getPPC_FP128Ty(context);
+    case Float_bfloat:    // 128-bit floating-point value (two 64-bits)
+      return Type::getBFloatTy(context);
+    default:
+      llvm_unreachable("Unhandled floating point type");
   }
-  return tempFixpt;
 }
 
+bool FixedPointScalarType::toTransparentType(const std::shared_ptr<TransparentType> &newType) const {
+  if (newType->isFloatType()) {
+    newType->unwrappedType = scalarToLLVMType(newType->getUnwrappedType()->getContext());
+    return true;
+  }
+  return false;
+}
 
-Type *FixedPointType::toLLVMType(Type *srct, bool *hasfloats) const {
-  // this == baset
-  if (srct->isPointerTy()) {
-    // TODO FIX SOON!
-    /*Type *enc = toLLVMType(srct->getPointerElementType(), hasfloats);
-    if (enc)
-      return enc->getPointerTo(srct->getPointerAddressSpace());*/
-    return nullptr;
+bool FixedPointScalarType::operator==(const FixedPointType &other) const {
+  if (other.getKind() != K_Scalar)
+    return false;
+  auto &otherScalar = cast<FixedPointScalarType>(other);
+  return sign == otherScalar.sign &&
+         bits == otherScalar.bits &&
+         fractionalBits == otherScalar.fractionalBits &&
+         floatStandard == otherScalar.floatStandard;
+}
 
-  } else if (srct->isArrayTy()) {
-    int nel = srct->getArrayNumElements();
-    Type *enc = toLLVMType(srct->getArrayElementType(), hasfloats);
-    if (enc)
-      return ArrayType::get(enc, nel);
-    return nullptr;
+std::shared_ptr<FixedPointType> FixedPointScalarType::clone() const {
+  return std::make_shared<FixedPointScalarType>(*this);
+}
 
-  } else if (srct->isStructTy()) {
-    SmallVector<Type *, 2> elems;
-    bool allinvalid = true;
-    for (unsigned i = 0; i < srct->getStructNumElements(); i++) {
-      const FixedPointType &fpelemt = structItem(i);
-      Type *baseelemt = srct->getStructElementType(i);
-      Type *newelemt;
-      if (!fpelemt.isInvalid()) {
-        allinvalid = false;
-        newelemt = fpelemt.toLLVMType(baseelemt, hasfloats);
-      } else {
-        newelemt = baseelemt;
+std::string FixedPointScalarType::toString() const {
+  std::stringstream ss;
+  if (floatStandard == NotFloat)
+    ss << (sign ? "s" : "u") << (bits - fractionalBits) << "_" << fractionalBits << "fixp";
+  else
+    ss << floatStandard << "flp";
+  return ss.str();
+}
+
+FixedPointStructType::FixedPointStructType(const ArrayRef<std::shared_ptr<FixedPointType>> &fields)
+: fieldTypes(fields) {}
+
+FixedPointStructType::FixedPointStructType(const std::shared_ptr<StructInfo> &structInfo, int *enableConversion) {
+  for (const std::shared_ptr<ValueInfo> &fieldInfo : *structInfo) {
+    if (!fieldInfo)
+      fieldTypes.push_back(std::make_shared<FixedPointScalarType>());
+    else if (std::shared_ptr<ScalarInfo> scalarFieldInfo = std::dynamic_ptr_cast<ScalarInfo>(fieldInfo)) {
+      if (scalarFieldInfo->isConversionEnabled()) {
+        if (enableConversion)
+          (*enableConversion)++;
+        fieldTypes.push_back(std::make_shared<FixedPointScalarType>(scalarFieldInfo->numericType.get()));
       }
-      elems.push_back(newelemt);
+      else
+        fieldTypes.push_back(std::make_shared<FixedPointScalarType>());
     }
-    if (!allinvalid)
-      return StructType::get(srct->getContext(), elems, dyn_cast<StructType>(srct)->isPacked());
-    return srct;
-
-  } else if (srct->isFloatingPointTy()) {
-    if (hasfloats)
-      *hasfloats = true;
-    return scalarToLLVMType(srct->getContext());
+    else if (std::shared_ptr<StructInfo> structFieldInfo = std::dynamic_ptr_cast<StructInfo>(fieldInfo))
+      fieldTypes.push_back(std::make_shared<FixedPointStructType>(structFieldInfo, enableConversion));
+    else
+      llvm_unreachable("unknown type of ValueInfo");
   }
-  
-  LLVM_DEBUG(dbgs() << "FixedPointType::toLLVMType given unexpected non-float type " << *srct << "\n");
-  if (hasfloats)
-    *hasfloats = false;
-  return srct;
 }
 
+FixedPointStructType::FixedPointStructType(const FixedPointStructType &other)
+: fieldTypes(other.fieldTypes) {}
 
-raw_ostream &operator<<(raw_ostream &stm, const FixedPointType &f)
-{
-  stm << f.toString();
-  return stm;
+bool FixedPointStructType::isInvalid() const {
+  for (const auto &fpt : fieldTypes)
+    if (fpt->isInvalid())
+      return true;
+  return false;
 }
 
+bool FixedPointStructType::toTransparentType(const std::shared_ptr<TransparentType> &newType) const {
+  std::shared_ptr<TransparentStructType> newStructType = std::static_ptr_cast<TransparentStructType>(newType);
+  assert(newStructType->getNumFieldTypes() == getNumFieldTypes());
 
-bool FixedPointType::operator==(const FixedPointType &rhs) const
-{
-  if (!structData) {
-    return scalarData == rhs.scalarData;
-  } else {
-    if (structData->size() != rhs.structData->size())
+  bool hasFloats = false;
+  SmallVector<Type*, 4> fieldsLLVMTypes;
+  for (unsigned int i = 0; i < getNumFieldTypes(); i++) {
+    std::shared_ptr<TransparentType> fieldTransparentType = newStructType->getFieldType(i);
+    std::shared_ptr<FixedPointType> fieldType = getFieldType(i);
+    fieldsLLVMTypes.push_back(fieldTransparentType->getUnwrappedType());
+    if (fieldType->isInvalid())
+      continue;
+    if (fieldTransparentType->isFloatType() || fieldTransparentType->isStructType())
+      hasFloats |= fieldType->toTransparentType(fieldTransparentType);
+  }
+  if (hasFloats) {
+    newStructType->unwrappedType = StructType::get(
+      newStructType->getUnwrappedType()->getContext(),
+      fieldsLLVMTypes,
+      cast<StructType>(newStructType->getUnwrappedType())->isPacked());
+  }
+  return hasFloats;
+}
+
+bool FixedPointStructType::operator==(const FixedPointType &other) const {
+  if (other.getKind() != K_Struct)
+    return false;
+  auto &otherStruct = cast<FixedPointStructType>(other);
+  if (fieldTypes.size() != otherStruct.fieldTypes.size())
+    return false;
+  for (size_t i = 0; i < fieldTypes.size(); i++)
+    if (*fieldTypes[i] != *otherStruct.fieldTypes[i])
       return false;
-    for (size_t i = 0; i < structData->size(); i++) {
-      if (!((*structData)[i] == (*rhs.structData)[i]))
-        return false;
-    }
-  }
   return true;
+}
+
+std::shared_ptr<FixedPointType> FixedPointStructType::clone() const {
+  return std::make_shared<FixedPointStructType>(*this);
+}
+
+std::string FixedPointStructType::toString() const {
+  std::stringstream ss;
+  ss << '<';
+  for (size_t i = 0; i < fieldTypes.size(); i++) {
+    ss << fieldTypes[i]->toString();
+    if (i != fieldTypes.size() - 1)
+      ss << ',';
+  }
+  ss << '>';
+  return ss.str();
 }

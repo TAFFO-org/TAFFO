@@ -2,7 +2,7 @@
 #define TAFFO_INITIALIZER_PASS_HPP
 
 #include "TaffoInfo/ValueInfo.hpp"
-#include "InsertionOrderedMap.hpp"
+#include "Containers/InsertionOrderedMap.hpp"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/PassManager.h>
@@ -16,16 +16,17 @@ STATISTIC(FunctionCloned, "Number of fixed point function inserted");
 
 namespace taffo {
 
-struct ConvQueueInfo {
+struct ConvQueueInfo : Printable {
   unsigned int backtrackingDepthLeft = 0;
   unsigned int rootDistance = UINT_MAX;
   std::shared_ptr<ValueInfo> valueInfo;
-  std::string dump() {
-    std::string ret;
-    ret += "backtrackingDepthLeft: " + std::to_string(backtrackingDepthLeft) + "\n";
-    ret += "rootDistance: " + std::to_string(rootDistance) + "\n";
-    ret += "valueInfo: " + ( valueInfo ? valueInfo->toString() : "" ) + "\n";
-    return ret;
+
+  std::string toString() const override {
+    std::stringstream ss;
+    ss << "(backtrackingDepthLeft: " << backtrackingDepthLeft
+       << ", rootDistance: " << rootDistance
+       << ", valueInfo: " << (valueInfo ? valueInfo->toString() : "null") << ")";
+    return ss.str();
   }
 };
 
@@ -49,14 +50,14 @@ private:
   void printAnnotatedObj(llvm::Module &m);
 
   void buildConversionQueueForRootValues(const ConvQueueType &roots, ConvQueueType &queue);
-  void createUserInfo(const llvm::Value *value, const ConvQueueInfo& valueConvQueueInfo, llvm::Value *user, ConvQueueInfo &userConvQueueInfo);
+  void createUserInfo(llvm::Value *value, ConvQueueInfo& valueConvQueueInfo, llvm::Value *user, ConvQueueInfo &userConvQueueInfo);
   std::shared_ptr<ValueInfo> extractGEPValueInfo(const llvm::Value *value, std::shared_ptr<ValueInfo> valueInfo, const llvm::Value *user);
   void generateFunctionSpace(ConvQueueType &vals, ConvQueueType &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
   llvm::Function *createFunctionAndQueue(llvm::CallBase *call, ConvQueueType &vals, ConvQueueType &global, std::vector<llvm::Value *> &convQueue);
   void printConversionQueue(ConvQueueType &queue);
   void removeAnnotationCalls(ConvQueueType &queue);
 
-  void setValueInfo(llvm::Value *v, const ConvQueueInfo& valueConvQueueInfo);
+  void setValueInfo(llvm::Value *v, const ConvQueueInfo &valueConvQueueInfo);
   void setFunctionArgsInfo(llvm::Module &m, ConvQueueType &queue);
 
   bool isSpecialFunction(const llvm::Function *f) {

@@ -1,6 +1,6 @@
-#include "TypeUtils.h"
+#include "TypeUtils.hpp"
 
-#include "TaffoInfo/TaffoInfo.hpp"
+#include "../TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
@@ -10,26 +10,9 @@
 using namespace taffo;
 using namespace llvm;
 
-Type *taffo::getUnwrappedType(const Value *value) {
-  if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*value))
-    return valueInfo->getUnwrappedType();
-  if (std::optional<DeducedPointerType> pointerType = TaffoInfo::getInstance().getDeducedPointerType(*value))
-    return pointerType->unwrappedType;
-  Type *type;
-  if (const Function *fun = dyn_cast<Function>(value))
-    type = fun->getReturnType();
-  else if (const GlobalValue *globalValue = dyn_cast<GlobalValue>(value))
-    type = globalValue->getValueType();
-  else
-    type = value->getType();
-
-  bool done = false;
-  while (!done)
-    if (type->isArrayTy())
-      type = type->getArrayElementType();
-    else
-      done = true;
-  return type;
+Type *taffo::getUnwrappedType(Value *value) {
+  std::shared_ptr<TransparentType> deducedType = TaffoInfo::getInstance().getTransparentType(*value);
+  return deducedType->getUnwrappedType();
 }
 
 FixpType taffo::fixedPointTypeFromRange(

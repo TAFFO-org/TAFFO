@@ -3,6 +3,8 @@
 
 #include <nlohmann/json.hpp>
 #include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Support/Debug.h>
 #include <sstream>
 
 using json = nlohmann::ordered_json;
@@ -47,8 +49,17 @@ public:
    */
   virtual std::string toString() const = 0;
 
+  /**
+   * @brief Dumps the string representation of the object to dbgs.
+   */
+  void dump() const { llvm::dbgs() << toString(); }
+
   virtual ~Printable() = default;
 };
+
+// Trait to check if T is Printable
+template <typename T>
+using is_printable = std::is_base_of<Printable, std::decay_t<T>>;
 
 // Overload of << to print Printable to std::ostream
 inline std::ostream &operator<<(std::ostream &os, const Printable &obj) {
@@ -62,14 +73,31 @@ inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Printable &obj
   return os;
 }
 
-// toString function for llvm objects that have a print(llvm::raw_ostream&) method
-static std::string toString(const auto *obj)
-requires requires(const decltype(*obj) &o, llvm::raw_ostream &os) { { o.print(os) } -> std::same_as<void>; }
-{
+// Trait to check if T has a print(raw_ostream&) method (supports raw pointers too)
+template <typename T, typename = void>
+struct has_llvm_print : std::false_type {};
+
+template <typename T>
+struct has_llvm_print<T, std::void_t<
+  decltype(std::declval<const std::remove_pointer_t<T>&>().print(std::declval<llvm::raw_ostream&>()))>>
+  : std::true_type {};
+
+template <typename T>
+inline constexpr bool has_llvm_print_v = has_llvm_print<T>::value;
+
+// toString for any T or T* that has a `print(llvm::raw_ostream&)` method
+template <typename T>
+requires has_llvm_print_v<T>
+std::string toString(const T &obj) {
   std::string str;
   llvm::raw_string_ostream os(str);
-  obj->print(os);
-  return os.str();
+  if constexpr (std::is_pointer_v<T>)
+    obj->print(os);
+  else
+    obj.print(os);
+  std::string result = os.str();
+  result.erase(0, result.find_first_not_of(" \t\n\r"));
+  return result;
 }
 
 inline std::string formatNumber(unsigned int digits, unsigned int number) {
