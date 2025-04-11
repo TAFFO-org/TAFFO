@@ -167,33 +167,33 @@ private:
 namespace std {
 
 template <>
-struct std::hash<std::shared_ptr<taffo::TransparentType>> {
-  std::size_t operator()(const std::shared_ptr<taffo::TransparentType> &ptr) const {
+struct hash<shared_ptr<taffo::TransparentType>> {
+  size_t operator()(const shared_ptr<taffo::TransparentType> &ptr) const {
     if (!ptr)
       return 0;
 
-    std::size_t combined = 0;
-    auto combine = [](std::size_t seed, std::size_t value) {
+    size_t combined = 0;
+    auto combine = [](size_t seed, size_t value) {
       return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
     };
 
-    combined = combine(combined, std::hash<llvm::Type *>()(ptr->getUnwrappedType()));
-    combined = combine(combined, std::hash<unsigned int>()(ptr->getIndirections()));
+    combined = combine(combined, hash<llvm::Type *>()(ptr->getUnwrappedType()));
+    combined = combine(combined, hash<unsigned int>()(ptr->getIndirections()));
 
-    if (auto arrayPtr = std::dynamic_ptr_cast<taffo::TransparentArrayType>(ptr))
-      combined = combine(combined, std::hash<std::shared_ptr<taffo::TransparentType>>()(arrayPtr->getElementType()));
-    else if (auto structPtr = std::dynamic_ptr_cast<taffo::TransparentStructType>(ptr))
+    if (auto arrayPtr = dynamic_ptr_cast<taffo::TransparentArrayType>(ptr))
+      combined = combine(combined, hash<shared_ptr<taffo::TransparentType>>()(arrayPtr->getElementType()));
+    else if (auto structPtr = dynamic_ptr_cast<taffo::TransparentStructType>(ptr))
       for (const auto &field : *structPtr)
-        combined = combine(combined, std::hash<std::shared_ptr<taffo::TransparentType>>()(field));
+        combined = combine(combined, hash<shared_ptr<taffo::TransparentType>>()(field));
 
     return combined;
   }
 };
 
 template <>
-struct std::equal_to<std::shared_ptr<taffo::TransparentType>> {
-  bool operator()(const std::shared_ptr<taffo::TransparentType> &lhs,
-                  const std::shared_ptr<taffo::TransparentType> &rhs) const {
+struct equal_to<shared_ptr<taffo::TransparentType>> {
+  bool operator()(const shared_ptr<taffo::TransparentType> &lhs,
+                  const shared_ptr<taffo::TransparentType> &rhs) const {
     if (lhs == rhs)
       return true;
     if (!lhs || !rhs)
