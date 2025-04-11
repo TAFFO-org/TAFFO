@@ -646,8 +646,7 @@ void FloatToFixed::propagateCall(std::vector<Value*> &vals, SmallVectorImpl<Valu
   vals.resize(removei);
 }
 
-Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
-{
+Function *FloatToFixed::createFixFun(CallBase *call, bool *old) {
   LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
   Function *oldF = call->getCalledFunction();
   assert(oldF && "bitcasted function pointers and such not handled atm");

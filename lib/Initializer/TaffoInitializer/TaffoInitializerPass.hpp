@@ -1,13 +1,10 @@
 #ifndef TAFFO_INITIALIZER_PASS_HPP
 #define TAFFO_INITIALIZER_PASS_HPP
 
-#include "TaffoInfo/ValueInfo.hpp"
-#include "Containers/InsertionOrderedMap.hpp"
-
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/AbstractCallSite.h>
-#include <limits>
+#include <list>
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -16,43 +13,29 @@ STATISTIC(FunctionCloned, "Number of fixed point function inserted");
 
 namespace taffo {
 
-struct ConvQueueInfo : Printable {
-  unsigned int backtrackingDepthLeft = 0;
-  unsigned int rootDistance = UINT_MAX;
-  std::shared_ptr<ValueInfo> valueInfo;
-
-  std::string toString() const override {
-    std::stringstream ss;
-    ss << "(backtrackingDepthLeft: " << backtrackingDepthLeft
-       << ", rootDistance: " << rootDistance
-       << ", valueInfo: " << (valueInfo ? valueInfo->toString() : "null") << ")";
-    return ss.str();
-  }
-};
-
-class TaffoInitializer : public llvm::PassInfoMixin<TaffoInitializer> {
+class TaffoInitializerPass : public llvm::PassInfoMixin<TaffoInitializerPass> {
 public:
   llvm::PreservedAnalyses run(llvm::Module &m, llvm::ModuleAnalysisManager &);
 
 #ifndef UNITTESTS
 private:
 #endif
-  using ConvQueueType = InsertionOrderedMap<llvm::Value*, ConvQueueInfo>;
-
-  llvm::SmallPtrSet<llvm::Function*, 32> enabledFunctions;
+  std::list<llvm::Value*> infoPropagationQueue;
 
   llvm::Function *findStartingPointFunctionGlobal(llvm::Module &m);
-  void readGlobalAnnotations(llvm::Module &m, ConvQueueType &res, bool functionAnnotation = false);
-  void readLocalAnnotations(llvm::Function &f, ConvQueueType &res);
-  void readAllLocalAnnotations(llvm::Module &m, ConvQueueType &res);
-  bool parseAnnotation(ConvQueueType &annotatedValues, llvm::Value *annotationValue, llvm::Value *annotatedValue, bool *isTarget = nullptr);
-  void removeNoFloatTy(ConvQueueType &res);
+
+  void readGlobalAnnotations(llvm::Module &m, bool functionAnnotation = false);
+  void readAndRemoveLocalAnnotations(llvm::Function &f);
+  void readAndRemoveLocalAnnotations(llvm::Module &m);
+
+  void parseAnnotation(llvm::Value *annotationValue, llvm::Value *annotatedValue, bool *isTarget = nullptr);
+  void removeNoFloatTy();
   void printAnnotatedObj(llvm::Module &m);
 
   void buildConversionQueueForRootValues(const ConvQueueType &roots, ConvQueueType &queue);
   void createUserInfo(llvm::Value *value, ConvQueueInfo& valueConvQueueInfo, llvm::Value *user, ConvQueueInfo &userConvQueueInfo);
   std::shared_ptr<ValueInfo> extractGEPValueInfo(const llvm::Value *value, std::shared_ptr<ValueInfo> valueInfo, const llvm::Value *user);
-  void generateFunctionSpace(ConvQueueType &vals, ConvQueueType &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
+  void generateFunctionSpace(ConvQueueType &convQueue, ConvQueueType &global, llvm::SmallPtrSet<llvm::Function *, 10> &callTrace);
   llvm::Function *createFunctionAndQueue(llvm::CallBase *call, ConvQueueType &vals, ConvQueueType &global, std::vector<llvm::Value *> &convQueue);
   void printConversionQueue(ConvQueueType &queue);
   void removeAnnotationCalls(ConvQueueType &queue);

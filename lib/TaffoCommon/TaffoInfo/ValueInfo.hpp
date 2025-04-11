@@ -11,12 +11,12 @@
 
 namespace taffo {
 
-class TaffoInitializer; //TODO remove
+class TaffoInitializerPass; //TODO remove
 class AnnotationParser;
 
 class ValueInfo : public Serializable, public Printable {
 public:
-  friend class TaffoInitializer; //TODO remove
+  friend class TaffoInitializerPass; //TODO remove
   friend class AnnotationParser;
 
   enum ValueInfoKind {

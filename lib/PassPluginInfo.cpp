@@ -26,7 +26,7 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
                 return true;
               }
               if (Name == "taffoinit") {
-                PM.addPass(TaffoInitializer());
+                PM.addPass(TaffoInitializerPass());
                 return true;
               } else if (Name == "taffovra") {
                 PM.addPass(ValueRangeAnalysis());

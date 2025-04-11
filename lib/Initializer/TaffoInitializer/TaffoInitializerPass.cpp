@@ -28,7 +28,7 @@ cl::opt<bool> CudaKernelMode("cudakern",
   cl::desc("Allows cloning of Cuda kernel functions"),
   cl::init(false));
 
-PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &) {
+PreservedAnalyses TaffoInitializerPass::run(Module &m, ModuleAnalysisManager &) {
   LLVM_DEBUG(Logger::getInstance().logln("[InitializerPass]", raw_ostream::Colors::MAGENTA));
   TaffoInfo::getInstance().initializeFromFile("taffo_typededucer.json", m);
 
@@ -45,11 +45,9 @@ PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &) {
 
   manageIndirectCalls(m);
 
-  ConvQueueType local;
-  ConvQueueType global;
-  readAllLocalAnnotations(m, local);
-  readGlobalAnnotations(m, global, true);
-  readGlobalAnnotations(m, global, false);
+  readAndRemoveLocalAnnotations(m);
+  readGlobalAnnotations(m, true);
+  readGlobalAnnotations(m, false);
 
   if (Function *startingPoint = findStartingPointFunctionGlobal(m)) {
     LLVM_DEBUG(dbgs() << "Found starting point using global __taffo_vra_starting_function: " << startingPoint->getName() << "\n");
@@ -81,7 +79,7 @@ PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &) {
   return PreservedAnalyses::all();
 }
 
-void TaffoInitializer::removeAnnotationCalls(ConvQueueType &queue) {
+void TaffoInitializerPass::removeAnnotationCalls(ConvQueueType &queue) {
   for (auto iter = queue.begin(); iter != queue.end();) {
     Value *v = iter->first;
 
@@ -98,7 +96,7 @@ void TaffoInitializer::removeAnnotationCalls(ConvQueueType &queue) {
   }
 }
 
-void TaffoInitializer::setValueInfo(Value *value, const ConvQueueInfo &valueConvQueueInfo) {
+void TaffoInitializerPass::setValueInfo(Value *value, const ConvQueueInfo &valueConvQueueInfo) {
   auto valueInfo = valueConvQueueInfo.valueInfo;
   if (isa<Instruction>(value) || isa<GlobalObject>(value))
     TaffoInfo::getInstance().setValueWeight(*value, valueConvQueueInfo.rootDistance);
@@ -113,23 +111,6 @@ void TaffoInitializer::setValueInfo(Value *value, const ConvQueueInfo &valueConv
   TaffoInfo::getInstance().setValueInfo(*value, valueInfo);
 }
 
-void TaffoInitializer::setFunctionArgsInfo(Module &m, ConvQueueType &queue) {
-  for (Function &f : m.functions()) {
-    LLVM_DEBUG(dbgs() << "Processing function " << f.getName() << "\n");
-    for (Argument &a : f.args()) {
-      LLVM_DEBUG(dbgs() << "Processing arg " << a << "\n");
-      int weight = -1;
-      if (queue.contains(&a)) {
-        LLVM_DEBUG(dbgs() << "Info found.\n");
-        ConvQueueInfo &convQueueInfo = queue[&a];
-        weight = convQueueInfo.rootDistance;
-      }
-      TaffoInfo::getInstance().setValueWeight(a, weight);
-    }
-  }
-  LLVM_DEBUG(dbgs() << "\n");
-}
-
 /**
  * @brief Builds the conversion queue for root values.
  *
@@ -141,7 +122,7 @@ void TaffoInitializer::setFunctionArgsInfo(Module &m, ConvQueueType &queue) {
  * @param roots The set of root values and their conversion info
  * @param queue The conversion queue to be built and updated
  */
-void TaffoInitializer::buildConversionQueueForRootValues(const ConvQueueType &roots, ConvQueueType &queue) {
+void TaffoInitializerPass::buildConversionQueueForRootValues(const ConvQueueType &roots, ConvQueueType &queue) {
   LLVM_DEBUG(dbgs() << "***** begin " << __FUNCTION__ << "\nInitial ");
 
   // Insert all root entries into the queue
@@ -275,7 +256,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(const ConvQueueType &ro
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
-void TaffoInitializer::createUserInfo(Value *value, ConvQueueInfo &valueConvQueueInfo, Value *user, ConvQueueInfo &userConvQueueInfo) {
+void TaffoInitializerPass::createUserInfo(Value *value, ConvQueueInfo &valueConvQueueInfo, Value *user, ConvQueueInfo &userConvQueueInfo) {
   std::shared_ptr<ValueInfo> &valueInfo = valueConvQueueInfo.valueInfo;
   unsigned int &valueRootDistance = valueConvQueueInfo.rootDistance;
   std::shared_ptr<ValueInfo> &userInfo = userConvQueueInfo.valueInfo;
@@ -323,7 +304,7 @@ void TaffoInitializer::createUserInfo(Value *value, ConvQueueInfo &valueConvQueu
   }
 }
 
-std::shared_ptr<ValueInfo> TaffoInitializer::extractGEPValueInfo(
+std::shared_ptr<ValueInfo> TaffoInitializerPass::extractGEPValueInfo(
     const Value *value, std::shared_ptr<ValueInfo> valueInfo, const Value *user) {
   if (!valueInfo)
     return nullptr;
@@ -362,17 +343,14 @@ std::shared_ptr<ValueInfo> TaffoInitializer::extractGEPValueInfo(
     LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] end, valueInfo=" << valueInfo->toString() << "\n");
   else
     LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] end, valueInfo=NULL\n");
-  return (valueInfo)
-             ? std::shared_ptr<ValueInfo>(valueInfo->clone())
-             : nullptr;
+  return valueInfo ? valueInfo->clone() : nullptr;
 }
 
-
-void TaffoInitializer::generateFunctionSpace(
-    ConvQueueType &vals, ConvQueueType &global, SmallPtrSet<Function *, 10> &callTrace) {
+void TaffoInitializerPass::generateFunctionSpace(
+    ConvQueueType &convQueue, ConvQueueType &global, SmallPtrSet<Function *, 10> &callTrace) {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
 
-  for (const auto &[value, _] : vals) {
+  for (const auto &[value, _] : convQueue) {
     if (!isa<CallInst>(value) && !isa<InvokeInst>(value))
       continue;
     auto *call = dyn_cast<CallBase>(value);
@@ -392,7 +370,7 @@ void TaffoInitializer::generateFunctionSpace(
     }
 
     std::vector<Value*> newVals;
-    Function *newF = createFunctionAndQueue(call, vals, global, newVals);
+    Function *newF = createFunctionAndQueue(call, convQueue, global, newVals);
     call->setCalledFunction(newF);
     enabledFunctions.insert(newF);
 
@@ -400,7 +378,7 @@ void TaffoInitializer::generateFunctionSpace(
     for (auto newValue : newVals) {
       auto *newInst = dyn_cast<Instruction>(newValue);
       if (!newInst || !TaffoInfo::getInstance().hasValueInfo(*newInst))
-        setValueInfo(newValue, vals.at(newValue));
+        setValueInfo(newValue, convQueue.at(newValue));
     }
 
     /* Reconstruct the value info for the values which are in the top-level
@@ -415,7 +393,7 @@ void TaffoInitializer::generateFunctionSpace(
           int weight = TaffoInfo::getInstance().getValueWeight(inst);
           if (weight >= 0)
             instConvQueueInfo.rootDistance = weight;
-          vals.insert(&inst, instConvQueueInfo);
+          convQueue.insert(&inst, instConvQueueInfo);
           LLVM_DEBUG(dbgs() << "  enqueued & rebuilt valueInfo of " << inst << " in " << newF->getName() << "\n");
         }
       }
@@ -424,8 +402,8 @@ void TaffoInitializer::generateFunctionSpace(
   LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
 }
 
-Function *TaffoInitializer::createFunctionAndQueue(
-    CallBase *call, ConvQueueType &vals, ConvQueueType &global, std::vector<Value *> &convQueue) {
+Function *TaffoInitializerPass::createFunctionAndQueue(
+    CallBase *call, ConvQueueType &vals, ConvQueueType &global, std::vector<Value*> &convQueue) {
   LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
 
   /* vals: conversion queue of caller
@@ -542,7 +520,7 @@ Function *TaffoInitializer::createFunctionAndQueue(
   return newF;
 }
 
-void TaffoInitializer::printConversionQueue(ConvQueueType &queue) {
+void TaffoInitializerPass::printConversionQueue(ConvQueueType &queue) {
   if (queue.size() < 1000) {
     dbgs() << "conversion queue:\n";
     for (const auto &[value, convQueueInfo] : queue) {

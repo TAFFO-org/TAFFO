@@ -1,6 +1,5 @@
 #include "AnnotationParser.hpp"
 
-#include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 #include <cctype>
 #include <memory>
@@ -18,86 +17,19 @@ void AnnotationParser::reset() {
 
 bool AnnotationParser::parseAnnotationString(StringRef annotationStr, Type *type) {
   reset();
-  stringStream = std::istringstream((annotationStr.substr(0, annotationStr.size())).str());
+  stringStream = std::istringstream(annotationStr.str());
 
-  bool res;
-  if (annotationStr.find('(') == StringRef::npos && !annotationStr.contains("struct"))
-    res = parseOldSyntax(type);
-  else
-    res = parseNewSyntax(type);
+  bool res = parseSyntax(type);
   if (res)
     error = "";
   return res;
 }
 
-StringRef AnnotationParser::lastError() {
+StringRef AnnotationParser::getLastError() {
   return error;
 }
 
-bool AnnotationParser::parseOldSyntax(Type *type) {
-  error = "Somebody used the old syntax and they should stop.";
-  bool readNumBits = true;
-  std::optional<std::string> target;
-  std::string head;
-  stringStream >> head;
-  if (head.find("target:") == 0) {
-    target = head.substr(7); // strlen("target:") == 7
-    startingPoint = true;
-    stringStream >> head;
-  }
-  if (head == "no_float" || head == "force_no_float") {
-    if (head == "no_float") {
-      backtracking = false;
-    } else {
-      backtracking = true;
-      backtrackingDepth = std::numeric_limits<unsigned int>::max();
-    }
-    stringStream >> head;
-  }
-  if (head == "range")
-    readNumBits = false;
-  else
-    return false;
-
-  auto info = std::make_shared<ScalarInfo>(nullptr, nullptr, nullptr, true);
-  info->target = target;
-  valueInfo = info;
-
-  if (readNumBits) {
-    int intbits, fracbits;
-    stringStream >> intbits >> fracbits;
-    if (!stringStream.fail()) {
-      std::string signedflg;
-      stringStream >> signedflg;
-      if (!stringStream.fail() && signedflg == "unsigned")
-        info->numericType = std::make_shared<FixpType>(intbits + fracbits, fracbits, false);
-      else
-        info->numericType = std::make_shared<FixpType>(intbits + fracbits, fracbits, true);
-
-    }
-  }
-
-  // Look for Range info
-  double Min, Max;
-  stringStream >> Min >> Max;
-  if (!stringStream.fail()) {
-    info->range = std::make_shared<Range>(Min, Max);
-    LLVM_DEBUG(dbgs() << "Range found: [" << Min << ", " << Max << "]\n");
-
-    // Look for initial error
-    double Error;
-    stringStream >> Error;
-    if (!stringStream.fail()) {
-      LLVM_DEBUG(dbgs() << "Initial error found " << Error << "\n");
-      info->error = std::make_shared<double>(Error);
-    }
-  }
-
-  return true;
-}
-
-
-bool AnnotationParser::parseNewSyntax(Type *type) {
+bool AnnotationParser::parseSyntax(Type *type) {
   stringStream.unsetf(std::ios_base::skipws);
   char next = skipWhitespace();
   stringStream.putback(next);

@@ -17,9 +17,7 @@ class AnnotationParser {
 
   void reset();
 
-  bool parseOldSyntax(llvm::Type *type);
-
-  bool parseNewSyntax(llvm::Type *type);
+  bool parseSyntax(llvm::Type *type);
   bool parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, llvm::Type *type);
   bool parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, llvm::Type *type);
   char skipWhitespace();
@@ -34,10 +32,9 @@ public:
   bool startingPoint;
   bool backtracking;
   unsigned int backtrackingDepth;
-  std::shared_ptr<ValueInfo> valueInfo;
 
   bool parseAnnotationString(llvm::StringRef annotationStr, llvm::Type *type);
-  llvm::StringRef lastError();
+  llvm::StringRef getLastError();
 };
 
 } // namespace taffo
