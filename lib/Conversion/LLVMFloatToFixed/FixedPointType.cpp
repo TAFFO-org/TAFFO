@@ -12,7 +12,7 @@ using namespace flttofix;
 
 std::shared_ptr<TransparentType> FixedPointType::toTransparentType(const std::shared_ptr<TransparentType> &srcType, bool *hasFloats) const {
   std::shared_ptr<TransparentType> newType = srcType->clone();
-  bool floats = toTransparentType(newType);
+  bool floats = toTransparentTypeHelper(newType);
   if (hasFloats)
     *hasFloats = floats;
   return newType;
@@ -143,7 +143,7 @@ Type* FixedPointScalarType::scalarToLLVMType(LLVMContext &context) const {
   }
 }
 
-bool FixedPointScalarType::toTransparentType(const std::shared_ptr<TransparentType> &newType) const {
+bool FixedPointScalarType::toTransparentTypeHelper(const std::shared_ptr<TransparentType> &newType) const {
   if (newType->isFloatingPointType()) {
     newType->unwrappedType = scalarToLLVMType(newType->getUnwrappedType()->getContext());
     return true;
@@ -207,7 +207,7 @@ bool FixedPointStructType::isInvalid() const {
   return false;
 }
 
-bool FixedPointStructType::toTransparentType(const std::shared_ptr<TransparentType> &newType) const {
+bool FixedPointStructType::toTransparentTypeHelper(const std::shared_ptr<TransparentType> &newType) const {
   std::shared_ptr<TransparentStructType> newStructType = std::static_ptr_cast<TransparentStructType>(newType);
   assert(newStructType->getNumFieldTypes() == getNumFieldTypes());
 
@@ -220,7 +220,7 @@ bool FixedPointStructType::toTransparentType(const std::shared_ptr<TransparentTy
     if (fieldType->isInvalid())
       continue;
     if (fieldTransparentType->isFloatingPointType() || fieldTransparentType->isStructType())
-      hasFloats |= fieldType->toTransparentType(fieldTransparentType);
+      hasFloats |= fieldType->toTransparentTypeHelper(fieldTransparentType);
   }
   if (hasFloats) {
     newStructType->unwrappedType = StructType::get(

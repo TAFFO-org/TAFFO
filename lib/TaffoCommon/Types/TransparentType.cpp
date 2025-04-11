@@ -35,6 +35,13 @@ std::shared_ptr<TransparentType> TransparentTypeFactory::create(json j) {
   return type;
 }
 
+std::shared_ptr<TransparentType> TransparentType::getPointedType() const {
+  assert(indirections > 0 && "Not a pointer type or opaque");
+  std::shared_ptr<TransparentType> pointedType = clone();
+  pointedType->indirections--;
+  return pointedType;
+}
+
 int TransparentType::compareTransparency(const TransparentType &other) const {
   if (*this == other)
     return 0;

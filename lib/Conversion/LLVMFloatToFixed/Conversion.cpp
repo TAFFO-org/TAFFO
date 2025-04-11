@@ -67,14 +67,15 @@ void FloatToFixed::performConversion(Module &m, std::vector<Value*> &q) {
         Instruction *oldinst = dyn_cast<Instruction>(v);
         newinst->setDebugLoc(oldinst->getDebugLoc());
       }
-      std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getTransparentType(*v);
-      std::shared_ptr<TransparentType> newTransparentType;
-      if (!newType->isInvalid())
-        newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
-      else
-        newTransparentType = oldTransparentType;
-      cpMetaData(newv, v, nullptr, newTransparentType);
       if (newv != v) {
+        std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getTransparentType(*v);
+        std::shared_ptr<TransparentType> newTransparentType;
+        if (!newType->isInvalid())
+          newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
+        else
+          newTransparentType = oldTransparentType;
+        cpMetaData(newv, v, nullptr, newTransparentType);
+
         if (hasConversionInfo(newv)) {
           LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << *getFixpType(newv) << ")\n");
           if (*getFixpType(newv) != *getFixpType(v)) {

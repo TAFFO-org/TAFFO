@@ -47,6 +47,7 @@ public:
   bool isValid() const { return unwrappedType; }
   llvm::Type *getUnwrappedType() const { return unwrappedType; }
   unsigned int getIndirections() const { return indirections; }
+  std::shared_ptr<TransparentType> getPointedType() const;
   bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
   bool isStructType() const { return unwrappedType->isStructTy(); }
   bool isFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }

@@ -24,9 +24,7 @@ void TaffoInfo::setTransparentType(Value &v, const std::shared_ptr<TransparentTy
 std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(Value &v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())
-    return  iter->second;
-  if (isa<GlobalValue>(v))
-    int pizza = 0;
+    return iter->second;
   std::shared_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
   LLVM_DEBUG(
     Logger &logger = Logger::getInstance();

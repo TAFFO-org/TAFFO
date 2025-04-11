@@ -58,6 +58,7 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, std::shared
   }
   if (res == Unsupported) {
     res = fallback(dyn_cast<Instruction>(val), fixpt);
+    fixpt = std::make_shared<FixedPointScalarType>();
   }
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
     if (getUnwrappedType(val)->isFloatTy() && !getConversionInfo(val)->noTypeConversion) {
@@ -92,19 +93,19 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, std::shared
 }
 
 
-Value *FloatToFixed::convertAlloca(AllocaInst *alloca,
-                                   const std::shared_ptr<FixedPointType> &fixpt)
-{
+Value *FloatToFixed::convertAlloca(AllocaInst *alloca, const std::shared_ptr<FixedPointType> &fixpt) {
   if (getConversionInfo(alloca)->noTypeConversion)
     return alloca;
-  Type *prevt = alloca->getAllocatedType();
-  Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*alloca), fixpt);
-  if (newt == prevt)
+  std::shared_ptr<TransparentType> prevAllocaType = TaffoInfo::getInstance().getTransparentType(*alloca);
+  std::shared_ptr<TransparentType> newAllocaType = fixpt->toTransparentType(prevAllocaType);
+  Type *prevAllocatedType = alloca->getAllocatedType();
+  Type *newAllocatedType = newAllocaType->getPointedType()->toLLVMType();
+  if (newAllocatedType == prevAllocatedType)
     return alloca;
   Value *as = alloca->getArraySize();
   Align align = alloca->getAlign();
   AllocaInst *newinst = new AllocaInst(
-      newt, alloca->getType()->getPointerAddressSpace(), as, align);
+      newAllocatedType, alloca->getType()->getPointerAddressSpace(), as, align);
   newinst->setUsedWithInAlloca(alloca->isUsedWithInAlloca());
   newinst->setSwiftError(alloca->isSwiftError());
   newinst->insertAfter(alloca);
