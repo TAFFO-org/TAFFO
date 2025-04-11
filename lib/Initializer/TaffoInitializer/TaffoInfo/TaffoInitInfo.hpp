@@ -7,11 +7,12 @@ namespace taffo {
 
 class TaffoInitInfo {
 public:
-  ValueInitInfo *getValueInitInfo(llvm::Value *value);
-  ValueInitInfo *createValueInitInfo(llvm::Value *value);
+  ValueInitInfo &getValueInitInfo(llvm::Value *value);
+  ValueInitInfo &createValueInitInfo(llvm::Value *value, unsigned int rootDistance, unsigned int backtrackingDepthLeft = 0);
 
 private:
-  llvm::DenseMap<llvm::Value*, ValueInitInfo*> valueInitInfo;
+  llvm::DenseMap<llvm::Value*, ValueInitInfo> valueInitInfo;
+  
 };
 
 }

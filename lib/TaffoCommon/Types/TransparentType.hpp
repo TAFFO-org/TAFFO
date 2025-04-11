@@ -51,6 +51,7 @@ public:
   bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
   bool isStructType() const { return unwrappedType->isStructTy(); }
   bool isFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
+  virtual bool containsFloatigPointType() const { return unwrappedType->isFloatingPointTy();};
   bool isPointerType() const { return indirections > 0 || isOpaquePointer(); }
   virtual bool isOpaquePointer() const { return unwrappedType->isPointerTy(); }
   virtual int compareTransparency(const TransparentType &other) const;
@@ -87,6 +88,9 @@ public:
   static bool classof(const TransparentType *type) { return type->getKind() == K_Array; }
 
   bool isOpaquePointer() const override;
+
+  bool containsFloatigPointType() const override { return getPointerElementType()->isFloatingPointType(); }
+
   int compareTransparency(const TransparentType &other) const override;
   std::shared_ptr<TransparentType> getElementType() const { return elementType; }
   TransparentTypeKind getKind() const override { return K_Array; }
@@ -131,6 +135,7 @@ public:
   auto end() const { return fieldTypes.end(); }
 
   bool isOpaquePointer() const override;
+  bool containsFloatigPointType() const override;  
   int compareTransparency(const TransparentType &other) const override;
   std::shared_ptr<TransparentType> getFieldType(unsigned int i) const { return fieldTypes[i]; }
   unsigned int getNumFieldTypes() const { return fieldTypes.size(); }

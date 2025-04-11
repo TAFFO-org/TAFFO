@@ -1,8 +1,11 @@
 #ifndef ANNOTATION_PARSER_HPP_
 #define ANNOTATION_PARSER_HPP_
 
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
 #include "TaffoInitializerPass.hpp"
+#include "llvm/IR/Value.h"
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -14,6 +17,7 @@ class AnnotationParser {
   std::istringstream stringStream;
   std::string nextToken;
   std::string error;
+  std::shared_ptr<ValueInfo> valueInfoBuild;
 
   void reset();
 
@@ -27,13 +31,14 @@ class AnnotationParser {
   bool expectInteger(int64_t &res);
   bool expectReal(double &res);
   bool expectBoolean(bool &res);
+  std::shared_ptr<ValueInfo>&& buildValueInfo();
 
 public:
   bool startingPoint;
   bool backtracking;
   unsigned int backtrackingDepth;
 
-  bool parseAnnotationString(llvm::StringRef annotationStr, llvm::Type *type);
+  bool parseAnnotationAndGenValueInfo(llvm::StringRef annotationStr, llvm::Value* annotatedValue);
   llvm::StringRef getLastError();
 };
 

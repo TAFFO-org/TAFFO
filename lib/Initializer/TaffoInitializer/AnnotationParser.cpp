@@ -1,4 +1,7 @@
 #include "AnnotationParser.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "TaffoInfo/ValueInfo.hpp"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/Support/raw_ostream.h>
 #include <cctype>
@@ -12,16 +15,20 @@ using namespace llvm;
 void AnnotationParser::reset() {
   startingPoint = false;
   backtracking = false;
-  valueInfo.reset();
+  valueInfoBuild.reset() 
+  
 }
 
-bool AnnotationParser::parseAnnotationString(StringRef annotationStr, Type *type) {
+bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value *annotatedValue) {
+  Type* type = getUnwrappedType(annotatedValue);
   reset();
   stringStream = std::istringstream(annotationStr.str());
 
   bool res = parseSyntax(type);
-  if (res)
+  if (res){
     error = "";
+    TaffoInfo::getInstance().setValueInfo(*annotatedValue, buildValueInfo());
+  }
   return res;
 }
 
@@ -76,11 +83,11 @@ bool AnnotationParser::parseSyntax(Type *type) {
       }
 
     } else if (peek("struct")) {
-      if (!parseStruct(valueInfo, type))
+      if (!parseStruct(valueInfoBuild, type))
         return false;
 
     } else if (peek("scalar")) {
-      if (!parseScalar(valueInfo, type))
+      if (!parseScalar(valueInfoBuild, type))
         return false;
 
     } else if (peek("bufferid")) {
@@ -102,13 +109,14 @@ bool AnnotationParser::parseSyntax(Type *type) {
     stringStream.putback(next);
   }
 
-  if (valueInfo == nullptr) {
+  if (valueInfoBuild == nullptr) {
     error = "scalar() or struct() top-level specifiers missing";
     return false;
   }
 
-  valueInfo->target = target;
-  valueInfo->bufferId = bufferId;
+  valueInfoBuild->target = target;
+  valueInfoBuild->bufferId = bufferId;
+  
   return true;
 }
 
@@ -386,4 +394,9 @@ bool AnnotationParser::expectBoolean(bool &res) {
     return true;
   }
   return false;
+}
+
+std::shared_ptr<ValueInfo>&& AnnotationParser::buildValueInfo(){
+  assert(valueInfoBuild && "Retriving a ValueInfo before parsing");
+  return std::move(valueInfoBuild);
 }

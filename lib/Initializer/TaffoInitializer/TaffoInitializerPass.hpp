@@ -1,6 +1,7 @@
 #ifndef TAFFO_INITIALIZER_PASS_HPP
 #define TAFFO_INITIALIZER_PASS_HPP
 
+#include "Initializer/TaffoInitializer/TaffoInfo/TaffoInitInfo.hpp"
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/AbstractCallSite.h>
@@ -21,6 +22,7 @@ public:
 private:
 #endif
   std::list<llvm::Value*> infoPropagationQueue;
+  TaffoInitInfo taffoInitInfo;
 
   llvm::Function *findStartingPointFunctionGlobal(llvm::Module &m);
 

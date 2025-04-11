@@ -2,6 +2,7 @@
 
 #include "TaffoInfo/TaffoInfo.hpp"
 
+#include <memory>
 #include <sstream>
 
 using namespace llvm;
@@ -179,6 +180,15 @@ bool TransparentStructType::isOpaquePointer() const {
       return true;
   return false;
 }
+
+
+bool TransparentStructType::containsFloatigPointType() const  {
+  for (const std::shared_ptr<TransparentType>& fieldType : *this){
+    if( fieldType->containsFloatigPointType() )
+      return true; 
+  }
+  return false;
+  }
 
 int TransparentStructType::compareTransparency(const TransparentType &other) const {
   if (!isa<TransparentStructType>(other)) {

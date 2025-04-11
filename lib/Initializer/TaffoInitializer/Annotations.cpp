@@ -3,8 +3,11 @@
 #include "AnnotationParser.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInitInfo.hpp"
+#include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 #include "Debug/Logger.hpp"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Debug.h"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Constants.h>
@@ -72,10 +75,9 @@ Function *TaffoInitializerPass::findStartingPointFunctionGlobal(Module &M) {
  *
  * @param[in] m the module to search
  * @param[out] variables the map of annotated values and their metadata
- * @param[in] functionAnnotation the selector for the type of Value to parse
+ * @param[in] functionAnnotation the selector for the type of Value to parse e quindi?
  */
 void TaffoInitializerPass::readGlobalAnnotations(Module &m,
-                                             ConvQueueType &variables,
                                              bool functionAnnotation) {
   GlobalVariable *globAnnos = m.getGlobalVariable("llvm.global.annotations");
 
@@ -92,7 +94,7 @@ void TaffoInitializerPass::readGlobalAnnotations(Module &m,
            */
           if (auto *expr = dyn_cast<ConstantExpr>(anno->getOperand(0))) {
             if (expr->getOpcode() == Instruction::BitCast && (functionAnnotation ^ !isa<Function>(expr->getOperand(0)))) {
-              parseAnnotation(variables, cast<ConstantExpr>(anno->getOperand(1)), expr->getOperand(0));
+              parseAnnotation(cast<ConstantExpr>(anno->getOperand(1)), expr->getOperand(0));
             }
           }
         }
@@ -100,7 +102,7 @@ void TaffoInitializerPass::readGlobalAnnotations(Module &m,
     }
   }
   if (functionAnnotation)
-    removeNoFloatTy(variables);
+    removeNoFloatTy();
 }
 
 /**
@@ -178,7 +180,7 @@ void TaffoInitializerPass::parseAnnotation(Value *annotatedValue, Value *annotat
   StringRef annotationStr = annotationStrConstant->getAsString();
 
   AnnotationParser parser;
-  if (!parser.parseAnnotationString(annotationStr, getUnwrappedType(annotatedValue))) {
+  if (!parser.parseAnnotationAndGenValueInfo(annotationStr, annotatedValue)) {
     Logger &logger = Logger::getInstance();
     logger.logln("TAFFO Annotation parser error:", raw_ostream::Colors::RED);
     logger.increaseIndent();
@@ -190,23 +192,26 @@ void TaffoInitializerPass::parseAnnotation(Value *annotatedValue, Value *annotat
     logger.decreaseIndent();
     llvm_unreachable("Error parsing annotation!");
   }
+  
 
-  ValueInitInfo valueInitInfo(parser.valueInfo);
-  valueInitInfo.setRootDistance(0);
-  valueInitInfo.setBacktrackingDepthLeft(parser.backtracking ? parser.backtrackingDepth : 0);
 
 
   if (isStartingPoint)
     *isStartingPoint = parser.startingPoint;
 
+  // parseAnnotationAndGenValueInfo has generated the taffoInfo we need to generate also the taffoInitInfo.
+  // For the functions taffoInitInfo is generated only on the callsite
   if (auto *annotatedFun = dyn_cast<Function>(annotatedValue))
     for (User *user : annotatedFun->users()) {
       if (!isa<CallInst>(user) && !isa<InvokeInst>(user))
         continue;
       infoPropagationQueue.push_back(user);
+      taffoInitInfo.createValueInitInfo(user, 0, parser.backtracking ? parser.backtrackingDepth : 0);
     }
-  else
+  else {
     infoPropagationQueue.push_back(annotatedValue);
+    taffoInitInfo.createValueInitInfo(annotationValue, 0, parser.backtracking ? parser.backtrackingDepth : 0);
+  }
 }
 
 /**
@@ -218,36 +223,17 @@ void TaffoInitializerPass::parseAnnotation(Value *annotatedValue, Value *annotat
  *
  * @param[in,out] res the map of annotated values and their metadata
  */
-void TaffoInitializerPass::removeNoFloatTy(ConvQueueType &res) {
-  for (auto PIt : res) {
-    Type *ty;
-    Value *it = PIt.first;
-
-    if (auto *alloca = dyn_cast<AllocaInst>(it)) {
-      ty = alloca->getAllocatedType();
-    } else if (auto *global = dyn_cast<GlobalVariable>(it)) {
-      ty = global->getType();
-    } else if (isa<CallInst>(it) || isa<InvokeInst>(it)) {
-      ty = it->getType();
-      if (ty->isVoidTy())
-        continue;
-    } else {
-      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " not an alloca or a global, ignored\n");
-      res.erase(it);
-      continue;
-    }
-
-    while (ty->isArrayTy() || ty->isPointerTy()) {
-      // TODO FIX SOON!
-      /*if (ty->isPointerTy())
-        ty = ty->getPointerElementType();
-      else*/
-        ty = ty->getArrayElementType();
-    }
-    if (!ty->isFloatingPointTy()) {
-      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a"
-                                                              " kind of float; ignored\n");
-      res.erase(it);
+void TaffoInitializerPass::removeNoFloatTy() {
+  for (auto val : make_early_inc_range(infoPropagationQueue)) {
+    bool containsFloatinPoint = TaffoInfo::getInstance().getTransparentType(*val)->containsFloatigPointType();
+    if( !containsFloatinPoint){
+    LLVM_DEBUG(
+      auto& log = Logger::getInstance();
+      log.log("Removing ",llvm::raw_ostream::Colors::YELLOW);
+      log.log(val,llvm::raw_ostream::Colors::YELLOW);
+      log.logln(" from infoPropagationQueue", raw_ostream::Colors::YELLOW);
+    );
+    infoPropagationQueue.remove(val);
     }
   }
 }

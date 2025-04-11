@@ -43,6 +43,8 @@ public:
   bool isConversionDisabled(llvm::Instruction &i) const;
 
   void setValueInfo(llvm::Value &v, const std::shared_ptr<ValueInfo> &vi);
+  void setValueInfo(llvm::Value &v, std::shared_ptr<ValueInfo> &&vi);
+
   std::shared_ptr<ValueInfo> getValueInfo(const llvm::Value &v) const;
   bool hasValueInfo(const llvm::Value &v) const;
 

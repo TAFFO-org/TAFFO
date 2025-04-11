@@ -103,6 +103,10 @@ void TaffoInfo::setValueInfo(Value &v, const std::shared_ptr<ValueInfo> &vi) {
   valueInfo[&v] = vi;
 }
 
+void TaffoInfo::setValueInfo(Value &v, std::shared_ptr<ValueInfo> &&vi) {
+  valueInfo[&v] = std::move(vi);
+}
+
 std::shared_ptr<ValueInfo> TaffoInfo::getValueInfo(const Value &v) const {
   auto iter = valueInfo.find(&v);
   return iter != valueInfo.end() ? iter->second : nullptr;
