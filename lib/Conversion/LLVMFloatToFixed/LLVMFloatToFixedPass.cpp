@@ -41,7 +41,7 @@ PreservedAnalyses Conversion::run(Module &M, ModuleAnalysisManager &AM)
 }
 
 
-using MLHVec = std::vector<std::pair<User *, Type *>>;
+using MLHVec = std::vector<std::pair<User*, Type*>>;
 
 MLHVec collectMallocLikeHandler(Module &m)
 {
@@ -174,21 +174,24 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
   LLVM_DEBUG(dbgs() << "#### " << __func__ << " END ####\n");
 }
 
-
 PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM) {
   LLVM_DEBUG(Logger::getInstance().logln("[ConversionPass]", raw_ostream::Colors::MAGENTA));
   TaffoInfo::getInstance().initializeFromFile("taffo_info_dta.json", m);
   MAM = &AM;
   ModuleDL = &(m.getDataLayout());
 
-  SmallPtrSet<Value *, 32> local;
-  SmallPtrSet<Value *, 32> global;
+  SmallVector<Value*, 32> local;
+  SmallVector<Value*, 32> global;
   readAllLocalMetadata(m, local);
   readGlobalMetadata(m, global);
 
-  std::vector<Value *> vals(local.begin(), local.end());
+  std::vector vals(local.begin(), local.end());
   vals.insert(vals.begin(), global.begin(), global.end());
   MetadataCount = vals.size();
+
+  Logger::getInstance().logln("PIZZA", raw_ostream::Colors::RED);
+  LLVM_DEBUG(printConversionQueue(vals));
+  Logger::getInstance().logln("PIZZA", raw_ostream::Colors::RED);
 
   sortQueue(vals);
   propagateCall(vals, global, m);
@@ -254,7 +257,6 @@ void FloatToFixed::openPhiLoop(PHINode *phi)
   phiReplacementData[phi] = info;
 }
 
-
 void FloatToFixed::closePhiLoops()
 {
   LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " begin\n");
@@ -281,7 +283,6 @@ void FloatToFixed::closePhiLoops()
   LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " end\n");
 }
 
-
 bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
 {
   if (Instruction *I = dyn_cast<Instruction>(V)) {
@@ -297,13 +298,12 @@ bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value *V)
   return false;
 }
 
-
-void FloatToFixed::sortQueue(std::vector<Value *> &vals) {
+void FloatToFixed::sortQueue(std::vector<Value*> &vals) {
   size_t next = 0;
   while (next < vals.size()) {
     Value *v = vals.at(next);
     LLVM_DEBUG(dbgs() << "[V] " << *v << "\n");
-    SmallPtrSet<Value *, 5> roots;
+    SmallPtrSet<Value*, 5> roots;
     for (Value *oldroot : getConversionInfo(v)->roots) {
       if (getConversionInfo(oldroot)->roots.empty())
         roots.insert(oldroot);
@@ -360,7 +360,7 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals) {
       getConversionInfo(v)->noTypeConversion = true;
     }
 
-    SmallPtrSetImpl<Value *> &roots = getConversionInfo(v)->roots;
+    SmallPtrSetImpl<Value*> &roots = getConversionInfo(v)->roots;
     if (roots.empty()) {
       getConversionInfo(v)->isRoot = true;
       if (isa<Instruction>(v) && !isa<AllocaInst>(v)) {
@@ -371,7 +371,6 @@ void FloatToFixed::sortQueue(std::vector<Value *> &vals) {
     }
   }
 }
-
 
 bool potentiallyUsesMemory(Value *val)
 {
@@ -394,16 +393,15 @@ bool potentiallyUsesMemory(Value *val)
   return true;
 }
 
-
-void FloatToFixed::cleanup(const std::vector<Value *> &q)
+void FloatToFixed::cleanup(const std::vector<Value*> &q)
 {
-  std::vector<Value *> roots;
+  std::vector<Value*> roots;
   for (Value *v : q) {
     if (getConversionInfo(v)->isRoot == true)
       roots.push_back(v);
   }
 
-  DenseMap<Value *, bool> isrootok;
+  DenseMap<Value*, bool> isrootok;
   for (Value *root : roots)
     isrootok[root] = true;
 
@@ -428,7 +426,7 @@ void FloatToFixed::cleanup(const std::vector<Value *> &q)
     }
   }
 
-  std::vector<Instruction *> toErase;
+  std::vector<Instruction*> toErase;
 
   auto clear = [&](bool (*toDelete)(const Instruction &Y)) {
     for (Value *v : q) {
@@ -480,9 +478,8 @@ void FloatToFixed::cleanup(const std::vector<Value *> &q)
   }
 }
 
-
-void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Value *> &global, Module &m) {
-  SmallPtrSet<Function *, 16> oldFuncs;
+void FloatToFixed::propagateCall(std::vector<Value*> &vals, SmallVectorImpl<Value*> &global, Module &m) {
+  SmallPtrSet<Function*, 16> oldFuncs;
 
   for (size_t i = 0; i < vals.size(); i++) {
     Value *valsi = vals[i];
@@ -552,10 +549,8 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
     newIt = newF->arg_begin();
     for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
       if (oldIt->getType() != newIt->getType()) {
-        std::shared_ptr<FixedPointType> fixtype = getConversionInfo(oldIt)->fixpType;
-
         // append fixp info to arg name
-        newIt->setName(newIt->getName() + "." + fixtype->toString());
+        newIt->setName(newIt->getName() + "." + getFixpType(oldIt)->toString());
 
         /* Create a fake value to maintain type consistency because
          * createFixFun has RAUWed all arguments
@@ -591,7 +586,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
     }
 
     newVals.insert(newVals.end(), global.begin(), global.end());
-    SmallPtrSet<Value *, 32> localFix;
+    SmallVector<Value*, 32> localFix;
     readLocalMetadata(*newF, localFix);
     newVals.insert(newVals.end(), localFix.begin(), localFix.end());
 
@@ -608,7 +603,7 @@ void FloatToFixed::propagateCall(std::vector<Value *> &vals, SmallPtrSetImpl<Val
       if (!hasConversionInfo(call))
         continue;
       newVals.push_back(v);
-      demandConversionInfo(v)->fixpType = getConversionInfo(call)->fixpType;
+      demandConversionInfo(v)->fixpType = getFixpType(call);
       getConversionInfo(v)->origType = nullptr;
       getConversionInfo(v)->fixpTypeRootDistance = 0;
     }
@@ -669,7 +664,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
 
   std::string suffix;
   if (getUnwrappedType(oldF)->isFloatTy()) { // ret value in signature
-    std::shared_ptr<FixedPointType> retValType = getConversionInfo(call)->fixpType->clone();
+    std::shared_ptr<FixedPointType> retValType = getFixpType(call);
     suffix = retValType->toString();
     argsFixedPointTypes.push_back(std::pair(-1, retValType));
   }
@@ -681,7 +676,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
     Value *v = dyn_cast<Value>(arg);
     Type *newTy;
     if (hasConversionInfo(v)) {
-      argsFixedPointTypes.push_back(std::pair(i, getConversionInfo(v)->fixpType->clone()));
+      argsFixedPointTypes.push_back(std::pair(i, getFixpType(v)));
       newTy = getLLVMFixedPointTypeForFloatValue(v);
     }
     else
@@ -705,7 +700,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
       retType = getLLVMFixedPointTypeForFloatValue(call);
 
   FunctionType *newFunTy = FunctionType::get(
-      TaffoInfo::getInstance().getTransparentType(*oldF)->isFloatType() ? retType : oldF->getReturnType(),
+      TaffoInfo::getInstance().getTransparentType(*oldF)->isFloatingPointType() ? retType : oldF->getReturnType(),
       argsLLVMTypes, oldF->isVarArg());
 
   LLVM_DEBUG(
@@ -722,7 +717,6 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old)
   return newF;
 }
 
-
 void FloatToFixed::printConversionQueue(const std::vector<Value*> &vals) {
   if (vals.size() > 1000) {
     LLVM_DEBUG(dbgs() << "not printing the conversion queue because it exceeds 1000 items\n";);
@@ -733,7 +727,7 @@ void FloatToFixed::printConversionQueue(const std::vector<Value*> &vals) {
   for (Value *val : vals) {
     LLVM_DEBUG(dbgs() << "bt=" << getConversionInfo(val)->isBacktrackingNode << " ";);
     LLVM_DEBUG(dbgs() << "noconv=" << getConversionInfo(val)->noTypeConversion << " ";);
-    LLVM_DEBUG(dbgs() << "type=" << *getConversionInfo(val)->fixpType << " ";);
+    LLVM_DEBUG(dbgs() << "type=" << *getFixpType(val) << " ";);
     if (Instruction *i = dyn_cast<Instruction>(val)) {
       LLVM_DEBUG(dbgs() << " fun='" << i->getFunction()->getName() << "' ";);
     }

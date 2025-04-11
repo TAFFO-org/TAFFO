@@ -82,16 +82,17 @@ PreservedAnalyses TaffoInitializer::run(Module &m, ModuleAnalysisManager &) {
 }
 
 void TaffoInitializer::removeAnnotationCalls(ConvQueueType &queue) {
-  for (auto iter = queue.begin(); iter != queue.end(); iter++) {
+  for (auto iter = queue.begin(); iter != queue.end();) {
     Value *v = iter->first;
 
     if (auto *call = dyn_cast<CallInst>(v))
-      if (call->getCalledFunction()
-          && call->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
-          iter = queue.erase(iter);
-          call->eraseFromParent();
-          TaffoInfo::getInstance().eraseValue(*call);
-        }
+      if (call->getCalledFunction() && call->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
+        iter = queue.erase(iter);
+        call->eraseFromParent();
+        TaffoInfo::getInstance().eraseValue(*call);
+        continue;
+      }
+    iter++;
 
     // TODO: remove global annotations
   }
@@ -167,7 +168,7 @@ void TaffoInitializer::buildConversionQueueForRootValues(const ConvQueueType &ro
 
       // Process each user of the current value
       for (auto *user : value->users()) {
-        // Ignore user if it is the global annotation array
+        // Ignore user if it is an annotation string
         if (auto *userGlobalObject = dyn_cast<GlobalObject>(user))
           if (userGlobalObject->hasSection() && userGlobalObject->getSection() == "llvm.metadata")
             continue;
@@ -232,11 +233,6 @@ void TaffoInitializer::buildConversionQueueForRootValues(const ConvQueueType &ro
         // Skip operands that are not a User or an Argument
         if (!isa<User>(user) && !isa<Argument>(user)) {
           LLVM_DEBUG(dbgs() << " - " << user->getNameOrAsOperand() << " not a User or an Argument, ignoring\n");
-          continue;
-        }
-        // Skip pointer operand of a store if backtracking depth is minimal
-        if (isa<StoreInst>(inst) && OpIdx == 1 && valueDepth == 1) {
-          LLVM_DEBUG(dbgs() << " - " << user->getNameOrAsOperand() << " is the pointer argument of a store and backtracking depth left is 1, ignoring\n");
           continue;
         }
         // Skip functions and block addresses

@@ -47,7 +47,7 @@ Value *FloatToFixed::convertCudaCall(CallBase *C)
     return Unsupported;
   }
   LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << *getConversionInfo(NewBuffer)->fixpType << "\n");
+  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
   Type *VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value *NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy) {

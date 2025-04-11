@@ -123,9 +123,8 @@ void TaffoInitializer::readLocalAnnotations(Function &f, ConvQueueType &annotate
       }
     }
   }
-  if (found) {
+  if (found)
     TaffoInfo::getInstance().addStartingPoint(f);
-  }
 }
 
 /**

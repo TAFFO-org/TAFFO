@@ -20,6 +20,7 @@ class TransparentType;
 class TransparentTypeFactory {
 private:
   friend class TransparentType;
+  friend class TransparentArrayType;
   friend class TransparentStructType;
   friend class TypeDeducerPass;
   friend class TaffoInfo;
@@ -37,6 +38,7 @@ public:
 
   enum TransparentTypeKind {
     K_Scalar,
+    K_Array,
     K_Struct
   };
 
@@ -45,8 +47,9 @@ public:
   bool isValid() const { return unwrappedType; }
   llvm::Type *getUnwrappedType() const { return unwrappedType; }
   unsigned int getIndirections() const { return indirections; }
+  bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
   bool isStructType() const { return unwrappedType->isStructTy(); }
-  bool isFloatType() const { return unwrappedType->isFloatTy(); }
+  bool isFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
   bool isPointerType() const { return indirections > 0 || isOpaquePointer(); }
   virtual bool isOpaquePointer() const { return unwrappedType->isPointerTy(); }
   virtual int compareTransparency(const TransparentType &other) const;
@@ -75,26 +78,50 @@ protected:
   void incrementIndirections(int increment);
 };
 
-class TransparentStructType : public TransparentType {
+class TransparentArrayType : public TransparentType {
+public:
+  friend class TransparentTypeFactory;
+  friend class TypeDeducerPass;
+
+  static bool classof(const TransparentType *type) { return type->getKind() == K_Array; }
+
+  bool isOpaquePointer() const override;
+  int compareTransparency(const TransparentType &other) const override;
+  std::shared_ptr<TransparentType> getElementType() const { return elementType; }
+  TransparentTypeKind getKind() const override { return K_Array; }
+
+  bool operator==(const TransparentType &other) const override;
+
+  std::shared_ptr<TransparentType> clone() const override;
+  std::string toString() const override;
+  json serialize() const override;
+  void deserialize(const json &j) override;
+
 private:
+  std::shared_ptr<TransparentType> elementType;
+
+  TransparentArrayType() = default;
+
+  TransparentArrayType(const TransparentArrayType &other)
+  : TransparentType(other), elementType(other.elementType->clone()) {}
+
+  TransparentArrayType(llvm::ArrayType *arrayType, unsigned int indirections)
+  : TransparentType(arrayType, indirections) {
+    elementType = TransparentTypeFactory::create(arrayType->getElementType(), 0);
+  }
+
+  TransparentArrayType(llvm::VectorType *vecType, unsigned int indirections)
+  : TransparentType(vecType, indirections) {
+    elementType = TransparentTypeFactory::create(vecType->getElementType(), 0);
+  }
+};
+
+class TransparentStructType : public TransparentType {
+public:
   friend class TransparentTypeFactory;
   friend class TypeDeducerPass;
   friend class flttofix::FixedPointStructType;
 
-  llvm::SmallVector<std::shared_ptr<TransparentType>, 2> fieldTypes;
-
-  TransparentStructType() = default;
-  TransparentStructType(const TransparentStructType &other) = default;
-
-  TransparentStructType(llvm::StructType *unwrappedType, unsigned int indirections)
-  : TransparentType(unwrappedType, indirections) {
-    for (llvm::Type *fieldType : unwrappedType->elements())
-      fieldTypes.push_back(TransparentTypeFactory::create(fieldType, 0));
-  }
-
-  void setFieldType(unsigned int i, std::shared_ptr<TransparentType> fieldType) { fieldTypes[i] = fieldType; }
-
-public:
   static bool classof(const TransparentType *type) { return type->getKind() == K_Struct; }
 
   auto begin() { return fieldTypes.begin(); }
@@ -114,6 +141,25 @@ public:
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
+
+private:
+  llvm::SmallVector<std::shared_ptr<TransparentType>, 2> fieldTypes;
+
+  TransparentStructType() = default;
+
+  TransparentStructType(const TransparentStructType &other)
+  : TransparentType(other) {
+    for (auto field : other.fieldTypes)
+      fieldTypes.push_back(field->clone());
+  }
+
+  TransparentStructType(llvm::StructType *unwrappedType, unsigned int indirections)
+  : TransparentType(unwrappedType, indirections) {
+    for (llvm::Type *fieldType : unwrappedType->elements())
+      fieldTypes.push_back(TransparentTypeFactory::create(fieldType, 0));
+  }
+
+  void setFieldType(unsigned int i, std::shared_ptr<TransparentType> fieldType) { fieldTypes[i] = fieldType; }
 };
 
 } // namespace taffo
@@ -134,7 +180,9 @@ struct std::hash<std::shared_ptr<taffo::TransparentType>> {
     combined = combine(combined, std::hash<llvm::Type *>()(ptr->getUnwrappedType()));
     combined = combine(combined, std::hash<unsigned int>()(ptr->getIndirections()));
 
-    if (auto structPtr = std::dynamic_ptr_cast<taffo::TransparentStructType>(ptr))
+    if (auto arrayPtr = std::dynamic_ptr_cast<taffo::TransparentArrayType>(ptr))
+      combined = combine(combined, std::hash<std::shared_ptr<taffo::TransparentType>>()(arrayPtr->getElementType()));
+    else if (auto structPtr = std::dynamic_ptr_cast<taffo::TransparentStructType>(ptr))
       for (const auto &field : *structPtr)
         combined = combine(combined, std::hash<std::shared_ptr<taffo::TransparentType>>()(field));
 

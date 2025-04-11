@@ -15,6 +15,8 @@
 #include <cassert>
 #include <cmath>
 
+#include "Debug/Logger.hpp"
+
 using namespace llvm;
 using namespace flttofix;
 using namespace taffo;
@@ -26,7 +28,7 @@ Value *ConversionError = (Value *)(&ConversionError);
 Value *Unsupported = (Value *)(&Unsupported);
 
 
-void FloatToFixed::performConversion(Module &m, std::vector<Value *> &q) {
+void FloatToFixed::performConversion(Module &m, std::vector<Value*> &q) {
   for (auto iter = q.begin(); iter != q.end();) {
     Value *v = *iter;
 
@@ -42,20 +44,19 @@ void FloatToFixed::performConversion(Module &m, std::vector<Value *> &q) {
       }
     }
 
-    LLVM_DEBUG(dbgs()
-               << "\n-------------------------------------* performConversion *-------------------------------------\n");
+    LLVM_DEBUG(dbgs() << "\n-------------------------------------* performConversion *-------------------------------------\n");
     LLVM_DEBUG(dbgs() << "  [no conv ] " << getConversionInfo(v)->noTypeConversion << "\n");
     LLVM_DEBUG(dbgs() << "  [value   ] " << *v << "\n");
     if (Instruction *i = dyn_cast<Instruction>(v))
       LLVM_DEBUG(dbgs() << "  [function] " << i->getFunction()->getName() << "\n");
 
-    std::shared_ptr<FixedPointType> newType = getConversionInfo(v)->fixpType;
-    LLVM_DEBUG(dbgs() << "  [req. ty.] " << newType->toString() << "\n");
+    std::shared_ptr<FixedPointType> newType = getFixpType(v);
+    LLVM_DEBUG(dbgs() << "  [req. ty.] " << *newType << "\n");
     Value *newv = convertSingleValue(m, v, newType);
     getConversionInfo(v)->fixpType = newType;
     if (newv) {
       operandPool[v] = newv;
-      LLVM_DEBUG(dbgs() << "  [out  ty.] " << newType->toString() << "\n");
+      LLVM_DEBUG(dbgs() << "  [out  ty.] " << *newType << "\n");
     }
 
     if (newv && newv != ConversionError) {
@@ -67,18 +68,27 @@ void FloatToFixed::performConversion(Module &m, std::vector<Value *> &q) {
         newinst->setDebugLoc(oldinst->getDebugLoc());
       }
       std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getTransparentType(*v);
-      std::shared_ptr<TransparentType> newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
+      std::shared_ptr<TransparentType> newTransparentType;
+      if (!newType->isInvalid())
+        newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
+      else
+        newTransparentType = oldTransparentType;
       cpMetaData(newv, v, nullptr, newTransparentType);
       if (newv != v) {
         if (hasConversionInfo(newv)) {
-          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << *getConversionInfo(newv)->fixpType << ")\n");
-          if (!(*getConversionInfo(newv)->fixpType == *getConversionInfo(v)->fixpType)) {
-            LLVM_DEBUG(dbgs() << "FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!\n");
+          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type " << *getFixpType(newv) << ")\n");
+          if (*getFixpType(newv) != *getFixpType(v)) {
+            Logger &logger = Logger::getInstance();
+            logger.logln("FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!", raw_ostream::Colors::RED);
+            logger.log("New type: ", raw_ostream::Colors::RED);
+            logger.log(getFixpType(newv), raw_ostream::Colors::RED);
+            logger.log(", old type: ", raw_ostream::Colors::RED);
+            logger.logln(getFixpType(v), raw_ostream::Colors::RED);
             abort();
           }
-        } else {
-          *newConversionInfo(newv) = *getConversionInfo(v);
         }
+        else
+          *newConversionInfo(newv) = *getConversionInfo(v);
       }
     } else {
       LLVM_DEBUG(dbgs() << "  [output  ] CONVERSION ERROR\n");
@@ -145,13 +155,13 @@ FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType
     // The value has to be converted into a floating point value, convert it, full stop.
     if (iofixpt->isFloatingPoint()) {
       LLVM_DEBUG(dbgs() << "translateOrMatchOperand: converting converted value to floating point\n");
-      return genConvertFixedToFixed(res, std::static_ptr_cast<FixedPointScalarType>(getConversionInfo(res)->fixpType), std::static_ptr_cast<FixedPointScalarType>(iofixpt), ip);
+      return genConvertFixedToFixed(res, std::static_ptr_cast<FixedPointScalarType>(getFixpType(res)), std::static_ptr_cast<FixedPointScalarType>(iofixpt), ip);
     }
 
     // Converting Floating point to whatever
-    if (getConversionInfo(res)->fixpType->isFloatingPoint()) {
+    if (getFixpType(res)->isFloatingPoint()) {
       LLVM_DEBUG(dbgs() << "translateOrMatchOperand: Converting floating point to whatever.\n";);
-      LLVM_DEBUG(dbgs() << "Is floating, calling subroutine, " << *getConversionInfo(res)->fixpType << " --> " << *iofixpt << "\n";);
+      LLVM_DEBUG(dbgs() << "Is floating, calling subroutine, " << *getFixpType(res) << " --> " << *iofixpt << "\n";);
       LLVM_DEBUG(dbgs() << "This value will be converted to fixpoint: ";);
       LLVM_DEBUG(val->print(dbgs()););
       LLVM_DEBUG(dbgs() << "\n";);
@@ -174,7 +184,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType
         }
       }
 
-      return genConvertFixedToFixed(res, std::static_ptr_cast<FixedPointScalarType>(getConversionInfo(res)->fixpType), std::static_ptr_cast<FixedPointScalarType>(iofixpt), ip);
+      return genConvertFixedToFixed(res, std::static_ptr_cast<FixedPointScalarType>(getFixpType(res)), std::static_ptr_cast<FixedPointScalarType>(iofixpt), ip);
     }
 
     if (!getConversionInfo(val)->noTypeConversion) {
@@ -341,7 +351,7 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
 Value *FloatToFixed::genConvertFixedToFixed(
   Value *fix, const std::shared_ptr<FixedPointScalarType> &srct, const std::shared_ptr<FixedPointScalarType> &destt, Instruction *ip)
 {
-  if (srct == destt)
+  if (*srct == *destt)
     return fix;
 
   LLVM_DEBUG(dbgs() << "Called fixedToFixed\n";);
@@ -430,7 +440,6 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const std::shared_ptr<Fixe
              dbgs() << " -> ";
              destt->print(dbgs());
              dbgs() << "\n";);
-
 
   if (fix->getType()->isFloatingPointTy()) {
     if (isa<Instruction>(fix) || isa<Argument>(fix)) {

@@ -28,13 +28,8 @@ std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::share
       resolvedType = std::static_ptr_cast<TransparentStructType>(resolvedType)->getFieldType(index);
       resolvedFixpType = std::static_ptr_cast<FixedPointStructType>(resolvedFixpType)->getFieldType(index);
     }
-    /*
-    else if (resolvedType->isArrayTy()) {
-      resolvedType = resolvedType->getArrayElementType();
-    }
-    else if (resolvedType->isVectorTy()) {
-      resolvedType = resolvedType->getContainedType(0);
-    }*/ //TODO FIX SOOON
+    else if (resolvedType->isArrayType())
+      resolvedType = std::static_ptr_cast<TransparentArrayType>(resolvedType)->getElementType();
     else
       llvm_unreachable("Unsupported type in GEP");
   }
@@ -149,7 +144,7 @@ Type* FixedPointScalarType::scalarToLLVMType(LLVMContext &context) const {
 }
 
 bool FixedPointScalarType::toTransparentType(const std::shared_ptr<TransparentType> &newType) const {
-  if (newType->isFloatType()) {
+  if (newType->isFloatingPointType()) {
     newType->unwrappedType = scalarToLLVMType(newType->getUnwrappedType()->getContext());
     return true;
   }
@@ -224,7 +219,7 @@ bool FixedPointStructType::toTransparentType(const std::shared_ptr<TransparentTy
     fieldsLLVMTypes.push_back(fieldTransparentType->getUnwrappedType());
     if (fieldType->isInvalid())
       continue;
-    if (fieldTransparentType->isFloatType() || fieldTransparentType->isStructType())
+    if (fieldTransparentType->isFloatingPointType() || fieldTransparentType->isStructType())
       hasFloats |= fieldType->toTransparentType(fieldTransparentType);
   }
   if (hasFloats) {

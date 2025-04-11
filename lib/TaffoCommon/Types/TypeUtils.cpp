@@ -11,8 +11,8 @@ using namespace taffo;
 using namespace llvm;
 
 Type *taffo::getUnwrappedType(Value *value) {
-  std::shared_ptr<TransparentType> deducedType = TaffoInfo::getInstance().getTransparentType(*value);
-  return deducedType->getUnwrappedType();
+  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getTransparentType(*value);
+  return transparentType->getUnwrappedType();
 }
 
 FixpType taffo::fixedPointTypeFromRange(

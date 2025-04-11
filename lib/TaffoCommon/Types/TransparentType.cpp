@@ -18,6 +18,10 @@ std::shared_ptr<TransparentType> TransparentTypeFactory::create(const Value *val
 std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type *unwrappedType, unsigned int indirections) {
   if (auto *structType = dyn_cast<StructType>(unwrappedType))
     return std::shared_ptr<TransparentType>(new TransparentStructType(structType, indirections));
+  if (auto *arrayType = dyn_cast<ArrayType>(unwrappedType))
+    return std::shared_ptr<TransparentType>(new TransparentArrayType(arrayType, indirections));
+  if (auto *vectorType = dyn_cast<VectorType>(unwrappedType))
+    return std::shared_ptr<TransparentType>(new TransparentArrayType(vectorType, indirections));
   return std::shared_ptr<TransparentType>(new TransparentType(unwrappedType, indirections));
 }
 
@@ -100,6 +104,66 @@ void TransparentType::incrementIndirections(int increment) {
   indirections += increment;
 }
 
+bool TransparentArrayType::isOpaquePointer() const {
+  if (TransparentType::isOpaquePointer())
+    return true;
+  return elementType->isOpaquePointer();
+}
+
+int TransparentArrayType::compareTransparency(const TransparentType &other) const {
+  if (!isa<TransparentArrayType>(other)) {
+    assert(other.isOpaquePointer());
+    return 1;
+  }
+  const auto &otherArray = cast<TransparentArrayType>(other);
+  int cmp = TransparentType::compareTransparency(other);
+  if (cmp != 0)
+    return cmp;
+  return  elementType->compareTransparency(*otherArray.elementType);
+}
+
+bool TransparentArrayType::operator==(const TransparentType &other) const {
+  if (this == &other)
+    return true;
+  if (getKind() != other.getKind())
+    return false;
+
+  const auto &otherArray = cast<TransparentArrayType>(other);
+  if (!TransparentType::operator==(other))
+    return false;
+
+  if (!elementType && !otherArray.elementType)
+    return true;
+  if (!elementType || !otherArray.elementType)
+    return false;
+  return *elementType == *otherArray.elementType;
+}
+
+std::shared_ptr<TransparentType> TransparentArrayType::clone() const {
+  return std::shared_ptr<TransparentType>(new TransparentArrayType(*this));
+}
+
+std::string TransparentArrayType::toString() const {
+  if (!unwrappedType || !elementType)
+    return "InvalidType";
+  std::stringstream ss;
+  ss << "[" << *elementType << "]";
+  ss << std::string(indirections, '*');
+  return ss.str();
+}
+
+json TransparentArrayType::serialize() const {
+  json j = TransparentType::serialize();
+  j["kind"] = "Array";
+  j["elementType"] = elementType ? elementType->serialize() : nullptr;
+  return j;
+}
+
+void TransparentArrayType::deserialize(const json &j) {
+  TransparentType::deserialize(j);
+  elementType = TransparentTypeFactory::create(j["elementType"]);
+}
+
 bool TransparentStructType::isOpaquePointer() const {
   if (TransparentType::isOpaquePointer())
     return true;
@@ -135,11 +199,13 @@ int TransparentStructType::compareTransparency(const TransparentType &other) con
 }
 
 bool TransparentStructType::operator==(const TransparentType &other) const {
-  if (this == &other) return true;
-  if (getKind() != other.getKind()) return false;
+  if (this == &other)
+    return true;
+  if (getKind() != other.getKind())
+    return false;
 
   auto &otherStructType = cast<TransparentStructType>(other);
-  if (unwrappedType != otherStructType.unwrappedType || indirections != otherStructType.indirections)
+  if (!TransparentType::operator==(other))
     return false;
   if (fieldTypes.size() != otherStructType.fieldTypes.size())
     return false;
@@ -158,7 +224,8 @@ std::shared_ptr<TransparentType> TransparentStructType::clone() const {
 }
 
 std::string TransparentStructType::toString() const {
-  if (!unwrappedType)
+  if (!unwrappedType || std::ranges::any_of(fieldTypes,
+    [](const std::shared_ptr<TransparentType> &field) -> bool { return field != nullptr; }))
     return "InvalidType";
 
   std::string typeString = taffo::toString(unwrappedType);

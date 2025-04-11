@@ -177,7 +177,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
         scalarInfo->conversionEnabled = true;
       }
 
-      if (!transparentType->isFloatType()) {
+      if (!transparentType->isFloatingPointType()) {
         LLVM_DEBUG(dbgs() << "[Info] Skipping a member of " << *v << " because not a float\n");
         continue;
       }

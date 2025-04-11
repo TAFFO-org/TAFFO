@@ -2,7 +2,6 @@
 #include "PtrCasts.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
@@ -17,7 +16,7 @@ using namespace flttofix;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &variables, bool functionAnnotation) {
+void FloatToFixed::readGlobalMetadata(Module &m, SmallVectorImpl<Value*> &variables, bool functionAnnotation) {
   for (GlobalVariable &gv : m.globals())
     if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(gv))
       parseMetaData(&variables, valueInfo, &gv);
@@ -26,7 +25,7 @@ void FloatToFixed::readGlobalMetadata(Module &m, SmallPtrSetImpl<Value *> &varia
     removeNoFloatTy(variables);
 }
 
-void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value*> &variables, bool argumentsOnly) {
+void FloatToFixed::readLocalMetadata(Function &f, SmallVectorImpl<Value*> &variables, bool argumentsOnly) {
   for (Argument &arg : f.args()) {
     if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg)) {
       /* Don't enqueue function arguments because they will be handled by
@@ -43,19 +42,16 @@ void FloatToFixed::readLocalMetadata(Function &f, SmallPtrSetImpl<Value*> &varia
       parseMetaData(&variables, valueInfo, &inst);
 }
 
-void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res) {
+void FloatToFixed::readAllLocalMetadata(Module &m, SmallVectorImpl<Value*> &res) {
   for (Function &f : m.functions()) {
     bool argsOnly = false;
     if (TaffoInfo::getInstance().isTaffoFunction(f)) {
-      LLVM_DEBUG(dbgs() << __FUNCTION__ << " skipping function body of " << f.getName()
-                        << " because it is cloned\n");
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " skipping function body of " << f.getName() << " because it is cloned\n");
       functionPool[&f] = nullptr;
       argsOnly = true;
     }
 
-    SmallPtrSet<Value *, 32> t;
-    readLocalMetadata(f, t, argsOnly);
-    res.insert(t.begin(), t.end());
+    readLocalMetadata(f, res, argsOnly);
 
     /* Otherwise dce pass ignore the function
      * (removed also where it's not required) */
@@ -63,8 +59,7 @@ void FloatToFixed::readAllLocalMetadata(Module &m, SmallPtrSetImpl<Value *> &res
   }
 }
 
-
-bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared_ptr<ValueInfo> raw, Value *instr) {
+bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*> *variables, std::shared_ptr<ValueInfo> raw, Value *instr) {
   if (hasConversionInfo(instr)) {
     auto existing = getConversionInfo(instr);
     if (existing->isArgumentPlaceholder) {
@@ -76,7 +71,6 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
   LLVM_DEBUG(dbgs() << "Collecting metadata for: " << *instr << "\n");
 
   ConversionInfo vi;
-
   vi.isBacktrackingNode = false;
   vi.fixpTypeRootDistance = 0;
   vi.origType = getUnwrappedType(instr);
@@ -122,8 +116,8 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
     assert(false && "MDInfo type unrecognized");
   }
 
-  if (variables)
-    variables->insert(instr);
+  if (variables && !is_contained(*variables, instr))
+    variables->push_back(instr);
   *newConversionInfo(instr) = vi;
 
   LLVM_DEBUG(dbgs() << "Type deducted: " << *vi.fixpType << "\n");
@@ -131,21 +125,19 @@ bool FloatToFixed::parseMetaData(SmallPtrSetImpl<Value*> *variables, std::shared
   return true;
 }
 
-
-void FloatToFixed::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
-{
-  for (auto it : res) {
+void FloatToFixed::removeNoFloatTy(SmallVectorImpl<Value*> &res) {
+  for (auto it = res.begin(); it != res.end();) {
     Type *ty;
 
     AllocaInst *alloca;
     GlobalVariable *global;
-    if ((alloca = dyn_cast<AllocaInst>(it))) {
+    if ((alloca = dyn_cast<AllocaInst>(*it))) {
       ty = alloca->getAllocatedType();
-    } else if ((global = dyn_cast<GlobalVariable>(it))) {
+    } else if ((global = dyn_cast<GlobalVariable>(*it))) {
       ty = global->getType();
     } else {
       LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " not an alloca or a global, ignored\n");
-      res.erase(it);
+      it = res.erase(it);
       continue;
     }
 
@@ -157,9 +149,10 @@ void FloatToFixed::removeNoFloatTy(SmallPtrSetImpl<Value *> &res)
         ty = ty->getArrayElementType();
     }
     if (!ty->isFloatingPointTy()) {
-      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a"
-                                                              " kind of float; ignored\n");
-      res.erase(it);
+      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a kind of float; ignored\n");
+      it = res.erase(it);
     }
+    else
+      it++;
   }
 }

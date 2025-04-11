@@ -54,7 +54,7 @@ namespace flttofix {
 struct ConversionInfo : taffo::Printable {
   bool isBacktrackingNode;
   bool isRoot;
-  llvm::SmallPtrSet<llvm::Value *, 5> roots;
+  llvm::SmallPtrSet<llvm::Value*, 5> roots;
   unsigned int fixpTypeRootDistance = UINT_MAX;
 
   /* Disable type conversion even if the instruction
@@ -116,41 +116,41 @@ struct FloatToFixed {
    *  Values not to be converted do not appear in the map.
    *  Values which have not been converted successfully are mapped to
    *  one of two sentinel values, ConversionError or Unsupported. */
-  llvm::DenseMap<llvm::Value *, llvm::Value *> operandPool;
+  llvm::DenseMap<llvm::Value*, llvm::Value*> operandPool;
 
   /** Map from original function (as cloned by Initializer)
    *  to function cloned by this pass in order to change argument
    *  and return values */
-  llvm::DenseMap<llvm::Function *, llvm::Function *> functionPool;
+  llvm::DenseMap<llvm::Function*, llvm::Function*> functionPool;
 
   /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value *, std::shared_ptr<ConversionInfo>> conversionInfo;
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<ConversionInfo>> conversionInfo;
 
-  llvm::ValueMap<llvm::PHINode *, PHIInfo> phiReplacementData;
+  llvm::ValueMap<llvm::PHINode*, PHIInfo> phiReplacementData;
 
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
   void readGlobalMetadata(llvm::Module &m,
-                          llvm::SmallPtrSetImpl<llvm::Value *> &res,
+                          llvm::SmallVectorImpl<llvm::Value*> &res,
                           bool functionAnnotation = false);
   void readLocalMetadata(llvm::Function &f,
-                         llvm::SmallPtrSetImpl<llvm::Value *> &res,
+                         llvm::SmallVectorImpl<llvm::Value*> &res,
                          bool onlyArguments = false);
   void readAllLocalMetadata(llvm::Module &m,
-                            llvm::SmallPtrSetImpl<llvm::Value *> &res);
-  bool parseMetaData(llvm::SmallPtrSetImpl<llvm::Value *> *variables,
+                            llvm::SmallVectorImpl<llvm::Value*> &res);
+  bool parseMetaData(llvm::SmallVectorImpl<llvm::Value*> *variables,
                      std::shared_ptr<taffo::ValueInfo> fpInfo, llvm::Value *instr);
-  void removeNoFloatTy(llvm::SmallPtrSetImpl<llvm::Value *> &res);
+  void removeNoFloatTy(llvm::SmallVectorImpl<llvm::Value*> &res);
   void printAnnotatedObj(llvm::Module &m);
   void openPhiLoop(llvm::PHINode *phi);
   void closePhiLoops();
   bool isKnownConvertibleWithIncompleteMetadata(llvm::Value *V);
-  void sortQueue(std::vector<llvm::Value *> &vals);
-  void cleanup(const std::vector<llvm::Value *> &queue);
+  void sortQueue(std::vector<llvm::Value*> &vals);
+  void cleanup(const std::vector<llvm::Value*> &queue);
   void insertOpenMPIndirection(llvm::Module &m);
-  void propagateCall(std::vector<llvm::Value *> &vals, llvm::SmallPtrSetImpl<llvm::Value *> &global, llvm::Module &m);
+  void propagateCall(std::vector<llvm::Value*> &vals, llvm::SmallVectorImpl<llvm::Value*> &global, llvm::Module &m);
   llvm::Function *createFixFun(llvm::CallBase *call, bool *old);
-  void printConversionQueue(const std::vector<llvm::Value *> &vals);
-  void performConversion(llvm::Module &m, std::vector<llvm::Value *> &q);
+  void printConversionQueue(const std::vector<llvm::Value*> &vals);
+  void performConversion(llvm::Module &m, std::vector<llvm::Value*> &q);
   llvm::Value *convertSingleValue(llvm::Module &m, llvm::Value *val, std::shared_ptr<FixedPointType> &fixpt);
 
   llvm::Value *createPlaceholder(llvm::Type *type, llvm::BasicBlock *where, llvm::StringRef name);
@@ -195,14 +195,14 @@ struct FloatToFixed {
   llvm::Constant *convertConstantAggregate(llvm::ConstantAggregate *cag,
                                            std::shared_ptr<FixedPointType> &fixpt,
                                            TypeMatchPolicy typepol);
-  llvm::Constant *convertConstantDataSequential(llvm::ConstantDataSequential *,
+  llvm::Constant *convertConstantDataSequential(llvm::ConstantDataSequential*,
                                                 const std::shared_ptr<FixedPointScalarType> &);
   template <class T>
-  llvm::Constant *createConstantDataSequential(llvm::ConstantDataSequential *,
+  llvm::Constant *createConstantDataSequential(llvm::ConstantDataSequential*,
                                                const std::shared_ptr<FixedPointType> &);
-  llvm::Constant *convertLiteral(llvm::ConstantFP *flt, llvm::Instruction *,
+  llvm::Constant *convertLiteral(llvm::ConstantFP *flt, llvm::Instruction*,
                                  std::shared_ptr<FixedPointType> &, TypeMatchPolicy typepol);
-  bool convertAPFloat(llvm::APFloat, llvm::APSInt &, llvm::Instruction *, const std::shared_ptr<FixedPointScalarType> &);
+  bool convertAPFloat(llvm::APFloat, llvm::APSInt &, llvm::Instruction*, const std::shared_ptr<FixedPointScalarType> &);
   llvm::Value *convertInstruction(llvm::Module &m, llvm::Instruction *val,
                                   std::shared_ptr<FixedPointType> &fixpt);
   llvm::Value *convertAlloca(llvm::AllocaInst *alloca,
@@ -308,9 +308,9 @@ struct FloatToFixed {
         res = matchOp(val);
         if (res) {
           if (typepol == TypeMatchPolicy::ForceHint)
-            assert(*iofixpt == *getConversionInfo(res)->fixpType && "type mismatch on reference Value");
+            assert(*iofixpt == *getFixpType(res) && "type mismatch on reference Value");
           else
-            *iofixpt = *getConversionInfo(res)->fixpType;
+            *iofixpt = *getFixpType(res);
         }
       }
     } else {
@@ -493,7 +493,7 @@ struct FloatToFixed {
     LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
-      conversionInfo[val] = std::make_shared<ConversionInfo>(ConversionInfo());
+      conversionInfo[val] = std::make_shared<ConversionInfo>();
       return conversionInfo[val];
     } else {
       assert(false && "value already has info!");
@@ -506,7 +506,7 @@ struct FloatToFixed {
     if (vi == conversionInfo.end()) {
       if (isNew)
         *isNew = true;
-      conversionInfo[val] = std::make_shared<ConversionInfo>(ConversionInfo());
+      conversionInfo[val] = std::make_shared<ConversionInfo>();
       return conversionInfo[val];
     } else {
       if (isNew)
@@ -527,8 +527,8 @@ struct FloatToFixed {
   std::shared_ptr<FixedPointType> getFixpType(const llvm::Value *val)
   {
     auto vi = conversionInfo.find(val);
-    assert((vi != conversionInfo.end()) && "value with no info");
-    return vi->getSecond()->fixpType;
+    assert(vi != conversionInfo.end() && "value with no info");
+    return vi->getSecond()->fixpType->clone();
   }
 
   bool hasConversionInfo(llvm::Value *val) { return conversionInfo.find(val) != conversionInfo.end(); };

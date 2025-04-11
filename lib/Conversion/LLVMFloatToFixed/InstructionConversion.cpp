@@ -59,8 +59,7 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, std::shared
   if (res == Unsupported) {
     res = fallback(dyn_cast<Instruction>(val), fixpt);
   }
-  if (res && res != Unsupported && !(res->getType()->isVoidTy()) &&
-      !hasConversionInfo(res)) {
+  if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
     if (getUnwrappedType(val)->isFloatTy() && !getConversionInfo(val)->noTypeConversion) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
@@ -243,7 +242,7 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, std::shared_ptr<FixedPoi
    * change, but we cannot extract values that didn't */
   if (getConversionInfo(gep)->noTypeConversion && !fixpt->isInvalid())
     return Unsupported;
-  std::vector<Value *> idxlist(gep->indices().begin(), gep->indices().end());
+  std::vector<Value*> idxlist(gep->indices().begin(), gep->indices().end());
   return builder.CreateInBoundsGEP(getUnwrappedType(newval), newval, idxlist);
 }
 
@@ -381,10 +380,8 @@ Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType>
   std::vector<Value*> convArgs;
   std::vector<Type*> typeArgs;
   std::vector<std::pair<int, std::shared_ptr<FixedPointType>>> fixArgs; // for match right function
-  if (getUnwrappedType(oldF)->isFloatTy()) {
-    fixArgs.push_back(
-        std::pair<int, std::shared_ptr<FixedPointType>>(-1, fixpt)); // ret value in signature
-  }
+  if (getUnwrappedType(oldF)->isFloatTy())
+    fixArgs.push_back({-1, fixpt}); // ret value in signature
   int i = 0;
   Use *call_arg = call->arg_begin();
   Argument *f_arg = newF->arg_begin();
@@ -411,7 +408,7 @@ Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType>
                              "because mem2reg can interfere\n");
       }
       thisArgument = translateOrMatchAnyOperandAndType(*call_arg, argFixpType, call);
-      fixArgs.push_back(std::pair<int, std::shared_ptr<FixedPointType>>(i, argFixpType));
+      fixArgs.push_back({i, argFixpType});
     } else {
       std::shared_ptr<FixedPointType> argFixpType = getFixpType(f_arg);
       LLVM_DEBUG(dbgs() << "CALL: formal argument " << i << " (" << *f_arg
@@ -427,8 +424,7 @@ Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType>
       }
     }
     if (!thisArgument) {
-      LLVM_DEBUG(dbgs() << "CALL: match of argument " << i << " (" << *f_arg
-                        << ") failed\n");
+      LLVM_DEBUG(dbgs() << "CALL: match of argument " << i << " (" << *f_arg << ") failed\n");
       return Unsupported;
     }
     convArgs.push_back(thisArgument);
@@ -969,7 +965,7 @@ Value *FloatToFixed::fallback(Instruction *unsupp, std::shared_ptr<FixedPointTyp
 {
   Value *fallval;
   Value *fixval;
-  std::vector<Value *> newops;
+  std::vector<Value*> newops;
   LLVM_DEBUG(dbgs() << "[Fallback] attempt to wrap not supported operation:\n"
                     << *unsupp << "\n");
   FallbackCount++;

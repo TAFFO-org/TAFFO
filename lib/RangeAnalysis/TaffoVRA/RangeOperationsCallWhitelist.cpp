@@ -19,9 +19,8 @@ handleCallToCeil(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function ceil");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   return std::make_shared<Range>(ceil(op->Min), ceil(op->Max));
 }
 
@@ -30,9 +29,8 @@ handleCallToFloor(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function floor");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   return std::make_shared<Range>(floor(op->Min), floor(op->Max));
 }
 
@@ -41,9 +39,8 @@ handleCallToFabs(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function fabs");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   double min = fabs(op->Min);
   double max = fabs(op->Max);
   if (min <= max) {
@@ -57,9 +54,8 @@ handleCallToLog(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Log");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   if (op->Max < 0.0) {
     return std::make_shared<Range>(std::numeric_limits<double>::quiet_NaN(),
                       std::numeric_limits<double>::quiet_NaN());
@@ -75,9 +71,8 @@ handleCallToLog10(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Log10");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   assert(op->Max >= 0);
   double min = op->Min < 0 ? std::numeric_limits<double>::epsilon() : op->Min;
   min = log10(min);
@@ -90,9 +85,8 @@ handleCallToLog2f(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Log2f");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   assert(op->Max >= 0);
   double min = op->Min < 0 ? std::numeric_limits<double>::epsilon() : op->Min;
   min = static_cast<double>(log2f(min));
@@ -105,9 +99,8 @@ handleCallToSqrt(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Sqrt");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   assert(op->Max >= 0);
   double min = op->Min < 0 ? 0 : op->Min;
   min = sqrt(min);
@@ -123,9 +116,8 @@ handleCallToExp(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Exp");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   double min = exp(op->Min);
   double max = exp(op->Max);
   return std::make_shared<Range>(min, max);
@@ -136,9 +128,8 @@ handleCallToSin(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Sin");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
 
   // TODO: better range reduction
   if (op->Min >= -PIO2 && op->Max <= PIO2) {
@@ -153,9 +144,8 @@ handleCallToCos(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function Cos");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
 
   // TODO: better range reduction
   if (op->Min >= -PI && op->Max <= 0.0) {
@@ -173,9 +163,8 @@ handleCallToAcos(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function acos");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   return std::make_shared<Range>(std::acos(std::max(op->Min, -1.0)),
                     std::acos(std::min(op->Max, 1.0)));
 }
@@ -185,11 +174,21 @@ handleCallToAsin(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function asin");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   return std::make_shared<Range>(std::asin(std::max(op->Min, -1.0)),
                     std::asin(std::min(op->Max, 1.0)));
+}
+
+static std::shared_ptr<Range>
+handleCallToAtan(const std::list<std::shared_ptr<Range>> &operands)
+{
+  assert(operands.size() == 1 && "too many operands in function atan");
+  std::shared_ptr<Range> op = operands.front();
+  if (!op)
+    return nullptr;
+  return std::make_shared<Range>(std::atan(std::max(op->Min, -1.0)),
+                    std::atan(std::min(op->Max, 1.0)));
 }
 
 static std::shared_ptr<Range>
@@ -197,9 +196,8 @@ handleCallToTanh(const std::list<std::shared_ptr<Range>> &operands)
 {
   assert(operands.size() == 1 && "too many operands in function tanh");
   std::shared_ptr<Range> op = operands.front();
-  if (!op) {
+  if (!op)
     return nullptr;
-  }
   /* tanh is a monotonic increasing function */
   return std::make_shared<Range>(std::tanh(op->Min), std::tanh(op->Max));
 }
@@ -236,6 +234,7 @@ const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
     CMATH_WHITELIST_FUN("cos", &handleCallToCos),
     CMATH_WHITELIST_FUN("acos", &handleCallToAcos),
     CMATH_WHITELIST_FUN("asin", &handleCallToAsin),
+    CMATH_WHITELIST_FUN("atan", &handleCallToAtan),
     CMATH_WHITELIST_FUN("tanh", &handleCallToTanh),
     CMATH_WHITELIST_FUN("rand", &handleCallToRand),
     CMATH_WHITELIST_FUN("fma", &handleCallToFMA),
