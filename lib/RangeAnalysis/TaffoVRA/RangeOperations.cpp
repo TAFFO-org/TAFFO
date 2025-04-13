@@ -584,7 +584,7 @@ std::shared_ptr<ValueInfoWithRange> taffo::copyRange(const std::shared_ptr<Value
 
   const std::shared_ptr<StructInfo> op_s = std::static_ptr_cast<StructInfo>(op);
   SmallVector<std::shared_ptr<ValueInfo>, 4> new_fields;
-  unsigned num_fields = op_s->numFields();
+  unsigned num_fields = op_s->getNumFields();
   new_fields.reserve(num_fields);
   for (unsigned i = 0; i < num_fields; i++) {
     if (std::shared_ptr<ValueInfo> field = op_s->getField(i)) {
@@ -664,7 +664,7 @@ taffo::getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1,
 
   const std::shared_ptr<StructInfo> op1_s = std::static_ptr_cast<StructInfo>(op1);
   const std::shared_ptr<StructInfo> op2_s = std::static_ptr_cast<StructInfo>(op2);
-  unsigned num_fields = std::max(op1_s->numFields(), op2_s->numFields());
+  unsigned num_fields = std::max(op1_s->getNumFields(), op2_s->getNumFields());
   SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
   new_fields.reserve(num_fields);
   for (unsigned i = 0; i < num_fields; ++i) {
@@ -691,13 +691,13 @@ taffo::fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> &src,
   const std::shared_ptr<StructInfo> src_s = std::static_ptr_cast<StructInfo>(src);
   const std::shared_ptr<StructInfo> dst_s = std::static_ptr_cast<StructInfo>(dst);
   SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
-  unsigned num_fields = src_s->numFields();
+  unsigned num_fields = src_s->getNumFields();
   new_fields.reserve(num_fields);
   for (unsigned i = 0; i < num_fields; ++i) {
     if (const std::shared_ptr<PointerInfo> ptr_field =
             std::dynamic_ptr_cast_or_null<PointerInfo>(src_s->getField(i))) {
       new_fields.push_back(std::make_shared<PointerInfo>(ptr_field->getPointed()));
-    } else if (i < dst_s->numFields()) {
+    } else if (i < dst_s->getNumFields()) {
       new_fields.push_back(fillRangeHoles(std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(src_s->getField(i)),
                                           std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(dst_s->getField(i))));
     }

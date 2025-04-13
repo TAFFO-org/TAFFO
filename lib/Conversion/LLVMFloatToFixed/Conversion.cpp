@@ -68,7 +68,7 @@ void FloatToFixed::performConversion(Module &m, std::vector<Value*> &q) {
         newinst->setDebugLoc(oldinst->getDebugLoc());
       }
       if (newv != v) {
-        std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getTransparentType(*v);
+        std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*v);
         std::shared_ptr<TransparentType> newTransparentType;
         if (!newType->isInvalid())
           newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
@@ -289,7 +289,7 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
 
   IRBuilder<NoFolder> builder(ip);
   Type *SrcTy = flt->getType();
-  Type *destt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*flt), fixpt);
+  Type *destt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt);
 
   /* insert new instructions before ip */
   if (!destt->isFloatingPointTy()) {
@@ -588,5 +588,5 @@ Type *FloatToFixed::getLLVMFixedPointTypeForFloatType(const std::shared_ptr<Tran
 Type *FloatToFixed::getLLVMFixedPointTypeForFloatValue(Value *val)
 {
   std::shared_ptr<FixedPointType> fpt = getFixpType(val);
-  return getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*val), fpt);
+  return getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*val), fpt);
 }

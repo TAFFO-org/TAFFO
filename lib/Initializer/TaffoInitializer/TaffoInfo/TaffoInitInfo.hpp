@@ -5,14 +5,18 @@
 
 namespace taffo {
 
-class TaffoInitInfo {
-public:
-  ValueInitInfo &getValueInitInfo(llvm::Value *value);
-  ValueInitInfo &createValueInitInfo(llvm::Value *value, unsigned int rootDistance, unsigned int backtrackingDepthLeft = 0);
+class TaffoInitializerPass;
 
+class TaffoInitInfo {
 private:
+  friend class TaffoInitializerPass;
+
   llvm::DenseMap<llvm::Value*, ValueInitInfo> valueInitInfo;
-  
+
+  ValueInitInfo &getValueInitInfo(llvm::Value *value);
+  ValueInitInfo &getOrCreateValueInitInfo(llvm::Value *value);
+  ValueInitInfo &createValueInitInfo(llvm::Value *value, unsigned int rootDistance = UINT_MAX, unsigned int backtrackingDepth = 0);
+  bool hasValueInitInfo(const llvm::Value *value) const;
 };
 
 }

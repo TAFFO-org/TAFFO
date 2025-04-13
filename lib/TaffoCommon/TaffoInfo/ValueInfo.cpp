@@ -1,9 +1,40 @@
 #include "ValueInfo.hpp"
 
-#include "MetadataManager.hpp"
+#include "TaffoInfo.hpp"
 
 using namespace llvm;
 using namespace taffo;
+
+std::shared_ptr<ValueInfo> ValueInfoFactory::create(Value *value) {
+  std::shared_ptr<TransparentType> type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+  return create(type);
+}
+
+std::shared_ptr<ValueInfo> ValueInfoFactory::create(const std::shared_ptr<TransparentType> &type) {
+  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> recursionMap;
+  return create(type, recursionMap);
+}
+
+std::shared_ptr<ValueInfo> ValueInfoFactory::create(
+  const std::shared_ptr<TransparentType> &type,
+  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap)
+{
+  auto iter = recursionMap.find(type);
+  if (iter != recursionMap.end())
+    return iter->second;
+
+  if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(type)) {
+    unsigned int numFields = structType->getNumFieldTypes();
+    SmallVector<std::shared_ptr<ValueInfo>, 4> fields;
+    auto res = std::make_shared<StructInfo>(StructInfo(numFields));
+    recursionMap.insert({structType, res});
+    for (unsigned int i = 0; i < numFields; i++)
+      res->setField(i, create(structType->getFieldType(i), recursionMap));
+    return res;
+  }
+
+  return std::make_shared<ScalarInfo>();
+}
 
 json ValueInfo::serialize() const {
   json j = json::object();
@@ -22,6 +53,7 @@ void ValueInfo::deserialize(const json &j) {
 }
 
 void ValueInfo::copyFrom(const ValueInfo &other) {
+  assert(getKind() == other.getKind() && "Copying from different kind of valueInfo");
   target = other.target;
   bufferId = other.bufferId;
 }
@@ -38,12 +70,18 @@ ScalarInfo &ScalarInfo::operator=(const ScalarInfo &other) {
   return *this;
 }
 
+void ScalarInfo::copyFrom(const ValueInfo &other) {
+  ValueInfo::copyFrom(other);
+  auto &otherScalar = cast<ScalarInfo>(other);
+  numericType = otherScalar.numericType ? otherScalar.numericType->clone() : nullptr;
+  range = otherScalar.range ? otherScalar.range->clone() : nullptr;
+  error = otherScalar.error ? std::make_shared<double>(*otherScalar.error) : nullptr;
+  conversionEnabled = otherScalar.conversionEnabled;
+  final = otherScalar.final;
+}
+
 std::shared_ptr<ValueInfo> ScalarInfo::cloneImpl() const {
-  std::shared_ptr<NumericType> newNumericType = numericType ? numericType->clone() : nullptr;
-  std::shared_ptr<Range> newRange = range ? std::make_shared<Range>(*range) : nullptr;
-  std::shared_ptr<double> newError = error ? std::make_shared<double>(*error) : nullptr;
-  std::shared_ptr<ScalarInfo> copy = std::make_shared<ScalarInfo>(
-    newNumericType, newRange, newError, conversionEnabled, final);
+  auto copy = std::make_shared<ScalarInfo>();
   copy->copyFrom(*this);
   return copy;
 }
@@ -119,32 +157,6 @@ void ScalarInfo::deserialize(const json &j) {
   final = j["final"].get<bool>();
 }
 
-std::shared_ptr<StructInfo> StructInfo::createFromTransparentType(const std::shared_ptr<TransparentStructType> &structType) {
-  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> recursionMap;
-  return createFromTransparentType(structType, recursionMap);
-}
-
-std::shared_ptr<StructInfo> StructInfo::createFromTransparentType(
-  const std::shared_ptr<TransparentType> &type,
-  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap)
-{
-  auto iter = recursionMap.find(type);
-  if (iter != recursionMap.end())
-    return iter->second;
-
-  if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(type)) {
-    unsigned int numFields = structType->getNumFieldTypes();
-    FieldsType fields;
-    auto res = std::make_shared<StructInfo>(StructInfo(numFields));
-    recursionMap.insert({structType, res});
-    for (unsigned int i = 0; i < numFields; i++)
-      res->setField(i, createFromTransparentType(structType->getFieldType(i), recursionMap));
-    return res;
-  }
-
-  return nullptr;
-}
-
 bool StructInfo::isConversionEnabled() const {
   SmallPtrSet<const StructInfo*, 1> visited;
   return isConversionEnabled(visited);
@@ -168,7 +180,7 @@ bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*> &visited
   return false;
 }
 
-std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef<unsigned> indices) {
+std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef<unsigned> indices) const {
   Type *resolvedType = type;
   std::shared_ptr<ValueInfo> resolvedInfo = this->clone();
   for (unsigned idx : indices) {
@@ -176,7 +188,7 @@ std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef
       break;
     if (resolvedType->isStructTy()) {
       resolvedType = resolvedType->getContainedType(idx);
-      resolvedInfo = cast<StructInfo>(resolvedInfo.get())->getField(idx);
+      resolvedInfo = std::static_ptr_cast<StructInfo>(resolvedInfo)->getField(idx);
     }
     else
       resolvedType = resolvedType->getContainedType(idx);
@@ -184,8 +196,24 @@ std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef
   return resolvedInfo;
 }
 
+void StructInfo::copyFrom(const ValueInfo &other) {
+  ValueInfo::copyFrom(other);
+  auto &otherStruct = cast<StructInfo>(other);
+  assert(getNumFields() == otherStruct.getNumFields() && "Copying from structInfo with different number of fields");
+  for (auto &&[field, otherField] : zip(*this, otherStruct)) {
+    if (otherField) {
+      if (field)
+        field->copyFrom(*otherField);
+      else
+        field = otherField->clone();
+    }
+    else
+      field = nullptr;
+  }
+}
+
 std::shared_ptr<ValueInfo> StructInfo::cloneImpl() const {
-  FieldsType newFields;
+  SmallVector<std::shared_ptr<ValueInfo>, 4> newFields;
   for (const std::shared_ptr<ValueInfo> &field : Fields) {
     if (field)
       newFields.push_back(field->clone());

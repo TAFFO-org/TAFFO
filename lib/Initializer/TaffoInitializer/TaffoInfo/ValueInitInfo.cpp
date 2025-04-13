@@ -5,8 +5,8 @@ using namespace taffo;
 
 std::string ValueInitInfo::toString() const {
   std::stringstream ss;
-  ss << "(backtrackingDepthLeft: " << backtrackingDepthLeft
+  ss << "[valueInfo: " << (valueInfo ? valueInfo->toString() : "null")
      << ", rootDistance: " << rootDistance
-     << ", valueInfo: " << (valueInfo ? valueInfo->toString() : "null") << ")";
+     << ", backtrackingDepth: " << backtrackingDepth << "]";
   return ss.str();
 }

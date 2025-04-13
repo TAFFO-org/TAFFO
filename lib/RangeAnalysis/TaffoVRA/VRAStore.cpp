@@ -131,7 +131,7 @@ void VRAStore::assignStructNode(const std::shared_ptr<ValueInfo> &dst, const std
   std::shared_ptr<StructInfo> structDst = std::dynamic_ptr_cast_or_null<StructInfo>(dst);
   if (!(structDst && structSrc))
     return;
-  for (unsigned i = 0; i < structSrc->numFields(); i++) {
+  for (unsigned i = 0; i < structSrc->getNumFields(); i++) {
     std::shared_ptr<ValueInfo> srcField = structSrc->getField(i);
     if (!srcField)
       continue;

@@ -11,7 +11,7 @@ using namespace taffo;
 using namespace llvm;
 
 Type *taffo::getUnwrappedType(Value *value) {
-  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getTransparentType(*value);
+  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return transparentType->getUnwrappedType();
 }
 

@@ -263,19 +263,19 @@ void TypeDeducerPass::logDeducedTypes() {
     logger.logValue(value);
     logger.increaseIndent();
     logger.logln("");
-    logger.log("Deduced pointer type: ");
+    logger.log("deduced pointer type: ");
     if (deducedType)
       logger.logln(deducedType, raw_ostream::Colors::GREEN);
     else {
-      logger.log("Ambiguous. ", raw_ostream::Colors::YELLOW);
+      logger.log("ambiguous: ", raw_ostream::Colors::YELLOW);
       CandidateSet &candidates = candidateTypes[value];
       candidates.erase(nullptr);
       if (!candidates.empty()) {
-        logger.log("Candidate types: ", raw_ostream::Colors::YELLOW);
+        logger.log("candidate types: ", raw_ostream::Colors::YELLOW);
         logger.logln(candidates, raw_ostream::Colors::YELLOW);
       }
       else
-        logger.logln("No candidate types", raw_ostream::Colors::RED);
+        logger.logln("no candidate types", raw_ostream::Colors::RED);
     }
     logger.decreaseIndent();
   }

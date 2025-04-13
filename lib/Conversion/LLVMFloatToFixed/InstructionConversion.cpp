@@ -96,7 +96,7 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, std::shared
 Value *FloatToFixed::convertAlloca(AllocaInst *alloca, const std::shared_ptr<FixedPointType> &fixpt) {
   if (getConversionInfo(alloca)->noTypeConversion)
     return alloca;
-  std::shared_ptr<TransparentType> prevAllocaType = TaffoInfo::getInstance().getTransparentType(*alloca);
+  std::shared_ptr<TransparentType> prevAllocaType = TaffoInfo::getInstance().getOrCreateTransparentType(*alloca);
   std::shared_ptr<TransparentType> newAllocaType = fixpt->toTransparentType(prevAllocaType);
   Type *prevAllocatedType = alloca->getAllocatedType();
   Type *newAllocatedType = newAllocaType->getPointedType()->toLLVMType();
@@ -237,7 +237,7 @@ Value *FloatToFixed::convertGep(GetElementPtrInst *gep, std::shared_ptr<FixedPoi
     return Unsupported;
   }
   std::shared_ptr<FixedPointType> tempFixpt = getFixpType(newval);
-  std::shared_ptr<TransparentType> type = TaffoInfo::getInstance().getTransparentType(*gep->getPointerOperand());
+  std::shared_ptr<TransparentType> type = TaffoInfo::getInstance().getOrCreateTransparentType(*gep->getPointerOperand());
   fixpt = tempFixpt->unwrapIndexList(type, gep->indices());
   /* if conversion is disabled, we can extract values that didn't get a type
    * change, but we cannot extract values that didn't */
@@ -256,7 +256,7 @@ Value *FloatToFixed::convertExtractValue(ExtractValueInst *exv, std::shared_ptr<
   if (!newval)
     return nullptr;
   std::shared_ptr<FixedPointType> baset =
-      getFixpType(newval)->unwrapIndexList(TaffoInfo::getInstance().getTransparentType(*oldval), exv->getIndices());
+      getFixpType(newval)->unwrapIndexList(TaffoInfo::getInstance().getOrCreateTransparentType(*oldval), exv->getIndices());
   std::vector<unsigned> idxlist(exv->indices().begin(), exv->indices().end());
   Value *newi = builder.CreateExtractValue(newval, idxlist);
   if (!baset->isInvalid() && newi->getType()->isIntegerTy())
@@ -275,7 +275,7 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv, std::shared_ptr<Fi
   if (!newAggVal)
     return nullptr;
   std::shared_ptr<FixedPointType> baset = getFixpType(newAggVal)->unwrapIndexList(
-      TaffoInfo::getInstance().getTransparentType(*oldAggVal), inv->getIndices());
+      TaffoInfo::getInstance().getOrCreateTransparentType(*oldAggVal), inv->getIndices());
   Value *oldInsertVal = inv->getInsertedValueOperand();
   Value *newInsertVal;
   if (!baset->isInvalid())
@@ -418,7 +418,7 @@ Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType>
                            "because mem2reg can interfere\n");
       if (call_arg->get()->getType()->isPointerTy()) {
         LLVM_DEBUG(dbgs() << "DANGER!! To make things worse, the problematic argument is a POINTER. Introducing a bitcast to try to salvage the mess.\n");
-        Type *BCType = argFixpType->toTransparentType(TaffoInfo::getInstance().getTransparentType(*call_arg->get()), nullptr)->toLLVMType();
+        Type *BCType = argFixpType->toTransparentType(TaffoInfo::getInstance().getOrCreateTransparentType(*call_arg->get()), nullptr)->toLLVMType();
         thisArgument = new BitCastInst(call_arg->get(), BCType, call_arg->get()->getName() + ".salvaged", call);
       } else {
         thisArgument = translateOrMatchAnyOperandAndType(*call_arg, argFixpType, call);
@@ -928,7 +928,7 @@ Value *FloatToFixed::convertCast(CastInst *cast, const std::shared_ptr<FixedPoin
     return Unsupported;
   if (BitCastInst *bc = dyn_cast<BitCastInst>(cast)) {
     Value *newOperand = operandPool[operand];
-    Type *newType = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*bc), fixpt);
+    Type *newType = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*bc), fixpt);
     if (newOperand && newOperand != ConversionError) {
       return builder.CreateBitCast(newOperand, newType);
     } else {

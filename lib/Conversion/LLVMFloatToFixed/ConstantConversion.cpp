@@ -20,7 +20,7 @@ using namespace taffo;
 Constant *FloatToFixed::convertConstant(Constant *flt, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol) {
   if (dyn_cast<UndefValue>(flt)) {
     return UndefValue::get(
-        getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*flt), fixpt));
+        getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt));
   }
   if (GlobalVariable *gvar = dyn_cast<GlobalVariable>(flt)) {
     return convertGlobalVariable(gvar, fixpt);
@@ -32,7 +32,7 @@ Constant *FloatToFixed::convertConstant(Constant *flt, std::shared_ptr<FixedPoin
                  dyn_cast<ConstantDataSequential>(flt)) {
     return convertConstantDataSequential(cds, std::static_ptr_cast<FixedPointScalarType>(fixpt));
   } else if (dyn_cast<ConstantAggregateZero>(flt)) {
-    Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*flt), fixpt);
+    Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt);
     return ConstantAggregateZero::get(newt);
   } else if (ConstantExpr *cexp = dyn_cast<ConstantExpr>(flt)) {
     return convertConstantExpr(cexp, fixpt, typepol);
@@ -76,7 +76,7 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
 Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob, std::shared_ptr<FixedPointType> &fixpt) {
   bool hasfloats = false;
   Type *prevt = getUnwrappedType(glob);
-  Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*glob), fixpt, &hasfloats);
+  Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*glob), fixpt, &hasfloats);
   if (!newt)
     return nullptr;
   if (!hasfloats)

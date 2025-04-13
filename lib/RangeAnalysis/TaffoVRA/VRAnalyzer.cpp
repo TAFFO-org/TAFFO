@@ -7,6 +7,8 @@
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/Support/Debug.h>
 
+#include "Initializer/TaffoInitializer/TaffoInfo/ValueInitInfo.hpp"
+
 using namespace llvm;
 using namespace taffo;
 
@@ -372,12 +374,12 @@ void VRAnalyzer::handleAllocaInstr(Instruction *I) {
   AllocaInst *allocaInst = cast<AllocaInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
   const auto inputValueInfo = getGlobalStore()->getUserInput(I);
-  auto allocatedType = TaffoInfo::getInstance().getTransparentType(*allocaInst);
+  auto allocatedType = TaffoInfo::getInstance().getOrCreateTransparentType(*allocaInst);
   if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(allocatedType)) {
     if (inputValueInfo && std::isa_ptr<StructInfo>(inputValueInfo)) {
       DerivedRanges[I] = inputValueInfo->clone();
     } else {
-      DerivedRanges[I] = StructInfo::createFromTransparentType(structType);
+      DerivedRanges[I] = ValueInfoFactory::create(structType);
     }
     LLVM_DEBUG(Logger->logInfoln("struct"));
   } else {

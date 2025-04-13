@@ -1,8 +1,8 @@
 #include "IndirectCallPatcher.hpp"
 
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInitializerPass.hpp"
-#include <llvm/ADT/Statistic.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
@@ -21,15 +21,14 @@ using namespace llvm;
 #define DEBUG_TYPE "taffo-init"
 
 /// Check recursively whether an unsupported function is called.
-bool containsUnsupportedFunctions(
-    const llvm::Function *function, std::unordered_set<Function *> traversedFunctions) {
+bool containsUnsupportedFunctions(const Function *function, std::unordered_set<Function *> traversedFunctions) {
   static const std::vector<std::string> prefixBlocklist{"__kmpc_omp_task",
                                                         "__kmpc_reduce"};
 
   for (auto instructionIt = inst_begin(function);
        instructionIt != inst_end(function); instructionIt++) {
     if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
-      llvm::Function *curCallFunction = curCallInstruction->getCalledFunction();
+      Function *curCallFunction = curCallInstruction->getCalledFunction();
       auto functionName = curCallFunction->getName();
 
       if (any_of(prefixBlocklist, [&](const std::string &prefix) {
@@ -53,7 +52,8 @@ bool containsUnsupportedFunctions(
 /// attach the OMP disabled metadata to the the shared variables.
 void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
                     CallInst *curCallInstruction, const CallBase *curCall,
-                    Function *indirectFunction) {
+                    Function *indirectFunction)
+{
   auto microTaskOperand =
       dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
   auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
@@ -152,12 +152,13 @@ void handleKmpcFork(const Module &m, std::vector<Instruction *> &toDelete,
 /// Check if the given call is indirect and handle it with the dedicated handler.
 void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
                         CallInst *curCallInstruction, const CallBase *curCall,
-                        Function *indirectFunction) {
-  using handler_function = void (*)(const llvm::Module &m,
-                                    std::vector<llvm::Instruction *> &toDelete,
-                                    llvm::CallInst *curCallInstruction,
+                        Function *indirectFunction)
+{
+  using handler_function = void (*)(const Module &m,
+                                    std::vector<Instruction *> &toDelete,
+                                    CallInst *curCallInstruction,
                                     const CallBase *curCall,
-                                    llvm::Function *indirectFunction);
+                                    Function *indirectFunction);
   const static std::map<const std::string, handler_function> indirectCallFunctions = {
       {"__kmpc_fork_call", &handleKmpcFork}};
 
@@ -170,30 +171,18 @@ void handleIndirectCall(const Module &m, std::vector<Instruction *> &toDelete,
 }
 
 /// Check the indirect calls in the given module, and handle them with handleIndirectCall().
-void taffo::manageIndirectCalls(llvm::Module &m)
-{
-  LLVM_DEBUG(dbgs() << "Checking Indirect Calls"
-                    << "\n");
+void taffo::manageIndirectCalls(Module &m) {
+  LLVM_DEBUG(log() << "Checking indirect calls" << "\n");
 
-  std::vector<Instruction *> toDelete;
+  std::vector<Instruction*> toDelete;
 
-  for (llvm::Function &curFunction : m) {
-    for (auto instructionIt = inst_begin(curFunction);
-         instructionIt != inst_end(curFunction); instructionIt++) {
-      if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
+  for (Function &f : m)
+    for (Instruction &inst : instructions(f))
+      if (auto *callInst = dyn_cast<CallInst>(&inst))
+        if (Function *curCallFunction = callInst->getCalledFunction())
+          handleIndirectCall(m, toDelete, callInst, dyn_cast<CallBase>(callInst), curCallFunction);
 
-        llvm::Function *curCallFunction = curCallInstruction->getCalledFunction();
-
-        if (curCallFunction) {
-          handleIndirectCall(m, toDelete, curCallInstruction, dyn_cast<CallBase>(curCallInstruction),
-                             curCallFunction);
-        }
-      }
-    }
-  }
-
-  // Delete the saved instructions in a separate loop to avoid conflicts in the
-  // iterator
+  // Delete the saved instructions in a separate loop to avoid conflicts in the iterator
   for (auto inst : toDelete) {
     inst->eraseFromParent();
     TaffoInfo::getInstance().eraseValue(*inst);

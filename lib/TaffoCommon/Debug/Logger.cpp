@@ -47,6 +47,14 @@ void Logger::restorePrevContextTag() {
     contextTagStack.pop_front();
 }
 
+void Logger::setColor(raw_ostream::Colors color) {
+  currentColor = color;
+}
+
+void Logger::resetColor() {
+  currentColor = raw_ostream::Colors::RESET;
+}
+
 void Logger::setIndent(unsigned indent) {
   this->indent = indent;
 }
@@ -69,7 +77,7 @@ raw_fd_ostream &Logger::getOutputStream() {
 
 void Logger::logIndent() {
   isLineStart = false;
+  ostream << std::string(indent, ' ');
   if (!contextTagStack.empty())
     log(contextTagStack.front(), raw_ostream::Colors::BLACK);
-  ostream << std::string(indent, ' ');
 }

@@ -4,27 +4,25 @@
 #include "Types/TypeUtils.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "IndirectCallPatcher.hpp"
-#include "PtrCasts.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "CudaKernelPatcher.hpp"
 
 #include <llvm/Transforms/Utils/Cloning.h>
-#include <memory>
 
 #define DEBUG_TYPE "taffo-init"
 
 using namespace taffo;
 using namespace llvm;
 
-cl::opt<bool> ManualFunctionCloning("manualclone",
+cl::opt<bool> manualFunctionCloning("manualclone",
   cl::desc("Enables function cloning only for annotated functions"),
   cl::init(false));
 
-cl::opt<bool> OpenCLKernelMode("oclkern",
+cl::opt<bool> openCLKernelMode("oclkern",
   cl::desc("Allows cloning of OpenCL kernel functions"),
   cl::init(false));
 
-cl::opt<bool> CudaKernelMode("cudakern",
+cl::opt<bool> cudaKernelMode("cudakern",
   cl::desc("Allows cloning of Cuda kernel functions"),
   cl::init(false));
 
@@ -32,120 +30,103 @@ PreservedAnalyses TaffoInitializerPass::run(Module &m, ModuleAnalysisManager &) 
   LLVM_DEBUG(Logger::getInstance().logln("[InitializerPass]", raw_ostream::Colors::MAGENTA));
   TaffoInfo::getInstance().initializeFromFile("taffo_typededucer.json", m);
 
-  if (OpenCLKernelMode) {
+  if (openCLKernelMode) {
     LLVM_DEBUG(dbgs() << "OpenCLKernelMode == true!\n");
     createOpenCLKernelTrampolines(m);
   }
-  else if (CudaKernelMode) {
+  else if (cudaKernelMode) {
     LLVM_DEBUG(dbgs() << "CudaKernelMode == true!\n");
     createCudaKernelTrampolines(m);
   }
 
-  LLVM_DEBUG(printAnnotatedObj(m));
-
   manageIndirectCalls(m);
-
+  readAndRemoveGlobalAnnotations(m);
   readAndRemoveLocalAnnotations(m);
-  readGlobalAnnotations(m, true);
-  readGlobalAnnotations(m, false);
+  AnnotationCount = infoPropagationQueue.size();
+  removeNotFloats();
 
   if (Function *startingPoint = findStartingPointFunctionGlobal(m)) {
-    LLVM_DEBUG(dbgs() << "Found starting point using global __taffo_vra_starting_function: " << startingPoint->getName() << "\n");
+    LLVM_DEBUG(
+      Logger &logger = Logger::getInstance();
+      logger.log("Found starting point using global __taffo_vra_starting_function: ");
+      logger.logln(startingPoint->getName());
+    );
     TaffoInfo::getInstance().addStartingPoint(*startingPoint);
   }
 
-  ConvQueueType rootsQueue;
-  rootsQueue.insert(global.begin(), global.end());
-  rootsQueue.insert(local.begin(), local.end());
-  AnnotationCount = rootsQueue.size();
-
-  ConvQueueType queue;
-  buildConversionQueueForRootValues(rootsQueue, queue);
-
-  // Store valueInfo for each value in the queue
-  for (const auto &[value, convQueueInfo] : queue)
-    setValueInfo(value, convQueueInfo);
-
-  removeAnnotationCalls(queue);
-
-  SmallPtrSet<Function*, 10> callTrace;
-  generateFunctionSpace(queue, global, callTrace);
-
-  LLVM_DEBUG(printConversionQueue(queue));
-  setFunctionArgsInfo(m, queue);
+  LLVM_DEBUG(log().logln("[Propagating info from roots]", raw_ostream::Colors::BLUE));
+  propagateInfo();
+  generateFunctionClones();
+  LLVM_DEBUG(log().logln("[Propagating info after function cloning]", raw_ostream::Colors::BLUE));
+  propagateInfo();
+  LLVM_DEBUG(logInfoPropagationQueue());
+  saveValueWeights();
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_init.json", m);
   LLVM_DEBUG(Logger::getInstance().logln("[End of InitializerPass]", raw_ostream::Colors::MAGENTA));
   return PreservedAnalyses::all();
 }
 
-void TaffoInitializerPass::removeAnnotationCalls(ConvQueueType &queue) {
-  for (auto iter = queue.begin(); iter != queue.end();) {
-    Value *v = iter->first;
-
-    if (auto *call = dyn_cast<CallInst>(v))
-      if (call->getCalledFunction() && call->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
-        iter = queue.erase(iter);
-        call->eraseFromParent();
-        TaffoInfo::getInstance().eraseValue(*call);
-        continue;
-      }
-    iter++;
-
-    // TODO: remove global annotations
+void TaffoInitializerPass::saveValueWeights() {
+  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+  for (Value *value : infoPropagationQueue) {
+    ValueInitInfo &valueInitInfo = taffoInitInfo.getValueInitInfo(value);
+    if (isa<Instruction>(value) || isa<GlobalObject>(value))
+      taffoInfo.setValueWeight(*value, valueInitInfo.getRootDistance());
+    if (auto *inst = dyn_cast<Instruction>(value))
+      if (auto scalarInfo = dyn_cast<ScalarInfo>(valueInitInfo.getValueInfo()))
+        if (taffoInfo.isConversionDisabled(*inst)) {
+          scalarInfo->conversionEnabled = false;
+          LLVM_DEBUG(
+            Logger &logger = log();
+            logger.log("Disabled conversion of shared variable ", raw_ostream::Colors::YELLOW);
+            logger.logValueln(inst);
+          );
+        }
   }
-}
-
-void TaffoInitializerPass::setValueInfo(Value *value, const ConvQueueInfo &valueConvQueueInfo) {
-  auto valueInfo = valueConvQueueInfo.valueInfo;
-  if (isa<Instruction>(value) || isa<GlobalObject>(value))
-    TaffoInfo::getInstance().setValueWeight(*value, valueConvQueueInfo.rootDistance);
-  if (auto *inst = dyn_cast<Instruction>(value)) {
-    if (auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
-      if (TaffoInfo::getInstance().isConversionDisabled(*inst)) {
-        LLVM_DEBUG(dbgs() << "Blocking conversion for shared variable" << *inst << "\n");
-        scalarInfo->conversionEnabled = false;
-      }
-    }
-  }
-  TaffoInfo::getInstance().setValueInfo(*value, valueInfo);
 }
 
 /**
- * @brief Builds the conversion queue for root values.
+ * @brief Propagates info from roots.
  *
- * Starting from the set of root values, this function propagates conversion info
+ * Starting from the set of root values, this function propagates taffoInitInfo
  * through the IR graph by iterating over each value's users (forward propagation)
  * and then backtracking through instruction operands (backward propagation)
  * until no new values are discovered
- *
- * @param roots The set of root values and their conversion info
- * @param queue The conversion queue to be built and updated
  */
-void TaffoInitializerPass::buildConversionQueueForRootValues(const ConvQueueType &roots, ConvQueueType &queue) {
-  LLVM_DEBUG(dbgs() << "***** begin " << __FUNCTION__ << "\nInitial ");
-
-  // Insert all root entries into the queue
-  queue.insert(roots.begin(), roots.end());
-  LLVM_DEBUG(printConversionQueue(queue));
+void TaffoInitializerPass::propagateInfo() {
+  LLVM_DEBUG(
+    log().logln("[Initial propagation queue]", raw_ostream::Colors::BLACK);
+    log().increaseIndent();
+    logInfoPropagationQueue();
+    log().decreaseIndent();
+  );
 
   // Set to track processed values to avoid reprocessing
   SmallPtrSet<Value*, 8> visited;
 
   // Continue propagation until the queue size stabilizes
+  unsigned int iteration = 0;
   size_t prevQueueSize = 0;
-  while (prevQueueSize < queue.size()) {
-    LLVM_DEBUG(dbgs() << "***** " << __FUNCTION__ << " iter " << prevQueueSize << " < " << queue.size() << "\n";);
-    prevQueueSize = queue.size();
+  while (prevQueueSize < infoPropagationQueue.size()) {
+    LLVM_DEBUG(log() << raw_ostream::Colors::BLUE << "[Propagation iteration " << iteration << "]\n" << raw_ostream::Colors::RESET);
+    prevQueueSize = infoPropagationQueue.size();
+    iteration++;
 
     // Forward propagation: process each value in the queue
-    for (auto [value, valueConvQueueInfo] : queue) {
+    for (Value *value : infoPropagationQueue) {
       visited.insert(value);
+      ValueInitInfo &valueInitInfo = taffoInitInfo.getValueInitInfo(value);
 
-      LLVM_DEBUG(dbgs() << "[Value] " << *value << "\n");
-      if (auto *inst = dyn_cast<Instruction>(value))
-        LLVM_DEBUG(dbgs() << " - function: " << inst->getFunction()->getName() << "\n");
-      LLVM_DEBUG(dbgs() << " - root distance: " << valueConvQueueInfo.rootDistance << "\n");
+      LLVM_DEBUG(
+        Logger &logger = log();
+        logger.log("[Value] ", raw_ostream::Colors::BLACK);
+        logger.logValueln(value);
+        logger.increaseIndent();
+        logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";
+        if (value->user_empty())
+          logger.logln("value has no users: continuing");
+      );
 
       // Process each user of the current value
       for (auto *user : value->users()) {
@@ -157,265 +138,230 @@ void TaffoInitializerPass::buildConversionQueueForRootValues(const ConvQueueType
         if (isa<PHINode>(user) && visited.contains(user))
           continue;
 
-        // Extract existing conversion info of the user from the queue if available, otherwise initialize them
-        auto userIter = queue.find(user);
-        ConvQueueInfo userConvQueueInfo;
-        if (userIter != queue.end()) {
-          userConvQueueInfo = userIter->second;
-          queue.erase(userIter);
-        }
+        LLVM_DEBUG(
+          Logger &logger = log();
+          logger.log("[User] ", raw_ostream::Colors::BLACK);
+          logger.logValueln(user);
+          logger.increaseIndent();
+        );
 
-        LLVM_DEBUG(dbgs() << " [User] " << *user << "\n");
-        if (auto *inst = dyn_cast<Instruction>(user))
-          LLVM_DEBUG(dbgs() << "  - function: " << inst->getFunction()->getName() << "\n");
+        // Update valueInitInfo of the user based on the parent's valueInitInfo
+        propagateInfo(value, user);
 
-        // Determine the new backtracking depth for propagation
-        unsigned int valueDepth = valueConvQueueInfo.backtrackingDepthLeft;
-        valueDepth = std::min(valueDepth, valueDepth - 1);
-
-        if (valueDepth <= 1 && isa<StoreInst>(user)) {
-          auto *store = cast<StoreInst>(user);
-          Type *valueOperandType = getUnwrappedType(store->getValueOperand());
-          if (valueOperandType->isFloatingPointTy()) {
-            LLVM_DEBUG(dbgs() << "  backtracking to stored value def instr\n");
-            valueDepth = 1;
+        // Determine the new backtracking depth for backward propagation
+        unsigned int newUserBtDepth = valueInitInfo.getUserBacktrackingDepth();
+        if (auto *storeUser = dyn_cast<StoreInst>(user))
+          if (newUserBtDepth <= 1) {
+            Value *storedValue = storeUser->getValueOperand();
+            if (getUnwrappedType(storedValue)->isFloatingPointTy()) {
+              LLVM_DEBUG(
+                Logger &logger = log();
+                logger.log("will backtrack to stored value: ", raw_ostream::Colors::CYAN);
+                logger.logValueln(storedValue);
+              );
+              newUserBtDepth = 1;
+            }
           }
+        if (newUserBtDepth > 0) {
+          ValueInitInfo &userInitInfo = taffoInitInfo.getValueInitInfo(user);
+          userInitInfo.setBacktrackingDepth(std::max(newUserBtDepth, userInitInfo.getBacktrackingDepth()));
         }
-        if (valueDepth > 0) {
-          unsigned int &userDepth = userConvQueueInfo.backtrackingDepthLeft;
-          userDepth = std::max(valueDepth, userDepth);
-        }
-        // Update conversion info for the user based on the parent's conversion info
-        createUserInfo(value, valueConvQueueInfo, user, userConvQueueInfo);
-        // Insert user at the end of the queue with the updated conversion info
-        queue.insert(user, userConvQueueInfo);
+
+        // Extract the user from the queue if already in
+        auto userIter = std::ranges::find(infoPropagationQueue, user);
+        if (userIter != infoPropagationQueue.end())
+          infoPropagationQueue.erase(userIter);
+        // Insert it at the end of the queue
+        infoPropagationQueue.push_back(user);
+
+        LLVM_DEBUG(log().decreaseIndent());
       }
+      LLVM_DEBUG(log().decreaseIndent());
     }
 
     // Backward propagation: process operands of each instruction in reverse order
-    for (auto iter = queue.end(); iter != queue.begin();) {
-      iter--;
-      Value *value = iter->first;
-      ConvQueueInfo valueConvQueueInfo = iter->second;
+    for (auto iter = --infoPropagationQueue.end(); iter != infoPropagationQueue.begin(); iter--) {
+      Value *value = *iter;
+      ValueInitInfo &valueInitInfo = taffoInitInfo.getValueInitInfo(value);
 
-      unsigned int valueDepth = valueConvQueueInfo.backtrackingDepthLeft;
-      if (valueDepth == 0)
+      unsigned int backtrackingDepth = valueInitInfo.getBacktrackingDepth();
+      if (backtrackingDepth == 0)
         continue;
       auto *inst = dyn_cast<Instruction>(value);
       if (!inst)
         continue;
 
-      LLVM_DEBUG(dbgs() << "BACKTRACKING " << *value << ", depth left = " << valueDepth << "\n");
+      LLVM_DEBUG(
+        Logger &logger = log();
+        logger.log("[Backtracking] ", raw_ostream::Colors::BLACK);
+        logger.logValueln(value);
+        logger.increaseIndent();
+        logger << "depth left = " << backtrackingDepth << "\n";
+      );
 
       // Process each operand of the instruction
-      int OpIdx = -1;
+      int operandIndex = -1;
       for (Value *user : inst->operands()) {
-        OpIdx++;
+        operandIndex++;
+        LLVM_DEBUG(
+          Logger &logger = log();
+          logger.log("[Operand] ", raw_ostream::Colors::BLACK);
+          logger.logValueln(user);
+          logger.increaseIndent();
+        );
         // Skip operands that are not a User or an Argument
         if (!isa<User>(user) && !isa<Argument>(user)) {
-          LLVM_DEBUG(dbgs() << " - " << user->getNameOrAsOperand() << " not a User or an Argument, ignoring\n");
+          LLVM_DEBUG(log().logln("not a User or an Argument: ignoring"));
           continue;
         }
         // Skip functions and block addresses
         if (isa<Function>(user) || isa<BlockAddress>(user)) {
-          LLVM_DEBUG(dbgs() << " - " << user->getNameOrAsOperand() << " is a function/block address, ignoring\n");
+          LLVM_DEBUG(log().logln("is a function or a block address: ignoring"));
           continue;
         }
         // Skip constants
         if (isa<Constant>(user)) {
-          LLVM_DEBUG(dbgs() << " - " << user->getNameOrAsOperand() << " is a constant, ignoring\n");
+          LLVM_DEBUG(log().logln("is a constant: ignoring"));
           continue;
         }
-        LLVM_DEBUG(dbgs() << " - " << *user);
-
         if (!getUnwrappedType(user)->isFloatTy()) {
-          LLVM_DEBUG(dbgs() << " not a float, ignoring\n");
+          LLVM_DEBUG(log().logln("not a float: ignoring"));
           continue;
         }
 
         bool alreadyIn = false;
-        ConvQueueInfo userConvQueueInfo;
-        userConvQueueInfo.backtrackingDepthLeft = std::min(valueDepth, valueDepth - 1);
-        auto userIter = queue.find(user);
-        if (userIter != queue.end()) {
-          if (userIter < iter)
+        auto userIter = std::ranges::find(infoPropagationQueue, user);
+        if (userIter != infoPropagationQueue.end()) {
+          auto valuePosition = std::distance(infoPropagationQueue.begin(), iter);
+          auto userPosition = std::distance(infoPropagationQueue.begin(), userIter);
+          if (userPosition < valuePosition)
             alreadyIn = true;
           else
-            queue.erase(userIter);
+            infoPropagationQueue.erase(userIter);
         }
+
         if (!alreadyIn) {
-          LLVM_DEBUG(dbgs() << "  enqueued\n");
-          createUserInfo(value, valueConvQueueInfo, user, userConvQueueInfo);
-          queue.insertAt(queue.begin(), user, userConvQueueInfo);
-        } else {
-          LLVM_DEBUG(dbgs() << " already in, not updating info\n");
+          propagateInfo(value, user);
+          infoPropagationQueue.push_front(user);
         }
+        else
+          LLVM_DEBUG(log().logln("already in queue: continuing"));
+
+        ValueInitInfo &userInitInfo = taffoInitInfo.getOrCreateValueInitInfo(user);
+        userInitInfo.decreaseBacktrackingDepth();
+
+        LLVM_DEBUG(log().decreaseIndent());
       }
+      LLVM_DEBUG(log().decreaseIndent());
     }
   }
-  LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
+  LLVM_DEBUG(log().logln("[Propagation completed]", raw_ostream::Colors::BLUE));
 }
 
-void TaffoInitializerPass::createUserInfo(Value *value, ConvQueueInfo &valueConvQueueInfo, Value *user, ConvQueueInfo &userConvQueueInfo) {
-  std::shared_ptr<ValueInfo> &valueInfo = valueConvQueueInfo.valueInfo;
-  unsigned int &valueRootDistance = valueConvQueueInfo.rootDistance;
-  std::shared_ptr<ValueInfo> &userInfo = userConvQueueInfo.valueInfo;
-  unsigned int &userRootDistance = userConvQueueInfo.rootDistance;
+void TaffoInitializerPass::propagateInfo(Value *src, Value *dst) {
   TaffoInfo &taffoInfo = TaffoInfo::getInstance();
-  /* Propagate metadata from the instruction closest to a root */
-  if (userRootDistance > std::max(valueRootDistance, valueRootDistance + 1)) {
-    userRootDistance = std::max(valueRootDistance, valueRootDistance + 1);
-    LLVM_DEBUG(dbgs() << "  " << __FUNCTION__ << ":\n");
-    LLVM_DEBUG(dbgs() << "   updated root distance: " << userRootDistance << "\n");
-    std::shared_ptr<TransparentType> valueType = taffoInfo.getTransparentType(*value);
-    std::shared_ptr<TransparentType> userType = taffoInfo.getTransparentType(*user);
-    LLVM_DEBUG(dbgs() << "   valueType = " << *valueType << ", valueInfo = " << (valueInfo ? valueInfo->toString() : "(null)") << "\n");
-    LLVM_DEBUG(dbgs() << "   userType = " << *userType << ", userInfo = " << (userInfo ? userInfo->toString() : "(null)") << "\n");
-    if (isa<CallInst>(user))
-      userInfo = std::make_shared<ScalarInfo>(nullptr, nullptr, nullptr, true);
-    else if (!valueType->isStructType() && !userType->isStructType()) { //TODO FIX SOON
-      userInfo = valueInfo->clone();
-      LLVM_DEBUG(dbgs() << "   copied userInfo " << userInfo->toString() << " from valueInfo " << valueInfo->toString() << "\n");
+  if (!taffoInfo.hasValueInfo(*dst))
+    taffoInfo.createValueInfo(*dst);
+
+  ValueInitInfo &srcInitInfo = taffoInitInfo.getValueInitInfo(src);
+  ValueInitInfo &dstInitInfo = taffoInitInfo.getOrCreateValueInitInfo(dst);
+  ValueInfo *srcInfo = srcInitInfo.getValueInfo();
+  ValueInfo *dstInfo = dstInitInfo.getValueInfo();
+
+  unsigned int dstRootDistance = dstInitInfo.getRootDistance();
+  unsigned int newDstRootDistance = srcInitInfo.getUserRootDistance();
+  /* Propagate info only if the path to a root is shorter than the current */
+  if (newDstRootDistance < dstRootDistance) {
+    dstInitInfo.setRootDistance(newDstRootDistance);
+    std::shared_ptr<TransparentType> srcType = taffoInfo.getOrCreateTransparentType(*src);
+    std::shared_ptr<TransparentType> dstType = taffoInfo.getOrCreateTransparentType(*dst);
+
+    LLVM_DEBUG(
+      Logger &logger = log();
+      logger.setContextTag(__FUNCTION__);
+      logger << "updated root distance: " << newDstRootDistance << "\n";
+      logger << "srcType = ";
+      logger.log(*srcType, raw_ostream::Colors::CYAN);
+      logger << ", srcInfo = ";
+      logger.logln(*srcInfo, raw_ostream::Colors::CYAN);
+      logger << "dstType = ";
+      logger.log(*dstType, raw_ostream::Colors::CYAN);
+      logger << ", ";
+    );
+
+    // TODO Manage structs
+    // TODO Manage geps
+    bool copied = false;
+    bool wasEnabled = dstInfo->isConversionEnabled();
+    if (!srcType->isStructType() && !dstType->isStructType()) {
+      dstInfo->copyFrom(*srcInfo);
+      copied = true;
+      if (wasEnabled)
+        if (auto *dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
+          dstScalarInfo->conversionEnabled = true;
     }
-    else {
-      if (userType->isStructType())
-        userInfo = StructInfo::createFromTransparentType(std::static_ptr_cast<TransparentStructType>(userType));
-      else
-        userInfo = std::make_shared<ScalarInfo>(nullptr, nullptr, nullptr, true);
-      LLVM_DEBUG(dbgs() << "   created userInfo " << userInfo->toString() << " because valueType != userType\n");
+    else if (srcInfo->isConversionEnabled()) {
+      if (auto *dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
+        dstScalarInfo->conversionEnabled = true;
     }
+
+    LLVM_DEBUG(
+      Logger &logger = log();
+      logger << "dstInfo";
+      logger << " = ";
+      logger.log(*dstInfo, raw_ostream::Colors::CYAN);
+      if (copied)
+        logger.log(" copied", raw_ostream::Colors::GREEN);
+      logger << "\n";
+      logger.restorePrevContextTag();
+    );
   }
-
-  // The conversion enabling flag shall be true if at least one of the parents of the children has it enabled
-  std::shared_ptr<ScalarInfo> valueScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
-  std::shared_ptr<ScalarInfo> userScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(userInfo);
-  if (userScalarInfo && valueScalarInfo && valueScalarInfo->conversionEnabled)
-    userScalarInfo->conversionEnabled = true;
-
-  // Fix valueInfo if this is a GetElementPtrInst
-  std::shared_ptr<ValueInfo> gepValueInfo = extractGEPValueInfo(value, valueInfo, user);
-  if (gepValueInfo) {
-    userInfo = gepValueInfo;
-    userInfo->bufferId = valueInfo->bufferId;
-  }
-  // Copy BufferID across loads and bitcasts
-  if (isa<BitCastInst>(user) || isa<LoadInst>(user)) {
-    userInfo->bufferId = valueInfo->bufferId;
-  }
-}
-
-std::shared_ptr<ValueInfo> TaffoInitializerPass::extractGEPValueInfo(
-    const Value *value, std::shared_ptr<ValueInfo> valueInfo, const Value *user) {
-  if (!valueInfo)
-    return nullptr;
-  assert(value && user);
-  const auto *gepi = dyn_cast<GetElementPtrInst>(user);
-  if (!gepi)
-    return nullptr;
-
-  if (gepi->getPointerOperand() != value) {
-    /* if the used value is not the pointer, then it must be one of the
-     * indices; keep everything as is */
-    return nullptr;
-  }
-
-  LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] begin\n");
-  LLVM_DEBUG(dbgs() << "Initial GEP object metadata is " << valueInfo->toString() << "\n");
-
-  Type *source_element_type = gepi->getSourceElementType();
-  for (auto idx_it = gepi->idx_begin() + 1; // skip first index
-       idx_it != gepi->idx_end(); ++idx_it) {
-    LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] source_element_type=" << *source_element_type << "\n");
-    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type))
-      continue;
-
-    if (const ConstantInt *int_i = dyn_cast<ConstantInt>(*idx_it)) {
-      int n = static_cast<int>(int_i->getSExtValue());
-      valueInfo = cast<StructInfo>(valueInfo.get())->getField(n);
-      source_element_type =
-          cast<StructType>(source_element_type)->getTypeAtIndex(n);
-    } else {
-      LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] fail, non-const index encountered\n");
-      return nullptr;
-    }
-  }
-  if (valueInfo)
-    LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] end, valueInfo=" << valueInfo->toString() << "\n");
   else
-    LLVM_DEBUG(dbgs() << "[extractGEPValueInfo] end, valueInfo=NULL\n");
-  return valueInfo ? valueInfo->clone() : nullptr;
+    LLVM_DEBUG(log().logln("already has info from a value closer or equally close to a root: continuing"));
+
+  // Copy BufferId across loads, geps and bitcasts
+  if (isa<LoadInst>(dst) || isa<GetElementPtrInst>(dst) || isa<BitCastInst>(dst)) {
+    dstInfo->bufferId = srcInfo->bufferId;
+  }
 }
 
-void TaffoInitializerPass::generateFunctionSpace(
-    ConvQueueType &convQueue, ConvQueueType &global, SmallPtrSet<Function *, 10> &callTrace) {
-  LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
-
-  for (const auto &[value, _] : convQueue) {
+void TaffoInitializerPass::generateFunctionClones() {
+  LLVM_DEBUG(log().logln("[Function cloning]", raw_ostream::Colors::BLUE));
+  for (Value *value : infoPropagationQueue) {
     if (!isa<CallInst>(value) && !isa<InvokeInst>(value))
       continue;
     auto *call = dyn_cast<CallBase>(value);
 
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
-      LLVM_DEBUG(dbgs() << "found bitcasted funcptr in " << *value << ", skipping\n");
+      LLVM_DEBUG(log() << raw_ostream::Colors::YELLOW << "Indirect function invocation in " << *value << ": skipping\n" << raw_ostream::Colors::RESET);
       continue;
     }
-    if (isSpecialFunction(oldF))
+    if (isSpecialFunction(oldF)) {
+      LLVM_DEBUG(log() << raw_ostream::Colors::YELLOW << "Special function invocation in " << *value << ": skipping\n" << raw_ostream::Colors::RESET);
       continue;
-    if (ManualFunctionCloning) {
-      if (enabledFunctions.count(oldF) == 0) {
-        LLVM_DEBUG(dbgs() << "skipped cloning of function from call " << *value << ": function disabled\n");
+    }
+    if (manualFunctionCloning) {
+      if (!annotatedFunctions.contains(oldF)) {
+        LLVM_DEBUG(dbgs() << raw_ostream::Colors::YELLOW << "Disabled function invocation in " << *value << ": skipping\n" << raw_ostream::Colors::RESET);
         continue;
       }
     }
 
-    std::vector<Value*> newVals;
-    Function *newF = createFunctionAndQueue(call, convQueue, global, newVals);
+    Function *newF = cloneFunction(call);
     call->setCalledFunction(newF);
-    enabledFunctions.insert(newF);
+    annotatedFunctions.insert(newF);
 
-    TaffoInfo::getInstance().setTaffoFunction(*oldF, *newF);
-    for (auto newValue : newVals) {
-      auto *newInst = dyn_cast<Instruction>(newValue);
-      if (!newInst || !TaffoInfo::getInstance().hasValueInfo(*newInst))
-        setValueInfo(newValue, convQueue.at(newValue));
-    }
-
-    /* Reconstruct the value info for the values which are in the top-level
-     * conversion queue and in the oldF
-     * Allows us to properly process call functions */
-    // TODO: REWRITE USING THE VALUE MAP RETURNED BY CloneFunctionInto
-    for (BasicBlock &bb : *newF) {
-      for (Instruction &inst : bb) {
-        if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst)) {
-          ConvQueueInfo instConvQueueInfo;
-          instConvQueueInfo.valueInfo = valueInfo->clone();
-          int weight = TaffoInfo::getInstance().getValueWeight(inst);
-          if (weight >= 0)
-            instConvQueueInfo.rootDistance = weight;
-          convQueue.insert(&inst, instConvQueueInfo);
-          LLVM_DEBUG(dbgs() << "  enqueued & rebuilt valueInfo of " << inst << " in " << newF->getName() << "\n");
-        }
-      }
-    }
+    TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+    taffoInfo.setTaffoFunction(*oldF, *newF);
   }
-  LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
+  LLVM_DEBUG(log().logln("[Function cloning completed]", raw_ostream::Colors::BLUE));
 }
 
-Function *TaffoInitializerPass::createFunctionAndQueue(
-    CallBase *call, ConvQueueType &vals, ConvQueueType &global, std::vector<Value*> &convQueue) {
-  LLVM_DEBUG(dbgs() << "***** begin " << __PRETTY_FUNCTION__ << "\n");
-
-  /* vals: conversion queue of caller
-   * global: global values to copy in all conversion queues
-   * convQueue: output conversion queue of this function */
-
+Function *TaffoInitializerPass::cloneFunction(CallBase *call) {
   Function *oldF = call->getCalledFunction();
   Function *newF = Function::Create(
-      oldF->getFunctionType(), oldF->getLinkage(),
-      oldF->getName(), oldF->getParent());
-
-  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+    oldF->getFunctionType(), oldF->getLinkage(), oldF->getName(), oldF->getParent());
 
   // Create Val2Val mapping and clone function
   ValueToValueMapTy valueMap;
@@ -423,116 +369,114 @@ Function *TaffoInitializerPass::createFunctionAndQueue(
     newArg.setName(oldArg.getName());
     valueMap.insert({&oldArg, &newArg});
   }
-  SmallVector<ReturnInst*, 100> returns;
+  SmallVector<ReturnInst*, 10> returns;
   CloneFunctionInto(newF, oldF, valueMap, CloneFunctionChangeType::GlobalChanges, returns);
-  for (auto &&[oldValue, newValue] : valueMap) {
-    if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*oldValue))
-      taffoInfo.setValueInfo(*newValue, valueInfo);
-    if (taffoInfo.hasTransparentType(*oldValue))
-      taffoInfo.setTransparentType(*newValue, taffoInfo.getTransparentType(*const_cast<Value*>(oldValue)));
-  }
-  if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*oldF))
-    taffoInfo.setValueInfo(*newF, valueInfo);
-  if (taffoInfo.hasTransparentType(*oldF))
-    taffoInfo.setTransparentType(*newF, taffoInfo.getTransparentType(*oldF));
 
-  if (!OpenCLKernelMode && !CudaKernelMode)
+  TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+  // Lambda to copy TransparentType and ValueInitInfo from src value to dst value
+  auto copyInfo = [this, &taffoInfo](Value *src, Value *dst) {
+    if (taffoInfo.hasTransparentType(*src))
+      taffoInfo.setTransparentType(*dst, taffoInfo.getOrCreateTransparentType(*src));
+    if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*src))
+      taffoInfo.setValueInfo(*dst, valueInfo->clone());
+    if (taffoInitInfo.hasValueInitInfo(src)) {
+      ValueInitInfo &oldValueInitInfo = taffoInitInfo.getValueInitInfo(src);
+      ValueInitInfo &newValueInitInfo = taffoInitInfo.createValueInitInfo(dst);
+      newValueInitInfo.setRootDistance(oldValueInitInfo.getRootDistance());
+      newValueInitInfo.setBacktrackingDepth(oldValueInitInfo.getBacktrackingDepth());
+      infoPropagationQueue.push_back(dst);
+    }
+  };
+
+  for (auto &&[oldValue, newValue] : valueMap)
+    copyInfo(const_cast<Value*>(oldValue), newValue);
+  copyInfo(oldF, newF);
+
+  if (!openCLKernelMode && !cudaKernelMode)
     newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
 
   FunctionCloned++;
 
-  ConvQueueType roots;
-  LLVM_DEBUG(dbgs() << "Create function from " << oldF->getName() << " to " << newF->getName() << "\n");
-  LLVM_DEBUG(dbgs() << "  CallBase instr " << *call << " [" << call->getFunction()->getName() << "]\n");
-  for (Argument &newArg : newF->args()) {
-    auto user_begin = newArg.user_begin();
-    if (user_begin == newArg.user_end()) {
-      LLVM_DEBUG(dbgs() << "  Arg nr. " << newArg.getArgNo() << " skipped, value has no uses\n");
+  LLVM_DEBUG(
+    Logger &logger = log();
+    logger.log("[Cloning of] ", raw_ostream::Colors::BLACK);
+    logger.logValueln(oldF);
+    logger.increaseIndent();
+    logger.log("new function: ");
+    logger.logValueln(newF);
+    logger.log("for call: ");
+    logger.logValueln(call);
+    logger.logln("[Propagating info from call arguments to clone function arguments]", raw_ostream::Colors::BLACK);
+    logger.increaseIndent();
+    if (newF->arg_empty())
+      logger.logln("function has no arguments: continuing");
+  );
+
+  // Propagate ValueInitInfo from call args to function args
+  for (Argument &arg : newF->args()) {
+    LLVM_DEBUG(
+      Logger &logger = log();
+      logger << raw_ostream::Colors::BLACK << "[Arg " << arg.getArgNo() << "] " << raw_ostream::Colors::RESET << arg << "\n";
+      logger.increaseIndent();
+    );
+    if (arg.user_empty()) {
+      LLVM_DEBUG(log().logln("arg has no users: skipping"));
       continue;
     }
-
-    Value *callOperand = call->getOperand(newArg.getArgNo());
-    Value *allocaOfArgument = user_begin->getOperand(1);
-
-    for (; user_begin != newArg.user_end(); ++user_begin) {
-      if (auto *store = dyn_cast<StoreInst>(*user_begin)) {
-        allocaOfArgument = store->getOperand(1);
-      }
-    }
-
-    if (!isa<AllocaInst>(allocaOfArgument))
-      allocaOfArgument = nullptr;
-
-    if (!vals.contains(callOperand)) {
-      LLVM_DEBUG(dbgs() << "  Arg nr. " << newArg.getArgNo() << " skipped, callOperand has no valueInfo\n");
+    Value *callArg = call->getArgOperand(arg.getArgNo());
+    if (!taffoInitInfo.hasValueInitInfo(callArg)) {
+      LLVM_DEBUG(log().logln("arg has no valueInitInfo in the call: skipping"));
       continue;
     }
+    Value *argAlloca = nullptr;
+    for (Value *argUser : arg.users())
+      if (auto *store = dyn_cast<StoreInst>(argUser))
+        if (store->getValueOperand() == &arg && isa<AllocaInst>(store->getPointerOperand()))
+          argAlloca = store->getPointerOperand();
 
-    ConvQueueInfo &callOperandQueueInfo = vals[callOperand];
-    ConvQueueInfo argumentConvQueueInfo;
-    vals.insert(&newArg, argumentConvQueueInfo);
+    ValueInitInfo &callArgInitInfo = taffoInitInfo.getValueInitInfo(callArg);
+    taffoInfo.setValueInfo(arg, callArgInitInfo.getValueInfo()->clone());
+    ValueInitInfo &argInitInfo = taffoInitInfo.createValueInitInfo(&arg);
+    argInitInfo.setRootDistance(callArgInitInfo.getUserRootDistance());
+    infoPropagationQueue.push_back(&arg);
 
-    std::shared_ptr<ValueInfo> &argumentInfo = argumentConvQueueInfo.valueInfo;
-    const std::shared_ptr<ValueInfo> &callOperandInfo = callOperandQueueInfo.valueInfo;
-
-    // Mark the argument itself (set it as a new root as well in VRA-less mode)
-    argumentInfo = callOperandInfo->clone();
-    argumentConvQueueInfo.rootDistance = std::max(callOperandQueueInfo.rootDistance, callOperandQueueInfo.rootDistance + 1);
-    if (!allocaOfArgument)
-      roots.insert(&newArg, argumentConvQueueInfo);
-
-    if (allocaOfArgument) {
-      ConvQueueInfo &allocaConvQueueInfo = vals[allocaOfArgument];
-      std::shared_ptr<ValueInfo> &allocaInfo = allocaConvQueueInfo.valueInfo;
-      // Mark the alloca used for the argument (in O0 opt lvl)
-      // let it be a root in VRA-less mode
-      allocaInfo = callOperandInfo->clone();
-      allocaConvQueueInfo.rootDistance = std::max(callOperandQueueInfo.rootDistance, callOperandQueueInfo.rootDistance + 2);
-      roots.insert(allocaOfArgument, allocaConvQueueInfo);
+    if (argAlloca) {
+      taffoInfo.setValueInfo(*argAlloca, callArgInitInfo.getValueInfo()->clone());
+      ValueInitInfo &argAllocaInitInfo = taffoInitInfo.createValueInitInfo(argAlloca);
+      argAllocaInitInfo.setRootDistance(argInitInfo.getUserRootDistance());
+      infoPropagationQueue.push_back(argAlloca);
     }
 
     // Propagate BufferID
-    argumentInfo->bufferId = callOperandInfo->bufferId;
+    argInitInfo.getValueInfo()->bufferId = callArgInitInfo.getValueInfo()->bufferId;
 
-    LLVM_DEBUG(dbgs() << "  Arg nr. " << newArg.getArgNo() << " processed\n");
-    LLVM_DEBUG(dbgs() << "    vi = " << *argumentInfo << "\n");
-    if (allocaOfArgument)
-      LLVM_DEBUG(dbgs() << "    enqueued alloca of argument " << *allocaOfArgument << "\n");
-  }
-
-  ConvQueueType tmpVals;
-  roots.insertAt(roots.begin(), global.begin(), global.end());
-  ConvQueueType localFix;
-  readLocalAnnotations(*newF, localFix);
-  roots.insertAt(roots.begin(), localFix.begin(), localFix.end());
-  buildConversionQueueForRootValues(roots, tmpVals);
-  for (auto val : tmpVals) {
-    if (auto *inst = dyn_cast<Instruction>(val.first)) {
-      if (inst->getFunction() == newF) {
-        vals.insert(val);
-        convQueue.push_back(val.first);
-        LLVM_DEBUG(dbgs() << "  enqueued " << *inst << " in " << newF->getName() << "\n");
+    LLVM_DEBUG(
+      Logger &logger = log();
+      logger.log("argInfo: ");
+      logger.log(*argInitInfo.getValueInfo(), raw_ostream::Colors::CYAN);
+      logger.logln(" copied from call", raw_ostream::Colors::GREEN);
+      if (argAlloca) {
+        logger.log("argInfo also copied to argument alloca: ", raw_ostream::Colors::GREEN);
+        logger.logln(*argAlloca);
       }
-    }
+      logger.decreaseIndent();
+    );
   }
-
-  LLVM_DEBUG(dbgs() << "***** end " << __PRETTY_FUNCTION__ << "\n");
+  LLVM_DEBUG(log().decreaseIndent(2));
   return newF;
 }
 
-void TaffoInitializerPass::printConversionQueue(ConvQueueType &queue) {
-  if (queue.size() < 1000) {
-    dbgs() << "conversion queue:\n";
-    for (const auto &[value, convQueueInfo] : queue) {
-      dbgs() << "bt=" << convQueueInfo.backtrackingDepthLeft << " ";
-      std::shared_ptr<ValueInfo> valueInfo = convQueueInfo.valueInfo;
-      dbgs() << "vi=" << (valueInfo ? valueInfo->toString() : "(null)") << " ";
-      if (auto *inst = dyn_cast<Instruction>(value))
-        dbgs() << "fun=" << inst->getFunction()->getName() << " ";
-      dbgs() << *value << "\n";
+void TaffoInitializerPass::logInfoPropagationQueue() {
+  Logger &logger = log();
+  if (infoPropagationQueue.size() < 1000) {
+    for (Value *value : infoPropagationQueue) {
+      logger.log("[Value] ", raw_ostream::Colors::BLACK);
+      logger.logValueln(value);
+      logger.increaseIndent();
+      logger << "valueInitInfo: " << taffoInitInfo.getValueInitInfo(value) << "\n";
+      logger.decreaseIndent();
     }
-    dbgs() << "\n";
-  } else {
-    dbgs() << "not printing the conversion queue because it exceeds 1000 items";
   }
+  else
+    logger.log("Not logging the queue because it exceeds 1000 items", raw_ostream::Colors::YELLOW);
 }

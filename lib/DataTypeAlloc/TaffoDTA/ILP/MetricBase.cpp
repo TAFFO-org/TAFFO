@@ -187,7 +187,7 @@ void emitError(string stringhina)
 
 shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_ptr<StructInfo> pInfo, string name)
 {
-  shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->numFields());
+  shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->getNumFields());
 
   int i = 0;
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {

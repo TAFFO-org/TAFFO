@@ -161,7 +161,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
   }
 
   bool skippedAll = true;
-  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getTransparentType(*v);
+  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*v);
   SmallVector<std::pair<std::shared_ptr<ValueInfo>, std::shared_ptr<TransparentType>>, 8> queue({std::make_pair(newValueInfo, transparentType)});
 
   while (!queue.empty()) {
@@ -195,7 +195,7 @@ bool TaffoTuner::processMetadataOfValue(Value *v, const std::shared_ptr<ValueInf
         LLVM_DEBUG(dbgs() << "The top-level MDInfo was " << valueInfo->toString() << "\n");
         llvm_unreachable("Non-conforming StructInfo.");
       }
-      for (unsigned int i = 0; i < structInfo->numFields(); i++)
+      for (unsigned int i = 0; i < structInfo->getNumFields(); i++)
         if (const std::shared_ptr<ValueInfo> &field = structInfo->getField(i))
           queue.push_back(std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
 
@@ -373,8 +373,8 @@ void TaffoTuner::sortQueue(std::vector<Value *> &vals,
             } else if (utype->isStructTy() && ctype->isStructTy() && ctype->canLosslesslyBitCastTo(utype)) {
               getTunerInfo(u)->metadata = getTunerInfo(c)->metadata->clone();
             } else {
-              if (auto userStructType = std::dynamic_ptr_cast<TransparentStructType>(TaffoInfo::getInstance().getTransparentType(*u)))
-                getTunerInfo(u)->metadata = StructInfo::createFromTransparentType(userStructType);
+              if (auto userStructType = std::dynamic_ptr_cast<TransparentStructType>(TaffoInfo::getInstance().getOrCreateTransparentType(*u)))
+                getTunerInfo(u)->metadata = ValueInfoFactory::create(userStructType);
               else
                 getTunerInfo(u)->metadata = std::make_shared<ScalarInfo>();
               LLVM_DEBUG(dbgs() << "not copying metadata of " << *c << " to " << *u
@@ -743,8 +743,8 @@ bool compareTypesOfMDInfo(const std::shared_ptr<ValueInfo> &mdi1, const std::sha
   } else if (isa<StructInfo>(mdi1.get())) {
     std::shared_ptr<StructInfo> si1 = static_ptr_cast<StructInfo>(mdi1);
     std::shared_ptr<StructInfo> si2 = static_ptr_cast<StructInfo>(mdi2);
-    if (si1->numFields() == si2->numFields()) {
-      int numFields = si1->numFields();
+    if (si1->getNumFields() == si2->getNumFields()) {
+      int numFields = si1->getNumFields();
       for (int i = 0; i < numFields; i++) {
         std::shared_ptr<ValueInfo> p1 = si1->getField(i);
         std::shared_ptr<ValueInfo> p2 = si1->getField(i);
@@ -958,7 +958,7 @@ bool TaffoTuner::overwriteType(shared_ptr<ValueInfo> old, shared_ptr<ValueInfo> 
     std::shared_ptr<StructInfo> model1 = dynamic_ptr_cast<StructInfo>(model);
 
     bool changed = false;
-    for (unsigned int i = 0; i < old1->numFields(); i++) {
+    for (unsigned int i = 0; i < old1->getNumFields(); i++) {
       changed |= overwriteType(old1->getField(i), model1->getField(i));
     }
     return changed;

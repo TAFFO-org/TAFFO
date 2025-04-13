@@ -242,7 +242,7 @@ void FloatToFixed::openPhiLoop(PHINode *phi)
   phi->replaceAllUsesWith(info.placeh_noconv);
   cpMetaData(info.placeh_noconv, phi);
   if (isFloatingPointToConvert(phi)) {
-    Type *convt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getTransparentType(*phi), getFixpType(phi));
+    Type *convt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*phi), getFixpType(phi));
     info.placeh_conv = createPlaceholder(convt, phi->getParent(), "phi_conv");
     *(newConversionInfo(info.placeh_conv)) = *(getConversionInfo(phi));
     cpMetaData(info.placeh_conv, phi);
@@ -576,7 +576,7 @@ void FloatToFixed::propagateCall(std::vector<Value*> &vals, SmallVectorImpl<Valu
         std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(*oldIt);
         if (std::shared_ptr<ScalarInfo> argScalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(argInfo)) {
           std::shared_ptr<ValueInfo> newInfo = argScalarInfo->clone();
-          TaffoInfo::getInstance().setTransparentType(*placehValue, TaffoInfo::getInstance().getTransparentType(*oldIt)->clone());
+          TaffoInfo::getInstance().setTransparentType(*placehValue, TaffoInfo::getInstance().getOrCreateTransparentType(*oldIt)->clone());
           TaffoInfo::getInstance().setValueInfo(*placehValue, newInfo);
          }
 
@@ -699,7 +699,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old) {
       retType = getLLVMFixedPointTypeForFloatValue(call);
 
   FunctionType *newFunTy = FunctionType::get(
-      TaffoInfo::getInstance().getTransparentType(*oldF)->isFloatingPointType() ? retType : oldF->getReturnType(),
+      TaffoInfo::getInstance().getOrCreateTransparentType(*oldF)->isFloatingPointType() ? retType : oldF->getReturnType(),
       argsLLVMTypes, oldF->isVarArg());
 
   LLVM_DEBUG(

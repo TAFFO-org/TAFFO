@@ -14,13 +14,21 @@
 namespace taffo {
 
 class AnnotationParser {
+public:
+  bool startingPoint;
+  bool backtracking;
+  unsigned int backtrackingDepth;
+
+  bool parseAnnotationAndGenValueInfo(llvm::StringRef annotationStr, llvm::Value* annotatedValue);
+  llvm::StringRef getLastError();
+
+private:
   std::istringstream stringStream;
   std::string nextToken;
   std::string error;
   std::shared_ptr<ValueInfo> valueInfoBuild;
 
   void reset();
-
   bool parseSyntax(llvm::Type *type);
   bool parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, llvm::Type *type);
   bool parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, llvm::Type *type);
@@ -31,15 +39,7 @@ class AnnotationParser {
   bool expectInteger(int64_t &res);
   bool expectReal(double &res);
   bool expectBoolean(bool &res);
-  std::shared_ptr<ValueInfo>&& buildValueInfo();
-
-public:
-  bool startingPoint;
-  bool backtracking;
-  unsigned int backtrackingDepth;
-
-  bool parseAnnotationAndGenValueInfo(llvm::StringRef annotationStr, llvm::Value* annotatedValue);
-  llvm::StringRef getLastError();
+  std::shared_ptr<ValueInfo> &&buildValueInfo();
 };
 
 } // namespace taffo

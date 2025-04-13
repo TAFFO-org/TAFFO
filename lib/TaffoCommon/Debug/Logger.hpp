@@ -44,6 +44,9 @@ public:
   void setContextTag(const char *tag);
   void restorePrevContextTag();
 
+  void setColor(llvm::raw_ostream::Colors color);
+  void resetColor();
+
   void setIndent(unsigned indent);
   void increaseIndent(unsigned amount = 1);
   void decreaseIndent(unsigned amount = 1);
@@ -87,36 +90,71 @@ public:
   // Generic fallback log (for types that are not printable in any special way)
   template <typename T>
   void log(const T &message, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
-    if (isLineStart)
-      logIndent();
-    bool useColors = ostream.is_displayed() && color != llvm::raw_ostream::Colors::RESET;
-    if (useColors)
-      ostream.changeColor(color, /*Bold=*/true);
-    ostream << message;
-    if (useColors)
-      ostream.resetColor();
+    // Convert message to string.
+    std::string s;
+    llvm::raw_string_ostream oss(s);
+    oss << message;
+    std::string messageString = oss.str();
+
+    llvm::raw_ostream::Colors resColor = (color == llvm::raw_ostream::Colors::RESET) ? currentColor : color;
+    bool useColors = ostream.is_displayed() && resColor != llvm::raw_ostream::Colors::RESET;
+    // Log the string splitting by '\n'.
+    size_t start = 0;
+    while (start < messageString.size()) {
+      size_t pos = messageString.find('\n', start);
+      std::string line = (pos == std::string::npos) ? messageString.substr(start) : messageString.substr(start, pos - start);
+      if (isLineStart)
+        logIndent();
+      if (useColors)
+        ostream.changeColor(resColor, /*Bold=*/true);
+      ostream << line;
+      if (useColors)
+        ostream.resetColor();
+      // If no newline was found, stop.
+      if (pos == std::string::npos) {
+        isLineStart = false;
+        break;
+      }
+      ostream << "\n";
+      isLineStart = true;
+      start = pos + 1;
+    }
   }
 
   template <typename T>
   void logln(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log(value, color);
-    log("\n");
+    ostream << "\n";
     isLineStart = true;
+  }
+
+  template<typename T>
+  Logger &operator<<(const T &val) {
+    log(val);
+    return *this;
+  }
+
+  Logger &operator<<(llvm::raw_ostream::Colors color) {
+    setColor(color);
+    return *this;
   }
 
 private:
   llvm::raw_ostream &ostream;
+  std::list<std::string> contextTagStack;
+  llvm::raw_ostream::Colors currentColor;
   unsigned indent;
   bool isLineStart;
-  std::list<std::string> contextTagStack;
 
-  Logger() : ostream(getOutputStream()), indent(0), isLineStart(true) {}
+  Logger() : ostream(getOutputStream()), currentColor(llvm::raw_ostream::Colors::RESET), indent(0), isLineStart(true) {}
   Logger(const Logger &) = delete;
   Logger &operator=(const Logger &) = delete;
 
   static llvm::raw_fd_ostream &getOutputStream();
   void logIndent();
 };
+
+inline Logger &log() { return Logger::getInstance(); }
 
 }
 

@@ -23,7 +23,7 @@ public:
   static TaffoInfo &getInstance();
 
   void setTransparentType(llvm::Value &v, const std::shared_ptr<TransparentType> &t);
-  std::shared_ptr<TransparentType> getTransparentType(llvm::Value &v);
+  std::shared_ptr<TransparentType> getOrCreateTransparentType(llvm::Value &v);
   bool hasTransparentType(const llvm::Value &v);
 
   void addStartingPoint(llvm::Function &f);
@@ -42,6 +42,7 @@ public:
   void disableConversion(llvm::Instruction &i);
   bool isConversionDisabled(llvm::Instruction &i) const;
 
+  void createValueInfo(llvm::Value &v);
   void setValueInfo(llvm::Value &v, const std::shared_ptr<ValueInfo> &vi);
   void setValueInfo(llvm::Value &v, std::shared_ptr<ValueInfo> &&vi);
 

@@ -54,8 +54,8 @@ void VRAGlobalStore::harvestValueInfo(Module &m) {
         UserInput[&v] = structInfo;
         DerivedRanges[&v] = structInfo;
       }
-    } else if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(taffoInfo.getTransparentType(v))) {
-      DerivedRanges[&v] = StructInfo::createFromTransparentType(structType);
+    } else if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(taffoInfo.getOrCreateTransparentType(v))) {
+      DerivedRanges[&v] = ValueInfoFactory::create(structType);
     } else {
       std::shared_ptr<ValueInfo> constInfo = fetchConstant(&v);
       if (constInfo && isa<ScalarInfo>(constInfo.get()))
@@ -198,7 +198,7 @@ void VRAGlobalStore::updateValueInfo(
   } else if (const std::shared_ptr<StructInfo> newStructInfo = std::dynamic_ptr_cast<StructInfo>(valueInfoWithRange)) {
     if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
       auto newFieldsIter = newStructInfo->begin();
-      for (unsigned int i = 0; i < structInfo->numFields(); i++) {
+      for (unsigned int i = 0; i < structInfo->getNumFields(); i++) {
         if (newFieldsIter == newStructInfo->end())
           break;
         if (std::shared_ptr<ValueInfo> field = structInfo->getField(i))

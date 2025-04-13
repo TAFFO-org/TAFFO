@@ -51,7 +51,7 @@ public:
   bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
   bool isStructType() const { return unwrappedType->isStructTy(); }
   bool isFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
-  virtual bool containsFloatigPointType() const { return unwrappedType->isFloatingPointTy();};
+  virtual bool containsFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
   bool isPointerType() const { return indirections > 0 || isOpaquePointer(); }
   virtual bool isOpaquePointer() const { return unwrappedType->isPointerTy(); }
   virtual int compareTransparency(const TransparentType &other) const;
@@ -88,9 +88,7 @@ public:
   static bool classof(const TransparentType *type) { return type->getKind() == K_Array; }
 
   bool isOpaquePointer() const override;
-
-  bool containsFloatigPointType() const override { return getPointerElementType()->isFloatingPointType(); }
-
+  bool containsFloatingPointType() const override { return getPointerElementType()->isFloatingPointType(); }
   int compareTransparency(const TransparentType &other) const override;
   std::shared_ptr<TransparentType> getElementType() const { return elementType; }
   TransparentTypeKind getKind() const override { return K_Array; }
@@ -135,7 +133,7 @@ public:
   auto end() const { return fieldTypes.end(); }
 
   bool isOpaquePointer() const override;
-  bool containsFloatigPointType() const override;  
+  bool containsFloatingPointType() const override;
   int compareTransparency(const TransparentType &other) const override;
   std::shared_ptr<TransparentType> getFieldType(unsigned int i) const { return fieldTypes[i]; }
   unsigned int getNumFieldTypes() const { return fieldTypes.size(); }
@@ -187,10 +185,10 @@ struct hash<shared_ptr<taffo::TransparentType>> {
     combined = combine(combined, hash<unsigned int>()(ptr->getIndirections()));
 
     if (auto arrayPtr = dynamic_ptr_cast<taffo::TransparentArrayType>(ptr))
-      combined = combine(combined, hash<shared_ptr<taffo::TransparentType>>()(arrayPtr->getElementType()));
+      combined = combine(combined, hash()(arrayPtr->getElementType()));
     else if (auto structPtr = dynamic_ptr_cast<taffo::TransparentStructType>(ptr))
       for (const auto &field : *structPtr)
-        combined = combine(combined, hash<shared_ptr<taffo::TransparentType>>()(field));
+        combined = combine(combined, hash()(field));
 
     return combined;
   }

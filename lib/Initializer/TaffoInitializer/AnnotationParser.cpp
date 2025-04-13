@@ -15,8 +15,7 @@ using namespace llvm;
 void AnnotationParser::reset() {
   startingPoint = false;
   backtracking = false;
-  valueInfoBuild.reset() 
-  
+  valueInfoBuild.reset();
 }
 
 bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value *annotatedValue) {
@@ -116,7 +115,6 @@ bool AnnotationParser::parseSyntax(Type *type) {
 
   valueInfoBuild->target = target;
   valueInfoBuild->bufferId = bufferId;
-  
   return true;
 }
 
@@ -396,7 +394,7 @@ bool AnnotationParser::expectBoolean(bool &res) {
   return false;
 }
 
-std::shared_ptr<ValueInfo>&& AnnotationParser::buildValueInfo(){
+std::shared_ptr<ValueInfo>&& AnnotationParser::buildValueInfo() {
   assert(valueInfoBuild && "Retriving a ValueInfo before parsing");
   return std::move(valueInfoBuild);
 }

@@ -21,7 +21,7 @@ void TaffoInfo::setTransparentType(Value &v, const std::shared_ptr<TransparentTy
   transparentTypes[&v] = t;
 }
 
-std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(Value &v) {
+std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value &v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())
     return iter->second;
@@ -97,6 +97,10 @@ void TaffoInfo::disableConversion(Instruction &i) {
 
 bool TaffoInfo::isConversionDisabled(Instruction &i) const {
   return is_contained(disabledConversion, &i);
+}
+
+void TaffoInfo::createValueInfo(Value &v) {
+  valueInfo[&v] = ValueInfoFactory::create(&v);
 }
 
 void TaffoInfo::setValueInfo(Value &v, const std::shared_ptr<ValueInfo> &vi) {
