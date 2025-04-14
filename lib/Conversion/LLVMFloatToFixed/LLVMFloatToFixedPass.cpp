@@ -189,10 +189,6 @@ PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM) {
   vals.insert(vals.begin(), global.begin(), global.end());
   MetadataCount = vals.size();
 
-  Logger::getInstance().logln("PIZZA", raw_ostream::Colors::RED);
-  LLVM_DEBUG(printConversionQueue(vals));
-  Logger::getInstance().logln("PIZZA", raw_ostream::Colors::RED);
-
   sortQueue(vals);
   propagateCall(vals, global, m);
   LLVM_DEBUG(printConversionQueue(vals));
