@@ -11,6 +11,7 @@ using namespace flttofix;
 
 bool FloatToFixed::isSupportedCudaFunction(Function *F)
 {
+
   if (F->getName() == "cuMemcpyHtoD_v2")
     return true;
   if (F->getName() == "cuMemcpyDtoH_v2")
