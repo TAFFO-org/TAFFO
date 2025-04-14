@@ -70,7 +70,7 @@ void FloatToFixed::performConversion(Module &m, std::vector<Value*> &q) {
       if (newv != v) {
         std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*v);
         std::shared_ptr<TransparentType> newTransparentType;
-        if (!newType->isInvalid())
+        if (v->getType() != newv->getType())
           newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
         else
           newTransparentType = oldTransparentType;
