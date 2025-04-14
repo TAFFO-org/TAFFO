@@ -190,7 +190,9 @@ FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType
 
     if (!getConversionInfo(val)->noTypeConversion) {
       /* the value has been successfully converted to fixed point in a previous step */
-      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: value has been converted in the past, not adding any extra conversion\n");
+      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: value has been converted in the past to \n"; 
+          dbgs().indent(18)  << "Value: " << *res << "\n";
+          dbgs().indent(16) << "FixType: " << *iofixpt << "\n");
       iofixpt = getFixpType(res);
       return res;
     }
@@ -352,10 +354,17 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
 Value *FloatToFixed::genConvertFixedToFixed(
   Value *fix, const std::shared_ptr<FixedPointScalarType> &srct, const std::shared_ptr<FixedPointScalarType> &destt, Instruction *ip)
 {
+  auto& log = Logger::getInstance();
   if (*srct == *destt)
     return fix;
 
-  LLVM_DEBUG(dbgs() << "Called fixedToFixed\n";);
+  LLVM_DEBUG(
+      log.log("Called fixedToFixed with src ");
+      log.log(*srct, llvm::raw_ostream::Colors::BLUE);
+      log.log(" to dst ");
+      log.logln(*destt, llvm::raw_ostream::Colors::BLUE);
+      );
+
 
   Instruction *fixinst = dyn_cast<Instruction>(fix);
   if (!ip && fixinst)

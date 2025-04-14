@@ -58,7 +58,6 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, std::shared
   }
   if (res == Unsupported) {
     res = fallback(dyn_cast<Instruction>(val), fixpt);
-    fixpt = std::make_shared<FixedPointScalarType>();
   }
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
     if (getUnwrappedType(val)->isFloatTy() && !getConversionInfo(val)->noTypeConversion) {
