@@ -35,7 +35,6 @@ private:
 
   void propagateInfo();
   void propagateInfo(llvm::Value *src, llvm::Value *dst);
-  //std::shared_ptr<ValueInfo> extractGEPValueInfo(const llvm::Value *value, ValueInfo *valueInfo, const llvm::Value *user);
   void generateFunctionClones();
   llvm::Function *cloneFunction(llvm::CallBase *call);
   void saveValueWeights();

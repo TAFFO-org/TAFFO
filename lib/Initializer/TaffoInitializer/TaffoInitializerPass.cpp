@@ -59,7 +59,10 @@ PreservedAnalyses TaffoInitializerPass::run(Module &m, ModuleAnalysisManager &) 
   generateFunctionClones();
   LLVM_DEBUG(log().logln("[Propagating info after function cloning]", raw_ostream::Colors::BLUE));
   propagateInfo();
-  LLVM_DEBUG(logInfoPropagationQueue());
+  LLVM_DEBUG(
+    log().logln("[Results]", raw_ostream::Colors::GREEN);
+    logInfoPropagationQueue();
+  );
   saveValueWeights();
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_init.json", m);
@@ -200,37 +203,35 @@ void TaffoInitializerPass::propagateInfo() {
       );
 
       // Process each operand of the instruction
-      int operandIndex = -1;
-      for (Value *user : inst->operands()) {
-        operandIndex++;
+      for (Value *operand : inst->operands()) {
         LLVM_DEBUG(
           Logger &logger = log();
           logger.log("[Operand] ", raw_ostream::Colors::BLACK);
-          logger.logValueln(user);
+          logger.logValueln(operand);
           logger.increaseIndent();
         );
         // Skip operands that are not a User or an Argument
-        if (!isa<User>(user) && !isa<Argument>(user)) {
-          LLVM_DEBUG(log().logln("not a User or an Argument: ignoring"));
+        if (!isa<User>(operand) && !isa<Argument>(operand)) {
+          LLVM_DEBUG(log().logln("not a user or an argument: ignoring"));
           continue;
         }
         // Skip functions and block addresses
-        if (isa<Function>(user) || isa<BlockAddress>(user)) {
+        if (isa<Function>(operand) || isa<BlockAddress>(operand)) {
           LLVM_DEBUG(log().logln("is a function or a block address: ignoring"));
           continue;
         }
         // Skip constants
-        if (isa<Constant>(user)) {
+        if (isa<Constant>(operand)) {
           LLVM_DEBUG(log().logln("is a constant: ignoring"));
           continue;
         }
-        if (!getUnwrappedType(user)->isFloatTy()) {
+        if (!getUnwrappedType(operand)->isFloatTy()) {
           LLVM_DEBUG(log().logln("not a float: ignoring"));
           continue;
         }
 
         bool alreadyIn = false;
-        auto userIter = std::ranges::find(infoPropagationQueue, user);
+        auto userIter = std::ranges::find(infoPropagationQueue, operand);
         if (userIter != infoPropagationQueue.end()) {
           auto valuePosition = std::distance(infoPropagationQueue.begin(), iter);
           auto userPosition = std::distance(infoPropagationQueue.begin(), userIter);
@@ -241,13 +242,13 @@ void TaffoInitializerPass::propagateInfo() {
         }
 
         if (!alreadyIn) {
-          propagateInfo(value, user);
-          infoPropagationQueue.push_front(user);
+          propagateInfo(value, operand);
+          infoPropagationQueue.push_front(operand);
         }
         else
           LLVM_DEBUG(log().logln("already in queue: continuing"));
 
-        ValueInitInfo &userInitInfo = taffoInitInfo.getOrCreateValueInitInfo(user);
+        ValueInitInfo &userInitInfo = taffoInitInfo.getOrCreateValueInitInfo(operand);
         userInitInfo.decreaseBacktrackingDepth();
 
         LLVM_DEBUG(log().decreaseIndent());
@@ -328,9 +329,9 @@ void TaffoInitializerPass::propagateInfo(Value *src, Value *dst) {
 void TaffoInitializerPass::generateFunctionClones() {
   LLVM_DEBUG(log().logln("[Function cloning]", raw_ostream::Colors::BLUE));
   for (Value *value : infoPropagationQueue) {
-    if (!isa<CallInst>(value) && !isa<InvokeInst>(value))
-      continue;
     auto *call = dyn_cast<CallBase>(value);
+    if (!call)
+      continue;
 
     Function *oldF = call->getCalledFunction();
     if (!oldF) {

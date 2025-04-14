@@ -69,7 +69,7 @@ void TaffoInitializerPass::readAndRemoveGlobalAnnotations(Module &m) {
             if (expr->getOpcode() == Instruction::BitCast)
               parseAnnotation(cast<ConstantExpr>(annotation->getOperand(1)), expr->getOperand(0));
         }
-    annotationsGlobalVar->removeFromParent();
+    annotationsGlobalVar->eraseFromParent();
   }
 }
 
