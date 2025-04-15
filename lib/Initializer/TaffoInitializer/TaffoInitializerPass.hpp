@@ -36,7 +36,7 @@ private:
   void propagateInfo();
   void propagateInfo(llvm::Value *src, llvm::Value *dst);
   void generateFunctionClones();
-  llvm::Function *cloneFunction(llvm::CallBase *call);
+  llvm::Function *cloneFunction(const llvm::CallBase *call);
   void saveValueWeights();
   void logInfoPropagationQueue();
 

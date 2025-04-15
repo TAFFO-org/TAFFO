@@ -175,7 +175,7 @@ void closeMallocLikeHandler(Module &m, const MLHVec &vec)
 }
 
 PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM) {
-  LLVM_DEBUG(Logger::getInstance().logln("[ConversionPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[ConversionPass]", raw_ostream::Colors::MAGENTA));
   TaffoInfo::getInstance().initializeFromFile("taffo_info_dta.json", m);
   MAM = &AM;
   ModuleDL = &(m.getDataLayout());
@@ -205,7 +205,7 @@ PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM) {
   cleanUpOpenCLKernelTrampolines(&m);
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_conv.json", m);
-  LLVM_DEBUG(Logger::getInstance().logln("[End of ConversionPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of ConversionPass]", raw_ostream::Colors::MAGENTA));
   return PreservedAnalyses::none();
 }
 

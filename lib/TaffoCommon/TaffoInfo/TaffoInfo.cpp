@@ -27,7 +27,7 @@ std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value &v)
     return iter->second;
   std::shared_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
   LLVM_DEBUG(
-    Logger &logger = Logger::getInstance();
+    Logger &logger = log();
     logger.setContextTag(logContextTag);
     logger.log("Missing transparent type for value: ", raw_ostream::Colors::YELLOW);
     logger.logValueln(&v);
@@ -207,7 +207,7 @@ void TaffoInfo::eraseLoop(Loop &l) {
 
 void TaffoInfo::dumpToFile(const std::string &filePath, Module &m) {
   LLVM_DEBUG(
-    Logger &logger = Logger::getInstance();
+    Logger &logger = log();
     logger.setContextTag(logContextTag);
     logger.logln("Dumping...");
   );
@@ -225,15 +225,15 @@ void TaffoInfo::dumpToFile(const std::string &filePath, Module &m) {
   outFile.close();
 
   LLVM_DEBUG(
-    Logger &logger = Logger::getInstance();
-    Logger::getInstance().logln("Dumped to file " + filePath);
+    Logger &logger = log();
+    logger.logln("Dumped to file " + filePath);
     logger.restorePrevContextTag();
   );
 }
 
 void TaffoInfo::initializeFromFile(const std::string &filePath, Module &m) {
   LLVM_DEBUG(
-    Logger &logger = Logger::getInstance();
+    Logger &logger = log();
     logger.setContextTag(logContextTag);
     logger.logln("Initializing...");
   );
@@ -252,8 +252,8 @@ void TaffoInfo::initializeFromFile(const std::string &filePath, Module &m) {
   deserialize(jsonRepresentation);
 
   LLVM_DEBUG(
-    Logger &logger = Logger::getInstance();
-    Logger::getInstance().logln("Initialized from file " + filePath);
+    Logger &logger = log();
+    logger.logln("Initialized from file " + filePath);
     logger.restorePrevContextTag();
   );
 }

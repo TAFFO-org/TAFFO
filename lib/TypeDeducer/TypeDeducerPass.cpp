@@ -13,8 +13,11 @@ using namespace llvm;
 using namespace taffo;
 
 PreservedAnalyses TypeDeducerPass::run(Module &m, ModuleAnalysisManager &) {
-  LLVM_DEBUG(Logger::getInstance().logln("[TypeDeducerPass]", raw_ostream::Colors::MAGENTA));
-  LLVM_DEBUG(Logger::getInstance().logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(
+    Logger &logger = log();
+    logger.logln("[TypeDeducerPass]", raw_ostream::Colors::MAGENTA);
+    logger.logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE);
+  );
   for (Function &f : m) {
     if (f.isDeclaration())
       continue;
@@ -46,12 +49,7 @@ PreservedAnalyses TypeDeducerPass::run(Module &m, ModuleAnalysisManager &) {
   unsigned int iterations = 1;
   bool deducedTypesChanged = true;
   while (deducedTypesChanged) {
-    LLVM_DEBUG(
-      Logger &logger = Logger::getInstance();
-      logger.log("[Deduction iteration ", raw_ostream::Colors::BLUE);
-      logger.log(iterations, raw_ostream::Colors::BLUE);
-      logger.logln("]", raw_ostream::Colors::BLUE);
-    );
+    LLVM_DEBUG(log() << raw_ostream::Colors::BLUE << "[Deduction iteration " << iterations << "]\n" << raw_ostream::Colors::RESET);
     iterations++;
     deducedTypesChanged = false;
     for (const auto &[value, deducedType] : deducedTypes)
@@ -71,7 +69,7 @@ PreservedAnalyses TypeDeducerPass::run(Module &m, ModuleAnalysisManager &) {
         }
       }
   }
-  LLVM_DEBUG(Logger::getInstance().logln("[Deduction completed]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Deduction completed]", raw_ostream::Colors::BLUE));
 
   // Save deduced types
   for (const auto &[value, deducedType] : deducedTypes)
@@ -80,7 +78,7 @@ PreservedAnalyses TypeDeducerPass::run(Module &m, ModuleAnalysisManager &) {
   LLVM_DEBUG(logDeducedTypes());
 
   TaffoInfo::getInstance().dumpToFile("taffo_typededucer.json", m);
-  LLVM_DEBUG(Logger::getInstance().logln("[End of TypeDeducerPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of TypeDeducerPass]", raw_ostream::Colors::MAGENTA));
   return PreservedAnalyses::all();
 }
 
@@ -240,13 +238,10 @@ std::shared_ptr<TransparentType> TypeDeducerPass::getBestCandidateType(const Can
 }
 
 void TypeDeducerPass::logDeduction(Value *value, const std::shared_ptr<TransparentType> &bestCandidate, const CandidateSet &candidates) {
-  Logger &logger = Logger::getInstance();
-  logger.log("[Deducing type of] ", raw_ostream::Colors::BLACK);
-  logger.logValue(value);
-  logger.logln("");
+  Logger &logger = log();
+  logger.log("[Deducing type of] ", raw_ostream::Colors::BLACK).logValueln(value);
   logger.increaseIndent();
-  logger.log("current candidates: ");
-  logger.logln(candidates);
+  logger.log("current candidates: ").logln(candidates);
   logger.log("best candidate is ");
   if (bestCandidate)
     logger.logln(bestCandidate, raw_ostream::Colors::CYAN);
@@ -256,16 +251,16 @@ void TypeDeducerPass::logDeduction(Value *value, const std::shared_ptr<Transpare
 }
 
 void TypeDeducerPass::logDeducedTypes() {
-  Logger &logger = Logger::getInstance();
+  Logger &logger = log();
   logger.logln("[Results]", raw_ostream::Colors::GREEN);
   for (const auto &[value, deducedType] : deducedTypes) {
-    logger.log("[Value] ", raw_ostream::Colors::BLACK);
-    logger.logValue(value);
+    logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
     logger.increaseIndent();
-    logger.logln("");
     logger.log("deduced pointer type: ");
-    if (deducedType)
-      logger.logln(deducedType, raw_ostream::Colors::GREEN);
+    if (deducedType) {
+      auto color = deducedType->isOpaquePointer() ? raw_ostream::Colors::YELLOW : raw_ostream::Colors::GREEN;
+      logger.logln(deducedType, color);
+    }
     else {
       logger.log("ambiguous: ", raw_ostream::Colors::YELLOW);
       CandidateSet &candidates = candidateTypes[value];

@@ -37,44 +37,47 @@ class Logger {
 public:
   static Logger &getInstance();
 
-  void logValue(const llvm::Value *value, bool logParent = true);
-  void logValueln(const llvm::Value *value, bool logParent = true);
+  Logger &logValue(const llvm::Value *value, bool logParent = true);
+  Logger &logValueln(const llvm::Value *value, bool logParent = true);
 
-  void setContextTag(const std::string &tag);
-  void setContextTag(const char *tag);
-  void restorePrevContextTag();
+  Logger &setContextTag(const std::string &tag);
+  Logger &setContextTag(const char *tag);
+  Logger &restorePrevContextTag();
 
-  void setColor(llvm::raw_ostream::Colors color);
-  void resetColor();
+  Logger &setColor(llvm::raw_ostream::Colors color);
+  Logger &resetColor();
 
-  void setIndent(unsigned indent);
-  void increaseIndent(unsigned amount = 1);
-  void decreaseIndent(unsigned amount = 1);
+  Logger &setIndent(unsigned indent);
+  Logger &increaseIndent(unsigned amount = 1);
+  Logger &decreaseIndent(unsigned amount = 1);
 
   // Log for Printable objects
   template <PrintableConcept T>
-  void log(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger &log(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log(value.toString(), color);
+    return *this;
   }
 
   // Log for shared_ptr to Printable objects.
   template <PrintableConcept T>
-  void log(const std::shared_ptr<T> &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger &log(const std::shared_ptr<T> &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     if (value)
       log(value->toString(), color);
     else
       log("null", color);
+    return *this;
   }
 
   // Log for LLVM-printable objects
   template <LLVMPrintableConcept T>
-  void log(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger &log(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log(toString(value), color);
+    return *this;
   }
 
   // Log for iterable objects
   template <IterableConcept T>
-  void log(const T &container, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger &log(const T &container, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log("[", llvm::raw_ostream::Colors::BLACK);
     bool first = true;
     for (const auto &el : container) {
@@ -85,11 +88,12 @@ public:
       log(el, color);
     }
     log("]", llvm::raw_ostream::Colors::BLACK);
+    return *this;
   }
 
   // Generic fallback log (for types that are not printable in any special way)
   template <typename T>
-  void log(const T &message, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger &log(const T &message, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     // Convert message to string.
     std::string s;
     llvm::raw_string_ostream oss(s);
@@ -119,13 +123,15 @@ public:
       isLineStart = true;
       start = pos + 1;
     }
+    return *this;
   }
 
   template <typename T>
-  void logln(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger &logln(const T &value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log(value, color);
     ostream << "\n";
     isLineStart = true;
+    return *this;
   }
 
   template<typename T>

@@ -58,7 +58,7 @@ void MetadataManager::setIdValueMapping(const BiMap<std::string, Value*> &idValu
       parentF->setMetadata(TAFFO_ARGUMENTS_ID_METADATA, MDNode::get(ctx, elems));
     }
     else {
-      Logger &logger = Logger::getInstance();
+      Logger &logger = log();
       logger.logln("Unrecognized local value kind for value:", raw_ostream::Colors::RED);
       logger.logValueln(value);
       llvm_unreachable("Unrecognized local value kind");
@@ -75,7 +75,7 @@ BiMap<std::string, Value*> MetadataManager::getIdValueMapping(Module &m) {
       std::string id = cast<MDString>(entryMd->getOperand(0))->getString().str();
       ValueAsMetadata *valueMd = dyn_cast_or_null<ValueAsMetadata>(entryMd->getOperand(1));
       if (!valueMd) {
-        LLVM_DEBUG(Logger::getInstance().logln("Value with taffoId " + id + " probably deleted by dce pass: ignoring"));
+        LLVM_DEBUG(log().logln("Value with taffoId " + id + " probably deleted by dce pass: ignoring"));
         continue;
       }
       Value *value = valueMd->getValue();
