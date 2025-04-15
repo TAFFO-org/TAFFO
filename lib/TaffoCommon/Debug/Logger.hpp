@@ -1,5 +1,4 @@
-#ifndef TAFFO_LOGGER_HPP
-#define TAFFO_LOGGER_HPP
+#pragma once
 
 #include "SerializationUtils.hpp"
 
@@ -163,5 +162,3 @@ private:
 inline Logger &log() { return Logger::getInstance(); }
 
 }
-
-#endif // TAFFO_LOGGER_HPP

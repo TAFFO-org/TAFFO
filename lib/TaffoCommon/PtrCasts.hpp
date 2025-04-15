@@ -1,5 +1,4 @@
-#ifndef TAFFO_PTRCASTS_HPP
-#define TAFFO_PTRCASTS_HPP
+#pragma once
 
 #include <llvm/Support/Casting.h>
 
@@ -32,5 +31,3 @@ bool isa_ptr(const std::shared_ptr<U> &r) noexcept {
 }
 
 } // namespace std
-
-#endif

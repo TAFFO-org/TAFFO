@@ -1,5 +1,4 @@
-#ifndef TAFFO_INSERTION_ORDERED_MAP_HPP
-#define TAFFO_INSERTION_ORDERED_MAP_HPP
+#pragma once
 
 #include <unordered_map>
 #include <list>
@@ -439,5 +438,3 @@ public:
    */
   const_iterator_type end() const { return const_iterator_type(order.end(), this); }
 };
-
-#endif // TAFFO_INSERTION_ORDERED_MAP_HPP

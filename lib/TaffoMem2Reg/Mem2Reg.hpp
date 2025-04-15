@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TAFFO_MEM2REG_MEM2REG_HPP
-#define TAFFO_MEM2REG_MEM2REG_HPP
+#pragma once
 
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Function.h>
@@ -25,5 +24,3 @@ public:
 };
 
 } // end namespace taffo
-
-#endif // TAFFO_MEM2REG_MEM2REG_HPP

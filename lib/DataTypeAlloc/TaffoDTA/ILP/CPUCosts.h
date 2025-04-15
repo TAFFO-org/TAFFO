@@ -1,5 +1,4 @@
-#ifndef __TAFFO_DTA_CPUCOSTS_H__
-#define __TAFFO_DTA_CPUCOSTS_H__
+#pragma once
 
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <map>
@@ -212,5 +211,3 @@ public:
 } // namespace tuner
 
 #undef DEBUG_TYPE
-
-#endif

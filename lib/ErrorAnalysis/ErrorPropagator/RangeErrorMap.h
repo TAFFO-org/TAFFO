@@ -13,8 +13,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_RANGEERRORMAP_H
-#define ERRORPROPAGATOR_RANGEERRORMAP_H
+#pragma once
 
 #include "AffineForms.h"
 #include "FixedPoint.h"
@@ -134,5 +133,3 @@ typedef llvm::DenseMap<llvm::Value *, mdutils::CmpErrorInfo> CmpErrorMap;
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif

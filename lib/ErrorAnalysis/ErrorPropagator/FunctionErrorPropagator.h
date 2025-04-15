@@ -12,8 +12,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_FUNCTIONERRORPROPAGATOR_H
-#define ERRORPROPAGATOR_FUNCTIONERRORPROPAGATOR_H
+#pragma once
 
 #include "FunctionCopyMap.h"
 #include "RangeErrorMap.h"
@@ -146,5 +145,3 @@ protected:
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef TAFFOUTILS_DEBUGUTILS_H
-#define TAFFOUTILS_DEBUGUTILS_H
+#pragma once
 
 #include <llvm/Support/Debug.h>
 
@@ -13,5 +12,3 @@
 #define IF_TAFFO_DEBUG if (false)
 
 #endif
-
-#endif // TAFFOUTILS_DEBUGUTILS_H

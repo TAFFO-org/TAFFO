@@ -1,5 +1,4 @@
-#ifndef __LLVM_FLOAT_TO_FIXED_PASS_H__
-#define __LLVM_FLOAT_TO_FIXED_PASS_H__
+#pragma once
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "PtrCasts.hpp"
@@ -642,5 +641,3 @@ llvm::Value *adjustBufferSize(llvm::Value *OrigSize, llvm::Type *OldTy, llvm::Ty
 } // namespace flttofix
 
 #undef DEBUG_TYPE
-
-#endif //__LLVM_FLOAT_TO_FIXED_PASS_H__

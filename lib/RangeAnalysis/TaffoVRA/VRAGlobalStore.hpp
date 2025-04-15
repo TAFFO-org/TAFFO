@@ -1,13 +1,10 @@
-#ifndef TAFFO_VRA_GLOBAL_STORE_HPP
-#define TAFFO_VRA_GLOBAL_STORE_HPP
+#pragma once
 
-#include "TaffoInfo/TaffoInfo.hpp"
 #include "CodeInterpreter.hpp"
 #include "VRALogger.hpp"
 #include "VRAStore.hpp"
 
 #include <llvm/ADT/DenseMap.h>
-#include <llvm/IR/Module.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
@@ -65,5 +62,3 @@ protected:
 } // end namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif

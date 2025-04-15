@@ -12,8 +12,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_STRUCTERRORMAP_H
-#define ERRORPROPAGATOR_STRUCTERRORMAP_H
+#pragma once
 
 #include "FixedPoint.h"
 #include "Metadata.h"
@@ -150,5 +149,3 @@ protected:
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif

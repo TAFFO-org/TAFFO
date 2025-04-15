@@ -1,6 +1,8 @@
 #include "VRAGlobalStore.hpp"
-#include "RangeOperations.hpp"
+
 #include "VRAnalyzer.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "RangeOperations.hpp"
 #include "Types/TypeUtils.hpp"
 #include "Debug/Logger.hpp"
 

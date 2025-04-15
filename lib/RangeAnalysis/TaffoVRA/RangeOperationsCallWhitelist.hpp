@@ -1,5 +1,4 @@
-#ifndef TAFFO_RANGE_OPERATIONS_CALL_WHITELIST_HPP
-#define TAFFO_RANGE_OPERATIONS_CALL_WHITELIST_HPP
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 
@@ -28,5 +27,3 @@ extern const std::map<const std::string, map_value_t> functionWhiteList;
 }; // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif /* end of include guard: TAFFO_RANGE_OPERATIONS_CALL_WHITELIST_HPP */

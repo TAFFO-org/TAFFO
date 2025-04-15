@@ -13,8 +13,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_AFFINE_FORMS_H
-#define ERRORPROPAGATOR_AFFINE_FORMS_H
+#pragma once
 
 #include <cmath>
 #include <utility>
@@ -503,5 +502,3 @@ LinearErrorApproximationIncr(FunDer dF, const Interval<T> &R, const AffineForm<T
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif // ERRORPROPAGATOR_AFFINE_FORMS_H

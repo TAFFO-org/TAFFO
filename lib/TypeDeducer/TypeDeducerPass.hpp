@@ -1,5 +1,4 @@
-#ifndef TAFFO_TYPE_DEDUCER_PASS_HPP
-#define TAFFO_TYPE_DEDUCER_PASS_HPP
+#pragma once
 
 #include "Types/TransparentType.hpp"
 #include "Containers/InsertionOrderedMap.hpp"
@@ -30,5 +29,3 @@ private:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_TYPE_DEDUCER_PASS_HPP

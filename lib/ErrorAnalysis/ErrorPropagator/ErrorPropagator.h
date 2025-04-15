@@ -12,8 +12,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_H
-#define ERRORPROPAGATOR_H
+#pragma once
 
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Module.h>
@@ -52,5 +51,3 @@ protected:
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif

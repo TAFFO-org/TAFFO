@@ -1,5 +1,4 @@
-#ifndef TAFFO_VALUE_RANGE_ANALYSIS_HPP
-#define TAFFO_VALUE_RANGE_ANALYSIS_HPP
+#pragma once
 
 #include "CodeInterpreter.hpp"
 
@@ -26,5 +25,3 @@ private:
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif

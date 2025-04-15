@@ -1,5 +1,4 @@
-#ifndef __TAFFO_DTA_OPTIMIZER_H__
-#define __TAFFO_DTA_OPTIMIZER_H__
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include "TaffoDTA.h"
@@ -150,5 +149,3 @@ public:
 } // namespace tuner
 
 #undef DEBUG_TYPE
-
-#endif

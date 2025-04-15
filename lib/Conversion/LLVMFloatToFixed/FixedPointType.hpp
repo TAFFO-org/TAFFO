@@ -1,10 +1,8 @@
-#ifndef TAFFO_FIXED_POINT_TYPE_HPP
-#define TAFFO_FIXED_POINT_TYPE_HPP
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include "Types/TransparentType.hpp"
 
-#include <vector>
 #include <string>
 
 namespace flttofix {
@@ -116,5 +114,3 @@ protected:
 };
 
 } // namespace flttofix
-
-#endif // TAFFO_FIXED_POINT_TYPE_HPP

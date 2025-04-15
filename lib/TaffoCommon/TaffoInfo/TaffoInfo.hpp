@@ -1,5 +1,4 @@
-#ifndef TAFFO_TAFFOINFO_HPP
-#define TAFFO_TAFFOINFO_HPP
+#pragma once
 
 #include "Types/TransparentType.hpp"
 #include "ValueInfo.hpp"
@@ -122,5 +121,3 @@ private:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_TAFFOINFO_HPP

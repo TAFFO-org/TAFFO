@@ -1,5 +1,4 @@
-#ifndef TAFFOUTILS_TYPEUTILS_H
-#define TAFFOUTILS_TYPEUTILS_H
+#pragma once
 
 #include "../TaffoInfo/ValueInfo.hpp"
 #include <llvm/IR/Constants.h>
@@ -41,6 +40,3 @@ FixedPointInfo fixedPointTypeFromRange(
     int totalBitsIncrement = 64);
 
 } // namespace taffo
-
-
-#endif // TAFFOUTILS_TYPEUTILS_H

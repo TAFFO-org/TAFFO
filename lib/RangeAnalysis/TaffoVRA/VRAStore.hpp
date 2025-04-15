@@ -1,5 +1,4 @@
-#ifndef TAFFO_VRASTORE_HPP
-#define TAFFO_VRASTORE_HPP
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include "VRALogger.hpp"
@@ -58,5 +57,3 @@ private:
 } // end namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif
