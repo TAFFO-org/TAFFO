@@ -1,10 +1,8 @@
-#ifndef TAFFO_FIXED_POINT_TYPE_HPP
-#define TAFFO_FIXED_POINT_TYPE_HPP
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include "Types/TransparentType.hpp"
 
-#include <vector>
 #include <string>
 
 namespace taffo {
@@ -56,11 +54,11 @@ public:
   FixedPointScalarType();
   FixedPointScalarType(bool isSigned, int bits, int fractionalBits);
   FixedPointScalarType(llvm::Type *type, bool isSigned = true);
-  FixedPointScalarType(taffo::NumericType *numericType);
+  FixedPointScalarType(taffo::NumericTypeInfo *numericType);
   FixedPointScalarType(const FixedPointScalarType &other);
 
   bool isSigned() const { return sign; }
-  void setSigned(bool sign) { this->sign = sign; }
+  void setSigned(bool isSigned) { this->sign = isSigned; }
   int getBits() const { return bits; }
   void setBits(int bits) { this->bits = bits; }
   int getFractionalBits() const { return fractionalBits; }
@@ -116,5 +114,3 @@ protected:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_FIXED_POINT_TYPE_HPP

@@ -1,5 +1,4 @@
-#ifndef __LLVM_FLOAT_TO_FIXED_PASS_H__
-#define __LLVM_FLOAT_TO_FIXED_PASS_H__
+#pragma once
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ConversionInfo.hpp"
@@ -547,14 +546,14 @@ struct FloatToFixed {
     return dst;
   }
 
-  void updateFPTypeMetadata(llvm::Value *v, bool isSigned, int fracBitsAmt, int bitsAmt) {
+  void updateFPTypeMetadata(llvm::Value *v, bool isSigned, int fractionalBits, int bits) {
     using namespace taffo;
     std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*v);
     std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(valueInfo);
     if (!scalarInfo)
       return;
     std::shared_ptr<ScalarInfo> newScalarInfo = std::static_ptr_cast<ScalarInfo>(scalarInfo->clone());
-    newScalarInfo->numericType.reset(new FixpType(bitsAmt, fracBitsAmt, isSigned));
+    newScalarInfo->numericType.reset(new FixedPointInfo(isSigned, bits, fractionalBits));
     TaffoInfo::getInstance().setValueInfo(*v, newScalarInfo);
   }
 
@@ -573,7 +572,7 @@ struct FloatToFixed {
     if (opScalarInfo) {
       std::shared_ptr<FixedPointScalarType> scalarType = std::static_ptr_cast<FixedPointScalarType>(type);
       opScalarInfo->numericType =
-        std::make_shared<FixpType>(scalarType->getBits(), scalarType->getFractionalBits(), scalarType->isSigned());
+        std::make_shared<FixedPointInfo>(scalarType->isSigned(), scalarType->getBits(), scalarType->getFractionalBits());
     }
   }
 
@@ -597,5 +596,3 @@ llvm::Value *adjustBufferSize(llvm::Value *OrigSize, llvm::Type *OldTy, llvm::Ty
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif //__LLVM_FLOAT_TO_FIXED_PASS_H__

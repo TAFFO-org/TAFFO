@@ -12,8 +12,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef TAFFO_MEMSSAUTILS_H
-#define TAFFO_MEMSSAUTILS_H
+#pragma once
 
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
@@ -45,5 +44,3 @@ private:
 };
 
 } // namespace taffo
-
-#endif

@@ -147,11 +147,11 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
     } else if (peek("type")) {
       if (!expect("("))
         return false;
-      bool isSignd = true;
+      bool isSigned = true;
       int64_t total, frac;
       if (!peek("signed")) {
         if (peek("unsigned")) {
-          isSignd = false;
+          isSigned = false;
         }
       }
       if (!expectInteger(total))
@@ -164,7 +164,7 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
         return false;
       if (!expect(")"))
         return false;
-      scalarInfo->numericType = std::make_shared<FixpType>(total, frac, isSignd);
+      scalarInfo->numericType = std::make_shared<FixedPointInfo>(isSigned, total, frac);
 
     } else if (peek("error")) {
       scalarInfo->error = std::make_shared<double>(0);

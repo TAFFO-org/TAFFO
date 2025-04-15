@@ -1,7 +1,4 @@
-#ifndef CUDA_KERNEL_PATCHER_HPP
-#define CUDA_KERNEL_PATCHER_HPP
-
-#include <llvm/IR/Module.h>
+#pragma once
 
 #define DEBUG_TYPE "taffo-init"
 
@@ -12,5 +9,3 @@ void createCudaKernelTrampolines(llvm::Module &M);
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif // CUDA_KERNEL_PATCHER_HPP

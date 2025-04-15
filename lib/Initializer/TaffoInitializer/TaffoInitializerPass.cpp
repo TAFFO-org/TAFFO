@@ -27,7 +27,7 @@ cl::opt<bool> cudaKernelMode("cudakern",
   cl::init(false));
 
 PreservedAnalyses TaffoInitializerPass::run(Module &m, ModuleAnalysisManager &) {
-  LLVM_DEBUG(Logger::getInstance().logln("[InitializerPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[InitializerPass]", raw_ostream::Colors::MAGENTA));
   TaffoInfo::getInstance().initializeFromFile("taffo_typededucer.json", m);
 
   if (openCLKernelMode) {
@@ -47,7 +47,7 @@ PreservedAnalyses TaffoInitializerPass::run(Module &m, ModuleAnalysisManager &) 
 
   if (Function *startingPoint = findStartingPointFunctionGlobal(m)) {
     LLVM_DEBUG(
-      Logger &logger = Logger::getInstance();
+      Logger &logger = log();
       logger.log("Found starting point using global __taffo_vra_starting_function: ");
       logger.logln(startingPoint->getName());
     );
@@ -66,7 +66,7 @@ PreservedAnalyses TaffoInitializerPass::run(Module &m, ModuleAnalysisManager &) 
   saveValueWeights();
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_init.json", m);
-  LLVM_DEBUG(Logger::getInstance().logln("[End of InitializerPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of InitializerPass]", raw_ostream::Colors::MAGENTA));
   return PreservedAnalyses::all();
 }
 
@@ -123,8 +123,7 @@ void TaffoInitializerPass::propagateInfo() {
 
       LLVM_DEBUG(
         Logger &logger = log();
-        logger.log("[Value] ", raw_ostream::Colors::BLACK);
-        logger.logValueln(value);
+        logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
         logger.increaseIndent();
         logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";
         if (value->user_empty())
@@ -133,18 +132,13 @@ void TaffoInitializerPass::propagateInfo() {
 
       // Process each user of the current value
       for (auto *user : value->users()) {
-        // Ignore user if it is an annotation string
-        if (auto *userGlobalObject = dyn_cast<GlobalObject>(user))
-          if (userGlobalObject->hasSection() && userGlobalObject->getSection() == "llvm.metadata")
-            continue;
         // Skip PHI nodes already processed
         if (isa<PHINode>(user) && visited.contains(user))
           continue;
 
         LLVM_DEBUG(
           Logger &logger = log();
-          logger.log("[User] ", raw_ostream::Colors::BLACK);
-          logger.logValueln(user);
+          logger.log("[User] ", raw_ostream::Colors::BLACK).logValueln(user);
           logger.increaseIndent();
         );
 
@@ -196,8 +190,7 @@ void TaffoInitializerPass::propagateInfo() {
 
       LLVM_DEBUG(
         Logger &logger = log();
-        logger.log("[Backtracking] ", raw_ostream::Colors::BLACK);
-        logger.logValueln(value);
+        logger.log("[Backtracking] ", raw_ostream::Colors::BLACK).logValueln(value);
         logger.increaseIndent();
         logger << "depth left = " << backtrackingDepth << "\n";
       );
@@ -206,27 +199,26 @@ void TaffoInitializerPass::propagateInfo() {
       for (Value *operand : inst->operands()) {
         LLVM_DEBUG(
           Logger &logger = log();
-          logger.log("[Operand] ", raw_ostream::Colors::BLACK);
-          logger.logValueln(operand);
+          logger.log("[Operand] ", raw_ostream::Colors::BLACK).logValueln(operand);
           logger.increaseIndent();
         );
         // Skip operands that are not a User or an Argument
         if (!isa<User>(operand) && !isa<Argument>(operand)) {
-          LLVM_DEBUG(log().logln("not a user or an argument: ignoring"));
+          LLVM_DEBUG(log().logln("not a user or an argument: ignoring").decreaseIndent());
           continue;
         }
         // Skip functions and block addresses
         if (isa<Function>(operand) || isa<BlockAddress>(operand)) {
-          LLVM_DEBUG(log().logln("is a function or a block address: ignoring"));
+          LLVM_DEBUG(log().logln("is a function or a block address: ignoring").decreaseIndent());
           continue;
         }
         // Skip constants
         if (isa<Constant>(operand)) {
-          LLVM_DEBUG(log().logln("is a constant: ignoring"));
+          LLVM_DEBUG(log().logln("is a constant: ignoring").decreaseIndent());
           continue;
         }
         if (!getUnwrappedType(operand)->isFloatTy()) {
-          LLVM_DEBUG(log().logln("not a float: ignoring"));
+          LLVM_DEBUG(log().logln("not a float: ignoring").decreaseIndent());
           continue;
         }
 
@@ -343,16 +335,16 @@ void TaffoInitializerPass::generateFunctionClones() {
 
     Function *oldF = call->getCalledFunction();
     if (!oldF) {
-      LLVM_DEBUG(log() << raw_ostream::Colors::YELLOW << "Indirect function invocation in " << *value << ": skipping\n" << raw_ostream::Colors::RESET);
+      LLVM_DEBUG(log().log("Skipping indirect function invoked by: ", raw_ostream::Colors::YELLOW).logValueln(value));
       continue;
     }
     if (isSpecialFunction(oldF)) {
-      LLVM_DEBUG(log() << raw_ostream::Colors::YELLOW << "Special function invocation in " << *value << ": skipping\n" << raw_ostream::Colors::RESET);
+      LLVM_DEBUG(log().log("Skipping special function invoked by: ", raw_ostream::Colors::YELLOW).logValueln(value));
       continue;
     }
     if (manualFunctionCloning) {
       if (!annotatedFunctions.contains(oldF)) {
-        LLVM_DEBUG(dbgs() << raw_ostream::Colors::YELLOW << "Disabled function invocation in " << *value << ": skipping\n" << raw_ostream::Colors::RESET);
+        LLVM_DEBUG(log().log("Skipping disabled function invoked by: ", raw_ostream::Colors::YELLOW).logValueln(value));
         continue;
       }
     }
@@ -367,7 +359,7 @@ void TaffoInitializerPass::generateFunctionClones() {
   LLVM_DEBUG(log().logln("[Function cloning completed]", raw_ostream::Colors::BLUE));
 }
 
-Function *TaffoInitializerPass::cloneFunction(CallBase *call) {
+Function *TaffoInitializerPass::cloneFunction(const CallBase *call) {
   Function *oldF = call->getCalledFunction();
   Function *newF = Function::Create(
     oldF->getFunctionType(), oldF->getLinkage(), oldF->getName(), oldF->getParent());
@@ -408,13 +400,10 @@ Function *TaffoInitializerPass::cloneFunction(CallBase *call) {
 
   LLVM_DEBUG(
     Logger &logger = log();
-    logger.log("[Cloning of] ", raw_ostream::Colors::BLACK);
-    logger.logValueln(oldF);
+    logger.log("[Cloning of] ", raw_ostream::Colors::BLACK).logValueln(oldF);
     logger.increaseIndent();
-    logger.log("new function: ");
-    logger.logValueln(newF);
-    logger.log("for call: ");
-    logger.logValueln(call);
+    logger.log("new function: ").logValueln(newF);
+    logger.log("for call: ").logValueln(call);
     logger.logln("[Propagating info from call arguments to clone function arguments]", raw_ostream::Colors::BLACK);
     logger.increaseIndent();
     if (newF->arg_empty())
@@ -479,8 +468,7 @@ void TaffoInitializerPass::logInfoPropagationQueue() {
   Logger &logger = log();
   if (infoPropagationQueue.size() < 1000) {
     for (Value *value : infoPropagationQueue) {
-      logger.log("[Value] ", raw_ostream::Colors::BLACK);
-      logger.logValueln(value);
+      logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
       logger.increaseIndent();
       logger << "valueInitInfo: " << taffoInitInfo.getValueInitInfo(value) << "\n";
       logger.decreaseIndent();

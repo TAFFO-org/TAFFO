@@ -1,5 +1,4 @@
-#ifndef TAFFOUTILS_TYPEUTILS_H
-#define TAFFOUTILS_TYPEUTILS_H
+#pragma once
 
 #include "../TaffoInfo/ValueInfo.hpp"
 #include <llvm/IR/Constants.h>
@@ -32,7 +31,7 @@ enum class FixedPointTypeGenError {
  *    amount of allocated bits to use when the range is too large for
  *    the minimum amount of bits.
  *  @returns A fixed point type. */
-FixpType fixedPointTypeFromRange(
+FixedPointInfo fixedPointTypeFromRange(
     const Range &range,
     FixedPointTypeGenError *outerr = nullptr,
     int totalBits = 32,
@@ -41,6 +40,3 @@ FixpType fixedPointTypeFromRange(
     int totalBitsIncrement = 64);
 
 } // namespace taffo
-
-
-#endif // TAFFOUTILS_TYPEUTILS_H

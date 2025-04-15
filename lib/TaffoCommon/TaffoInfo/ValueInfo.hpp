@@ -1,5 +1,4 @@
-#ifndef TAFFO_VALUE_INFO_HPP
-#define TAFFO_VALUE_INFO_HPP
+#pragma once
 
 #include "NumericInfo.hpp"
 #include "RangeInfo.hpp"
@@ -80,13 +79,13 @@ class ScalarInfo : public ValueInfoWithRange {
 public:
   static bool classof(const ValueInfo *valueInfo) { return valueInfo->getKind() == K_Scalar; }
 
-  std::shared_ptr<NumericType> numericType;
+  std::shared_ptr<NumericTypeInfo> numericType;
   std::shared_ptr<Range> range;
   std::shared_ptr<double> error;
   bool conversionEnabled;
   bool final;
 
-  ScalarInfo(std::shared_ptr<NumericType> numericType = nullptr,
+  ScalarInfo(std::shared_ptr<NumericTypeInfo> numericType = nullptr,
              std::shared_ptr<Range> range = nullptr,
              std::shared_ptr<double> error = nullptr,
              bool conversionEnabled = false,
@@ -211,5 +210,3 @@ public:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_VALUE_INFO_HPP

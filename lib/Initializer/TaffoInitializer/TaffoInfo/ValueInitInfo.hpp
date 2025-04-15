@@ -1,5 +1,4 @@
-#ifndef TAFFO_VALUE_INIT_INFO_HPP
-#define TAFFO_VALUE_INIT_INFO_HPP
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 
@@ -44,5 +43,3 @@ private:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_VALUE_INIT_INFO_HPP

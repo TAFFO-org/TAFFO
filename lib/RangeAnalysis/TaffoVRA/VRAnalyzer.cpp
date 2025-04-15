@@ -1,13 +1,12 @@
 #include "VRAnalyzer.hpp"
 
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "MemSSAUtils.hpp"
 #include "RangeOperations.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/Support/Debug.h>
-
-#include "Initializer/TaffoInitializer/TaffoInfo/ValueInitInfo.hpp"
 
 using namespace llvm;
 using namespace taffo;

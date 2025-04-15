@@ -227,7 +227,7 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, std::shared_
       int nbits = std::static_ptr_cast<FixedPointScalarType>(fixpt)->getBits();
       Range range(dblval, dblval);
       int minflt = isMaxIntPolicy(typepol) ? -1 : 0;
-      FixpType t = fixedPointTypeFromRange(range, nullptr, nbits, minflt);
+      FixedPointInfo t = fixedPointTypeFromRange(range, nullptr, nbits, minflt);
       fixpt = std::make_shared<FixedPointScalarType>(&t);
     }
 

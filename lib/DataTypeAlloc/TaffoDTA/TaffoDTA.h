@@ -1,5 +1,4 @@
-#ifndef __TAFFO_TUNER_PASS_H__
-#define __TAFFO_TUNER_PASS_H__
+#pragma once
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
@@ -16,16 +15,16 @@
 
 namespace tuner {
 
-bool isMergeable(const std::shared_ptr<taffo::FixpType> &fpv,
-                 const std::shared_ptr<taffo::FixpType> &fpu);
-std::shared_ptr<taffo::FixpType> merge(const std::shared_ptr<taffo::FixpType> &fpv,
-                                       const std::shared_ptr<taffo::FixpType> &fpu);
-std::shared_ptr<taffo::NumericType> merge(const std::shared_ptr<taffo::NumericType> &fpv,
-                                          const std::shared_ptr<taffo::NumericType> &fpu);
+bool isMergeable(const std::shared_ptr<taffo::FixedPointInfo> &fpv,
+                 const std::shared_ptr<taffo::FixedPointInfo> &fpu);
+std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo> &fpv,
+                                       const std::shared_ptr<taffo::FixedPointInfo> &fpu);
+std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo> &fpv,
+                                          const std::shared_ptr<taffo::NumericTypeInfo> &fpu);
 
 struct TunerInfo {
   std::shared_ptr<taffo::ValueInfo> metadata;
-  std::shared_ptr<taffo::NumericType> initialType;
+  std::shared_ptr<taffo::NumericTypeInfo> initialType;
   std::optional<std::string> bufferID;
 };
 
@@ -157,5 +156,3 @@ private:
 } // namespace tuner
  
 #undef DEBUG_TYPE
-
-#endif

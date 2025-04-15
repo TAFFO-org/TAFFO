@@ -1,9 +1,6 @@
-#ifndef __TAFFO_DTA_OPTIMIZERINFO_H__
-#define __TAFFO_DTA_OPTIMIZERINFO_H__
+#pragma once
 
 #include "TaffoDTA.h"
-
-#include <llvm/ADT/Statistic.h>
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -342,5 +339,3 @@ public:
 } // namespace tuner
 
 #undef DEBUG_TYPE
-
-#endif

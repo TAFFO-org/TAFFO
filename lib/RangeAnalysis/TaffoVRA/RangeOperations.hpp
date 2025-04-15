@@ -1,12 +1,10 @@
-#ifndef TAFFO_RANGE_OPERATIONS_HPP
-#define TAFFO_RANGE_OPERATIONS_HPP
+#pragma once
 
 #include <list>
 #include <string>
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include <llvm/IR/InstrTypes.h>
-#include <llvm/IR/Instruction.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
@@ -115,5 +113,3 @@ std::shared_ptr<ValueInfoWithRange> fillRangeHoles(const std::shared_ptr<ValueIn
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif /* end of include guard: TAFFO_RANGE_OPERATIONS_HPP */

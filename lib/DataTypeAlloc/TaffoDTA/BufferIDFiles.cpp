@@ -8,12 +8,12 @@ using namespace llvm;
 using namespace taffo;
 using namespace tuner;
 
-static std::unique_ptr<NumericType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *Node)
+static std::unique_ptr<NumericTypeInfo> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node *Node)
 {
   yaml::MappingNode *MapNode = dyn_cast<yaml::MappingNode>(Node);
   if (!MapNode) {
     SM.PrintMessage(Node->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected mapping specifying the type");
-    return std::unique_ptr<NumericType>(nullptr);
+    return std::unique_ptr<NumericTypeInfo>(nullptr);
   }
   
   std::map<std::string, std::string> Map;
@@ -21,7 +21,7 @@ static std::unique_ptr<NumericType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::No
     yaml::ScalarNode *Key = dyn_cast<yaml::ScalarNode>(Item.getKey());
     if (!Key) {
       SM.PrintMessage(Item.getKey()->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected scalar");
-      return std::unique_ptr<NumericType>(nullptr);
+      return std::unique_ptr<NumericTypeInfo>(nullptr);
     }
     SmallVector<char> KeyStorage;
     StringRef KeyStr = Key->getValue(KeyStorage);
@@ -29,7 +29,7 @@ static std::unique_ptr<NumericType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::No
     yaml::ScalarNode *Value = dyn_cast<yaml::ScalarNode>(Item.getValue());
     if (!Value) {
       SM.PrintMessage(Item.getValue()->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Expected scalar");
-      return std::unique_ptr<NumericType>(nullptr);
+      return std::unique_ptr<NumericTypeInfo>(nullptr);
     }
     SmallVector<char> ValueStorage;
     StringRef ValueStr = Value->getValue(ValueStorage);
@@ -38,20 +38,21 @@ static std::unique_ptr<NumericType> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::No
   }
 
   int ClassID = atoi(Map["Class"].c_str());
-  if (ClassID == NumericType::K_FixpType) {
-    int SWidth = atoi(Map["SWidth"].c_str());
-    int PointPos = atoi(Map["PointPos"].c_str());
-    return std::unique_ptr<NumericType>(new FixpType(SWidth, PointPos));
+  if (ClassID == NumericTypeInfo::K_FixedPoint) {
+    bool isSigned = atoi(Map["signed"].c_str());
+    int bits = atoi(Map["bits"].c_str());
+    int fractionalBits = atoi(Map["fractionalBits"].c_str());
+    return std::make_unique<FixedPointInfo>(isSigned, bits, fractionalBits);
   }
   
-  if (ClassID == NumericType::K_FloatType) {
-    FloatType::FloatStandard FloatStandard = (FloatType::FloatStandard)atoi(Map["FloatStandard"].c_str());
+  if (ClassID == NumericTypeInfo::K_FloatingPoint) {
+    FloatingPointInfo::FloatStandard FloatStandard = (FloatingPointInfo::FloatStandard)atoi(Map["FloatStandard"].c_str());
     double GreatestNumber = atof(Map["GreatestNumber"].c_str());
-    return std::unique_ptr<NumericType>(new FloatType(FloatStandard, GreatestNumber));
+    return std::make_unique<FloatingPointInfo>(FloatStandard, GreatestNumber);
   }
   
   SM.PrintMessage(Node->getSourceRange().Start, SourceMgr::DiagKind::DK_Error, "Invalid Class");
-  return std::unique_ptr<NumericType>(nullptr);
+  return std::unique_ptr<NumericTypeInfo>(nullptr);
 }
 
 static bool ReadBufferIDFileImpl(std::string Fn, BufferIDTypeMap& OutMap)
@@ -82,7 +83,7 @@ static bool ReadBufferIDFileImpl(std::string Fn, BufferIDTypeMap& OutMap)
     SmallVector<char> KeyStorage;
     StringRef KeyStr = Key->getValue(KeyStorage);
 
-    std::unique_ptr<NumericType> T = ReadTypeFromYAMLNode(SM, Item.getValue());
+    std::unique_ptr<NumericTypeInfo> T = ReadTypeFromYAMLNode(SM, Item.getValue());
     if (T.get()) {
       OutMap[KeyStr.str()] = std::move(T);
     } else {
@@ -109,17 +110,18 @@ void tuner::WriteBufferIDFile(std::string Fn, BufferIDTypeMap& Map)
   Stm << "---" << std::endl;
   for (auto& Pair: Map) {
     Stm << "\"" << Pair.first << "\" : ";
-    NumericType *T = Pair.second.get();
-    if (FloatType *FloatT = dyn_cast<FloatType>(T)) {
+    NumericTypeInfo *T = Pair.second.get();
+    if (FloatingPointInfo *FloatT = dyn_cast<FloatingPointInfo>(T)) {
       Stm << "{ " <<
         "Class: " << FloatT->getKind() << ", " <<
         "FloatStandard: " << FloatT->getStandard() << ", " <<
         "GreatestNumber: " << FloatT->getGreatestNumber() << " }";
-    } else if (FixpType *FPT = dyn_cast<FixpType>(T)) {
+    } else if (FixedPointInfo *FPT = dyn_cast<FixedPointInfo>(T)) {
       Stm << "{ " <<
         "Class: " << FPT->getKind() << ", " <<
-        "SWidth: " << FPT->getSWidth() << ", " <<
-        "PointPos: " << FPT->getPointPos() << " }";
+        "signed: " << FPT->isSigned() << ", " <<
+        "bits: " << FPT->getBits() << ", " <<
+        "fractionalBits: " << FPT->getFractionalBits() << " }";
     } else {
       llvm_unreachable("unknown type class");
     }

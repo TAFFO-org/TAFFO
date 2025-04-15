@@ -1,5 +1,4 @@
-#ifndef TAFFO_TRANSPARENT_TYPE_HPP
-#define TAFFO_TRANSPARENT_TYPE_HPP
+#pragma once
 
 #include "SerializationUtils.hpp"
 #include "PtrCasts.hpp"
@@ -207,5 +206,3 @@ struct equal_to<shared_ptr<taffo::TransparentType>> {
 };
 
 } // namespace std
-
-#endif // TAFFO_TRANSPARENT_TYPE_HPP

@@ -1,5 +1,4 @@
-#ifndef TAFFO_CODE_SCHEDULER_HPP
-#define TAFFO_CODE_SCHEDULER_HPP
+#pragma once
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/Analysis/LoopInfo.h>
@@ -138,5 +137,3 @@ private:
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif

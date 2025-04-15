@@ -1,5 +1,4 @@
-#ifndef __TAFFO_DTA_OPTIMIZER_H__
-#define __TAFFO_DTA_OPTIMIZER_H__
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include "TaffoDTA.h"
@@ -137,7 +136,7 @@ public:
   void saveInfoForPointer(llvm::Value *value, shared_ptr<OptimizerPointerInfo> pointerInfo);
 
 
-  shared_ptr<taffo::NumericType> modelvarToTType(shared_ptr<OptimizerScalarInfo> sharedPtr);
+  shared_ptr<taffo::NumericTypeInfo> modelvarToTType(shared_ptr<OptimizerScalarInfo> sharedPtr);
 
   shared_ptr<taffo::ValueInfo> buildDataHierarchy(shared_ptr<OptimizerInfo> info);
 
@@ -150,5 +149,3 @@ public:
 } // namespace tuner
 
 #undef DEBUG_TYPE
-
-#endif

@@ -14,7 +14,7 @@ using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<FixpType> fpInfo, shared_ptr<Range> rangeInfo, shared_ptr<double> suggestedMinError,
+shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<FixedPointInfo> fpInfo, shared_ptr<Range> rangeInfo, shared_ptr<double> suggestedMinError,
                                                                                bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
 {
   assert(!valueHasInfo(value) && "The value considered already has optimizer info!");
@@ -36,7 +36,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
 
   LLVM_DEBUG(llvm::dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
 
-  auto optimizerInfo = make_shared<OptimizerScalarInfo>(varName, 0, fpInfo->getPointPos(), fpInfo->getWidth(),
+  auto optimizerInfo = make_shared<OptimizerScalarInfo>(varName, 0, fpInfo->getFractionalBits(), fpInfo->getBits(),
                                                                fpInfo->isSigned(), *rangeInfo, "");
 
 
@@ -70,7 +70,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   model.createVariable(optimizerInfo->getRealEnobVariable(), -BIG_NUMBER, BIG_NUMBER);
 
   auto constraint = vector<pair<string, double>>();
-  int ENOBfloat = getENOBFromRange(rangeInfo, FloatType::Float_float);
+  int ENOBfloat = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_float);
   int ENOBdouble = 0;
   int ENOBhalf = 0;
   int ENOBquad = 0;
@@ -97,19 +97,19 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
 
   // Enob constraints Double
   if (hasDouble) {
-    ENOBdouble = getENOBFromRange(rangeInfo, FloatType::Float_double);
+    ENOBdouble = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_double);
     enobconstraint(ENOBdouble, &OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
   }
 
   // Enob constraints Half
   if (hasHalf) {
-    ENOBhalf = getENOBFromRange(rangeInfo, FloatType::Float_half);
+    ENOBhalf = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_half);
     enobconstraint(ENOBhalf, &OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
   }
 
   // Enob constraints Quad
   if (hasQuad) {
-    ENOBquad = getENOBFromRange(rangeInfo, FloatType::Float_fp128);
+    ENOBquad = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_fp128);
     enobconstraint(ENOBquad,
                    &OptimizerScalarInfo::getQuadSelectedVariable,
                    "Enob constraint for quad");
@@ -117,7 +117,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   // Enob constraints FP80
 
   if (hasFP80) {
-    ENOBfp80 = getENOBFromRange(rangeInfo, FloatType::Float_x86_fp80);
+    ENOBfp80 = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_x86_fp80);
     enobconstraint(ENOBfp80,
                    &OptimizerScalarInfo::getFP80SelectedVariable,
                    "Enob constraint for fp80");
@@ -125,7 +125,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   // Enob constraints PPC128
 
   if (hasPPC128) {
-    ENOBppc128 = getENOBFromRange(rangeInfo, FloatType::Float_ppc_fp128);
+    ENOBppc128 = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_ppc_fp128);
     enobconstraint(ENOBppc128,
                    &OptimizerScalarInfo::getPPC128SelectedVariable,
                    "Enob constraint for ppc128");
@@ -133,7 +133,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   // Enob constraints FP80
 
   if (hasBF16) {
-    ENOBbf16 = getENOBFromRange(rangeInfo, FloatType::Float_bfloat);
+    ENOBbf16 = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_bfloat);
     enobconstraint(ENOBbf16,
                    &OptimizerScalarInfo::getBF16SelectedVariable,
                    "Enob constraint for bf16");
@@ -143,9 +143,9 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   constraint.push_back(make_pair(optimizerInfo->getFractBitsVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), -BIG_NUMBER));
   // DO NOT REMOVE THE CAST OR SOMEONE WILL DEBUG THIS FOR AN WHOLE DAY AGAIN
-  model.insertLinearConstraint(constraint, Model::GE, (-BIG_NUMBER - FIX_DELTA_MAX) + ((int)fpInfo->getPointPos()) /*, "Limit the lower number of frac bits"+to_string(fpInfo->getPointPos())*/);
+  model.insertLinearConstraint(constraint, Model::GE, (-BIG_NUMBER - FIX_DELTA_MAX) + ((int)fpInfo->getFractionalBits()) /*, "Limit the lower number of frac bits"+to_string(fpInfo->getPointPos())*/);
 
-  int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)fpInfo->getPointPos()});
+  int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)fpInfo->getFractionalBits()});
 
   enobMaxCost = hasDouble ? max(enobMaxCost, ENOBdouble) : enobMaxCost;
   enobMaxCost = hasHalf ? max(enobMaxCost, ENOBhalf) : enobMaxCost;
@@ -657,38 +657,38 @@ int MetricPerf::getENOBFromError(double error)
 }
 
 
-int MetricPerf::getENOBFromRange(const shared_ptr<Range> &range, FloatType::FloatStandard standard)
+int MetricPerf::getENOBFromRange(const shared_ptr<Range> &range, FloatingPointInfo::FloatStandard standard)
 {
   assert(range && "We must have a valid range here!");
 
   int fractionalDigits;
   int minExponentPower; // eheheh look at this
   switch (standard) {
-  case FloatType::Float_half:
+  case FloatingPointInfo::Float_half:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEhalf()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEhalf());
     break;
-  case FloatType::Float_float:
+  case FloatingPointInfo::Float_float:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEsingle()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEsingle());
     break;
-  case FloatType::Float_double:
+  case FloatingPointInfo::Float_double:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEdouble()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEdouble());
     break;
-  case FloatType::Float_bfloat:
+  case FloatingPointInfo::Float_bfloat:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::BFloat()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::BFloat());
     break;
-  case FloatType::Float_fp128:
+  case FloatingPointInfo::Float_fp128:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::IEEEquad()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::IEEEquad());
     break;
-  case FloatType::Float_ppc_fp128:
+  case FloatingPointInfo::Float_ppc_fp128:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::PPCDoubleDouble()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::PPCDoubleDouble());
     break;
-  case FloatType::Float_x86_fp80:
+  case FloatingPointInfo::Float_x86_fp80:
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::x87DoubleExtended()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::x87DoubleExtended());
     break;
@@ -856,7 +856,7 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
     return;
   }
 
-  auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+  auto fptype = dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return;

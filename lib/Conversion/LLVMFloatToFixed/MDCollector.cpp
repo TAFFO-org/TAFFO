@@ -79,7 +79,7 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*> *variables, std::shared
     if (!fpInfo->isConversionEnabled())
       return false;
     if (!instr->getType()->isVoidTy()) {
-      NumericType *fpt = dyn_cast_or_null<NumericType>(fpInfo->numericType.get());
+      NumericTypeInfo *fpt = dyn_cast_or_null<NumericTypeInfo>(fpInfo->numericType.get());
       if (!fpt) {
         LLVM_DEBUG(dbgs() << "Type in metadata is null! ");
         if (isKnownConvertibleWithIncompleteMetadata(instr)) {

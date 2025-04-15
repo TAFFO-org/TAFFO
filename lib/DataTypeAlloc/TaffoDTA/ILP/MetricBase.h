@@ -75,7 +75,7 @@ public:
   virtual void handleFNeg(llvm::UnaryOperator *instr, const unsigned OpCode,
                           const shared_ptr<tuner::TunerInfo> &valueInfos) = 0;
   virtual shared_ptr<tuner::OptimizerScalarInfo> allocateNewVariableForValue(
-      llvm::Value *value, shared_ptr<taffo::FixpType> fpInfo,
+      llvm::Value *value, shared_ptr<taffo::FixedPointInfo> fpInfo,
       shared_ptr<taffo::Range> rangeInfo,
       shared_ptr<double> suggestedMinError,
       bool insertInList = true, string nameAppendix = "",
@@ -175,7 +175,7 @@ public:
                   const shared_ptr<tuner::TunerInfo> &valueInfos) override;
 
   shared_ptr<tuner::OptimizerScalarInfo> allocateNewVariableForValue(
-      llvm::Value *value, shared_ptr<taffo::FixpType> fpInfo,
+      llvm::Value *value, shared_ptr<taffo::FixedPointInfo> fpInfo,
       shared_ptr<taffo::Range> rangeInfo,
       shared_ptr<double> suggestedMinError,
       bool insertInList = true, string nameAppendix = "",
@@ -189,7 +189,7 @@ protected:
   MetricPerf(MetricKind k) : MetricBase(k) {}
   int getENOBFromError(double error);
   static int getENOBFromRange(const shared_ptr<taffo::Range> &range,
-                              taffo::FloatType::FloatStandard standard);
+                              taffo::FloatingPointInfo::FloatStandard standard);
   void handleSelect(llvm::Instruction *instruction,
                     shared_ptr<tuner::TunerInfo> valueInfo) override;
   std::string getEnobActivationVariable(llvm::Value *value, int cardinal) override;

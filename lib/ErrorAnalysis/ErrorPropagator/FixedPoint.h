@@ -13,8 +13,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_FIXED_POINT_H
-#define ERRORPROPAGATOR_FIXED_POINT_H
+#pragma once
 
 #include <cstdint>
 
@@ -283,5 +282,3 @@ protected:
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif // ERRORPROPAGATOR_FIXED_POINT_H

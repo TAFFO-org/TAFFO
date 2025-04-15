@@ -1,5 +1,4 @@
-#ifndef TAFFO_RANGE_INFO_HPP
-#define TAFFO_RANGE_INFO_HPP
+#pragma once
 
 #include "../SerializationUtils.hpp"
 
@@ -27,5 +26,3 @@ struct Range : public Serializable, public Printable {
 };
 
 }
-
-#endif // TAFFO_RANGE_INFO_HPP

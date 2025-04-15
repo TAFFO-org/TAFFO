@@ -1,5 +1,4 @@
-#ifndef TAFFO_VRALOGGER_HPP
-#define TAFFO_VRALOGGER_HPP
+#pragma once
 
 #include "CodeInterpreter.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
@@ -147,5 +146,3 @@ private:
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif

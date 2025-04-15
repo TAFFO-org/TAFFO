@@ -1,5 +1,4 @@
-#ifndef ERRORPROPAGATOR_MEMSSARE_H
-#define ERRORPROPAGATOR_MEMSSARE_H
+#pragma once
 
 #include <llvm/ADT/SmallVector.h>
 #include "MemSSAUtils.hpp"
@@ -29,5 +28,3 @@ private:
 } // end of namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif

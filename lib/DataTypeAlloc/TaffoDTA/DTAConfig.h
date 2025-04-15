@@ -1,5 +1,4 @@
-#ifndef DTACONFIG
-#define DTACONFIG
+#pragma once
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/Support/CommandLine.h>
@@ -44,5 +43,3 @@ extern llvm::cl::opt<std::string> DumpModelFile;
 #endif // TAFFO_BUILD_ILP_DTA
 
 #undef DEBUG_TYPE
-
-#endif

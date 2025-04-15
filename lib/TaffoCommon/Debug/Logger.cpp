@@ -10,7 +10,7 @@ Logger &Logger::getInstance() {
   return instance;
 }
 
-void Logger::logValue(const Value *value, bool logParent) {
+Logger &Logger::logValue(const Value *value, bool logParent) {
   if (auto *f = dyn_cast<Function>(value))
     log(f->getName());
   else {
@@ -26,48 +26,58 @@ void Logger::logValue(const Value *value, bool logParent) {
       }
     }
   }
+  return *this;
 }
 
-void Logger::logValueln(const Value *value, bool logParent) {
+Logger &Logger::logValueln(const Value *value, bool logParent) {
   logValue(value, logParent);
   log("\n");
   isLineStart = true;
+  return *this;
 }
 
-void Logger::setContextTag(const std::string &tag) {
+Logger &Logger::setContextTag(const std::string &tag) {
   contextTagStack.push_front("[" + tag + "] ");
+  return *this;
 }
 
-void Logger::setContextTag(const char *tag) {
+Logger &Logger::setContextTag(const char *tag) {
   setContextTag(std::string(tag));
+  return *this;
 }
 
-void Logger::restorePrevContextTag() {
+Logger &Logger::restorePrevContextTag() {
   if (!contextTagStack.empty())
     contextTagStack.pop_front();
+  return *this;
 }
 
-void Logger::setColor(raw_ostream::Colors color) {
+Logger &Logger::setColor(raw_ostream::Colors color) {
   currentColor = color;
+  return *this;
 }
 
-void Logger::resetColor() {
+Logger &Logger::resetColor() {
   currentColor = raw_ostream::Colors::RESET;
+  return *this;
 }
 
-void Logger::setIndent(unsigned indent) {
+Logger &Logger::setIndent(unsigned indent) {
   this->indent = indent;
+  return *this;
 }
 
-void Logger::increaseIndent(unsigned amount) {
+Logger &Logger::increaseIndent(unsigned amount) {
   indent += amount;
+  return *this;
 }
 
-void Logger::decreaseIndent(unsigned amount) {
+Logger &Logger::decreaseIndent(unsigned amount) {
   if (indent >= amount)
     indent -= amount;
   else
     indent = 0;
+  return *this;
 }
 
 raw_fd_ostream &Logger::getOutputStream() {

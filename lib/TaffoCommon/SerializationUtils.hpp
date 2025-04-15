@@ -1,9 +1,7 @@
-#ifndef TAFFO_SERIALIZATION_UTILS_HPP
-#define TAFFO_SERIALIZATION_UTILS_HPP
+#pragma once
 
 #include <nlohmann/json.hpp>
 #include <llvm/IR/Type.h>
-#include <llvm/IR/Value.h>
 #include <llvm/Support/Debug.h>
 #include <sstream>
 
@@ -107,5 +105,3 @@ inline std::string formatNumber(unsigned int digits, unsigned int number) {
 }
 
 } // namespace taffo
-
-#endif //TAFFO_SERIALIZATION_UTILS_HPP

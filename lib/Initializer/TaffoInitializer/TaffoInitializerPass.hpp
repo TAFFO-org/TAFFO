@@ -1,5 +1,4 @@
-#ifndef TAFFO_INITIALIZER_PASS_HPP
-#define TAFFO_INITIALIZER_PASS_HPP
+#pragma once
 
 #include "Initializer/TaffoInitializer/TaffoInfo/TaffoInitInfo.hpp"
 #include <llvm/ADT/Statistic.h>
@@ -36,7 +35,7 @@ private:
   void propagateInfo();
   void propagateInfo(llvm::Value *src, llvm::Value *dst);
   void generateFunctionClones();
-  llvm::Function *cloneFunction(llvm::CallBase *call);
+  llvm::Function *cloneFunction(const llvm::CallBase *call);
   void saveValueWeights();
   void logInfoPropagationQueue();
 
@@ -49,4 +48,3 @@ private:
 } // namespace taffo
 
 #undef DEBUG_TYPE
-#endif // TAFFO_INITIALIZER_PASS_HPP

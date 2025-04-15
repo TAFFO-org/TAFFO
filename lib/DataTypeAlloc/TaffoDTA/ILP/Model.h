@@ -1,5 +1,4 @@
-#ifndef TAFFO_DTA_MODEL_H
-#define TAFFO_DTA_MODEL_H
+#pragma once
 
 #include "ortools/linear_solver/linear_solver.h"
 #include <llvm/Support/CommandLine.h>
@@ -76,5 +75,3 @@ public:
 } // namespace tuner
 
 #undef DEBUG_TYPE
-
-#endif

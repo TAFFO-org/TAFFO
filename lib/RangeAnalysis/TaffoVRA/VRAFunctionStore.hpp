@@ -1,5 +1,4 @@
-#ifndef TAFFO_VRA_FUNCTION_STORE_HPP
-#define TAFFO_VRA_FUNCTION_STORE_HPP
+#pragma once
 
 #include "CodeInterpreter.hpp"
 #include "VRALogger.hpp"
@@ -55,5 +54,3 @@ protected:
 } // end namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif
