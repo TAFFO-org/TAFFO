@@ -1,5 +1,4 @@
-#include "Conversion/LLVMFloatToFixed/FixedPointType.hpp"
-#include "TaffoDTA/TaffoDTA/DTAConfig.hpp"
+#include "FixedPointType.hpp"
 #include "ConversionPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
