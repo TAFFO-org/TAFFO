@@ -26,10 +26,12 @@ std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type *unwrappedT
   return std::shared_ptr<TransparentType>(new TransparentType(unwrappedType, indirections));
 }
 
-std::shared_ptr<TransparentType> TransparentTypeFactory::create(json j) {
+std::shared_ptr<TransparentType> TransparentTypeFactory::create(const json &j) {
   std::shared_ptr<TransparentType> type;
   if (j["kind"] == "Struct")
     type = std::shared_ptr<TransparentType>(new TransparentStructType());
+  else if (j["kind"] == "Array")
+    type = std::shared_ptr<TransparentType>(new TransparentArrayType());
   else
     type = std::shared_ptr<TransparentType>(new TransparentType());
   type->deserialize(j);
@@ -60,13 +62,6 @@ int TransparentType::compareTransparency(const TransparentType &other) const {
     return 1;
 
   return 0;
-}
-
-std::shared_ptr<TransparentType> TransparentType::getPointerElementType() const {
-  assert(indirections > 0 && "Not a pointer or opaque");
-  std::shared_ptr<TransparentType> type = clone();
-  type->indirections--;
-  return type;
 }
 
 Type* TransparentType::toLLVMType() const {
@@ -102,6 +97,7 @@ json TransparentType::serialize() const {
 void TransparentType::deserialize(const json &j) {
   unwrappedType = TaffoInfo::getInstance().getType(j["unwrappedType"]);
   indirections = j["indirections"];
+  assert(unwrappedType != nullptr && "Unwrapped type not found");
 }
 
 void TransparentType::incrementIndirections(int increment) {
@@ -128,6 +124,13 @@ int TransparentArrayType::compareTransparency(const TransparentType &other) cons
   if (cmp != 0)
     return cmp;
   return  elementType->compareTransparency(*otherArray.elementType);
+}
+
+llvm::SmallPtrSet<llvm::Type*, 4> TransparentArrayType::getContainedTypes() const {
+  llvm::SmallPtrSet<llvm::Type*, 4> containedTypes = TransparentType::getContainedTypes();
+  llvm::SmallPtrSet<llvm::Type*, 4> elementContaineTypes = getArrayElementType()->getContainedTypes();
+  containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());   
+  return containedTypes;
 }
 
 bool TransparentArrayType::operator==(const TransparentType &other) const {
@@ -211,6 +214,15 @@ int TransparentStructType::compareTransparency(const TransparentType &other) con
       return 0; // conflicting fields' comparisons result in equal transparency
   }
   return overallResult;
+}
+
+llvm::SmallPtrSet<llvm::Type*, 4> TransparentStructType::getContainedTypes() const {
+  llvm::SmallPtrSet<llvm::Type*, 4> containedTypes = TransparentType::getContainedTypes();
+  for (auto &field : *this) {
+    llvm::SmallPtrSet<llvm::Type*, 4> elementContaineTypes = field->getContainedTypes();
+    containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());   
+  }
+  return containedTypes;
 }
 
 bool TransparentStructType::operator==(const TransparentType &other) const {

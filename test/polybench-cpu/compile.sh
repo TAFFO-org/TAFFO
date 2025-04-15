@@ -44,7 +44,7 @@ compile_one()
     -I./ \
     $xparams \
     $MIXIMI  \
-    -debug-taffo \
+    -debug \
     -lm \
     2> build/${benchname}.log || return $?
     

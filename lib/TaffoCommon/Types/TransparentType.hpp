@@ -2,8 +2,10 @@
 
 #include "SerializationUtils.hpp"
 #include "PtrCasts.hpp"
+#include "llvm/ADT/SmallPtrSet.h"
 
 #include <llvm/IR/DerivedTypes.h>
+#include <memory>
 
 namespace taffo {
 
@@ -26,7 +28,7 @@ private:
 
   static std::shared_ptr<TransparentType> create(const llvm::Value *value);
   static std::shared_ptr<TransparentType> create(llvm::Type *unwrappedType, unsigned int indirections);
-  static std::shared_ptr<TransparentType> create(json j);
+  static std::shared_ptr<TransparentType> create(const json &j);
 };
 
 class TransparentType : public Serializable, public Printable {
@@ -47,6 +49,7 @@ public:
   llvm::Type *getUnwrappedType() const { return unwrappedType; }
   unsigned int getIndirections() const { return indirections; }
   std::shared_ptr<TransparentType> getPointedType() const;
+  virtual llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const { return { unwrappedType}; }
   bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
   bool isStructType() const { return unwrappedType->isStructTy(); }
   bool isFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
@@ -54,7 +57,6 @@ public:
   bool isPointerType() const { return indirections > 0 || isOpaquePointer(); }
   virtual bool isOpaquePointer() const { return unwrappedType->isPointerTy(); }
   virtual int compareTransparency(const TransparentType &other) const;
-  std::shared_ptr<TransparentType> getPointerElementType() const;
   llvm::Type* toLLVMType() const;
   virtual TransparentTypeKind getKind() const { return K_Scalar; }
 
@@ -87,9 +89,11 @@ public:
   static bool classof(const TransparentType *type) { return type->getKind() == K_Array; }
 
   bool isOpaquePointer() const override;
-  bool containsFloatingPointType() const override { return getPointerElementType()->isFloatingPointType(); }
+  bool containsFloatingPointType() const override { return getArrayElementType()->containsFloatingPointType(); }
   int compareTransparency(const TransparentType &other) const override;
-  std::shared_ptr<TransparentType> getElementType() const { return elementType; }
+  std::shared_ptr<TransparentType> getArrayElementType() const { return elementType; }
+  llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const override;
+  std::shared_ptr<TransparentType> setArrayElementType(const std::shared_ptr<TransparentType> &elementType) { return this->elementType = elementType; }
   TransparentTypeKind getKind() const override { return K_Array; }
 
   bool operator==(const TransparentType &other) const override;
@@ -136,6 +140,7 @@ public:
   int compareTransparency(const TransparentType &other) const override;
   std::shared_ptr<TransparentType> getFieldType(unsigned int i) const { return fieldTypes[i]; }
   unsigned int getNumFieldTypes() const { return fieldTypes.size(); }
+  llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const override;
   TransparentTypeKind getKind() const override { return K_Struct; }
 
   bool operator==(const TransparentType &other) const override;
@@ -184,7 +189,7 @@ struct hash<shared_ptr<taffo::TransparentType>> {
     combined = combine(combined, hash<unsigned int>()(ptr->getIndirections()));
 
     if (auto arrayPtr = dynamic_ptr_cast<taffo::TransparentArrayType>(ptr))
-      combined = combine(combined, hash()(arrayPtr->getElementType()));
+      combined = combine(combined, hash()(arrayPtr->getArrayElementType()));
     else if (auto structPtr = dynamic_ptr_cast<taffo::TransparentStructType>(ptr))
       for (const auto &field : *structPtr)
         combined = combine(combined, hash()(field));

@@ -3,6 +3,8 @@
 #include "MetadataManager.hpp"
 #include "Debug/Logger.hpp"
 #include "Types/TypeUtils.hpp"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Type.h"
 
 #include <llvm/IR/Dominators.h>
 #include <fstream>
@@ -264,8 +266,6 @@ void TaffoInfo::generateTaffoIds() {
 
   for (const auto &[v, transparentType] : transparentTypes) {
     valueSet.insert(v);
-    // Also update idTypeMapping while collecting values from transparentTypes.
-    idTypeMapping[toString(transparentType->getUnwrappedType())] = transparentType->getUnwrappedType();
   }
   for (auto *f : startingPoints)
     valueSet.insert(f);
@@ -302,8 +302,9 @@ void TaffoInfo::generateTaffoIds() {
     generateTaffoId(value);
 
     std::shared_ptr<ValueInfo> valInfo = this->valueInfo[value];
-    Type *type = getUnwrappedType(value);
-    idTypeMapping[toString(type)] = type;
+    SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedTypes();
+    for (Type* type : types)
+      idTypeMapping[toString(type)] = type;
   }
 
   // The same for loops

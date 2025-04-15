@@ -2,6 +2,8 @@
 
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "Types/TransparentType.hpp"
+#include "llvm/IR/DerivedTypes.h"
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/InstIterator.h>
@@ -92,7 +94,7 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value *value
 
   CandidateSet &candidateTypes = this->candidateTypes[value];
 
-  // Deduce form value
+  // Deduce from value
   if (auto *allocaInst = dyn_cast<AllocaInst>(value))
     candidateTypes.insert(TransparentTypeFactory::create(allocaInst->getAllocatedType(), 1));
   else if (auto *loadInst = dyn_cast<LoadInst>(value)) {
@@ -104,8 +106,9 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value *value
     candidateTypes.insert(type);
   }
   else if (auto *gepInst = dyn_cast<GetElementPtrInst>(value)) {
+    std::shared_ptr<TransparentType> pointerOperandType = getDeducedType(gepInst->getPointerOperand());
     if (std::shared_ptr<TransparentStructType> structType =
-      std::dynamic_ptr_cast<TransparentStructType>(getDeducedType(gepInst->getPointerOperand()))) {
+      std::dynamic_ptr_cast<TransparentStructType>(pointerOperandType)) {
       if (auto *constInt = dyn_cast<ConstantInt>(gepInst->getOperand(2))) {
         unsigned fieldIndex = constInt->getZExtValue();
         std::shared_ptr<TransparentType> type = structType->getFieldType(fieldIndex)->clone();
@@ -113,6 +116,12 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value *value
         candidateTypes.insert(type);
       }
     }
+    if (std::shared_ptr<TransparentArrayType> arrayType =
+      std::dynamic_ptr_cast<TransparentArrayType>(pointerOperandType)) {
+        std::shared_ptr<TransparentType> type = arrayType->getArrayElementType()->clone();
+        type->incrementIndirections(1);
+        candidateTypes.insert(type);
+      }
   }
   else if (auto *callInst = dyn_cast<CallInst>(value)) {
     candidateTypes.insert(getDeducedType(callInst->getCalledFunction()));
@@ -155,6 +164,15 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value *value
             }
             structType->setFieldType(fieldIndex, fieldType);
           }
+        // Deduce element type in case of array of ptr
+        if (std::shared_ptr<TransparentArrayType> arrayType = std::dynamic_ptr_cast<TransparentArrayType>(type)) {
+          std::shared_ptr<TransparentType> elementType = getDeducedType(gepInst);
+          if (elementType->getIndirections() > 0) {
+            elementType = elementType->clone();
+            elementType->incrementIndirections(-1);
+          }
+          arrayType->setArrayElementType(elementType);
+        }
         candidateTypes.insert(type);
       }
     }

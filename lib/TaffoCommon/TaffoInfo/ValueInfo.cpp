@@ -138,11 +138,11 @@ json ScalarInfo::serialize() const {
 void ScalarInfo::deserialize(const json &j) {
   ValueInfo::deserialize(j);
   if (j.contains("numericType") && !j["numericType"].is_null()) {
-    std::string ntKind = j["numericType"]["kind"].get<std::string>();
-    if (ntKind == "FixpType") {
+    std::string numericTypeKind = j["numericType"]["kind"].get<std::string>();
+    if (numericTypeKind == "FixedPoint") {
       numericType = std::make_shared<FixedPointInfo>(false, 0, 0);
       numericType->deserialize(j["numericType"]);
-    } else if (ntKind == "FloatType") {
+    } else if (numericTypeKind == "FloatingPoint") {
       numericType = std::make_shared<FloatingPointInfo>(FloatingPointInfo::Float_float, 0.0);
       numericType->deserialize(j["numericType"]);
     }

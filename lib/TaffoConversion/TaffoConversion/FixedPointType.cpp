@@ -24,13 +24,13 @@ std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::share
   std::shared_ptr<FixedPointType> resolvedFixpType = this->clone();
   for (unsigned int index : indices) {
     if (resolvedType->isPointerType())
-      resolvedType = resolvedType->getPointerElementType();
+      resolvedType = resolvedType->getPointedType();
     else if (resolvedType->isStructType()) {
       resolvedType = std::static_ptr_cast<TransparentStructType>(resolvedType)->getFieldType(index);
       resolvedFixpType = std::static_ptr_cast<FixedPointStructType>(resolvedFixpType)->getFieldType(index);
     }
     else if (resolvedType->isArrayType())
-      resolvedType = std::static_ptr_cast<TransparentArrayType>(resolvedType)->getElementType();
+      resolvedType = std::static_ptr_cast<TransparentArrayType>(resolvedType)->getArrayElementType();
     else
       llvm_unreachable("Unsupported type in GEP");
   }

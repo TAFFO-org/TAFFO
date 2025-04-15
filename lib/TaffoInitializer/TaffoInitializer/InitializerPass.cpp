@@ -6,6 +6,7 @@
 #include "IndirectCallPatcher.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "CudaKernelPatcher.hpp"
+#include "llvm/IR/Argument.h"
 
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -418,12 +419,12 @@ Function *InitializerPass::cloneFunction(const CallBase *call) {
       logger.increaseIndent();
     );
     if (arg.user_empty()) {
-      LLVM_DEBUG(log().logln("arg has no users: skipping"));
+      LLVM_DEBUG(log().logln("arg has no users: skipping").decreaseIndent());
       continue;
     }
     Value *callArg = call->getArgOperand(arg.getArgNo());
     if (!taffoInitInfo.hasValueInitInfo(callArg)) {
-      LLVM_DEBUG(log().logln("arg has no valueInitInfo in the call: skipping"));
+      LLVM_DEBUG(log().logln("arg has no valueInitInfo in the call: skipping").decreaseIndent());
       continue;
     }
     Value *argAlloca = nullptr;
