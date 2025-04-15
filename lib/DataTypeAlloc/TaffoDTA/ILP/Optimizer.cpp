@@ -77,7 +77,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<TunerInfo> tunerInfo
         return;
       }
 
-      auto fptype = std::dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+      auto fptype = std::dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
         return;
@@ -116,7 +116,7 @@ void Optimizer::handleGlobal(GlobalObject *glob, shared_ptr<TunerInfo> tunerInfo
         return;
       }
 
-      auto fptype = std::dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+      auto fptype = std::dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
         return;
@@ -280,7 +280,7 @@ void Optimizer::handleCallFromRoot(Function *f)
         return;
       }
 
-      auto fptype = std::dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+      auto fptype = std::dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;
@@ -775,7 +775,7 @@ shared_ptr<ValueInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> in
   llvm_unreachable("Unknown data type");
 }
 
-shared_ptr<NumericType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalarInfo> scalarInfo)
+shared_ptr<NumericTypeInfo> Optimizer::modelvarToTType(shared_ptr<OptimizerScalarInfo> scalarInfo)
 {
   if (!scalarInfo) {
     LLVM_DEBUG(dbgs() << "Nullptr scalar info!");
@@ -825,43 +825,43 @@ shared_ptr<NumericType> Optimizer::modelvarToTType(shared_ptr<OptimizerScalarInf
 
   if (selectedFixed == 1) {
     StatSelectedFixed++;
-    return make_shared<FixpType>(scalarInfo->getTotalBits(), (int)fracbits, scalarInfo->isSigned);
+    return make_shared<FixedPointInfo>(scalarInfo->isSigned, scalarInfo->getTotalBits(), (int)fracbits);
   }
 
   if (selectedFloat == 1) {
     StatSelectedFloat++;
-    return make_shared<FloatType>(FloatType::Float_float, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_float, 0);
   }
 
   if (selectedDouble == 1) {
     StatSelectedDouble++;
-    return make_shared<FloatType>(FloatType::Float_double, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_double, 0);
   }
 
 
   if (selectedHalf == 1) {
     StatSelectedHalf++;
-    return make_shared<FloatType>(FloatType::Float_half, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_half, 0);
   }
 
   if (selectedQuad == 1) {
     StatSelectedQuad++;
-    return make_shared<FloatType>(FloatType::Float_fp128, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_fp128, 0);
   }
 
   if (selectedPPC128 == 1) {
     StatSelectedPPC128++;
-    return make_shared<FloatType>(FloatType::Float_ppc_fp128, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_ppc_fp128, 0);
   }
 
   if (selectedFP80 == 1) {
     StatSelectedFP80++;
-    return make_shared<FloatType>(FloatType::Float_x86_fp80, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_x86_fp80, 0);
   }
 
   if (selectedBF16 == 1) {
     StatSelectedBF16++;
-    return make_shared<FloatType>(FloatType::Float_bfloat, 0);
+    return make_shared<FloatingPointInfo>(FloatingPointInfo::Float_bfloat, 0);
   }
 
 

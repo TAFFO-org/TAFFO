@@ -238,7 +238,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType
     if (std::shared_ptr<ScalarInfo> ii = std::dynamic_ptr_cast_or_null<ScalarInfo>(mdi)) {
       if (ii->range) {
         FixedPointTypeGenError err;
-        FixpType fpt = fixedPointTypeFromRange(*ii->range, &err, std::static_ptr_cast<FixedPointScalarType>(iofixpt)->getBits());
+        FixedPointInfo fpt = fixedPointTypeFromRange(*ii->range, &err, std::static_ptr_cast<FixedPointScalarType>(iofixpt)->getBits());
         if (err != FixedPointTypeGenError::InvalidRange)
           iofixpt = std::make_shared<FixedPointScalarType>(&fpt);
       }
@@ -254,10 +254,10 @@ bool FloatToFixed::associateFixFormat(const std::shared_ptr<ScalarInfo> &II, std
 
   FixedPointTypeGenError fpgerr;
   // Using default parameters of DTA
-  FixpType res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
+  FixedPointInfo res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
   assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
 
-  iofixpt = std::make_shared<FixedPointScalarType>(res.isSigned(), res.getWidth(), res.getPointPos());
+  iofixpt = std::make_shared<FixedPointScalarType>(res.isSigned(), res.getBits(), res.getFractionalBits());
 
   return true;
 }

@@ -92,7 +92,7 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
       Range rangeInfo(min, max);
 
       FixedPointTypeGenError fpgerr;
-      FixpType fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
+      FixedPointInfo fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
       if (fpgerr != FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(dbgs() << "Error generating infos for constant propagation!"
                           << "\n";);
@@ -101,7 +101,7 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
 
       // ENOB should not be considered for constant.... It is a constant and will be converted as best as possible
       // WE DO NOT SAVE CONSTANTS INFO!
-      auto info = allocateNewVariableForValue(constantFP, make_shared<FixpType>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
+      auto info = allocateNewVariableForValue(constantFP, make_shared<FixedPointInfo>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
       info->setReferToConstant(true);
       return info;
     }
@@ -194,7 +194,7 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
     if (auto structInfo = dynamic_ptr_cast<StructInfo>(*it)) {
       optInfo->setField(i, loadStructInfo(glob, structInfo, (name + "_" + to_string(i))));
     } else if (auto ii = dyn_cast_or_null<ScalarInfo>(it->get())) {
-      auto fptype = dynamic_ptr_cast<FixpType>(ii->numericType);
+      auto fptype = dynamic_ptr_cast<FixedPointInfo>(ii->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
 
@@ -376,7 +376,7 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
     return nullptr;
   }
 
-  auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
+  auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return nullptr;
@@ -412,7 +412,7 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
     return nullptr;
   }
 
-  auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
+  auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return nullptr;
@@ -502,7 +502,7 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valu
   shared_ptr<OptimizerInfo> retInfo;
   if (auto inputInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata)) {
     if (instruction->getType()->isFloatingPointTy()) {
-      auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
+      auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
       if (fptype) {
         LLVM_DEBUG(dbgs() << fptype->toString();
                    dbgs() << "\n";
@@ -721,7 +721,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Tune
   // handling return value. We will force it to be in the original type.
   if (auto inputInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata)) {
     if (inputInfo->range && instruction->getType()->isFloatingPointTy()) {
-      auto fptype = dynamic_ptr_cast<FixpType>(inputInfo->numericType);
+      auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
       if (fptype) {
         LLVM_DEBUG(dbgs() << fptype->toString(););
         shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
@@ -847,7 +847,7 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<TunerInfo> va
         return;
       }
 
-      auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+      auto fptype = dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;

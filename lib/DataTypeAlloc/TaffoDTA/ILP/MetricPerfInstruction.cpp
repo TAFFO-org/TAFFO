@@ -654,7 +654,7 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Tune
       return;
     }
 
-    auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+    auto fptype = dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
     if (!fptype) {
       LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
       return;
@@ -744,13 +744,13 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<TunerInf
 
       // We force the enob back to the variable type, just in case!
       auto constraint = vector<pair<string, double>>();
-      int ENOBfloat = getENOBFromRange(info_pointer->getRange(), FloatType::Float_float);
-      int ENOBdouble = getENOBFromRange(info_pointer->getRange(), FloatType::Float_double);
-      int ENOBhalf = getENOBFromRange(info_pointer->getRange(), FloatType::Float_half);
-      int ENOBquad = getENOBFromRange(info_pointer->getRange(), FloatType::Float_fp128);
-      int ENOBfp80 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_x86_fp80);
-      int ENOBppc128 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_ppc_fp128);
-      int ENOBbf16 = getENOBFromRange(info_pointer->getRange(), FloatType::Float_bfloat);
+      int ENOBfloat = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_float);
+      int ENOBdouble = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_double);
+      int ENOBhalf = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_half);
+      int ENOBquad = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_fp128);
+      int ENOBfp80 = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_x86_fp80);
+      int ENOBppc128 = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_ppc_fp128);
+      int ENOBbf16 = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_bfloat);
 
 
       constraint.clear();
@@ -912,7 +912,7 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> value
     return;
   }
 
-  auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->numericType);
+  auto fptype = dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
   if (!fptype) {
     LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
     return;

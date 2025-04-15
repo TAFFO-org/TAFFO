@@ -32,7 +32,7 @@ enum class FixedPointTypeGenError {
  *    amount of allocated bits to use when the range is too large for
  *    the minimum amount of bits.
  *  @returns A fixed point type. */
-FixpType fixedPointTypeFromRange(
+FixedPointInfo fixedPointTypeFromRange(
     const Range &range,
     FixedPointTypeGenError *outerr = nullptr,
     int totalBits = 32,

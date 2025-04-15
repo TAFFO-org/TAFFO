@@ -56,11 +56,11 @@ public:
   FixedPointScalarType();
   FixedPointScalarType(bool isSigned, int bits, int fractionalBits);
   FixedPointScalarType(llvm::Type *type, bool isSigned = true);
-  FixedPointScalarType(taffo::NumericType *numericType);
+  FixedPointScalarType(taffo::NumericTypeInfo *numericType);
   FixedPointScalarType(const FixedPointScalarType &other);
 
   bool isSigned() const { return sign; }
-  void setSigned(bool sign) { this->sign = sign; }
+  void setSigned(bool isSigned) { this->sign = isSigned; }
   int getBits() const { return bits; }
   void setBits(int bits) { this->bits = bits; }
   int getFractionalBits() const { return fractionalBits; }

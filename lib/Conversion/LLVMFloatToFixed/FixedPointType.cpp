@@ -87,14 +87,14 @@ FixedPointScalarType::FixedPointScalarType(Type *type, bool isSigned)
   }
 }
 
-FixedPointScalarType::FixedPointScalarType(NumericType *numericType) {
+FixedPointScalarType::FixedPointScalarType(NumericTypeInfo *numericType) {
   if (numericType) {
-    if (auto *fpt = dyn_cast<FixpType>(numericType)) {
-      bits = fpt->getWidth();
-      fractionalBits = fpt->getPointPos();
+    if (auto *fpt = dyn_cast<FixedPointInfo>(numericType)) {
+      bits = fpt->getBits();
+      fractionalBits = fpt->getFractionalBits();
       sign = fpt->isSigned();
       floatStandard = NotFloat;
-    } else if (auto *flt = dyn_cast<FloatType>(numericType)) {
+    } else if (auto *flt = dyn_cast<FloatingPointInfo>(numericType)) {
       bits = 0;
       fractionalBits = 0;
       sign = true;

@@ -8,16 +8,14 @@
 
 namespace taffo {
 
-/// Info about a data type for numerical computations.
-class NumericType : public Serializable, public Printable {
+class NumericTypeInfo : public Serializable, public Printable {
 public:
   enum NumericTypeKind {
-    K_FixpType,
-    K_FloatType
+    K_FixedPoint,
+    K_FloatingPoint
   };
 
-  NumericType(NumericTypeKind K) : Kind(K) {}
-  virtual ~NumericType() {};
+  virtual ~NumericTypeInfo() {};
 
   virtual double getRoundingError() const = 0;
   /// Safe approximation of the minimum value representable with this Type.
@@ -25,55 +23,44 @@ public:
   /// Safe approximation of the maximum value representable with this Type.
   virtual llvm::APFloat getMaxValueBound() const = 0;
 
-  NumericTypeKind getKind() const { return Kind; }
+  virtual NumericTypeKind getKind() const = 0;
 
-  virtual bool operator==(const NumericType &other) const { return Kind == other.Kind; }
-  virtual bool operator!=(const NumericType &other) const { return !(*this == other); }
+  virtual bool operator==(const NumericTypeInfo &other) const { return getKind() == other.getKind(); }
+  virtual bool operator!=(const NumericTypeInfo &other) const { return !(*this == other); }
 
-  virtual std::shared_ptr<NumericType> clone() const = 0;
-
-private:
-  const NumericTypeKind Kind;
+  virtual std::shared_ptr<NumericTypeInfo> clone() const = 0;
 };
 
-/// A Fixed Point Type.
-/// Contains bit width, number of fractional bits of the format
-/// and whether it is signed or not.
-class FixpType : public NumericType {
+class FixedPointInfo : public NumericTypeInfo {
 public:
-  static bool classof(const NumericType *T) { return T->getKind() == K_FixpType; }
+  static bool classof(const NumericTypeInfo *T) { return T->getKind() == K_FixedPoint; }
 
-  FixpType(unsigned Width, unsigned PointPos, bool Signed = true)
-      : NumericType(K_FixpType), Width((Signed) ? -Width : Width), PointPos(PointPos) {}
-
-  FixpType(int Width, unsigned PointPos)
-      : NumericType(K_FixpType), Width(Width), PointPos(PointPos) {}
+  FixedPointInfo(bool isSigned, unsigned int bits, unsigned int fractionalBits)
+  : sign(isSigned), bits(bits), fractionalBits(fractionalBits) {}
 
   double getRoundingError() const override;
   llvm::APFloat getMinValueBound() const override;
   llvm::APFloat getMaxValueBound() const override;
 
-  unsigned int getWidth() const { return std::abs(Width); }
-  int getSWidth() const { return Width; }
-  unsigned int getPointPos() const { return PointPos; }
-  bool isSigned() const { return Width < 0; }
+  bool isSigned() const { return sign; }
+  unsigned int getBits() const { return bits; }
+  unsigned int getFractionalBits() const { return fractionalBits; }
+  NumericTypeKind getKind() const override { return K_FixedPoint; }
 
-  bool operator==(const NumericType &other) const override;
+  bool operator==(const NumericTypeInfo &other) const override;
 
-  std::shared_ptr<NumericType> clone() const override;
+  std::shared_ptr<NumericTypeInfo> clone() const override;
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
 
 private:
-  int Width;         ///< Width of the format (in bits), negative if signed.
-  unsigned PointPos; ///< Number of fractional bits.
+  bool sign;
+  unsigned int bits;
+  unsigned int fractionalBits;
 };
 
-
-/// A Floating Point Type.
-/// Contains the particular type of floating point used, that must be supported by LLVM
-class FloatType : public NumericType {
+class FloatingPointInfo : public NumericTypeInfo {
 public:
   enum FloatStandard {
     Float_half = 0,  /*16-bit floating-point value*/
@@ -87,14 +74,14 @@ public:
 
   static std::string getFloatStandardName(FloatStandard standard);
 
-  static bool classof(const NumericType *T) { return T->getKind() == K_FloatType; }
+  static bool classof(const NumericTypeInfo *T) { return T->getKind() == K_FloatingPoint; }
 
-  FloatType(FloatStandard standard, double greatestNumber)
-      : NumericType(K_FloatType), standard(standard), greatestNumber(greatestNumber) {}
+  FloatingPointInfo(FloatStandard standard, double greatestNumber)
+      : standard(standard), greatestNumber(greatestNumber) {}
 
-  FloatType(llvm::Type::TypeID TyId, double greatestNumber)
-      : NumericType(K_FloatType), greatestNumber(greatestNumber) {
-    switch (TyId) {
+  FloatingPointInfo(llvm::Type::TypeID typeId, double greatestNumber)
+      : greatestNumber(greatestNumber) {
+    switch (typeId) {
       case llvm::Type::HalfTyID: standard = Float_half; break;
       case llvm::Type::FloatTyID: standard = Float_float; break;
       case llvm::Type::DoubleTyID: standard = Float_double; break;
@@ -115,10 +102,11 @@ public:
   llvm::Type::TypeID getLLVMTypeID() const;
   FloatStandard getStandard() const { return standard; }
   double getGreatestNumber() const { return greatestNumber; }
+  NumericTypeKind getKind() const override { return K_FloatingPoint; }
 
-  bool operator==(const NumericType &other) const override;
+  bool operator==(const NumericTypeInfo &other) const override;
 
-  std::shared_ptr<NumericType> clone() const override;
+  std::shared_ptr<NumericTypeInfo> clone() const override;
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json &j) override;
