@@ -138,10 +138,10 @@ int main(int argc, char** argv)
   int tsteps = TSTEPS;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE __attribute__((annotate("target('u') scalar(range(-60,60) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE __attribute__((annotate("scalar(range(-2,2) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar(range(-1,1) final)"))), N, N, n, n);
-  POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar(range(-500,500) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(u, DATA_TYPE __attribute__((annotate("target('u') scalar(range(-60,60) )"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(v, DATA_TYPE __attribute__((annotate("scalar(range(-2,2) )"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(p, DATA_TYPE __attribute__((annotate("scalar(range(-1,1) )"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(q, DATA_TYPE __attribute__((annotate("scalar(range(-500,500) )"))), N, N, n, n);
 
 
   /* Initialize array(s). */

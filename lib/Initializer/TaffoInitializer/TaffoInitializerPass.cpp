@@ -295,12 +295,20 @@ void TaffoInitializerPass::propagateInfo(Value *src, Value *dst) {
     bool copied = false;
     bool wasEnabled = dstInfo->isConversionEnabled();
     if (!srcType->isStructType() && !dstType->isStructType()) {
-      dstInfo->copyFrom(*srcInfo);
-      copied = true;
+      // If dst is a call create empty valueinfo without range
+      if(isa<CallBase>(dst)) {
+        if (auto *dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
+          dstScalarInfo->conversionEnabled = srcInfo->isConversionEnabled();
+      } else {
+        dstInfo->copyFrom(*srcInfo);
+        copied = true;
+      }
+
       if (wasEnabled)
         if (auto *dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
           dstScalarInfo->conversionEnabled = true;
     }
+
     else if (srcInfo->isConversionEnabled()) {
       if (auto *dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
         dstScalarInfo->conversionEnabled = true;

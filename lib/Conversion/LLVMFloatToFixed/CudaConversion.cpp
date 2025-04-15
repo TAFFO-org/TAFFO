@@ -4,7 +4,7 @@
 
 using namespace llvm;
 using namespace taffo;
-using namespace flttofix;
+using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 

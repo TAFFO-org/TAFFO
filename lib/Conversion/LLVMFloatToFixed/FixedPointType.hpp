@@ -7,7 +7,7 @@
 #include <vector>
 #include <string>
 
-namespace flttofix {
+namespace taffo {
 
 class FixedPointType : public taffo::Printable {
 public:
@@ -115,6 +115,6 @@ protected:
   bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType> &newType) const override;
 };
 
-} // namespace flttofix
+} // namespace taffo
 
 #endif // TAFFO_FIXED_POINT_TYPE_HPP

@@ -2,13 +2,14 @@
 
 #include "LLVMFloatToFixedPass.hpp"
 
+
 #include <sstream>
 
 #define DEBUG_TYPE "taffo-conversion"
 
 using namespace llvm;
 using namespace taffo;
-using namespace flttofix;
+using namespace taffo;
 
 std::shared_ptr<TransparentType> FixedPointType::toTransparentType(const std::shared_ptr<TransparentType> &srcType, bool *hasFloats) const {
   std::shared_ptr<TransparentType> newType = srcType->clone();

@@ -187,8 +187,7 @@ handleCallToAtan(const std::list<std::shared_ptr<Range>> &operands)
   std::shared_ptr<Range> op = operands.front();
   if (!op)
     return nullptr;
-  return std::make_shared<Range>(std::atan(std::max(op->Min, -1.0)),
-                    std::atan(std::min(op->Max, 1.0)));
+  return std::make_shared<Range>(std::atan(op->Min), std::atan(op->Max));
 }
 
 static std::shared_ptr<Range>

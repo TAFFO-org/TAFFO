@@ -31,8 +31,8 @@ void init_array (int tmax,
 		 DATA_TYPE POLYBENCH_2D(hz,NX,NY,nx,ny),
 		 DATA_TYPE POLYBENCH_1D(_fict_,TMAX,tmax))
 {
-  int i __attribute__((annotate("scalar(range(-" PB_XSTR(NX) ", " PB_XSTR(NX) ") final)")));
-  int j __attribute__((annotate("scalar(range(-" PB_XSTR(NY) ", " PB_XSTR(NY) ") final)")));
+  int i __attribute__((annotate("scalar(range(-" PB_XSTR(NX) ", " PB_XSTR(NX) ") )")));
+  int j __attribute__((annotate("scalar(range(-" PB_XSTR(NY) ", " PB_XSTR(NY) ") )")));
 
   for (i = 0; i < tmax; i++)
     _fict_[i] = (DATA_TYPE) i;

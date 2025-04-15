@@ -35,7 +35,7 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
                 PM.addPass(tuner::TaffoTuner());
                 return true;
               } else if (Name == "taffoconv") {
-                PM.addPass(flttofix::Conversion());
+                PM.addPass(taffo::Conversion());
                 return true;
               } /*else if (Name == "taffoerr") {
                 PM.addPass(ErrorProp::ErrorPropagator());

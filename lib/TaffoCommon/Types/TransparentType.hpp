@@ -6,12 +6,12 @@
 
 #include <llvm/IR/DerivedTypes.h>
 
-namespace flttofix {
+namespace taffo {
 
 class FixedPointScalarType;
 class FixedPointStructType;
 
-} // namespace flttofix
+} // namespace taffo
 
 namespace taffo {
 
@@ -34,7 +34,7 @@ class TransparentType : public Serializable, public Printable {
 public:
   friend class TransparentTypeFactory;
   friend class TypeDeducerPass;
-  friend class flttofix::FixedPointScalarType;
+  friend class taffo::FixedPointScalarType;
 
   enum TransparentTypeKind {
     K_Scalar,
@@ -123,7 +123,7 @@ class TransparentStructType : public TransparentType {
 public:
   friend class TransparentTypeFactory;
   friend class TypeDeducerPass;
-  friend class flttofix::FixedPointStructType;
+  friend class taffo::FixedPointStructType;
 
   static bool classof(const TransparentType *type) { return type->getKind() == K_Struct; }
 

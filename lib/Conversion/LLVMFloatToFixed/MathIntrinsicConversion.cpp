@@ -4,7 +4,7 @@
 #include <llvm/IR/NoFolder.h>
 
 using namespace llvm;
-using namespace flttofix;
+using namespace taffo;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"

@@ -18,7 +18,7 @@
 #include "Debug/Logger.hpp"
 
 using namespace llvm;
-using namespace flttofix;
+using namespace taffo;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -70,7 +70,7 @@ void FloatToFixed::performConversion(Module &m, std::vector<Value*> &q) {
       if (newv != v) {
         std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*v);
         std::shared_ptr<TransparentType> newTransparentType;
-        if (v->getType() != newv->getType())
+        if (!newType->isInvalid())
           newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
         else
           newTransparentType = oldTransparentType;

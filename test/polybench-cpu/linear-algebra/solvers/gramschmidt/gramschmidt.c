@@ -120,8 +120,8 @@ int main(int argc, char** argv)
 
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar(range(-1000, 1000))"))),M,N,m,n);
-  POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) final)"))),N,N,n,n);
-  POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) final)"))),M,N,m,n);
+  POLYBENCH_2D_ARRAY_DECL(R,DATA_TYPE __attribute__((annotate("target('R') scalar(range(-1000, 1000) )"))),N,N,n,n);
+  POLYBENCH_2D_ARRAY_DECL(Q,DATA_TYPE __attribute__((annotate("target('Q') scalar(range(-1000, 1000) )"))),M,N,m,n);
 
   /* Initialize array(s). */
   init_array (m, n,

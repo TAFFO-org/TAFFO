@@ -28,8 +28,8 @@ void init_array (int m,
 		 DATA_TYPE *float_n,
 		 DATA_TYPE POLYBENCH_2D(data,N,M,n,m))
 {
-  int __attribute((annotate("scalar(range(0, 260) final disabled)"))) i;
-  int __attribute((annotate("scalar(range(0, 240) final disabled)"))) j;
+  int __attribute((annotate("scalar(range(0, 260)  disabled)"))) i;
+  int __attribute((annotate("scalar(range(0, 240)  disabled)"))) j;
 
   *float_n = (DATA_TYPE)N;
 
@@ -133,10 +133,10 @@ int main(int argc, char** argv)
 
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute((annotate("scalar(range(1, 3000))"))) float_n;
-  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(-512, 512) final)"))),N,M,n,m);
+  POLYBENCH_2D_ARRAY_DECL(data,DATA_TYPE __attribute((annotate("scalar(range(-512, 512) )"))),N,M,n,m);
   POLYBENCH_2D_ARRAY_DECL(corr,DATA_TYPE __attribute((annotate("target('corr') scalar()"))),M,M,m,m);
   POLYBENCH_1D_ARRAY_DECL(mean,DATA_TYPE __attribute((annotate("scalar()"))),M,m);
-  POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(1,4096) final)"))),M,m);
+  POLYBENCH_1D_ARRAY_DECL(stddev,DATA_TYPE __attribute((annotate("scalar(range(1,4096) )"))),M,m);
 
   /* Initialize array(s). */
   init_array (m, n, &float_n, POLYBENCH_ARRAY(data));

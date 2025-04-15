@@ -1,5 +1,7 @@
+#include "Conversion/LLVMFloatToFixed/FixedPointType.hpp"
 #include "DataTypeAlloc/TaffoDTA/DTAConfig.h"
 #include "LLVMFloatToFixedPass.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Constants.h>
@@ -14,9 +16,10 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <cassert>
+#include <memory>
 
 using namespace llvm;
-using namespace flttofix;
+using namespace taffo;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -58,6 +61,7 @@ Value *FloatToFixed::convertInstruction(Module &m, Instruction *val, std::shared
   }
   if (res == Unsupported) {
     res = fallback(dyn_cast<Instruction>(val), fixpt);
+
   }
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
     if (getUnwrappedType(val)->isFloatTy() && !getConversionInfo(val)->noTypeConversion) {
@@ -1002,5 +1006,7 @@ Value *FloatToFixed::fallback(Instruction *unsupp, std::shared_ptr<FixedPointTyp
       fallbackv->setName(tmp->getName() + ".fallback");
     return fallbackv;
   }
+  
+  fixpt = std::make_shared<FixedPointScalarType>();
   return tmp;
 }

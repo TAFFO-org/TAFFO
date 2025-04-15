@@ -117,11 +117,11 @@ int main(int argc, char** argv)
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
   DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) final)"))),NI,NJ,ni,nj);
+  POLYBENCH_2D_ARRAY_DECL(tmp,DATA_TYPE __attribute__((annotate("scalar(range(-16384, 16384) )"))),NI,NJ,ni,nj);
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE __attribute__((annotate("scalar()"))),NI,NK,ni,nk);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE __attribute__((annotate("scalar()"))),NK,NJ,nk,nj);
   POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE __attribute__((annotate("scalar()"))),NJ,NL,nj,nl);
-  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) final)"))),NI,NL,ni,nl);
+  POLYBENCH_2D_ARRAY_DECL(D,DATA_TYPE __attribute__((annotate("target('D') scalar(range(-16384, 16384) )"))),NI,NL,ni,nl);
 
   /* Initialize array(s). */
   init_array (ni, nj, nk, nl, &alpha, &beta,

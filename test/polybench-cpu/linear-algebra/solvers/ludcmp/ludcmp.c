@@ -102,7 +102,7 @@ void kernel_ludcmp(int n,
 {
   int i, j, k;
 
-  DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final)"))) w;
+  DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) )"))) w;
 
 #pragma scop
   for (i = 0; i < _PB_N; i++) {
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
   int n = N;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("scalar(range(-200, 200) )"))), N, N, n, n);
   POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute__((annotate("target('x') scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);

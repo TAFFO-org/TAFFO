@@ -1,4 +1,5 @@
 #include "LLVMFloatToFixedPass.hpp"
+#include "TaffoInfo/ConversionInfo.hpp"
 
 #include "Debug/Logger.hpp"
 #include "Types/TypeUtils.hpp"
@@ -23,7 +24,7 @@
 #include <llvm/Transforms/Utils/ValueMapper.h>
 
 using namespace llvm;
-using namespace flttofix;
+using namespace taffo;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -109,7 +110,7 @@ MLHVec collectMallocLikeHandler(Module &m)
 }
 
 
-Value *flttofix::adjustBufferSize(Value *OrigSize, Type *OldTy, Type *NewTy, Instruction *IP, bool Tight) {
+Value *taffo::adjustBufferSize(Value *OrigSize, Type *OldTy, Type *NewTy, Instruction *IP, bool Tight) {
   assert(IP && "adjustBufferSize requires a valid insertion pointer. Somebody must use this buffer size after all, right?");
 
   Type *RootOldTy = OldTy;

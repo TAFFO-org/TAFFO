@@ -71,10 +71,10 @@ void kernel_deriche(int w, int h, DATA_TYPE alpha,
        DATA_TYPE POLYBENCH_2D(y1, W, H, w, h),
        DATA_TYPE POLYBENCH_2D(y2, W, H, w, h)) {
     int i,j;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) xm1, tm1, ym1, ym2;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) xp1, xp2;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) tp1, tp2;
-    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) final)"))) yp1, yp2;
+    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) )"))) xm1, tm1, ym1, ym2;
+    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) )"))) xp1, xp2;
+    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) )"))) tp1, tp2;
+    DATA_TYPE __attribute__((annotate("scalar(range(-1, 1) )"))) yp1, yp2;
 
     DATA_TYPE __attribute__((annotate("scalar()"))) k;
     DATA_TYPE __attribute__((annotate("scalar()"))) a1, a2, a3, a4, a5, a6, a7, a8;

@@ -1,0 +1,4005 @@
+{
+    "idCounter": 223,
+    "valueCount": 163,
+    "values": {
+        "init_array_inst_001": {
+            "repr": "%i = alloca i32, align 4, !taffo.id !22",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": true,
+                "final": false
+            }
+        },
+        "init_array_inst_002": {
+            "repr": "%j = alloca i32, align 4, !taffo.id !23",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": true,
+                "final": false
+            }
+        },
+        "init_array_inst_008": {
+            "repr": "%A.addr = alloca ptr, align 8, !taffo.id !21",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "[400 x double]**",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 2
+            },
+            "info": null
+        },
+        "init_array_inst_016": {
+            "repr": "%n.addr = alloca i32, align 4, !taffo.id !20",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "init_array_inst_024": {
+            "repr": "%8 = load ptr, ptr %A.addr, align 8, !taffo.id !24",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "main_inst_005": {
+            "repr": "%argc.addr = alloca i32, align 4, !taffo.id !19",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "main_inst_006": {
+            "repr": "%argv.addr = alloca ptr, align 8, !taffo.id !20",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "ptr*",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "main_inst_007": {
+            "repr": "%n = alloca i32, align 4, !taffo.id !21",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "main_inst_011": {
+            "repr": "%retval = alloca i32, align 4, !taffo.id !18",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "main_inst_013": {
+            "repr": "%tsteps = alloca i32, align 4, !taffo.id !22",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "global_012": {
+            "repr": "@stderr = external global ptr, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "ptr*",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "init_array_arg_018": {
+            "repr": "ptr %A",
+            "kind": "argument",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_025": {
+            "repr": "%arrayidx = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom, !taffo.id !66",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_026": {
+            "repr": "%arrayidx7 = getelementptr inbounds [400 x double], ptr %arrayidx, i64 0, i64 %idxprom6, !taffo.id !68",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_113": {
+            "repr": "%i.0 = phi i32 [ 0, %entry ], [ %inc9, %for.inc8 ], !taffo.id !55",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 401.0
+                },
+                "conversionEnabled": true,
+                "final": false
+            }
+        },
+        "init_array_inst_114": {
+            "repr": "%j.0 = phi i32 [ 0, %for.body ], [ %inc, %for.inc ], !taffo.id !57",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 401.0
+                },
+                "conversionEnabled": true,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_arg_027": {
+            "repr": "ptr %A",
+            "kind": "argument",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_010": {
+            "repr": "%tsteps.addr = alloca i32, align 4, !taffo.id !20",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_019": {
+            "repr": "%arrayidx12 = getelementptr inbounds [400 x double], ptr %arrayidx, i64 0, i64 %idxprom11, !taffo.id !70",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_020": {
+            "repr": "%10 = load ptr, ptr %A.addr, align 8, !taffo.id !33",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_021": {
+            "repr": "%arrayidx15 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom14, !taffo.id !74",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_022": {
+            "repr": "%arrayidx17 = getelementptr inbounds [400 x double], ptr %arrayidx15, i64 0, i64 %idxprom16, !taffo.id !76",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_028": {
+            "repr": "%n.addr = alloca i32, align 4, !taffo.id !21",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_029": {
+            "repr": "%A.addr = alloca ptr, align 8, !taffo.id !22",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]**",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 2
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_030": {
+            "repr": "%t = alloca i32, align 4, !taffo.id !23",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_031": {
+            "repr": "%i = alloca i32, align 4, !taffo.id !24",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_032": {
+            "repr": "%j = alloca i32, align 4, !taffo.id !25",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_033": {
+            "repr": "%term1 = alloca double, align 8, !taffo.id !26",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 0
+        },
+        "kernel_seidel_2d_inst_034": {
+            "repr": "%term2 = alloca double, align 8, !taffo.id !27",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 0
+        },
+        "kernel_seidel_2d_inst_035": {
+            "repr": "%sum = alloca double, align 8, !taffo.id !28",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 0
+        },
+        "kernel_seidel_2d_inst_036": {
+            "repr": "%div = alloca double, align 8, !taffo.id !29",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 0
+        },
+        "kernel_seidel_2d_inst_037": {
+            "repr": "%6 = load ptr, ptr %A.addr, align 8, !taffo.id !30",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_038": {
+            "repr": "%arrayidx = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom, !taffo.id !67",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_043": {
+            "repr": "%14 = load ptr, ptr %A.addr, align 8, !taffo.id !36",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_044": {
+            "repr": "%arrayidx20 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom19, !taffo.id !81",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_045": {
+            "repr": "%arrayidx23 = getelementptr inbounds [400 x double], ptr %arrayidx20, i64 0, i64 %idxprom22, !taffo.id !84",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_046": {
+            "repr": "%18 = load ptr, ptr %A.addr, align 8, !taffo.id !39",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_047": {
+            "repr": "%arrayidx26 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom25, !taffo.id !88",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_048": {
+            "repr": "%arrayidx29 = getelementptr inbounds [400 x double], ptr %arrayidx26, i64 0, i64 %idxprom28, !taffo.id !91",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_049": {
+            "repr": "%22 = load ptr, ptr %A.addr, align 8, !taffo.id !44",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_050": {
+            "repr": "%arrayidx32 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom31, !taffo.id !95",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_051": {
+            "repr": "%arrayidx34 = getelementptr inbounds [400 x double], ptr %arrayidx32, i64 0, i64 %idxprom33, !taffo.id !97",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_052": {
+            "repr": "%26 = load ptr, ptr %A.addr, align 8, !taffo.id !47",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_053": {
+            "repr": "%arrayidx36 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom35, !taffo.id !100",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_054": {
+            "repr": "%arrayidx39 = getelementptr inbounds [400 x double], ptr %arrayidx36, i64 0, i64 %idxprom38, !taffo.id !103",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_055": {
+            "repr": "%30 = load ptr, ptr %A.addr, align 8, !taffo.id !50",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_056": {
+            "repr": "%arrayidx43 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom42, !taffo.id !108",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_057": {
+            "repr": "%arrayidx46 = getelementptr inbounds [400 x double], ptr %arrayidx43, i64 0, i64 %idxprom45, !taffo.id !111",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_058": {
+            "repr": "%34 = load ptr, ptr %A.addr, align 8, !taffo.id !53",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_059": {
+            "repr": "%arrayidx50 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom49, !taffo.id !116",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_060": {
+            "repr": "%arrayidx52 = getelementptr inbounds [400 x double], ptr %arrayidx50, i64 0, i64 %idxprom51, !taffo.id !118",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_061": {
+            "repr": "%38 = load ptr, ptr %A.addr, align 8, !taffo.id !56",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_062": {
+            "repr": "%arrayidx56 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom55, !taffo.id !123",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_063": {
+            "repr": "%arrayidx59 = getelementptr inbounds [400 x double], ptr %arrayidx56, i64 0, i64 %idxprom58, !taffo.id !126",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_064": {
+            "repr": "%46 = load ptr, ptr %A.addr, align 8, !taffo.id !69",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "kernel_seidel_2d_inst_068": {
+            "repr": "%arrayidx64 = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom63, !taffo.id !132",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_069": {
+            "repr": "%arrayidx66 = getelementptr inbounds [400 x double], ptr %arrayidx64, i64 0, i64 %idxprom65, !taffo.id !134",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_100": {
+            "repr": "%add30 = fadd double %add24, %3, !taffo.id !93",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -1607.98,
+                    "Max": 1608.02
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_101": {
+            "repr": "store double %add30, ptr %term1, align 8, !taffo.id !43",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "void",
+                "kind": "Scalar",
+                "unwrappedType": "void",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_102": {
+            "repr": "%add60 = fadd double %add53, %8, !taffo.id !128",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -2009.975,
+                    "Max": 2010.025
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_103": {
+            "repr": "store double %add60, ptr %term2, align 8, !taffo.id !60",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "void",
+                "kind": "Scalar",
+                "unwrappedType": "void",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_104": {
+            "repr": "%42 = load double, ptr %term1, align 8, !taffo.id !61",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_105": {
+            "repr": "%43 = load double, ptr %term2, align 8, !taffo.id !62",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_106": {
+            "repr": "%add61 = fadd double %add30, %add60, !taffo.id !129",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -3617.955,
+                    "Max": 3618.045
+                },
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 2
+        },
+        "kernel_seidel_2d_inst_107": {
+            "repr": "store double %add61, ptr %sum, align 8, !taffo.id !64",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "void",
+                "kind": "Scalar",
+                "unwrappedType": "void",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_108": {
+            "repr": "%44 = load double, ptr %sum, align 8, !taffo.id !65",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_109": {
+            "repr": "%div62 = fdiv double %add61, 9.000000e+00, !taffo.id !130",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 2
+        },
+        "kernel_seidel_2d_inst_110": {
+            "repr": "store double %div62, ptr %div, align 8, !taffo.id !67",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "void",
+                "kind": "Scalar",
+                "unwrappedType": "void",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_111": {
+            "repr": "%45 = load double, ptr %div, align 8, !taffo.id !68",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 1
+        },
+        "kernel_seidel_2d_inst_112": {
+            "repr": "store double %div62, ptr %arrayidx66, align 8, !taffo.id !135",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "void",
+                "kind": "Scalar",
+                "unwrappedType": "void",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "conversionEnabled": true,
+                "final": false
+            },
+            "weight": 2
+        },
+        "main_099": {
+            "repr": "main",
+            "kind": "function",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "main_inst_003": {
+            "repr": "%arraydecay2 = getelementptr inbounds [400 x [400 x double]], ptr %A, i64 0, i64 0, !taffo.id !55",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "main_inst_009": {
+            "repr": "%arraydecay1 = getelementptr inbounds [400 x [400 x double]], ptr %A, i64 0, i64 0, !taffo.id !54",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "main_inst_014": {
+            "repr": "%A = alloca [400 x [400 x double]], align 16, !taffo.id !52",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "[400 x [400 x double]]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x [400 x double]]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "target": "A",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": true,
+                "final": false
+            }
+        },
+        "main_inst_015": {
+            "repr": "%arraydecay = getelementptr inbounds [400 x [400 x double]], ptr %A, i64 0, i64 0, !taffo.id !53",
+            "kind": "instruction",
+            "function": "main",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "polybench_alloc_data_084": {
+            "repr": "polybench_alloc_data",
+            "kind": "function",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "polybench_alloc_data_inst_085": {
+            "repr": "%n.addr = alloca i64, align 8, !taffo.id !18",
+            "kind": "instruction",
+            "function": "polybench_alloc_data",
+            "transparentType": {
+                "repr": "i64*",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_alloc_data_inst_086": {
+            "repr": "%elt_size.addr = alloca i32, align 4, !taffo.id !19",
+            "kind": "instruction",
+            "function": "polybench_alloc_data",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_alloc_data_inst_087": {
+            "repr": "%val = alloca i64, align 8, !taffo.id !20",
+            "kind": "instruction",
+            "function": "polybench_alloc_data",
+            "transparentType": {
+                "repr": "i64*",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_alloc_data_inst_088": {
+            "repr": "%ret = alloca ptr, align 8, !taffo.id !21",
+            "kind": "instruction",
+            "function": "polybench_alloc_data",
+            "transparentType": {
+                "repr": "ptr*",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_alloc_data_inst_090": {
+            "repr": "%call = call ptr @xmalloc(i64 noundef %mul), !taffo.id !52",
+            "kind": "instruction",
+            "function": "polybench_alloc_data",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "polybench_alloc_data_inst_091": {
+            "repr": "%4 = load ptr, ptr %ret, align 8, !taffo.id !23",
+            "kind": "instruction",
+            "function": "polybench_alloc_data",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_023": {
+            "repr": "%cs = alloca i32, align 4, !taffo.id !18",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_039": {
+            "repr": "%flush = alloca ptr, align 8, !taffo.id !19",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "double**",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 2
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_040": {
+            "repr": "%i = alloca i32, align 4, !taffo.id !20",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_041": {
+            "repr": "%tmp = alloca double, align 8, !taffo.id !21",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_042": {
+            "repr": "%call = call noalias ptr @calloc(i64 noundef %conv, i64 noundef 8) #7, !taffo.id !52",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_075": {
+            "repr": "%3 = load ptr, ptr %flush, align 8, !taffo.id !23",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_076": {
+            "repr": "%arrayidx = getelementptr inbounds double, ptr %call, i64 %idxprom, !taffo.id !53",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_flush_cache_inst_078": {
+            "repr": "%9 = load ptr, ptr %flush, align 8, !taffo.id !27",
+            "kind": "instruction",
+            "function": "polybench_flush_cache",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_free_data_inst_080": {
+            "repr": "%ptr.addr = alloca ptr, align 8, !taffo.id !18",
+            "kind": "instruction",
+            "function": "polybench_free_data",
+            "transparentType": {
+                "repr": "ptr*",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "polybench_free_data_inst_083": {
+            "repr": "%0 = load ptr, ptr %ptr.addr, align 8, !taffo.id !19",
+            "kind": "instruction",
+            "function": "polybench_free_data",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "print_array_arg_017": {
+            "repr": "ptr %A",
+            "kind": "argument",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_004": {
+            "repr": "%n.addr = alloca i32, align 4, !taffo.id !20",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "print_array_inst_065": {
+            "repr": "%A.addr = alloca ptr, align 8, !taffo.id !21",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "[400 x double]**",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 2
+            },
+            "info": null
+        },
+        "print_array_inst_066": {
+            "repr": "%i = alloca i32, align 4, !taffo.id !22",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "print_array_inst_067": {
+            "repr": "%j = alloca i32, align 4, !taffo.id !23",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "print_array_inst_070": {
+            "repr": "%0 = load ptr, ptr @stderr, align 8, !taffo.id !63",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "print_array_inst_071": {
+            "repr": "%1 = load ptr, ptr @stderr, align 8, !taffo.id !64",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "print_array_inst_072": {
+            "repr": "%9 = load ptr, ptr %A.addr, align 8, !taffo.id !26",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "print_array_inst_073": {
+            "repr": "%arrayidx = getelementptr inbounds [400 x double], ptr %A, i64 %idxprom, !taffo.id !66",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "[400 x double]*",
+                "kind": "Scalar",
+                "unwrappedType": "[400 x double]",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_074": {
+            "repr": "%arrayidx6 = getelementptr inbounds [400 x double], ptr %arrayidx, i64 0, i64 %idxprom5, !taffo.id !68",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "double*",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 1
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "rtclock_inst_077": {
+            "repr": "%Tp = alloca %struct.timeval, align 8, !taffo.id !52",
+            "kind": "instruction",
+            "function": "rtclock",
+            "transparentType": {
+                "repr": "InvalidType",
+                "kind": "Struct",
+                "unwrappedType": "%struct.timeval = type { i64, i64 }",
+                "indirections": 1,
+                "fieldTypes": [
+                    {
+                        "repr": "i64",
+                        "kind": "Scalar",
+                        "unwrappedType": "i64",
+                        "indirections": 0
+                    },
+                    {
+                        "repr": "i64",
+                        "kind": "Scalar",
+                        "unwrappedType": "i64",
+                        "indirections": 0
+                    }
+                ]
+            },
+            "info": null
+        },
+        "rtclock_inst_079": {
+            "repr": "%stat = alloca i32, align 4, !taffo.id !19",
+            "kind": "instruction",
+            "function": "rtclock",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "rtclock_inst_081": {
+            "repr": "%tv_sec = getelementptr inbounds %struct.timeval, ptr %Tp, i32 0, i32 0, !taffo.id !53",
+            "kind": "instruction",
+            "function": "rtclock",
+            "transparentType": {
+                "repr": "i64*",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "rtclock_inst_082": {
+            "repr": "%tv_usec = getelementptr inbounds %struct.timeval, ptr %Tp, i32 0, i32 1, !taffo.id !54",
+            "kind": "instruction",
+            "function": "rtclock",
+            "transparentType": {
+                "repr": "i64*",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "xmalloc_092": {
+            "repr": "xmalloc",
+            "kind": "function",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "xmalloc_inst_089": {
+            "repr": "%alloc_sz.addr = alloca i64, align 8, !taffo.id !18",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "i64*",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "xmalloc_inst_093": {
+            "repr": "%ret = alloca ptr, align 8, !taffo.id !52",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "ptr*",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "xmalloc_inst_094": {
+            "repr": "%padded_sz = alloca i64, align 8, !taffo.id !20",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "i64*",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "xmalloc_inst_095": {
+            "repr": "%err = alloca i32, align 4, !taffo.id !21",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "i32*",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 1
+            },
+            "info": null
+        },
+        "xmalloc_inst_096": {
+            "repr": "%2 = load ptr, ptr %ret, align 8, !taffo.id !53",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "xmalloc_inst_097": {
+            "repr": "%3 = load ptr, ptr @stderr, align 8, !taffo.id !54",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "xmalloc_inst_098": {
+            "repr": "%4 = load ptr, ptr %ret, align 8, !taffo.id !55",
+            "kind": "instruction",
+            "function": "xmalloc",
+            "transparentType": {
+                "repr": "ptr",
+                "kind": "Scalar",
+                "unwrappedType": "ptr",
+                "indirections": 0
+            },
+            "info": null
+        },
+        "const_double_153": {
+            "repr": "double 2.000000e+00",
+            "kind": "constant",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "const_double_202": {
+            "repr": "double 9.000000e+00",
+            "kind": "constant",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 9.0,
+                    "Max": 9.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "const_double_219": {
+            "repr": "double 0x3EB0C6F7A0B5ED8D",
+            "kind": "constant",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1e-06,
+                    "Max": 1e-06
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_116": {
+            "repr": "@polybench_papi_counters_threadid = dso_local global i32 0, align 4",
+            "kind": "global",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_118": {
+            "repr": "@.str.1.7 = private unnamed_addr constant [24 x i8] c\"./utilities/polybench.c\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[24 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 121.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_119": {
+            "repr": "@.str.1 = private unnamed_addr constant [33 x i8] c\"./stencils/seidel-2d/seidel-2d.c\\00\", section \"llvm.metadata\"",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[33 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 116.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_120": {
+            "repr": "@.str.4 = private unnamed_addr constant [2 x i8] c\"\\0A\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[2 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 10.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_121": {
+            "repr": "@polybench_t_end = dso_local global double 0.000000e+00, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_122": {
+            "repr": "@.str.2.15 = private unnamed_addr constant [7 x i8] c\"%0.6f\\0A\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[7 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 102.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_124": {
+            "repr": "@__PRETTY_FUNCTION__.polybench_flush_cache = private unnamed_addr constant [29 x i8] c\"void polybench_flush_cache()\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[29 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 121.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_125": {
+            "repr": "@polybench_t_start = dso_local global double 0.000000e+00, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_127": {
+            "repr": "@.str.4.16 = private unnamed_addr constant [51 x i8] c\"[PolyBench] posix_memalign: cannot allocate memory\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[51 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 121.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_128": {
+            "repr": "@polybench_program_total_flops = dso_local global double 0.000000e+00, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_129": {
+            "repr": "@.str.3.10 = private unnamed_addr constant [35 x i8] c\"Error return from gettimeofday: %d\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[35 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 121.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_130": {
+            "repr": "@polybench_inter_array_padding_sz = internal global i64 0, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_131": {
+            "repr": "@.str.6 = private unnamed_addr constant [12 x i8] c\"tmp <= 10.0\\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[12 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 116.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_133": {
+            "repr": "@.str.2 = private unnamed_addr constant [26 x i8] c\"scalar(range(-400, 400) )\\00\", section \"llvm.metadata\"",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[26 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 115.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_134": {
+            "repr": "@.str.3 = private unnamed_addr constant [9 x i8] c\"scalar()\\00\", section \"llvm.metadata\"",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[9 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 115.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_135": {
+            "repr": "@.str.5 = private unnamed_addr constant [9 x i8] c\"%0.16lf \\00\", align 1",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[9 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 108.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_136": {
+            "repr": "@.str = private unnamed_addr constant [21 x i8] c\"target('A') scalar()\\00\", section \"llvm.metadata\"",
+            "kind": "global",
+            "transparentType": {
+                "repr": "[i8]",
+                "kind": "Array",
+                "unwrappedType": "[21 x i8]",
+                "indirections": 0,
+                "elementType": {
+                    "repr": "i8",
+                    "kind": "Scalar",
+                    "unwrappedType": "i8",
+                    "indirections": 0
+                }
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 116.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_138": {
+            "repr": "@polybench_c_start = dso_local global i64 0, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "global_139": {
+            "repr": "@polybench_c_end = dso_local global i64 0, align 8",
+            "kind": "global",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_arg_137": {
+            "repr": "i32 %n",
+            "kind": "argument",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_115": {
+            "repr": "%0 = call double @llvm.fmuladd.f64(double %conv, double %conv4, double 2.000000e+00), !taffo.id !62",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -160798.0,
+                    "Max": 160802.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_123": {
+            "repr": "%conv4 = sitofp i32 %add to double, !taffo.id !61",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -398.0,
+                    "Max": 402.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_126": {
+            "repr": "%conv = sitofp i32 %i.0 to double, !taffo.id !59",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_145": {
+            "repr": "%cmp = icmp slt i32 %i.0, %n, !taffo.id !56",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_146": {
+            "repr": "%cmp2 = icmp slt i32 %j.0, %n, !taffo.id !58",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_152": {
+            "repr": "%add = add nsw i32 %j.0, 2, !taffo.id !60",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -398.0,
+                    "Max": 402.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_154": {
+            "repr": "%conv5 = sitofp i32 %n to double, !taffo.id !63",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_155": {
+            "repr": "%div = fdiv double %0, %conv5, !taffo.id !64",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_156": {
+            "repr": "%idxprom = sext i32 %i.0 to i64, !taffo.id !65",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_157": {
+            "repr": "%idxprom6 = sext i32 %j.0 to i64, !taffo.id !67",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_158": {
+            "repr": "%inc = add nsw i32 %j.0, 1, !taffo.id !69",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -399.0,
+                    "Max": 401.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "init_array_inst_159": {
+            "repr": "%inc9 = add nsw i32 %i.0, 1, !taffo.id !72",
+            "kind": "instruction",
+            "function": "init_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -399.0,
+                    "Max": 401.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_arg_160": {
+            "repr": "i32 %tsteps",
+            "kind": "argument",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 100.0,
+                    "Max": 100.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_arg_161": {
+            "repr": "i32 %n",
+            "kind": "argument",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_132": {
+            "repr": "%i.0 = phi i32 [ 1, %for.body ], [ %inc68, %for.inc67 ], !taffo.id !59",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_140": {
+            "repr": "%idxprom35 = sext i32 %i.0 to i64, !taffo.id !99",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_141": {
+            "repr": "%add37 = add nsw i32 %j.0, 1, !taffo.id !101",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_142": {
+            "repr": "%idxprom38 = sext i32 %add37 to i64, !taffo.id !102",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_143": {
+            "repr": "%5 = load double, ptr %arrayidx39, align 8, !taffo.id !104",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_144": {
+            "repr": "%add40 = fadd double %4, %5, !taffo.id !105",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -803.99,
+                    "Max": 804.01
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_147": {
+            "repr": "%sub10 = sub nsw i32 %j.0, 1, !taffo.id !68",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_148": {
+            "repr": "%idxprom11 = sext i32 %sub10 to i64, !taffo.id !69",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_149": {
+            "repr": "%0 = load double, ptr %arrayidx12, align 8, !taffo.id !71",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_150": {
+            "repr": "%sub13 = sub nsw i32 %i.0, 1, !taffo.id !72",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_151": {
+            "repr": "%idxprom14 = sext i32 %sub13 to i64, !taffo.id !73",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_162": {
+            "repr": "%sub = sub nsw i32 %tsteps, 1, !taffo.id !57",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 99.0,
+                    "Max": 99.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_163": {
+            "repr": "%cmp = icmp sle i32 %t.0, %sub, !taffo.id !58",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_164": {
+            "repr": "%sub2 = sub nsw i32 %n, 2, !taffo.id !60",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 398.0,
+                    "Max": 398.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_165": {
+            "repr": "%cmp3 = icmp sle i32 %i.0, %sub2, !taffo.id !61",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_166": {
+            "repr": "%sub6 = sub nsw i32 %n, 2, !taffo.id !63",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 398.0,
+                    "Max": 398.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_167": {
+            "repr": "%cmp7 = icmp sle i32 %j.0, %sub6, !taffo.id !64",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_168": {
+            "repr": "%sub9 = sub nsw i32 %i.0, 1, !taffo.id !65",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_169": {
+            "repr": "%idxprom = sext i32 %sub9 to i64, !taffo.id !66",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_170": {
+            "repr": "%idxprom16 = sext i32 %j.0 to i64, !taffo.id !75",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_171": {
+            "repr": "%1 = load double, ptr %arrayidx17, align 8, !taffo.id !77",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_172": {
+            "repr": "%add = fadd double %0, %1, !taffo.id !78",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -803.99,
+                    "Max": 804.01
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_173": {
+            "repr": "%sub18 = sub nsw i32 %i.0, 1, !taffo.id !79",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_174": {
+            "repr": "%idxprom19 = sext i32 %sub18 to i64, !taffo.id !80",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_175": {
+            "repr": "%add21 = add nsw i32 %j.0, 1, !taffo.id !82",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_176": {
+            "repr": "%idxprom22 = sext i32 %add21 to i64, !taffo.id !83",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_177": {
+            "repr": "%2 = load double, ptr %arrayidx23, align 8, !taffo.id !85",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_178": {
+            "repr": "%add24 = fadd double %add, %2, !taffo.id !86",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -1205.9850000000001,
+                    "Max": 1206.0149999999999
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_179": {
+            "repr": "%idxprom25 = sext i32 %i.0 to i64, !taffo.id !87",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_180": {
+            "repr": "%sub27 = sub nsw i32 %j.0, 1, !taffo.id !89",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_181": {
+            "repr": "%idxprom28 = sext i32 %sub27 to i64, !taffo.id !90",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_182": {
+            "repr": "%3 = load double, ptr %arrayidx29, align 8, !taffo.id !92",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_183": {
+            "repr": "%idxprom31 = sext i32 %i.0 to i64, !taffo.id !94",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_184": {
+            "repr": "%idxprom33 = sext i32 %j.0 to i64, !taffo.id !96",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_185": {
+            "repr": "%4 = load double, ptr %arrayidx34, align 8, !taffo.id !98",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_186": {
+            "repr": "%add41 = add nsw i32 %i.0, 1, !taffo.id !106",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_187": {
+            "repr": "%idxprom42 = sext i32 %add41 to i64, !taffo.id !107",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_188": {
+            "repr": "%sub44 = sub nsw i32 %j.0, 1, !taffo.id !109",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_189": {
+            "repr": "%idxprom45 = sext i32 %sub44 to i64, !taffo.id !110",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_190": {
+            "repr": "%6 = load double, ptr %arrayidx46, align 8, !taffo.id !112",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_191": {
+            "repr": "%add47 = fadd double %add40, %6, !taffo.id !113",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -1205.9850000000001,
+                    "Max": 1206.0149999999999
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_192": {
+            "repr": "%add48 = add nsw i32 %i.0, 1, !taffo.id !114",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_193": {
+            "repr": "%idxprom49 = sext i32 %add48 to i64, !taffo.id !115",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_194": {
+            "repr": "%idxprom51 = sext i32 %j.0 to i64, !taffo.id !117",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_195": {
+            "repr": "%7 = load double, ptr %arrayidx52, align 8, !taffo.id !119",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_196": {
+            "repr": "%add53 = fadd double %add47, %7, !taffo.id !120",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -1607.98,
+                    "Max": 1608.02
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_197": {
+            "repr": "%add54 = add nsw i32 %i.0, 1, !taffo.id !121",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_198": {
+            "repr": "%idxprom55 = sext i32 %add54 to i64, !taffo.id !122",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_199": {
+            "repr": "%add57 = add nsw i32 %j.0, 1, !taffo.id !124",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_200": {
+            "repr": "%idxprom58 = sext i32 %add57 to i64, !taffo.id !125",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_201": {
+            "repr": "%8 = load double, ptr %arrayidx59, align 8, !taffo.id !127",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_203": {
+            "repr": "%idxprom63 = sext i32 %i.0 to i64, !taffo.id !131",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_204": {
+            "repr": "%idxprom65 = sext i32 %j.0 to i64, !taffo.id !133",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_205": {
+            "repr": "%inc = add nsw i32 %j.0, 1, !taffo.id !136",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_206": {
+            "repr": "%inc68 = add nsw i32 %i.0, 1, !taffo.id !139",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 2.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_207": {
+            "repr": "%inc71 = add nsw i32 %t.0, 1, !taffo.id !141",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_220": {
+            "repr": "%j.0 = phi i32 [ 1, %for.body4 ], [ %inc, %for.inc ], !taffo.id !62",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 2.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "kernel_seidel_2d_inst_222": {
+            "repr": "%t.0 = phi i32 [ 0, %entry ], [ %inc71, %for.inc70 ], !taffo.id !56",
+            "kind": "instruction",
+            "function": "kernel_seidel_2d",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_arg_117": {
+            "repr": "i32 %n",
+            "kind": "argument",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 400.0,
+                    "Max": 400.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_208": {
+            "repr": "%cmp = icmp slt i32 %i.0, %n, !taffo.id !56",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_209": {
+            "repr": "%cmp2 = icmp slt i32 %j.0, %n, !taffo.id !58",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_210": {
+            "repr": "%mul = mul nsw i32 %i.0, %n, !taffo.id !59",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_211": {
+            "repr": "%add = add nsw i32 %mul, %j.0, !taffo.id !60",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_212": {
+            "repr": "%rem = srem i32 %add, 20, !taffo.id !61",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_213": {
+            "repr": "%cmp4 = icmp eq i32 %rem, 0, !taffo.id !62",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i1",
+                "kind": "Scalar",
+                "unwrappedType": "i1",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_214": {
+            "repr": "%idxprom = sext i32 %i.0 to i64, !taffo.id !65",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_215": {
+            "repr": "%idxprom5 = sext i32 %j.0 to i64, !taffo.id !67",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i64",
+                "kind": "Scalar",
+                "unwrappedType": "i64",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 0.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_216": {
+            "repr": "%2 = load double, ptr %arrayidx6, align 8, !taffo.id !69",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "double",
+                "kind": "Scalar",
+                "unwrappedType": "double",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": -401.995,
+                    "Max": 402.005
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_217": {
+            "repr": "%inc = add nsw i32 %j.0, 1, !taffo.id !70",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_218": {
+            "repr": "%inc9 = add nsw i32 %i.0, 1, !taffo.id !73",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 1.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_221": {
+            "repr": "%j.0 = phi i32 [ 0, %for.body ], [ %inc, %for.inc ], !taffo.id !57",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        },
+        "print_array_inst_223": {
+            "repr": "%i.0 = phi i32 [ 0, %entry ], [ %inc9, %for.inc8 ], !taffo.id !55",
+            "kind": "instruction",
+            "function": "print_array",
+            "transparentType": {
+                "repr": "i32",
+                "kind": "Scalar",
+                "unwrappedType": "i32",
+                "indirections": 0
+            },
+            "info": {
+                "kind": "ScalarInfo",
+                "range": {
+                    "Min": 0.0,
+                    "Max": 1.0
+                },
+                "conversionEnabled": false,
+                "final": false
+            }
+        }
+    },
+    "loopCount": 0,
+    "startingPoints": [
+        "main_099"
+    ],
+    "indirectFunctions": {},
+    "oclTrampolines": {},
+    "disabledConversion": [],
+    "originalFunctions": {},
+    "taffoFunctions": {},
+    "maxRecursionCount": {},
+    "loopUnrollCount": {}
+}

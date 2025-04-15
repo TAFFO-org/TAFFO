@@ -36,8 +36,8 @@ void init_array (int n,
 		 DATA_TYPE POLYBENCH_1D(y,N,n),
 		 DATA_TYPE POLYBENCH_1D(z,N,n))
 {
-  int i __attribute((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
-  int j __attribute((annotate("scalar(range(0," PB_XSTR(N) ") final)")));
+  int i __attribute((annotate("scalar(range(0," PB_XSTR(N) ") )")));
+  int j __attribute((annotate("scalar(range(0," PB_XSTR(N) ") )")));
 
   *alpha = 1.5;
   *beta = 1.2;
@@ -126,13 +126,13 @@ int main(int argc, char** argv)
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute((annotate("scalar()"))) alpha;
   DATA_TYPE __attribute((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute((annotate("scalar(range(-2, 2) final)"))), N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute((annotate("scalar(range(-2, 2) )"))), N, N, n, n);
   POLYBENCH_1D_ARRAY_DECL(u1, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(v1, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(u2, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(v2, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(w, DATA_TYPE __attribute((annotate("target('w') scalar(range(-8000, 8000) final)"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute((annotate("scalar(range(-30, 30) final)"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(w, DATA_TYPE __attribute((annotate("target('w') scalar(range(-8000, 8000) )"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE __attribute((annotate("scalar(range(-30, 30) )"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
   POLYBENCH_1D_ARRAY_DECL(z, DATA_TYPE __attribute((annotate("scalar()"))), N, n);
 
