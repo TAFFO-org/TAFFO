@@ -99,7 +99,7 @@ std::string ScalarInfo::toString() const {
       ss << " ";
     else
       first = false;
-    ss << "range(" << range->Min << ", " << range->Max << ")";
+    ss << "range(" << range->min << ", " << range->max << ")";
   }
   if (error) {
     if (!first)

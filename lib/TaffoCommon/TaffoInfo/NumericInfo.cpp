@@ -41,18 +41,18 @@ std::string FixedPointInfo::toString() const {
 
 json FixedPointInfo::serialize() const {
   json j;
-  j["kind"] = "FixpType";
+  j["kind"] = "FixedPoint";
   j["signed"] = sign;
-  j["width"] = bits;
-  j["pointPos"] = fractionalBits;
+  j["bits"] = bits;
+  j["fractionalBits"] = fractionalBits;
   return j;
 }
 
 void FixedPointInfo::deserialize(const json &j) {
-  assert(j["kind"] == "FixpType");
+  assert(j["kind"] == "FixedPoint");
   sign = j["signed"].get<bool>();
-  bits = j["Width"].get<int>();
-  fractionalBits = j["PointPos"].get<unsigned int>();
+  bits = j["bits"].get<int>();
+  fractionalBits = j["fractionalBits"].get<unsigned int>();
 }
 
 std::string FloatingPointInfo::getFloatStandardName(FloatStandard standard) {
@@ -207,14 +207,14 @@ std::string FloatingPointInfo::toString() const {
 
 json FloatingPointInfo::serialize() const {
   json j;
-  j["kind"] = "FloatType";
+  j["kind"] = "FloatingPoint";
   j["standard"] = standard;
   j["greatestNumber"] = greatestNumber;
   return j;
 }
 
 void FloatingPointInfo::deserialize(const json &j) {
-  assert(j["kind"] == "FloatType");
+  assert(j["kind"] == "FloatingPoint");
   standard = static_cast<FloatStandard>(j["standard"].get<int>());
   greatestNumber = j["greatestNumber"].get<double>();
 }

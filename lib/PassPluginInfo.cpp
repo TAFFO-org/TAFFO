@@ -1,13 +1,13 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/PassPlugin.h>
-#include "TypeDeducer/TypeDeducerPass.hpp"
-#include "Initializer/TaffoInitializer/TaffoInitializerPass.hpp"
-#include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
-#include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
-#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.hpp"
+#include "TaffoTypeDeducer/TypeDeducerPass.hpp"
+#include "TaffoInitializer/TaffoInitializer/InitializerPass.hpp"
+#include "TaffoVRA/TaffoVRA/ValueRangeAnalysisPass.hpp"
+#include "TaffoDTA/TaffoDTA/DataTypeAllocationPass.hpp"
+#include "TaffoConversion/TaffoConversion/ConversionPass.hpp"
 //#include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
-#include "TaffoMem2Reg/Mem2Reg.hpp"
+#include "TaffoMemToReg/MemToRegPass.hpp"
 
 using namespace llvm;
 using namespace taffo;
@@ -18,24 +18,24 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
       LLVM_PLUGIN_API_VERSION,
       "Taffo",
       "0.4",
-      [](PassBuilder &PB) {
-        PB.registerPipelineParsingCallback(
-            [](StringRef Name, ModulePassManager &PM, ArrayRef<PassBuilder::PipelineElement>) {
-              if (Name == "typededucer") {
-                PM.addPass(TypeDeducerPass());
+      [](PassBuilder &passBuilder) {
+        passBuilder.registerPipelineParsingCallback(
+            [](StringRef name, ModulePassManager &passManager, ArrayRef<PassBuilder::PipelineElement>) {
+              if (name == "typededucer") {
+                passManager.addPass(TypeDeducerPass());
                 return true;
               }
-              if (Name == "taffoinit") {
-                PM.addPass(TaffoInitializerPass());
+              if (name == "taffoinit") {
+                passManager.addPass(InitializerPass());
                 return true;
-              } else if (Name == "taffovra") {
-                PM.addPass(ValueRangeAnalysis());
+              } else if (name == "taffovra") {
+                passManager.addPass(ValueRangeAnalysisPass());
                 return true;
-              } else if (Name == "taffodta") {
-                PM.addPass(tuner::TaffoTuner());
+              } else if (name == "taffodta") {
+                passManager.addPass(tuner::DataTypeAllocationPass());
                 return true;
-              } else if (Name == "taffoconv") {
-                PM.addPass(taffo::Conversion());
+              } else if (name == "taffoconv") {
+                passManager.addPass(Conversion());
                 return true;
               } /*else if (Name == "taffoerr") {
                 PM.addPass(ErrorProp::ErrorPropagator());
@@ -43,10 +43,10 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
               }*/
               return false;
             });
-        PB.registerPipelineParsingCallback(
-            [](StringRef Name, FunctionPassManager &PM, ArrayRef<PassBuilder::PipelineElement>) {
-              if (Name == "taffomem2reg") {
-                PM.addPass(TaffoMem2Reg());
+        passBuilder.registerPipelineParsingCallback(
+            [](StringRef name, FunctionPassManager &PM, ArrayRef<PassBuilder::PipelineElement>) {
+              if (name == "taffomem2reg") {
+                PM.addPass(MemToRegPass());
                 return true;
               }
               return false;

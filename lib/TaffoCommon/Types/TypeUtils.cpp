@@ -25,28 +25,28 @@ FixedPointInfo taffo::fixedPointTypeFromRange(
   if (outerr)
     *outerr = FixedPointTypeGenError::NoError;
 
-  if (std::isnan(rng.Min) || std::isnan(rng.Max)) {
+  if (std::isnan(rng.min) || std::isnan(rng.max)) {
     LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains NaN\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::InvalidRange;
     return FixedPointInfo(true, totalBits, 0);
   }
 
-  bool isSigned = rng.Min < 0;
+  bool isSigned = rng.min < 0;
 
-  if (std::isinf(rng.Min) || std::isinf(rng.Max)) {
+  if (std::isinf(rng.min) || std::isinf(rng.max)) {
     LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains +/-inf. Overflow may occur!\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::UnboundedRange;
     return FixedPointInfo(isSigned, totalBits, 0);
   }
 
-  double max = std::max(std::abs(rng.Min), std::abs(rng.Max));
+  double max = std::max(std::abs(rng.min), std::abs(rng.max));
   int intBit = std::lround(std::ceil(std::log2(max + 1.0))) + (isSigned ? 1 : 0);
   int bits = totalBits;
 
   int maxFracBitsAmt;
-  if (rng.Min == rng.Max && fracThreshold < 0) {
+  if (rng.min == rng.max && fracThreshold < 0) {
     /* The range has size of zero, value is a constant.
      * Keep the value shifted as far right as possible without losing digits.
      *   TODO: This makes precision worse in the specific case where

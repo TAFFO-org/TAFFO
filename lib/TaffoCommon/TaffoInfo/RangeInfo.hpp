@@ -5,16 +5,16 @@
 namespace taffo {
 
 struct Range : public Serializable, public Printable {
-  double Min;
-  double Max;
+  double min;
+  double max;
 
-  Range() : Min(0.0), Max(0.0) {}
-  Range(const Range &other) : Min(other.Min), Max(other.Max) {}
-  Range(double Min, double Max) : Min(Min), Max(Max) {}
+  Range() : min(0.0), max(0.0) {}
+  Range(const Range &other) : min(other.min), max(other.max) {}
+  Range(double min, double max) : min(min), max(max) {}
 
-  bool isConstant() const { return Min == Max; }
+  bool isConstant() const { return min == max; }
   bool cross(const double val = 0.0) const {
-    return Min <= val && Max >= val;
+    return min <= val && max >= val;
   }
 
   std::shared_ptr<Range> clone() const {

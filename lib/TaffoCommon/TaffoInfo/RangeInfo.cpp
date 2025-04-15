@@ -5,18 +5,18 @@ using namespace taffo;
 
 std::string Range::toString() const {
   std::stringstream ss;
-  ss << "[" << Min << ", " << Max << "]";
+  ss << "[" << min << ", " << max << "]";
   return ss.str();
 }
 
 json Range::serialize() const {
   json j;
-  j["Min"] = Min;
-  j["Max"] = Max;
+  j["Min"] = min;
+  j["Max"] = max;
   return j;
 }
 
 void Range::deserialize(const json &j) {
-  Min = j["Min"].get<double>();
-  Max = j["Max"].get<double>();
+  min = j["Min"].get<double>();
+  max = j["Max"].get<double>();
 }

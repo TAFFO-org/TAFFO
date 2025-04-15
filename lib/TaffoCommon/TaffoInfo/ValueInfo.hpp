@@ -28,12 +28,12 @@ public:
     std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap);
 };
 
-class TaffoInitializerPass; //TODO remove
+class InitializerPass; //TODO remove
 class AnnotationParser;
 
 class ValueInfo : public Serializable, public Printable {
 public:
-  friend class TaffoInitializerPass; //TODO remove
+  friend class InitializerPass; //TODO remove
   friend class AnnotationParser;
 
   enum ValueInfoKind {
