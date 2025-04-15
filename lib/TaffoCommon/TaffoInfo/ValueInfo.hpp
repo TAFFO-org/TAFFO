@@ -1,5 +1,4 @@
-#ifndef TAFFO_VALUE_INFO_HPP
-#define TAFFO_VALUE_INFO_HPP
+#pragma once
 
 #include "NumericInfo.hpp"
 #include "RangeInfo.hpp"
@@ -211,5 +210,3 @@ public:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_VALUE_INFO_HPP

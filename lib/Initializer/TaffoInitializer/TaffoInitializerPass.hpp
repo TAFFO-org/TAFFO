@@ -1,5 +1,4 @@
-#ifndef TAFFO_INITIALIZER_PASS_HPP
-#define TAFFO_INITIALIZER_PASS_HPP
+#pragma once
 
 #include "Initializer/TaffoInitializer/TaffoInfo/TaffoInitInfo.hpp"
 #include <llvm/ADT/Statistic.h>
@@ -49,4 +48,3 @@ private:
 } // namespace taffo
 
 #undef DEBUG_TYPE
-#endif // TAFFO_INITIALIZER_PASS_HPP

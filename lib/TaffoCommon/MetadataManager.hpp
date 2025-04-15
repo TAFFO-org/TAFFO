@@ -1,5 +1,4 @@
-#ifndef TAFFO_METADATA_MANAGER_HPP
-#define TAFFO_METADATA_MANAGER_HPP
+#pragma once
 
 #include "Containers/BiMap.hpp"
 
@@ -29,5 +28,3 @@ public:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_METADATA_MANAGER_HPP

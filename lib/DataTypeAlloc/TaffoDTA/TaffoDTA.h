@@ -1,5 +1,4 @@
-#ifndef __TAFFO_TUNER_PASS_H__
-#define __TAFFO_TUNER_PASS_H__
+#pragma once
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
@@ -157,5 +156,3 @@ private:
 } // namespace tuner
  
 #undef DEBUG_TYPE
-
-#endif

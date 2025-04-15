@@ -1,5 +1,4 @@
-#ifndef BUFFER_ID_FILES
-#define BUFFER_ID_FILES
+#pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
 #include <string>
@@ -15,5 +14,3 @@ void ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap);
 void WriteBufferIDFile(std::string Fn, BufferIDTypeMap& Map);
 
 } // namespace tuner
-
-#endif

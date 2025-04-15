@@ -1,11 +1,9 @@
-#ifndef ANNOTATION_PARSER_HPP_
-#define ANNOTATION_PARSER_HPP_
+#pragma once
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
 #include "TaffoInitializerPass.hpp"
-#include "llvm/IR/Value.h"
-#include <memory>
+
 #include <sstream>
 #include <string>
 
@@ -45,4 +43,3 @@ private:
 } // namespace taffo
 
 #undef DEBUG_TYPE
-#endif // ANNOTATION_PARSER_HPP_

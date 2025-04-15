@@ -1,5 +1,4 @@
-#ifndef TAFFO_INDIRECTCALLPATCHER_HPP
-#define TAFFO_INDIRECTCALLPATCHER_HPP
+#pragma once
 
 #include <llvm/IR/AbstractCallSite.h>
 
@@ -22,5 +21,3 @@ void manageIndirectCalls(llvm::Module &m);
 } // namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif // TAFFO_INDIRECTCALLPATCHER_HPP

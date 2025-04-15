@@ -1,5 +1,4 @@
-#ifndef TAFFO_BIMAP_HPP
-#define TAFFO_BIMAP_HPP
+#pragma once
 
 #include <map>
 #include <cassert>
@@ -335,5 +334,3 @@ private:
   container_type keyValueMap;
   reverse_container_type valueKeyMap;
 };
-
-#endif // TAFFO_BIMAP_HPP

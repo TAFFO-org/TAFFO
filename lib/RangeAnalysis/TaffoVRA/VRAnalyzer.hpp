@@ -1,5 +1,4 @@
-#ifndef TAFFO_VRANALIZER_HPP
-#define TAFFO_VRANALIZER_HPP
+#pragma once
 
 #include "CodeInterpreter.hpp"
 #include "VRAFunctionStore.hpp"
@@ -124,5 +123,3 @@ private:
 } // end namespace taffo
 
 #undef DEBUG_TYPE
-
-#endif

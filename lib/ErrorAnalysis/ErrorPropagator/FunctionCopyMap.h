@@ -13,8 +13,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_FUNCTIONCOPYMAP_H
-#define ERRORPROPAGATOR_FUNCTIONCOPYMAP_H
+#pragma once
 
 #include <llvm/IR/Function.h>
 #include <llvm/Transforms/Utils/Cloning.h>
@@ -127,5 +126,3 @@ protected:
 } // end namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif

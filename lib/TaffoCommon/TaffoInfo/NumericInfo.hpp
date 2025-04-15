@@ -1,5 +1,4 @@
-#ifndef TAFFO_NUMERIC_INFO_HPP
-#define TAFFO_NUMERIC_INFO_HPP
+#pragma once
 
 #include "SerializationUtils.hpp"
 
@@ -120,5 +119,3 @@ protected:
 };
 
 } // namespace taffo
-
-#endif // TAFFO_NUMERIC_INFO_HPP

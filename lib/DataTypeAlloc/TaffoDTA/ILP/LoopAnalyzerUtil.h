@@ -1,9 +1,4 @@
-//
-// Created by nicola on 07/08/20.
-//
-
-#ifndef TAFFO_LOOPANALYZERUTIL_H
-#define TAFFO_LOOPANALYZERUTIL_H
+#pragma once
 
 #include <llvm/IR/Instruction.h>
 #include <llvm/Analysis/LoopInfo.h>
@@ -20,5 +15,3 @@ unsigned computeFullTripCount(llvm::FunctionAnalysisManager& FAM, llvm::Loop *bb
 } // namespace tuner
 
 #undef DEBUG_TYPE // "taffo-dta"
-
-#endif // TAFFO_LOOPANALYZERUTIL_H

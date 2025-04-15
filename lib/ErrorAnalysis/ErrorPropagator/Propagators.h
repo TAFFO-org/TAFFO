@@ -13,8 +13,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef ERRORPROPAGATOR_PROPAGATORS_H
-#define ERRORPROPAGATOR_PROPAGATORS_H
+#pragma once
 
 #include "RangeErrorMap.h"
 #include <llvm/Analysis/MemorySSA.h>
@@ -143,5 +142,3 @@ public:
 } // end of namespace ErrorProp
 
 #undef DEBUG_TYPE // "errorprop"
-
-#endif
