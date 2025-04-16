@@ -7,6 +7,7 @@
 #include "OpenCLKernelPatcher.hpp"
 #include "CudaKernelPatcher.hpp"
 #include "llvm/IR/Argument.h"
+#include "llvm/IR/GlobalValue.h"
 
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -355,6 +356,11 @@ void InitializerPass::generateFunctionClones() {
     annotatedFunctions.insert(newF);
 
     TaffoInfo &taffoInfo = TaffoInfo::getInstance();
+
+    //Setting oldF as weak  to avoid globalDCE and preserve the mapping between old function and cloned function
+    taffoInfo.setOriginalFunctionLinkage(*oldF, oldF->getLinkage());
+    oldF->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
+
     taffoInfo.setTaffoFunction(*oldF, *newF);
   }
   LLVM_DEBUG(log().logln("[Function cloning completed]", raw_ostream::Colors::BLUE));

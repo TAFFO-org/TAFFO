@@ -3,6 +3,7 @@
 #include "Types/TransparentType.hpp"
 #include "ValueInfo.hpp"
 #include "../Containers/BiMap.hpp"
+#include "llvm/IR/GlobalValue.h"
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
@@ -52,10 +53,11 @@ public:
   int getValueWeight(const llvm::Value &v) const;
 
   void setTaffoFunction(llvm::Function &originalF, llvm::Function &taffoF);
-  llvm::Function *getOriginalFunction(llvm::Function &taffoF) const;
-  bool hasTaffoFunctions(const llvm::Function &originalF) const;
-  bool isTaffoFunction(llvm::Function &f) const;
-  void getTaffoFunctions(const llvm::Function &originalF, llvm::SmallPtrSetImpl<llvm::Function*> &taffoFunctions) const;
+  void getTaffoCloneFunctions(const llvm::Function &originalF, llvm::SmallPtrSetImpl<llvm::Function*> &taffoFunctions) const; 
+  bool isOriginalFunction(const llvm::Function &originalF) const;
+  bool isTaffoCloneFunction(llvm::Function &f) const;
+  void setOriginalFunctionLinkage(llvm::Function& originalF, llvm::GlobalValue::LinkageTypes linkage);
+  llvm::GlobalValue::LinkageTypes getOriginalFunctionLinkage(const llvm::Function& originalF) const;
 
   void setMaxRecursionCount(llvm::Function &f, unsigned int maxRecursion);
   unsigned int getMaxRecursionCount(const llvm::Function &f) const;
@@ -85,8 +87,9 @@ private:
   llvm::SmallDenseMap<llvm::Function*, llvm::Function*> oclTrampolines;
   llvm::SmallVector<llvm::Instruction*> disabledConversion;
 
-  BiMap<llvm::Function*, llvm::Function*> originalFunctions;
-  llvm::DenseMap<llvm::Function*, llvm::SmallPtrSet<llvm::Function*, 2>> taffoFunctions;
+  BiMap<llvm::Function*, llvm::Function*> taffoCloneToOriginalFunction;
+  llvm::DenseMap<llvm::Function*, llvm::SmallPtrSet<llvm::Function*, 2>> originalToTaffoCloneFunctions;
+  llvm::DenseMap<llvm::Function*, llvm::GlobalValue::LinkageTypes> originalFunctionLinkage;
 
   llvm::DenseMap<llvm::Value*, std::shared_ptr<ValueInfo>> valueInfo;
   llvm::DenseMap<llvm::Value*, int> valueWeights;

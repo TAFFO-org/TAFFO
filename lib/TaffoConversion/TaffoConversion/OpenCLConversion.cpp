@@ -89,7 +89,7 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module *M)
 
     //TODO check: there may be more clones
     SmallPtrSet<Function*, 2> clone;
-    TaffoInfo::getInstance().getTaffoFunctions(*KernF, clone);
+    TaffoInfo::getInstance().getTaffoCloneFunctions(*KernF, clone);
     Function *NewKernF = *clone.begin();
     assert(NewKernF && "OpenCL kernel function with trampoline but no cloned function??");
     Function *NewFixpKernF = functionPool[NewKernF];

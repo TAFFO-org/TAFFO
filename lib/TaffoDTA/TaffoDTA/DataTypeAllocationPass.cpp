@@ -177,7 +177,8 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value *v, const std::shared_
         scalarInfo->conversionEnabled = true;
       }
 
-      if (!transparentType->isFloatingPointType()) {
+      
+      if (!transparentType->containsFloatingPointType()) {
         LLVM_DEBUG(dbgs() << "[Info] Skipping a member of " << *v << " because not a float\n");
         continue;
       }
@@ -711,7 +712,7 @@ std::vector<Function *> DataTypeAllocationPass::collapseFunction(Module &m) {
     LLVM_DEBUG(dbgs() << "Analyzing original function " << f.getName() << "\n");
 
     SmallPtrSet<Function*, 2> taffoFunctions;
-    TaffoInfo::getInstance().getTaffoFunctions(f, taffoFunctions);
+    TaffoInfo::getInstance().getTaffoCloneFunctions(f, taffoFunctions);
     for (Function *cloneF : taffoFunctions) {
       LLVM_DEBUG(dbgs() << "\t Clone: " << *cloneF << "\n");
       if (cloneF->user_empty()) {

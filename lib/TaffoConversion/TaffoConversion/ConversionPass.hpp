@@ -96,6 +96,7 @@ struct FloatToFixed {
   bool isKnownConvertibleWithIncompleteMetadata(llvm::Value *V);
   void sortQueue(std::vector<llvm::Value*> &vals);
   void cleanup(const std::vector<llvm::Value*> &queue);
+  void cleanUpOriginalFunctions(llvm::Module& m);
   void insertOpenMPIndirection(llvm::Module &m);
   void propagateCall(std::vector<llvm::Value*> &vals, llvm::SmallVectorImpl<llvm::Value*> &global, llvm::Module &m);
   llvm::Function *createFixFun(llvm::CallBase *call, bool *old);
@@ -485,6 +486,7 @@ struct FloatToFixed {
 
   bool isConvertedFixedPoint(llvm::Value *val)
   {
+    auto& taffoInfo = TaffoInfo::getInstance();
     if (!hasConversionInfo(val))
       return false;
     std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
@@ -492,9 +494,7 @@ struct FloatToFixed {
       return false;
     if (vi->fixpType->isInvalid())
       return false;
-    if (!vi->origType->isStructTy() && !vi->origType->isFloatTy())
-        return false;
-    if (val->getType() == vi->origType)
+    if (*taffoInfo.getOrCreateTransparentType(val) == *taffoInfo.getOrCreateTransparentType(vi->origType))
       return false;
     return true;
   }

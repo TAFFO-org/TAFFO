@@ -45,7 +45,7 @@ void FloatToFixed::readLocalMetadata(Function &f, SmallVectorImpl<Value*> &varia
 void FloatToFixed::readAllLocalMetadata(Module &m, SmallVectorImpl<Value*> &res) {
   for (Function &f : m.functions()) {
     bool argsOnly = false;
-    if (TaffoInfo::getInstance().isTaffoFunction(f)) {
+    if (TaffoInfo::getInstance().isTaffoCloneFunction(f)) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << " skipping function body of " << f.getName() << " because it is cloned\n");
       functionPool[&f] = nullptr;
       argsOnly = true;

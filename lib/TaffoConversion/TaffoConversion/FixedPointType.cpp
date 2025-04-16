@@ -1,8 +1,13 @@
 #include "FixedPointType.hpp"
 
 #include "ConversionPass.hpp"
+#include "PtrCasts.hpp"
+#include "Types/TransparentType.hpp"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Casting.h"
 
 
+#include <memory>
 #include <sstream>
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -145,7 +150,11 @@ Type* FixedPointScalarType::scalarToLLVMType(LLVMContext &context) const {
 }
 
 bool FixedPointScalarType::toTransparentTypeHelper(const std::shared_ptr<TransparentType> &newType) const {
-  if (newType->isFloatingPointType()) {
+  if (newType->isArrayType()){
+    std::shared_ptr<TransparentArrayType> arrType = std::dynamic_ptr_cast<TransparentArrayType>(newType);
+    toTransparentTypeHelper(arrType->getArrayElementType()); 
+    newType->unwrappedType = ArrayType::get(arrType->getArrayElementType()->getUnwrappedType(), newType->unwrappedType->getArrayNumElements());
+  } else if (newType->containsFloatingPointType()) {
     newType->unwrappedType = scalarToLLVMType(newType->getUnwrappedType()->getContext());
     return true;
   }

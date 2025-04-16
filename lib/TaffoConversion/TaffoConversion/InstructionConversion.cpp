@@ -379,7 +379,7 @@ Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType>
   }
   LLVM_DEBUG(dbgs() << *(call)
                     << " will use converted function " << newF->getName() << " "
-                    << *newF->getType() << "\n";);
+                    << *newF->getFunctionType() << "\n";);
   std::vector<Value*> convArgs;
   std::vector<Type*> typeArgs;
   std::vector<std::pair<int, std::shared_ptr<FixedPointType>>> fixArgs; // for match right function

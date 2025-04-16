@@ -1,6 +1,7 @@
 #include "ConversionPass.hpp"
 
 #include "Debug/Logger.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
@@ -202,7 +203,8 @@ PreservedAnalyses FloatToFixed::run(Module &m, ModuleAnalysisManager &AM) {
   convertIndirectCalls(m);
 
   cleanUpOpenCLKernelTrampolines(&m);
-
+  cleanUpOriginalFunctions(m);
+  
   TaffoInfo::getInstance().dumpToFile("taffo_info_conv.json", m);
   LLVM_DEBUG(log().logln("[End of ConversionPass]", raw_ostream::Colors::MAGENTA));
   return PreservedAnalyses::none();
@@ -473,6 +475,15 @@ void FloatToFixed::cleanup(const std::vector<Value*> &q)
   }
 }
 
+void FloatToFixed::cleanUpOriginalFunctions(Module& m){
+  auto& taffoInfo = TaffoInfo::getInstance();
+  for (Function& f : m ){
+    if(taffoInfo.isOriginalFunction(f)){
+       f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
+    }
+  }
+}
+
 void FloatToFixed::propagateCall(std::vector<Value*> &vals, SmallVectorImpl<Value*> &global, Module &m) {
   SmallPtrSet<Function*, 16> oldFuncs;
 
@@ -648,7 +659,7 @@ Function *FloatToFixed::createFixFun(CallBase *call, bool *old) {
   if (isSpecialFunction(oldF))
     return nullptr;
 
-  if (!TaffoInfo::getInstance().isTaffoFunction(*oldF)) {
+  if (!TaffoInfo::getInstance().isTaffoCloneFunction(*oldF)) {
     LLVM_DEBUG(dbgs() << "createFixFun: function " << oldF->getName() << " not a clone; ignoring\n");
     return nullptr;
   }
