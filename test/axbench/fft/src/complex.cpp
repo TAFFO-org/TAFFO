@@ -3,10 +3,10 @@
 #include <cmath>
 
 void fftSinCos(float __attribute((annotate("scalar()"))) x,
-	       float* __attribute((annotate("scalar()"))) s,
-	       float* __attribute((annotate("scalar()"))) c) {
-    *s = sin(-2 * PI * x);
-    *c = cos(-2 * PI * x);
+               float* __attribute((annotate("scalar()"))) s,
+               float* __attribute((annotate("scalar()"))) c) {
+  *s = sin(-2 * PI * x);
+  *c = cos(-2 * PI * x);
 }
 
 #if 0

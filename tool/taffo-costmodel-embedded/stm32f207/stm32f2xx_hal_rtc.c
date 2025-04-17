@@ -117,7 +117,7 @@
     (+) Tamper1EventCallback         : RTC Tamper 1 Event callback.
     (+) MspInitCallback              : RTC MspInit callback.
     (+) MspDeInitCallback            : RTC MspDeInit callback.
-  [..]	
+  [..]
   This function takes as parameters the HAL peripheral handle, the Callback ID
   and a pointer to the user callback function.
   [..]
@@ -173,13 +173,13 @@
 #include "stm32f2xx_hal.h"
 
 /** @addtogroup STM32F2xx_HAL_Driver
-  * @{
-  */
+ * @{
+ */
 
 /** @defgroup RTC RTC
-  * @brief RTC HAL module driver
-  * @{
-  */
+ * @brief RTC HAL module driver
+ * @{
+ */
 
 #ifdef HAL_RTC_MODULE_ENABLED
 
@@ -191,8 +191,8 @@
 /* Private functions ---------------------------------------------------------*/
 
 /** @defgroup RTC_Exported_Functions RTC Exported Functions
-  * @{
-  */
+ * @{
+ */
 
 /** @defgroup RTC_Exported_Functions_Group1 Initialization and de-initialization functions
   *  @brief    Initialization and Configuration functions
@@ -229,18 +229,15 @@
   */
 
 /**
-  * @brief  Initializes the RTC peripheral
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Initializes the RTC peripheral
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef* hrtc) {
   /* Check the RTC peripheral state */
   if (hrtc == NULL)
-  {
     return HAL_ERROR;
-  }
 
   /* Check the parameters */
   assert_param(IS_RTC_HOUR_FORMAT(hrtc->Init.HourFormat));
@@ -251,32 +248,26 @@ HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
   assert_param(IS_RTC_OUTPUT_TYPE(hrtc->Init.OutPutType));
 
 #if (USE_HAL_RTC_REGISTER_CALLBACKS == 1)
-  if (hrtc->State == HAL_RTC_STATE_RESET)
-  {
+  if (hrtc->State == HAL_RTC_STATE_RESET) {
     /* Allocate lock resource and initialize it */
     hrtc->Lock = HAL_UNLOCKED;
 
-    hrtc->AlarmAEventCallback          =  HAL_RTC_AlarmAEventCallback;        /* Legacy weak AlarmAEventCallback      */
-    hrtc->AlarmBEventCallback          =  HAL_RTCEx_AlarmBEventCallback;      /* Legacy weak AlarmBEventCallback      */
-    hrtc->TimeStampEventCallback       =  HAL_RTCEx_TimeStampEventCallback;   /* Legacy weak TimeStampEventCallback   */
-    hrtc->WakeUpTimerEventCallback     =  HAL_RTCEx_WakeUpTimerEventCallback; /* Legacy weak WakeUpTimerEventCallback */
-    hrtc->Tamper1EventCallback         =  HAL_RTCEx_Tamper1EventCallback;     /* Legacy weak Tamper1EventCallback     */
+    hrtc->AlarmAEventCallback = HAL_RTC_AlarmAEventCallback;             /* Legacy weak AlarmAEventCallback      */
+    hrtc->AlarmBEventCallback = HAL_RTCEx_AlarmBEventCallback;           /* Legacy weak AlarmBEventCallback      */
+    hrtc->TimeStampEventCallback = HAL_RTCEx_TimeStampEventCallback;     /* Legacy weak TimeStampEventCallback   */
+    hrtc->WakeUpTimerEventCallback = HAL_RTCEx_WakeUpTimerEventCallback; /* Legacy weak WakeUpTimerEventCallback */
+    hrtc->Tamper1EventCallback = HAL_RTCEx_Tamper1EventCallback;         /* Legacy weak Tamper1EventCallback     */
 
     if (hrtc->MspInitCallback == NULL)
-    {
       hrtc->MspInitCallback = HAL_RTC_MspInit;
-    }
     /* Init the low level hardware */
     hrtc->MspInitCallback(hrtc);
 
     if (hrtc->MspDeInitCallback == NULL)
-    {
       hrtc->MspDeInitCallback = HAL_RTC_MspDeInit;
-    }
   }
 #else
-  if (hrtc->State == HAL_RTC_STATE_RESET)
-  {
+  if (hrtc->State == HAL_RTC_STATE_RESET) {
     /* Allocate lock resource and initialize it */
     hrtc->Lock = HAL_UNLOCKED;
 
@@ -292,8 +283,7 @@ HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
   /* Set Initialization mode */
-  if (RTC_EnterInitMode(hrtc) != HAL_OK)
-  {
+  if (RTC_EnterInitMode(hrtc) != HAL_OK) {
     /* Enable the write protection for RTC registers */
     __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -302,22 +292,20 @@ HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
 
     return HAL_ERROR;
   }
-  else
-  {
+  else {
     /* Clear RTC_CR FMT, OSEL and POL Bits */
-    hrtc->Instance->CR &= ((uint32_t)~(RTC_CR_FMT | RTC_CR_OSEL | RTC_CR_POL));
+    hrtc->Instance->CR &= ((uint32_t) ~(RTC_CR_FMT | RTC_CR_OSEL | RTC_CR_POL));
     /* Set RTC_CR register */
-    hrtc->Instance->CR |= (uint32_t)(hrtc->Init.HourFormat | hrtc->Init.OutPut | hrtc->Init.OutPutPolarity);
+    hrtc->Instance->CR |= (uint32_t) (hrtc->Init.HourFormat | hrtc->Init.OutPut | hrtc->Init.OutPutPolarity);
 
     /* Configure the RTC PRER */
-    hrtc->Instance->PRER = (uint32_t)(hrtc->Init.SynchPrediv);
-    hrtc->Instance->PRER |= (uint32_t)(hrtc->Init.AsynchPrediv << 16U);
+    hrtc->Instance->PRER = (uint32_t) (hrtc->Init.SynchPrediv);
+    hrtc->Instance->PRER |= (uint32_t) (hrtc->Init.AsynchPrediv << 16U);
 
     /* Exit Initialization mode */
-    hrtc->Instance->ISR &= (uint32_t)~RTC_ISR_INIT;
+    hrtc->Instance->ISR &= (uint32_t) ~RTC_ISR_INIT;
 
-    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK)
-    {
+    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK) {
       /* Enable the write protection for RTC registers */
       __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -325,8 +313,8 @@ HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
 
       return HAL_ERROR;
     }
-    hrtc->Instance->TAFCR &= (uint32_t)~RTC_TAFCR_ALARMOUTTYPE;
-    hrtc->Instance->TAFCR |= (uint32_t)(hrtc->Init.OutPutType);
+    hrtc->Instance->TAFCR &= (uint32_t) ~RTC_TAFCR_ALARMOUTTYPE;
+    hrtc->Instance->TAFCR |= (uint32_t) (hrtc->Init.OutPutType);
 
     /* Enable the write protection for RTC registers */
     __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
@@ -339,14 +327,13 @@ HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
 }
 
 /**
-  * @brief  DeInitializes the RTC peripheral
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @note   This function doesn't reset the RTC Backup Data registers.
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  DeInitializes the RTC peripheral
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @note   This function doesn't reset the RTC Backup Data registers.
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef* hrtc) {
   uint32_t tickstart = 0U;
 
   /* Set RTC state */
@@ -356,8 +343,7 @@ HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
   /* Set Initialization mode */
-  if (RTC_EnterInitMode(hrtc) != HAL_OK)
-  {
+  if (RTC_EnterInitMode(hrtc) != HAL_OK) {
     /* Enable the write protection for RTC registers */
     __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -366,8 +352,7 @@ HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
 
     return HAL_ERROR;
   }
-  else
-  {
+  else {
     /* Reset TR, DR and CR registers */
     hrtc->Instance->TR = 0x00000000U;
     hrtc->Instance->DR = 0x00002101U;
@@ -378,10 +363,8 @@ HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
     tickstart = HAL_GetTick();
 
     /* Wait till WUTWF flag is set and if Time out is reached exit */
-    while (((hrtc->Instance->ISR) & RTC_ISR_WUTWF) == (uint32_t)RESET)
-    {
-      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-      {
+    while (((hrtc->Instance->ISR) & RTC_ISR_WUTWF) == (uint32_t) RESET) {
+      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -406,8 +389,7 @@ HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
     /* Reset Tamper and alternate functions configuration register */
     hrtc->Instance->TAFCR = 0x00000000U;
 
-    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK)
-    {
+    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK) {
       /* Enable the write protection for RTC registers */
       __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -422,9 +404,7 @@ HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
 
 #if (USE_HAL_RTC_REGISTER_CALLBACKS == 1)
   if (hrtc->MspDeInitCallback == NULL)
-  {
     hrtc->MspDeInitCallback = HAL_RTC_MspDeInit;
-  }
 
   /* DeInit the low level hardware: CLOCK, NVIC.*/
   hrtc->MspDeInitCallback(hrtc);
@@ -444,93 +424,87 @@ HAL_StatusTypeDef HAL_RTC_DeInit(RTC_HandleTypeDef *hrtc)
 
 #if (USE_HAL_RTC_REGISTER_CALLBACKS == 1)
 /**
-  * @brief  Register a User RTC Callback
-  *         To be used instead of the weak predefined callback
-  * @param  hrtc RTC handle
-  * @param  CallbackID ID of the callback to be registered
-  *         This parameter can be one of the following values:
-  *          @arg @ref HAL_RTC_ALARM_A_EVENT_CB_ID          Alarm A Event Callback ID
-  *          @arg @ref HAL_RTC_ALARM_B_EVENT_CB_ID          Alarm B Event Callback ID
-  *          @arg @ref HAL_RTC_TIMESTAMP_EVENT_CB_ID        TimeStamp Event Callback ID
-  *          @arg @ref HAL_RTC_WAKEUPTIMER_EVENT_CB_ID      Wake-Up Timer Event Callback ID
-  *          @arg @ref HAL_RTC_TAMPER1_EVENT_CB_ID          Tamper 1 Callback ID
-  *          @arg @ref HAL_RTC_MSPINIT_CB_ID                Msp Init callback ID
-  *          @arg @ref HAL_RTC_MSPDEINIT_CB_ID              Msp DeInit callback ID
-  * @param  pCallback pointer to the Callback function
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_RegisterCallback(RTC_HandleTypeDef *hrtc, HAL_RTC_CallbackIDTypeDef CallbackID, pRTC_CallbackTypeDef pCallback)
-{
+ * @brief  Register a User RTC Callback
+ *         To be used instead of the weak predefined callback
+ * @param  hrtc RTC handle
+ * @param  CallbackID ID of the callback to be registered
+ *         This parameter can be one of the following values:
+ *          @arg @ref HAL_RTC_ALARM_A_EVENT_CB_ID          Alarm A Event Callback ID
+ *          @arg @ref HAL_RTC_ALARM_B_EVENT_CB_ID          Alarm B Event Callback ID
+ *          @arg @ref HAL_RTC_TIMESTAMP_EVENT_CB_ID        TimeStamp Event Callback ID
+ *          @arg @ref HAL_RTC_WAKEUPTIMER_EVENT_CB_ID      Wake-Up Timer Event Callback ID
+ *          @arg @ref HAL_RTC_TAMPER1_EVENT_CB_ID          Tamper 1 Callback ID
+ *          @arg @ref HAL_RTC_MSPINIT_CB_ID                Msp Init callback ID
+ *          @arg @ref HAL_RTC_MSPDEINIT_CB_ID              Msp DeInit callback ID
+ * @param  pCallback pointer to the Callback function
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_RegisterCallback(RTC_HandleTypeDef* hrtc,
+                                           HAL_RTC_CallbackIDTypeDef CallbackID,
+                                           pRTC_CallbackTypeDef pCallback) {
   HAL_StatusTypeDef status = HAL_OK;
 
   if (pCallback == NULL)
-  {
     return HAL_ERROR;
-  }
 
   /* Process locked */
   __HAL_LOCK(hrtc);
 
-  if (HAL_RTC_STATE_READY == hrtc->State)
-  {
-    switch (CallbackID)
-    {
-      case HAL_RTC_ALARM_A_EVENT_CB_ID :
-        hrtc->AlarmAEventCallback = pCallback;
-        break;
+  if (HAL_RTC_STATE_READY == hrtc->State) {
+    switch (CallbackID) {
+    case HAL_RTC_ALARM_A_EVENT_CB_ID:
+      hrtc->AlarmAEventCallback = pCallback;
+      break;
 
-      case HAL_RTC_ALARM_B_EVENT_CB_ID :
-        hrtc->AlarmBEventCallback = pCallback;
-        break;
+    case HAL_RTC_ALARM_B_EVENT_CB_ID:
+      hrtc->AlarmBEventCallback = pCallback;
+      break;
 
-      case HAL_RTC_TIMESTAMP_EVENT_CB_ID :
-        hrtc->TimeStampEventCallback = pCallback;
-        break;
+    case HAL_RTC_TIMESTAMP_EVENT_CB_ID:
+      hrtc->TimeStampEventCallback = pCallback;
+      break;
 
-      case HAL_RTC_WAKEUPTIMER_EVENT_CB_ID :
-        hrtc->WakeUpTimerEventCallback = pCallback;
-        break;
+    case HAL_RTC_WAKEUPTIMER_EVENT_CB_ID:
+      hrtc->WakeUpTimerEventCallback = pCallback;
+      break;
 
-      case HAL_RTC_TAMPER1_EVENT_CB_ID :
-        hrtc->Tamper1EventCallback = pCallback;
-        break;
+    case HAL_RTC_TAMPER1_EVENT_CB_ID:
+      hrtc->Tamper1EventCallback = pCallback;
+      break;
 
-      case HAL_RTC_MSPINIT_CB_ID :
-        hrtc->MspInitCallback = pCallback;
-        break;
+    case HAL_RTC_MSPINIT_CB_ID:
+      hrtc->MspInitCallback = pCallback;
+      break;
 
-      case HAL_RTC_MSPDEINIT_CB_ID :
-        hrtc->MspDeInitCallback = pCallback;
-        break;
+    case HAL_RTC_MSPDEINIT_CB_ID:
+      hrtc->MspDeInitCallback = pCallback;
+      break;
 
-      default :
-        /* Return error status */
-        status =  HAL_ERROR;
-        break;
+    default:
+      /* Return error status */
+      status = HAL_ERROR;
+      break;
     }
   }
-  else if (HAL_RTC_STATE_RESET == hrtc->State)
-  {
-    switch (CallbackID)
-    {
-      case HAL_RTC_MSPINIT_CB_ID :
-        hrtc->MspInitCallback = pCallback;
-        break;
+  else if (HAL_RTC_STATE_RESET == hrtc->State) {
+    switch (CallbackID) {
+    case HAL_RTC_MSPINIT_CB_ID:
+      hrtc->MspInitCallback = pCallback;
+      break;
 
-      case HAL_RTC_MSPDEINIT_CB_ID :
-        hrtc->MspDeInitCallback = pCallback;
-        break;
+    case HAL_RTC_MSPDEINIT_CB_ID:
+      hrtc->MspDeInitCallback = pCallback;
+      break;
 
-      default :
-        /* Return error status */
-        status =  HAL_ERROR;
-        break;
+    default:
+      /* Return error status */
+      status = HAL_ERROR;
+      break;
     }
   }
-  else
-  {
+  else {
     /* Return error status */
-    status =  HAL_ERROR;
+    status = HAL_ERROR;
   }
 
   /* Release Lock */
@@ -540,87 +514,81 @@ HAL_StatusTypeDef HAL_RTC_RegisterCallback(RTC_HandleTypeDef *hrtc, HAL_RTC_Call
 }
 
 /**
-  * @brief  Unregister an RTC Callback
-  *         RTC callabck is redirected to the weak predefined callback
-  * @param  hrtc RTC handle
-  * @param  CallbackID ID of the callback to be unregistered
-  *         This parameter can be one of the following values:
-  *          @arg @ref HAL_RTC_ALARM_A_EVENT_CB_ID          Alarm A Event Callback ID
-  *          @arg @ref HAL_RTC_ALARM_B_EVENT_CB_ID          Alarm B Event Callback ID
-  *          @arg @ref HAL_RTC_TIMESTAMP_EVENT_CB_ID        TimeStamp Event Callback ID
-  *          @arg @ref HAL_RTC_WAKEUPTIMER_EVENT_CB_ID      Wake-Up Timer Event Callback ID
-  *          @arg @ref HAL_RTC_TAMPER1_EVENT_CB_ID          Tamper 1 Callback ID
-  *          @arg @ref HAL_RTC_MSPINIT_CB_ID Msp Init callback ID
-  *          @arg @ref HAL_RTC_MSPDEINIT_CB_ID Msp DeInit callback ID
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_UnRegisterCallback(RTC_HandleTypeDef *hrtc, HAL_RTC_CallbackIDTypeDef CallbackID)
-{
+ * @brief  Unregister an RTC Callback
+ *         RTC callabck is redirected to the weak predefined callback
+ * @param  hrtc RTC handle
+ * @param  CallbackID ID of the callback to be unregistered
+ *         This parameter can be one of the following values:
+ *          @arg @ref HAL_RTC_ALARM_A_EVENT_CB_ID          Alarm A Event Callback ID
+ *          @arg @ref HAL_RTC_ALARM_B_EVENT_CB_ID          Alarm B Event Callback ID
+ *          @arg @ref HAL_RTC_TIMESTAMP_EVENT_CB_ID        TimeStamp Event Callback ID
+ *          @arg @ref HAL_RTC_WAKEUPTIMER_EVENT_CB_ID      Wake-Up Timer Event Callback ID
+ *          @arg @ref HAL_RTC_TAMPER1_EVENT_CB_ID          Tamper 1 Callback ID
+ *          @arg @ref HAL_RTC_MSPINIT_CB_ID Msp Init callback ID
+ *          @arg @ref HAL_RTC_MSPDEINIT_CB_ID Msp DeInit callback ID
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_UnRegisterCallback(RTC_HandleTypeDef* hrtc, HAL_RTC_CallbackIDTypeDef CallbackID) {
   HAL_StatusTypeDef status = HAL_OK;
 
   /* Process locked */
   __HAL_LOCK(hrtc);
 
-  if (HAL_RTC_STATE_READY == hrtc->State)
-  {
-    switch (CallbackID)
-    {
-      case HAL_RTC_ALARM_A_EVENT_CB_ID :
-        hrtc->AlarmAEventCallback = HAL_RTC_AlarmAEventCallback;         /* Legacy weak AlarmAEventCallback    */
-        break;
+  if (HAL_RTC_STATE_READY == hrtc->State) {
+    switch (CallbackID) {
+    case HAL_RTC_ALARM_A_EVENT_CB_ID:
+      hrtc->AlarmAEventCallback = HAL_RTC_AlarmAEventCallback;             /* Legacy weak AlarmAEventCallback    */
+      break;
 
-      case HAL_RTC_ALARM_B_EVENT_CB_ID :
-        hrtc->AlarmBEventCallback = HAL_RTCEx_AlarmBEventCallback;          /* Legacy weak AlarmBEventCallback */
-        break;
+    case HAL_RTC_ALARM_B_EVENT_CB_ID:
+      hrtc->AlarmBEventCallback = HAL_RTCEx_AlarmBEventCallback;           /* Legacy weak AlarmBEventCallback */
+      break;
 
-      case HAL_RTC_TIMESTAMP_EVENT_CB_ID :
-        hrtc->TimeStampEventCallback = HAL_RTCEx_TimeStampEventCallback;    /* Legacy weak TimeStampEventCallback    */
-        break;
+    case HAL_RTC_TIMESTAMP_EVENT_CB_ID:
+      hrtc->TimeStampEventCallback = HAL_RTCEx_TimeStampEventCallback;     /* Legacy weak TimeStampEventCallback    */
+      break;
 
-      case HAL_RTC_WAKEUPTIMER_EVENT_CB_ID :
-        hrtc->WakeUpTimerEventCallback = HAL_RTCEx_WakeUpTimerEventCallback; /* Legacy weak WakeUpTimerEventCallback */
-        break;
+    case HAL_RTC_WAKEUPTIMER_EVENT_CB_ID:
+      hrtc->WakeUpTimerEventCallback = HAL_RTCEx_WakeUpTimerEventCallback; /* Legacy weak WakeUpTimerEventCallback */
+      break;
 
-      case HAL_RTC_TAMPER1_EVENT_CB_ID :
-        hrtc->Tamper1EventCallback = HAL_RTCEx_Tamper1EventCallback;         /* Legacy weak Tamper1EventCallback   */
-        break;
+    case HAL_RTC_TAMPER1_EVENT_CB_ID:
+      hrtc->Tamper1EventCallback = HAL_RTCEx_Tamper1EventCallback;         /* Legacy weak Tamper1EventCallback   */
+      break;
 
-      case HAL_RTC_MSPINIT_CB_ID :
-        hrtc->MspInitCallback = HAL_RTC_MspInit;
-        break;
+    case HAL_RTC_MSPINIT_CB_ID:
+      hrtc->MspInitCallback = HAL_RTC_MspInit;
+      break;
 
-      case HAL_RTC_MSPDEINIT_CB_ID :
-        hrtc->MspDeInitCallback = HAL_RTC_MspDeInit;
-        break;
+    case HAL_RTC_MSPDEINIT_CB_ID:
+      hrtc->MspDeInitCallback = HAL_RTC_MspDeInit;
+      break;
 
-      default :
-        /* Return error status */
-        status =  HAL_ERROR;
-        break;
+    default:
+      /* Return error status */
+      status = HAL_ERROR;
+      break;
     }
   }
-  else if (HAL_RTC_STATE_RESET == hrtc->State)
-  {
-    switch (CallbackID)
-    {
-      case HAL_RTC_MSPINIT_CB_ID :
-        hrtc->MspInitCallback = HAL_RTC_MspInit;
-        break;
+  else if (HAL_RTC_STATE_RESET == hrtc->State) {
+    switch (CallbackID) {
+    case HAL_RTC_MSPINIT_CB_ID:
+      hrtc->MspInitCallback = HAL_RTC_MspInit;
+      break;
 
-      case HAL_RTC_MSPDEINIT_CB_ID :
-        hrtc->MspDeInitCallback = HAL_RTC_MspDeInit;
-        break;
+    case HAL_RTC_MSPDEINIT_CB_ID:
+      hrtc->MspDeInitCallback = HAL_RTC_MspDeInit;
+      break;
 
-      default :
-        /* Return error status */
-        status =  HAL_ERROR;
-        break;
+    default:
+      /* Return error status */
+      status = HAL_ERROR;
+      break;
     }
   }
-  else
-  {
+  else {
     /* Return error status */
-    status =  HAL_ERROR;
+    status = HAL_ERROR;
   }
 
   /* Release Lock */
@@ -631,13 +599,12 @@ HAL_StatusTypeDef HAL_RTC_UnRegisterCallback(RTC_HandleTypeDef *hrtc, HAL_RTC_Ca
 #endif /* USE_HAL_RTC_REGISTER_CALLBACKS */
 
 /**
-  * @brief  Initializes the RTC MSP.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval None
-  */
-__weak void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Initializes the RTC MSP.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval None
+ */
+__weak void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc) {
   /* Prevent unused argument(s) compilation warning */
   UNUSED(hrtc);
   /* NOTE : This function Should not be modified, when the callback is needed,
@@ -646,13 +613,12 @@ __weak void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
 }
 
 /**
-  * @brief  DeInitializes the RTC MSP.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval None
-  */
-__weak void HAL_RTC_MspDeInit(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  DeInitializes the RTC MSP.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval None
+ */
+__weak void HAL_RTC_MspDeInit(RTC_HandleTypeDef* hrtc) {
   /* Prevent unused argument(s) compilation warning */
   UNUSED(hrtc);
   /* NOTE : This function Should not be modified, when the callback is needed,
@@ -661,8 +627,8 @@ __weak void HAL_RTC_MspDeInit(RTC_HandleTypeDef *hrtc)
 }
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 /** @defgroup RTC_Exported_Functions_Group2 RTC Time and Date functions
  *  @brief   RTC Time and Date functions
@@ -679,18 +645,17 @@ __weak void HAL_RTC_MspDeInit(RTC_HandleTypeDef *hrtc)
   */
 
 /**
-  * @brief  Sets RTC current time.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sTime Pointer to Time structure
-  * @param  Format Specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *            @arg RTC_FORMAT_BIN: Binary data format
-  *            @arg RTC_FORMAT_BCD: BCD data format
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_SetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTime, uint32_t Format)
-{
+ * @brief  Sets RTC current time.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sTime Pointer to Time structure
+ * @param  Format Specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *            @arg RTC_FORMAT_BIN: Binary data format
+ *            @arg RTC_FORMAT_BCD: BCD data format
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_SetTime(RTC_HandleTypeDef* hrtc, RTC_TimeTypeDef* sTime, uint32_t Format) {
   uint32_t tmpreg = 0U;
 
   /* Check the parameters */
@@ -703,52 +668,42 @@ HAL_StatusTypeDef HAL_RTC_SetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTim
 
   hrtc->State = HAL_RTC_STATE_BUSY;
 
-  if (Format == RTC_FORMAT_BIN)
-  {
-    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t)RESET)
-    {
+  if (Format == RTC_FORMAT_BIN) {
+    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t) RESET) {
       assert_param(IS_RTC_HOUR12(sTime->Hours));
       assert_param(IS_RTC_HOURFORMAT12(sTime->TimeFormat));
     }
-    else
-    {
+    else {
       sTime->TimeFormat = 0x00U;
       assert_param(IS_RTC_HOUR24(sTime->Hours));
     }
     assert_param(IS_RTC_MINUTES(sTime->Minutes));
     assert_param(IS_RTC_SECONDS(sTime->Seconds));
 
-    tmpreg = (uint32_t)(((uint32_t)RTC_ByteToBcd2(sTime->Hours) << 16U) | \
-                        ((uint32_t)RTC_ByteToBcd2(sTime->Minutes) << 8U) | \
-                        ((uint32_t)RTC_ByteToBcd2(sTime->Seconds)) | \
-                        (((uint32_t)sTime->TimeFormat) << 16U));
+    tmpreg =
+      (uint32_t) (((uint32_t) RTC_ByteToBcd2(sTime->Hours) << 16U) | ((uint32_t) RTC_ByteToBcd2(sTime->Minutes) << 8U)
+                  | ((uint32_t) RTC_ByteToBcd2(sTime->Seconds)) | (((uint32_t) sTime->TimeFormat) << 16U));
   }
-  else
-  {
-    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t)RESET)
-    {
+  else {
+    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t) RESET) {
       assert_param(IS_RTC_HOUR12(RTC_Bcd2ToByte(sTime->Hours)));
       assert_param(IS_RTC_HOURFORMAT12(sTime->TimeFormat));
     }
-    else
-    {
+    else {
       sTime->TimeFormat = 0x00U;
       assert_param(IS_RTC_HOUR24(RTC_Bcd2ToByte(sTime->Hours)));
     }
     assert_param(IS_RTC_MINUTES(RTC_Bcd2ToByte(sTime->Minutes)));
     assert_param(IS_RTC_SECONDS(RTC_Bcd2ToByte(sTime->Seconds)));
-    tmpreg = (((uint32_t)(sTime->Hours) << 16U) | \
-              ((uint32_t)(sTime->Minutes) << 8U) | \
-              ((uint32_t)sTime->Seconds) | \
-              ((uint32_t)(sTime->TimeFormat) << 16U));
+    tmpreg = (((uint32_t) (sTime->Hours) << 16U) | ((uint32_t) (sTime->Minutes) << 8U) | ((uint32_t) sTime->Seconds)
+              | ((uint32_t) (sTime->TimeFormat) << 16U));
   }
 
   /* Disable the write protection for RTC registers */
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
   /* Set Initialization mode */
-  if (RTC_EnterInitMode(hrtc) != HAL_OK)
-  {
+  if (RTC_EnterInitMode(hrtc) != HAL_OK) {
     /* Enable the write protection for RTC registers */
     __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -760,22 +715,20 @@ HAL_StatusTypeDef HAL_RTC_SetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTim
 
     return HAL_ERROR;
   }
-  else
-  {
+  else {
     /* Set the RTC_TR register */
-    hrtc->Instance->TR = (uint32_t)(tmpreg & RTC_TR_RESERVED_MASK);
+    hrtc->Instance->TR = (uint32_t) (tmpreg & RTC_TR_RESERVED_MASK);
 
     /* This interface is deprecated. To manage Daylight Saving Time, please use HAL_RTC_DST_xxx functions */
-    hrtc->Instance->CR &= (uint32_t)~RTC_CR_BCK;
+    hrtc->Instance->CR &= (uint32_t) ~RTC_CR_BCK;
 
     /* This interface is deprecated. To manage Daylight Saving Time, please use HAL_RTC_DST_xxx functions */
-    hrtc->Instance->CR |= (uint32_t)(sTime->DayLightSaving | sTime->StoreOperation);
+    hrtc->Instance->CR |= (uint32_t) (sTime->DayLightSaving | sTime->StoreOperation);
 
     /* Exit Initialization mode */
-    hrtc->Instance->ISR &= (uint32_t)~RTC_ISR_INIT;
+    hrtc->Instance->ISR &= (uint32_t) ~RTC_ISR_INIT;
 
-    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK)
-    {
+    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK) {
       /* Enable the write protection for RTC registers */
       __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -799,60 +752,57 @@ HAL_StatusTypeDef HAL_RTC_SetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTim
 }
 
 /**
-  * @brief  Gets RTC current time.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sTime Pointer to Time structure
-  * @param  Format Specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *            @arg RTC_FORMAT_BIN: Binary data format
-  *            @arg RTC_FORMAT_BCD: BCD data format
-  * @note You must call HAL_RTC_GetDate() after HAL_RTC_GetTime() to unlock the values
-  * in the higher-order calendar shadow registers to ensure consistency between the time and date values.
-  * Reading RTC current time locks the values in calendar shadow registers until Current date is read.
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_GetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTime, uint32_t Format)
-{
+ * @brief  Gets RTC current time.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sTime Pointer to Time structure
+ * @param  Format Specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *            @arg RTC_FORMAT_BIN: Binary data format
+ *            @arg RTC_FORMAT_BCD: BCD data format
+ * @note You must call HAL_RTC_GetDate() after HAL_RTC_GetTime() to unlock the values
+ * in the higher-order calendar shadow registers to ensure consistency between the time and date values.
+ * Reading RTC current time locks the values in calendar shadow registers until Current date is read.
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_GetTime(RTC_HandleTypeDef* hrtc, RTC_TimeTypeDef* sTime, uint32_t Format) {
   uint32_t tmpreg = 0U;
 
   /* Check the parameters */
   assert_param(IS_RTC_FORMAT(Format));
 
   /* Get the TR register */
-  tmpreg = (uint32_t)(hrtc->Instance->TR & RTC_TR_RESERVED_MASK);
+  tmpreg = (uint32_t) (hrtc->Instance->TR & RTC_TR_RESERVED_MASK);
 
   /* Fill the structure fields with the read parameters */
-  sTime->Hours = (uint8_t)((tmpreg & (RTC_TR_HT | RTC_TR_HU)) >> 16U);
-  sTime->Minutes = (uint8_t)((tmpreg & (RTC_TR_MNT | RTC_TR_MNU)) >> 8U);
-  sTime->Seconds = (uint8_t)(tmpreg & (RTC_TR_ST | RTC_TR_SU));
-  sTime->TimeFormat = (uint8_t)((tmpreg & (RTC_TR_PM)) >> 16U);
+  sTime->Hours = (uint8_t) ((tmpreg & (RTC_TR_HT | RTC_TR_HU)) >> 16U);
+  sTime->Minutes = (uint8_t) ((tmpreg & (RTC_TR_MNT | RTC_TR_MNU)) >> 8U);
+  sTime->Seconds = (uint8_t) (tmpreg & (RTC_TR_ST | RTC_TR_SU));
+  sTime->TimeFormat = (uint8_t) ((tmpreg & (RTC_TR_PM)) >> 16U);
 
   /* Check the input parameters format */
-  if (Format == RTC_FORMAT_BIN)
-  {
+  if (Format == RTC_FORMAT_BIN) {
     /* Convert the time structure parameters to Binary format */
-    sTime->Hours = (uint8_t)RTC_Bcd2ToByte(sTime->Hours);
-    sTime->Minutes = (uint8_t)RTC_Bcd2ToByte(sTime->Minutes);
-    sTime->Seconds = (uint8_t)RTC_Bcd2ToByte(sTime->Seconds);
+    sTime->Hours = (uint8_t) RTC_Bcd2ToByte(sTime->Hours);
+    sTime->Minutes = (uint8_t) RTC_Bcd2ToByte(sTime->Minutes);
+    sTime->Seconds = (uint8_t) RTC_Bcd2ToByte(sTime->Seconds);
   }
 
   return HAL_OK;
 }
 
 /**
-  * @brief  Sets RTC current date.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sDate Pointer to date structure
-  * @param  Format specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *            @arg RTC_FORMAT_BIN: Binary data format
-  *            @arg RTC_FORMAT_BCD: BCD data format
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDate, uint32_t Format)
-{
+ * @brief  Sets RTC current date.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sDate Pointer to date structure
+ * @param  Format specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *            @arg RTC_FORMAT_BIN: Binary data format
+ *            @arg RTC_FORMAT_BCD: BCD data format
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef* hrtc, RTC_DateTypeDef* sDate, uint32_t Format) {
   uint32_t datetmpreg = 0U;
 
   /* Check the parameters */
@@ -864,41 +814,32 @@ HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDat
   hrtc->State = HAL_RTC_STATE_BUSY;
 
   if ((Format == RTC_FORMAT_BIN) && ((sDate->Month & 0x10) == 0x10))
-  {
-    sDate->Month = (uint8_t)((sDate->Month & (uint8_t)~0x10) + (uint8_t)0x0A);
-  }
+    sDate->Month = (uint8_t) ((sDate->Month & (uint8_t) ~0x10) + (uint8_t) 0x0A);
 
   assert_param(IS_RTC_WEEKDAY(sDate->WeekDay));
 
-  if (Format == RTC_FORMAT_BIN)
-  {
+  if (Format == RTC_FORMAT_BIN) {
     assert_param(IS_RTC_YEAR(sDate->Year));
     assert_param(IS_RTC_MONTH(sDate->Month));
     assert_param(IS_RTC_DATE(sDate->Date));
 
-    datetmpreg = (((uint32_t)RTC_ByteToBcd2(sDate->Year) << 16U) | \
-                  ((uint32_t)RTC_ByteToBcd2(sDate->Month) << 8U) | \
-                  ((uint32_t)RTC_ByteToBcd2(sDate->Date)) | \
-                  ((uint32_t)sDate->WeekDay << 13U));
+    datetmpreg = (((uint32_t) RTC_ByteToBcd2(sDate->Year) << 16U) | ((uint32_t) RTC_ByteToBcd2(sDate->Month) << 8U)
+                  | ((uint32_t) RTC_ByteToBcd2(sDate->Date)) | ((uint32_t) sDate->WeekDay << 13U));
   }
-  else
-  {
+  else {
     assert_param(IS_RTC_YEAR(RTC_Bcd2ToByte(sDate->Year)));
     assert_param(IS_RTC_MONTH(RTC_Bcd2ToByte(sDate->Month)));
     assert_param(IS_RTC_DATE(RTC_Bcd2ToByte(sDate->Date)));
 
-    datetmpreg = ((((uint32_t)sDate->Year) << 16U) | \
-                  (((uint32_t)sDate->Month) << 8U) | \
-                  ((uint32_t)sDate->Date) | \
-                  (((uint32_t)sDate->WeekDay) << 13U));
+    datetmpreg = ((((uint32_t) sDate->Year) << 16U) | (((uint32_t) sDate->Month) << 8U) | ((uint32_t) sDate->Date)
+                  | (((uint32_t) sDate->WeekDay) << 13U));
   }
 
   /* Disable the write protection for RTC registers */
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
   /* Set Initialization mode */
-  if (RTC_EnterInitMode(hrtc) != HAL_OK)
-  {
+  if (RTC_EnterInitMode(hrtc) != HAL_OK) {
     /* Enable the write protection for RTC registers */
     __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -910,16 +851,14 @@ HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDat
 
     return HAL_ERROR;
   }
-  else
-  {
+  else {
     /* Set the RTC_DR register */
-    hrtc->Instance->DR = (uint32_t)(datetmpreg & RTC_DR_RESERVED_MASK);
+    hrtc->Instance->DR = (uint32_t) (datetmpreg & RTC_DR_RESERVED_MASK);
 
     /* Exit Initialization mode */
-    hrtc->Instance->ISR &= (uint32_t)~RTC_ISR_INIT;
+    hrtc->Instance->ISR &= (uint32_t) ~RTC_ISR_INIT;
 
-    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK)
-    {
+    if (HAL_RTC_WaitForSynchro(hrtc) != HAL_OK) {
       /* Enable the write protection for RTC registers */
       __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -934,7 +873,7 @@ HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDat
     /* Enable the write protection for RTC registers */
     __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
-    hrtc->State = HAL_RTC_STATE_READY ;
+    hrtc->State = HAL_RTC_STATE_READY;
 
     /* Process Unlocked */
     __HAL_UNLOCK(hrtc);
@@ -944,110 +883,101 @@ HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDat
 }
 
 /**
-  * @brief  Gets RTC current date.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sDate Pointer to Date structure
-  * @param  Format Specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *            @arg RTC_FORMAT_BIN:  Binary data format
-  *            @arg RTC_FORMAT_BCD:  BCD data format
-  * @note You must call HAL_RTC_GetDate() after HAL_RTC_GetTime() to unlock the values
-  * in the higher-order calendar shadow registers to ensure consistency between the time and date values.
-  * Reading RTC current time locks the values in calendar shadow registers until Current date is read.
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_GetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDate, uint32_t Format)
-{
+ * @brief  Gets RTC current date.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sDate Pointer to Date structure
+ * @param  Format Specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *            @arg RTC_FORMAT_BIN:  Binary data format
+ *            @arg RTC_FORMAT_BCD:  BCD data format
+ * @note You must call HAL_RTC_GetDate() after HAL_RTC_GetTime() to unlock the values
+ * in the higher-order calendar shadow registers to ensure consistency between the time and date values.
+ * Reading RTC current time locks the values in calendar shadow registers until Current date is read.
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_GetDate(RTC_HandleTypeDef* hrtc, RTC_DateTypeDef* sDate, uint32_t Format) {
   uint32_t datetmpreg = 0U;
 
   /* Check the parameters */
   assert_param(IS_RTC_FORMAT(Format));
 
   /* Get the DR register */
-  datetmpreg = (uint32_t)(hrtc->Instance->DR & RTC_DR_RESERVED_MASK);
+  datetmpreg = (uint32_t) (hrtc->Instance->DR & RTC_DR_RESERVED_MASK);
 
   /* Fill the structure fields with the read parameters */
-  sDate->Year = (uint8_t)((datetmpreg & (RTC_DR_YT | RTC_DR_YU)) >> 16U);
-  sDate->Month = (uint8_t)((datetmpreg & (RTC_DR_MT | RTC_DR_MU)) >> 8U);
-  sDate->Date = (uint8_t)(datetmpreg & (RTC_DR_DT | RTC_DR_DU));
-  sDate->WeekDay = (uint8_t)((datetmpreg & (RTC_DR_WDU)) >> 13U);
+  sDate->Year = (uint8_t) ((datetmpreg & (RTC_DR_YT | RTC_DR_YU)) >> 16U);
+  sDate->Month = (uint8_t) ((datetmpreg & (RTC_DR_MT | RTC_DR_MU)) >> 8U);
+  sDate->Date = (uint8_t) (datetmpreg & (RTC_DR_DT | RTC_DR_DU));
+  sDate->WeekDay = (uint8_t) ((datetmpreg & (RTC_DR_WDU)) >> 13U);
 
   /* Check the input parameters format */
-  if (Format == RTC_FORMAT_BIN)
-  {
+  if (Format == RTC_FORMAT_BIN) {
     /* Convert the date structure parameters to Binary format */
-    sDate->Year = (uint8_t)RTC_Bcd2ToByte(sDate->Year);
-    sDate->Month = (uint8_t)RTC_Bcd2ToByte(sDate->Month);
-    sDate->Date = (uint8_t)RTC_Bcd2ToByte(sDate->Date);
+    sDate->Year = (uint8_t) RTC_Bcd2ToByte(sDate->Year);
+    sDate->Month = (uint8_t) RTC_Bcd2ToByte(sDate->Month);
+    sDate->Date = (uint8_t) RTC_Bcd2ToByte(sDate->Date);
   }
   return HAL_OK;
 }
 
 /**
-  * @brief  Daylight Saving Time, Add one hour to the calendar in one single operation
-  *         without going through the initialization procedure.
-  * @param  hrtc RTC handle
-  * @retval None
-  */
-void HAL_RTC_DST_Add1Hour(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Daylight Saving Time, Add one hour to the calendar in one single operation
+ *         without going through the initialization procedure.
+ * @param  hrtc RTC handle
+ * @retval None
+ */
+void HAL_RTC_DST_Add1Hour(RTC_HandleTypeDef* hrtc) {
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
   SET_BIT(hrtc->Instance->CR, RTC_CR_ADD1H);
   __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 }
 
 /**
-  * @brief  Daylight Saving Time, Subtract one hour from the calendar in one
-  *         single operation without going through the initialization procedure.
-  * @param  hrtc RTC handle
-  * @retval None
-  */
-void HAL_RTC_DST_Sub1Hour(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Daylight Saving Time, Subtract one hour from the calendar in one
+ *         single operation without going through the initialization procedure.
+ * @param  hrtc RTC handle
+ * @retval None
+ */
+void HAL_RTC_DST_Sub1Hour(RTC_HandleTypeDef* hrtc) {
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
   SET_BIT(hrtc->Instance->CR, RTC_CR_SUB1H);
   __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 }
 
 /**
-  * @brief  Daylight Saving Time, Set the store operation bit.
-  * @note   It can be used by the software in order to memorize the DST status.
-  * @param  hrtc RTC handle
-  * @retval None
-  */
-void HAL_RTC_DST_SetStoreOperation(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Daylight Saving Time, Set the store operation bit.
+ * @note   It can be used by the software in order to memorize the DST status.
+ * @param  hrtc RTC handle
+ * @retval None
+ */
+void HAL_RTC_DST_SetStoreOperation(RTC_HandleTypeDef* hrtc) {
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
   SET_BIT(hrtc->Instance->CR, RTC_CR_BKP);
   __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 }
 
 /**
-  * @brief  Daylight Saving Time, Clear the store operation bit.
-  * @param  hrtc RTC handle
-  * @retval None
-  */
-void HAL_RTC_DST_ClearStoreOperation(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Daylight Saving Time, Clear the store operation bit.
+ * @param  hrtc RTC handle
+ * @retval None
+ */
+void HAL_RTC_DST_ClearStoreOperation(RTC_HandleTypeDef* hrtc) {
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
   CLEAR_BIT(hrtc->Instance->CR, RTC_CR_BKP);
   __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 }
 
 /**
-  * @brief  Daylight Saving Time, Read the store operation bit.
-  * @param  hrtc RTC handle
-  * @retval operation see RTC_StoreOperation_Definitions
-  */
-uint32_t HAL_RTC_DST_ReadStoreOperation(RTC_HandleTypeDef *hrtc)
-{
-  return READ_BIT(hrtc->Instance->CR, RTC_CR_BKP);
-}
+ * @brief  Daylight Saving Time, Read the store operation bit.
+ * @param  hrtc RTC handle
+ * @retval operation see RTC_StoreOperation_Definitions
+ */
+uint32_t HAL_RTC_DST_ReadStoreOperation(RTC_HandleTypeDef* hrtc) { return READ_BIT(hrtc->Instance->CR, RTC_CR_BKP); }
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 /** @defgroup RTC_Exported_Functions_Group3 RTC Alarm functions
  *  @brief   RTC Alarm functions
@@ -1063,18 +993,17 @@ uint32_t HAL_RTC_DST_ReadStoreOperation(RTC_HandleTypeDef *hrtc)
   * @{
   */
 /**
-  * @brief  Sets the specified RTC Alarm.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sAlarm Pointer to Alarm structure
-  * @param  Format Specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *             @arg RTC_FORMAT_BIN: Binary data format
-  *             @arg RTC_FORMAT_BCD: BCD data format
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sAlarm, uint32_t Format)
-{
+ * @brief  Sets the specified RTC Alarm.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sAlarm Pointer to Alarm structure
+ * @param  Format Specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *             @arg RTC_FORMAT_BIN: Binary data format
+ *             @arg RTC_FORMAT_BCD: BCD data format
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef* hrtc, RTC_AlarmTypeDef* sAlarm, uint32_t Format) {
   uint32_t tickstart = 0U;
   uint32_t tmpreg = 0U;
 
@@ -1089,15 +1018,12 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
 
   hrtc->State = HAL_RTC_STATE_BUSY;
 
-  if (Format == RTC_FORMAT_BIN)
-  {
-    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t)RESET)
-    {
+  if (Format == RTC_FORMAT_BIN) {
+    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t) RESET) {
       assert_param(IS_RTC_HOUR12(sAlarm->AlarmTime.Hours));
       assert_param(IS_RTC_HOURFORMAT12(sAlarm->AlarmTime.TimeFormat));
     }
-    else
-    {
+    else {
       sAlarm->AlarmTime.TimeFormat = 0x00;
       assert_param(IS_RTC_HOUR24(sAlarm->AlarmTime.Hours));
     }
@@ -1105,31 +1031,23 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
     assert_param(IS_RTC_SECONDS(sAlarm->AlarmTime.Seconds));
 
     if (sAlarm->AlarmDateWeekDaySel == RTC_ALARMDATEWEEKDAYSEL_DATE)
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_DATE(sAlarm->AlarmDateWeekDay));
-    }
     else
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_WEEKDAY(sAlarm->AlarmDateWeekDay));
-    }
 
-    tmpreg = (((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmTime.Hours) << 16U) | \
-              ((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmTime.Minutes) << 8U) | \
-              ((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmTime.Seconds)) | \
-              ((uint32_t)(sAlarm->AlarmTime.TimeFormat) << 16U) | \
-              ((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmDateWeekDay) << 24U) | \
-              ((uint32_t)sAlarm->AlarmDateWeekDaySel) | \
-              ((uint32_t)sAlarm->AlarmMask));
+    tmpreg =
+      (((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmTime.Hours) << 16U)
+       | ((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmTime.Minutes) << 8U)
+       | ((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmTime.Seconds)) | ((uint32_t) (sAlarm->AlarmTime.TimeFormat) << 16U)
+       | ((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmDateWeekDay) << 24U) | ((uint32_t) sAlarm->AlarmDateWeekDaySel)
+       | ((uint32_t) sAlarm->AlarmMask));
   }
-  else
-  {
-    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t)RESET)
-    {
+  else {
+    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t) RESET) {
       assert_param(IS_RTC_HOUR12(RTC_Bcd2ToByte(sAlarm->AlarmTime.Hours)));
       assert_param(IS_RTC_HOURFORMAT12(sAlarm->AlarmTime.TimeFormat));
     }
-    else
-    {
+    else {
       sAlarm->AlarmTime.TimeFormat = 0x00;
       assert_param(IS_RTC_HOUR24(RTC_Bcd2ToByte(sAlarm->AlarmTime.Hours)));
     }
@@ -1138,29 +1056,21 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
     assert_param(IS_RTC_SECONDS(RTC_Bcd2ToByte(sAlarm->AlarmTime.Seconds)));
 
     if (sAlarm->AlarmDateWeekDaySel == RTC_ALARMDATEWEEKDAYSEL_DATE)
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_DATE(RTC_Bcd2ToByte(sAlarm->AlarmDateWeekDay)));
-    }
     else
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_WEEKDAY(RTC_Bcd2ToByte(sAlarm->AlarmDateWeekDay)));
-    }
 
-    tmpreg = (((uint32_t)(sAlarm->AlarmTime.Hours) << 16U) | \
-              ((uint32_t)(sAlarm->AlarmTime.Minutes) << 8U) | \
-              ((uint32_t) sAlarm->AlarmTime.Seconds) | \
-              ((uint32_t)(sAlarm->AlarmTime.TimeFormat) << 16U) | \
-              ((uint32_t)(sAlarm->AlarmDateWeekDay) << 24U) | \
-              ((uint32_t)sAlarm->AlarmDateWeekDaySel) | \
-              ((uint32_t)sAlarm->AlarmMask));
+    tmpreg = (((uint32_t) (sAlarm->AlarmTime.Hours) << 16U) | ((uint32_t) (sAlarm->AlarmTime.Minutes) << 8U)
+              | ((uint32_t) sAlarm->AlarmTime.Seconds) | ((uint32_t) (sAlarm->AlarmTime.TimeFormat) << 16U)
+              | ((uint32_t) (sAlarm->AlarmDateWeekDay) << 24U) | ((uint32_t) sAlarm->AlarmDateWeekDaySel)
+              | ((uint32_t) sAlarm->AlarmMask));
   }
 
   /* Disable the write protection for RTC registers */
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
   /* Configure the Alarm register */
-  if (sAlarm->Alarm == RTC_ALARM_A)
-  {
+  if (sAlarm->Alarm == RTC_ALARM_A) {
     /* Disable the Alarm A interrupt */
     __HAL_RTC_ALARMA_DISABLE(hrtc);
 
@@ -1171,10 +1081,8 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
     tickstart = HAL_GetTick();
 
     /* Wait till RTC ALRAWF flag is set and if Time out is reached exit */
-    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAWF) == RESET)
-    {
-      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-      {
+    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAWF) == RESET) {
+      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -1187,12 +1095,11 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
       }
     }
 
-    hrtc->Instance->ALRMAR = (uint32_t)tmpreg;
+    hrtc->Instance->ALRMAR = (uint32_t) tmpreg;
     /* Configure the Alarm state: Enable Alarm */
     __HAL_RTC_ALARMA_ENABLE(hrtc);
   }
-  else
-  {
+  else {
     /* Disable the Alarm B interrupt */
     __HAL_RTC_ALARMB_DISABLE(hrtc);
 
@@ -1203,10 +1110,8 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
     tickstart = HAL_GetTick();
 
     /* Wait till RTC ALRBWF flag is set and if Time out is reached exit */
-    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBWF) == RESET)
-    {
-      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-      {
+    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBWF) == RESET) {
+      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -1219,7 +1124,7 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
       }
     }
 
-    hrtc->Instance->ALRMBR = (uint32_t)tmpreg;
+    hrtc->Instance->ALRMBR = (uint32_t) tmpreg;
     /* Configure the Alarm state: Enable Alarm */
     __HAL_RTC_ALARMB_ENABLE(hrtc);
   }
@@ -1237,20 +1142,19 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
 }
 
 /**
-  * @brief  Sets the specified RTC Alarm with Interrupt
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sAlarm Pointer to Alarm structure
-  * @param  Format Specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *             @arg RTC_FORMAT_BIN: Binary data format
-  *             @arg RTC_FORMAT_BCD: BCD data format
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sAlarm, uint32_t Format)
-{
+ * @brief  Sets the specified RTC Alarm with Interrupt
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sAlarm Pointer to Alarm structure
+ * @param  Format Specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *             @arg RTC_FORMAT_BIN: Binary data format
+ *             @arg RTC_FORMAT_BCD: BCD data format
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef* hrtc, RTC_AlarmTypeDef* sAlarm, uint32_t Format) {
   uint32_t tmpreg = 0U;
-  __IO uint32_t count = RTC_TIMEOUT_VALUE  * (SystemCoreClock / 32U / 1000U);
+  __IO uint32_t count = RTC_TIMEOUT_VALUE * (SystemCoreClock / 32U / 1000U);
 
   /* Check the parameters */
   assert_param(IS_RTC_FORMAT(Format));
@@ -1263,15 +1167,12 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
 
   hrtc->State = HAL_RTC_STATE_BUSY;
 
-  if (Format == RTC_FORMAT_BIN)
-  {
-    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t)RESET)
-    {
+  if (Format == RTC_FORMAT_BIN) {
+    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t) RESET) {
       assert_param(IS_RTC_HOUR12(sAlarm->AlarmTime.Hours));
       assert_param(IS_RTC_HOURFORMAT12(sAlarm->AlarmTime.TimeFormat));
     }
-    else
-    {
+    else {
       sAlarm->AlarmTime.TimeFormat = 0x00;
       assert_param(IS_RTC_HOUR24(sAlarm->AlarmTime.Hours));
     }
@@ -1279,30 +1180,22 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
     assert_param(IS_RTC_SECONDS(sAlarm->AlarmTime.Seconds));
 
     if (sAlarm->AlarmDateWeekDaySel == RTC_ALARMDATEWEEKDAYSEL_DATE)
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_DATE(sAlarm->AlarmDateWeekDay));
-    }
     else
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_WEEKDAY(sAlarm->AlarmDateWeekDay));
-    }
-    tmpreg = (((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmTime.Hours) << 16U) | \
-              ((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmTime.Minutes) << 8U) | \
-              ((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmTime.Seconds)) | \
-              ((uint32_t)(sAlarm->AlarmTime.TimeFormat) << 16U) | \
-              ((uint32_t)RTC_ByteToBcd2(sAlarm->AlarmDateWeekDay) << 24U) | \
-              ((uint32_t)sAlarm->AlarmDateWeekDaySel) | \
-              ((uint32_t)sAlarm->AlarmMask));
+    tmpreg =
+      (((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmTime.Hours) << 16U)
+       | ((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmTime.Minutes) << 8U)
+       | ((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmTime.Seconds)) | ((uint32_t) (sAlarm->AlarmTime.TimeFormat) << 16U)
+       | ((uint32_t) RTC_ByteToBcd2(sAlarm->AlarmDateWeekDay) << 24U) | ((uint32_t) sAlarm->AlarmDateWeekDaySel)
+       | ((uint32_t) sAlarm->AlarmMask));
   }
-  else
-  {
-    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t)RESET)
-    {
+  else {
+    if ((hrtc->Instance->CR & RTC_CR_FMT) != (uint32_t) RESET) {
       assert_param(IS_RTC_HOUR12(RTC_Bcd2ToByte(sAlarm->AlarmTime.Hours)));
       assert_param(IS_RTC_HOURFORMAT12(sAlarm->AlarmTime.TimeFormat));
     }
-    else
-    {
+    else {
       sAlarm->AlarmTime.TimeFormat = 0x00;
       assert_param(IS_RTC_HOUR24(RTC_Bcd2ToByte(sAlarm->AlarmTime.Hours)));
     }
@@ -1311,28 +1204,20 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
     assert_param(IS_RTC_SECONDS(RTC_Bcd2ToByte(sAlarm->AlarmTime.Seconds)));
 
     if (sAlarm->AlarmDateWeekDaySel == RTC_ALARMDATEWEEKDAYSEL_DATE)
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_DATE(RTC_Bcd2ToByte(sAlarm->AlarmDateWeekDay)));
-    }
     else
-    {
       assert_param(IS_RTC_ALARM_DATE_WEEKDAY_WEEKDAY(RTC_Bcd2ToByte(sAlarm->AlarmDateWeekDay)));
-    }
-    tmpreg = (((uint32_t)(sAlarm->AlarmTime.Hours) << 16U) | \
-              ((uint32_t)(sAlarm->AlarmTime.Minutes) << 8U) | \
-              ((uint32_t) sAlarm->AlarmTime.Seconds) | \
-              ((uint32_t)(sAlarm->AlarmTime.TimeFormat) << 16U) | \
-              ((uint32_t)(sAlarm->AlarmDateWeekDay) << 24U) | \
-              ((uint32_t)sAlarm->AlarmDateWeekDaySel) | \
-              ((uint32_t)sAlarm->AlarmMask));
+    tmpreg = (((uint32_t) (sAlarm->AlarmTime.Hours) << 16U) | ((uint32_t) (sAlarm->AlarmTime.Minutes) << 8U)
+              | ((uint32_t) sAlarm->AlarmTime.Seconds) | ((uint32_t) (sAlarm->AlarmTime.TimeFormat) << 16U)
+              | ((uint32_t) (sAlarm->AlarmDateWeekDay) << 24U) | ((uint32_t) sAlarm->AlarmDateWeekDaySel)
+              | ((uint32_t) sAlarm->AlarmMask));
   }
 
   /* Disable the write protection for RTC registers */
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
   /* Configure the Alarm register */
-  if (sAlarm->Alarm == RTC_ALARM_A)
-  {
+  if (sAlarm->Alarm == RTC_ALARM_A) {
     /* Disable the Alarm A interrupt */
     __HAL_RTC_ALARMA_DISABLE(hrtc);
 
@@ -1340,10 +1225,8 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
     __HAL_RTC_ALARM_CLEAR_FLAG(hrtc, RTC_FLAG_ALRAF);
 
     /* Wait till RTC ALRAWF flag is set and if Time out is reached exit */
-    do
-    {
-      if (count-- == 0U)
-      {
+    do {
+      if (count-- == 0U) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -1357,14 +1240,13 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
     }
     while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAWF) == RESET);
 
-    hrtc->Instance->ALRMAR = (uint32_t)tmpreg;
+    hrtc->Instance->ALRMAR = (uint32_t) tmpreg;
     /* Configure the Alarm state: Enable Alarm */
     __HAL_RTC_ALARMA_ENABLE(hrtc);
     /* Configure the Alarm interrupt */
     __HAL_RTC_ALARM_ENABLE_IT(hrtc, RTC_IT_ALRA);
   }
-  else
-  {
+  else {
     /* Disable the Alarm B interrupt */
     __HAL_RTC_ALARMB_DISABLE(hrtc);
 
@@ -1372,10 +1254,8 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
     __HAL_RTC_ALARM_CLEAR_FLAG(hrtc, RTC_FLAG_ALRBF);
 
     /* Wait till RTC ALRBWF flag is set and if Time out is reached exit */
-    do
-    {
-      if (count-- == 0)
-      {
+    do {
+      if (count-- == 0) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -1389,7 +1269,7 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
     }
     while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBWF) == RESET);
 
-    hrtc->Instance->ALRMBR = (uint32_t)tmpreg;
+    hrtc->Instance->ALRMBR = (uint32_t) tmpreg;
     /* Configure the Alarm state: Enable Alarm */
     __HAL_RTC_ALARMB_ENABLE(hrtc);
     /* Configure the Alarm interrupt */
@@ -1413,17 +1293,16 @@ HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef 
 }
 
 /**
-  * @brief  Deactivate the specified RTC Alarm
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  Alarm Specifies the Alarm.
-  *          This parameter can be one of the following values:
-  *            @arg RTC_ALARM_A:  AlarmA
-  *            @arg RTC_ALARM_B:  AlarmB
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef *hrtc, uint32_t Alarm)
-{
+ * @brief  Deactivate the specified RTC Alarm
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  Alarm Specifies the Alarm.
+ *          This parameter can be one of the following values:
+ *            @arg RTC_ALARM_A:  AlarmA
+ *            @arg RTC_ALARM_B:  AlarmB
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef* hrtc, uint32_t Alarm) {
   uint32_t tickstart = 0U;
 
   /* Check the parameters */
@@ -1437,8 +1316,7 @@ HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef *hrtc, uint32_t Alar
   /* Disable the write protection for RTC registers */
   __HAL_RTC_WRITEPROTECTION_DISABLE(hrtc);
 
-  if (Alarm == RTC_ALARM_A)
-  {
+  if (Alarm == RTC_ALARM_A) {
     /* AlarmA */
     __HAL_RTC_ALARMA_DISABLE(hrtc);
 
@@ -1449,10 +1327,8 @@ HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef *hrtc, uint32_t Alar
     tickstart = HAL_GetTick();
 
     /* Wait till RTC ALRxWF flag is set and if Time out is reached exit */
-    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAWF) == RESET)
-    {
-      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-      {
+    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAWF) == RESET) {
+      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -1465,8 +1341,7 @@ HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef *hrtc, uint32_t Alar
       }
     }
   }
-  else
-  {
+  else {
     /* AlarmB */
     __HAL_RTC_ALARMB_DISABLE(hrtc);
 
@@ -1477,10 +1352,8 @@ HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef *hrtc, uint32_t Alar
     tickstart = HAL_GetTick();
 
     /* Wait till RTC ALRxWF flag is set and if Time out is reached exit */
-    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBWF) == RESET)
-    {
-      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-      {
+    while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBWF) == RESET) {
+      if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE) {
         /* Enable the write protection for RTC registers */
         __HAL_RTC_WRITEPROTECTION_ENABLE(hrtc);
 
@@ -1505,53 +1378,49 @@ HAL_StatusTypeDef HAL_RTC_DeactivateAlarm(RTC_HandleTypeDef *hrtc, uint32_t Alar
 }
 
 /**
-  * @brief  Gets the RTC Alarm value and masks.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  sAlarm Pointer to Date structure
-  * @param  Alarm Specifies the Alarm.
-  *          This parameter can be one of the following values:
-  *             @arg RTC_ALARM_A: AlarmA
-  *             @arg RTC_ALARM_B: AlarmB
-  * @param  Format Specifies the format of the entered parameters.
-  *          This parameter can be one of the following values:
-  *             @arg RTC_FORMAT_BIN: Binary data format
-  *             @arg RTC_FORMAT_BCD: BCD data format
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_GetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sAlarm, uint32_t Alarm, uint32_t Format)
-{
+ * @brief  Gets the RTC Alarm value and masks.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  sAlarm Pointer to Date structure
+ * @param  Alarm Specifies the Alarm.
+ *          This parameter can be one of the following values:
+ *             @arg RTC_ALARM_A: AlarmA
+ *             @arg RTC_ALARM_B: AlarmB
+ * @param  Format Specifies the format of the entered parameters.
+ *          This parameter can be one of the following values:
+ *             @arg RTC_FORMAT_BIN: Binary data format
+ *             @arg RTC_FORMAT_BCD: BCD data format
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_GetAlarm(RTC_HandleTypeDef* hrtc, RTC_AlarmTypeDef* sAlarm, uint32_t Alarm, uint32_t Format) {
   uint32_t tmpreg = 0U;
 
   /* Check the parameters */
   assert_param(IS_RTC_FORMAT(Format));
   assert_param(IS_RTC_ALARM(Alarm));
 
-  if (Alarm == RTC_ALARM_A)
-  {
+  if (Alarm == RTC_ALARM_A) {
     /* AlarmA */
     sAlarm->Alarm = RTC_ALARM_A;
 
-    tmpreg = (uint32_t)(hrtc->Instance->ALRMAR);
+    tmpreg = (uint32_t) (hrtc->Instance->ALRMAR);
   }
-  else
-  {
+  else {
     sAlarm->Alarm = RTC_ALARM_B;
 
-    tmpreg = (uint32_t)(hrtc->Instance->ALRMBR);
+    tmpreg = (uint32_t) (hrtc->Instance->ALRMBR);
   }
 
   /* Fill the structure with the read parameters */
-  sAlarm->AlarmTime.Hours = (uint32_t)((tmpreg & (RTC_ALRMAR_HT | RTC_ALRMAR_HU)) >> 16U);
-  sAlarm->AlarmTime.Minutes = (uint32_t)((tmpreg & (RTC_ALRMAR_MNT | RTC_ALRMAR_MNU)) >> 8U);
-  sAlarm->AlarmTime.Seconds = (uint32_t)(tmpreg & (RTC_ALRMAR_ST | RTC_ALRMAR_SU));
-  sAlarm->AlarmTime.TimeFormat = (uint32_t)((tmpreg & RTC_ALRMAR_PM) >> 16U);
-  sAlarm->AlarmDateWeekDay = (uint32_t)((tmpreg & (RTC_ALRMAR_DT | RTC_ALRMAR_DU)) >> 24U);
-  sAlarm->AlarmDateWeekDaySel = (uint32_t)(tmpreg & RTC_ALRMAR_WDSEL);
-  sAlarm->AlarmMask = (uint32_t)(tmpreg & RTC_ALARMMASK_ALL);
+  sAlarm->AlarmTime.Hours = (uint32_t) ((tmpreg & (RTC_ALRMAR_HT | RTC_ALRMAR_HU)) >> 16U);
+  sAlarm->AlarmTime.Minutes = (uint32_t) ((tmpreg & (RTC_ALRMAR_MNT | RTC_ALRMAR_MNU)) >> 8U);
+  sAlarm->AlarmTime.Seconds = (uint32_t) (tmpreg & (RTC_ALRMAR_ST | RTC_ALRMAR_SU));
+  sAlarm->AlarmTime.TimeFormat = (uint32_t) ((tmpreg & RTC_ALRMAR_PM) >> 16U);
+  sAlarm->AlarmDateWeekDay = (uint32_t) ((tmpreg & (RTC_ALRMAR_DT | RTC_ALRMAR_DU)) >> 24U);
+  sAlarm->AlarmDateWeekDaySel = (uint32_t) (tmpreg & RTC_ALRMAR_WDSEL);
+  sAlarm->AlarmMask = (uint32_t) (tmpreg & RTC_ALARMMASK_ALL);
 
-  if (Format == RTC_FORMAT_BIN)
-  {
+  if (Format == RTC_FORMAT_BIN) {
     sAlarm->AlarmTime.Hours = RTC_Bcd2ToByte(sAlarm->AlarmTime.Hours);
     sAlarm->AlarmTime.Minutes = RTC_Bcd2ToByte(sAlarm->AlarmTime.Minutes);
     sAlarm->AlarmTime.Seconds = RTC_Bcd2ToByte(sAlarm->AlarmTime.Seconds);
@@ -1562,19 +1431,16 @@ HAL_StatusTypeDef HAL_RTC_GetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sA
 }
 
 /**
-  * @brief  This function handles Alarm interrupt request.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval None
-  */
-void HAL_RTC_AlarmIRQHandler(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  This function handles Alarm interrupt request.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval None
+ */
+void HAL_RTC_AlarmIRQHandler(RTC_HandleTypeDef* hrtc) {
   /* Get the AlarmA interrupt source enable status */
-  if (__HAL_RTC_ALARM_GET_IT_SOURCE(hrtc, RTC_IT_ALRA) != 0U)
-  {
+  if (__HAL_RTC_ALARM_GET_IT_SOURCE(hrtc, RTC_IT_ALRA) != 0U) {
     /* Get the pending status of the AlarmA Interrupt */
-    if (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAF) != 0U)
-    {
+    if (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAF) != 0U) {
       /* AlarmA callback */
 #if (USE_HAL_RTC_REGISTER_CALLBACKS == 1)
       hrtc->AlarmAEventCallback(hrtc);
@@ -1588,11 +1454,9 @@ void HAL_RTC_AlarmIRQHandler(RTC_HandleTypeDef *hrtc)
   }
 
   /* Get the AlarmB interrupt source enable status */
-  if (__HAL_RTC_ALARM_GET_IT_SOURCE(hrtc, RTC_IT_ALRB) != 0U)
-  {
+  if (__HAL_RTC_ALARM_GET_IT_SOURCE(hrtc, RTC_IT_ALRB) != 0U) {
     /* Get the pending status of the AlarmB Interrupt */
-    if (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBF) != 0U)
-    {
+    if (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRBF) != 0U) {
       /* AlarmB callback */
 #if (USE_HAL_RTC_REGISTER_CALLBACKS == 1)
       hrtc->AlarmBEventCallback(hrtc);
@@ -1613,13 +1477,12 @@ void HAL_RTC_AlarmIRQHandler(RTC_HandleTypeDef *hrtc)
 }
 
 /**
-  * @brief  Alarm A callback.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval None
-  */
-__weak void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Alarm A callback.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval None
+ */
+__weak void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef* hrtc) {
   /* Prevent unused argument(s) compilation warning */
   UNUSED(hrtc);
   /* NOTE : This function Should not be modified, when the callback is needed,
@@ -1628,25 +1491,21 @@ __weak void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
 }
 
 /**
-  * @brief  This function handles AlarmA Polling request.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @param  Timeout Timeout duration
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_PollForAlarmAEvent(RTC_HandleTypeDef *hrtc, uint32_t Timeout)
-{
+ * @brief  This function handles AlarmA Polling request.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @param  Timeout Timeout duration
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_PollForAlarmAEvent(RTC_HandleTypeDef* hrtc, uint32_t Timeout) {
   uint32_t tickstart = 0U;
 
   /* Get tick */
   tickstart = HAL_GetTick();
 
-  while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAF) == RESET)
-  {
-    if (Timeout != HAL_MAX_DELAY)
-    {
-      if ((Timeout == 0U) || ((HAL_GetTick() - tickstart) > Timeout))
-      {
+  while (__HAL_RTC_ALARM_GET_FLAG(hrtc, RTC_FLAG_ALRAF) == RESET) {
+    if (Timeout != HAL_MAX_DELAY) {
+      if ((Timeout == 0U) || ((HAL_GetTick() - tickstart) > Timeout)) {
         hrtc->State = HAL_RTC_STATE_TIMEOUT;
         return HAL_TIMEOUT;
       }
@@ -1663,8 +1522,8 @@ HAL_StatusTypeDef HAL_RTC_PollForAlarmAEvent(RTC_HandleTypeDef *hrtc, uint32_t T
 }
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 /** @defgroup RTC_Exported_Functions_Group4 Peripheral Control functions
  *  @brief   Peripheral Control functions
@@ -1682,45 +1541,40 @@ HAL_StatusTypeDef HAL_RTC_PollForAlarmAEvent(RTC_HandleTypeDef *hrtc, uint32_t T
   */
 
 /**
-  * @brief  Waits until the RTC Time and Date registers (RTC_TR and RTC_DR) are
-  *         synchronized with RTC APB clock.
-  * @note   The RTC Resynchronization mode is write protected, use the
-  *         __HAL_RTC_WRITEPROTECTION_DISABLE() before calling this function.
-  * @note   To read the calendar through the shadow registers after Calendar
-  *         initialization, calendar update or after wake-up from low power modes
-  *         the software must first clear the RSF flag.
-  *         The software must then wait until it is set again before reading
-  *         the calendar, which means that the calendar registers have been
-  *         correctly copied into the RTC_TR and RTC_DR shadow registers.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval HAL status
-  */
-HAL_StatusTypeDef HAL_RTC_WaitForSynchro(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Waits until the RTC Time and Date registers (RTC_TR and RTC_DR) are
+ *         synchronized with RTC APB clock.
+ * @note   The RTC Resynchronization mode is write protected, use the
+ *         __HAL_RTC_WRITEPROTECTION_DISABLE() before calling this function.
+ * @note   To read the calendar through the shadow registers after Calendar
+ *         initialization, calendar update or after wake-up from low power modes
+ *         the software must first clear the RSF flag.
+ *         The software must then wait until it is set again before reading
+ *         the calendar, which means that the calendar registers have been
+ *         correctly copied into the RTC_TR and RTC_DR shadow registers.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_RTC_WaitForSynchro(RTC_HandleTypeDef* hrtc) {
   uint32_t tickstart = 0U;
 
   /* Clear RSF flag */
-  hrtc->Instance->ISR &= (uint32_t)RTC_RSF_MASK;
+  hrtc->Instance->ISR &= (uint32_t) RTC_RSF_MASK;
 
   /* Get tick */
   tickstart = HAL_GetTick();
 
   /* Wait the registers to be synchronised */
-  while ((hrtc->Instance->ISR & RTC_ISR_RSF) == (uint32_t)RESET)
-  {
+  while ((hrtc->Instance->ISR & RTC_ISR_RSF) == (uint32_t) RESET)
     if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-    {
       return HAL_TIMEOUT;
-    }
-  }
 
   return HAL_OK;
 }
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 /** @defgroup RTC_Exported_Functions_Group5 Peripheral State functions
  *  @brief   Peripheral State functions
@@ -1737,96 +1591,83 @@ HAL_StatusTypeDef HAL_RTC_WaitForSynchro(RTC_HandleTypeDef *hrtc)
   * @{
   */
 /**
-  * @brief  Returns the RTC state.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval HAL state
-  */
-HAL_RTCStateTypeDef HAL_RTC_GetState(RTC_HandleTypeDef *hrtc)
-{
-  return hrtc->State;
-}
+ * @brief  Returns the RTC state.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval HAL state
+ */
+HAL_RTCStateTypeDef HAL_RTC_GetState(RTC_HandleTypeDef* hrtc) { return hrtc->State; }
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 /**
-  * @brief  Enters the RTC Initialization mode.
-  * @note   The RTC Initialization mode is write protected, use the
-  *         __HAL_RTC_WRITEPROTECTION_DISABLE() before calling this function.
-  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
-  *                the configuration information for RTC.
-  * @retval HAL status
-  */
-HAL_StatusTypeDef RTC_EnterInitMode(RTC_HandleTypeDef *hrtc)
-{
+ * @brief  Enters the RTC Initialization mode.
+ * @note   The RTC Initialization mode is write protected, use the
+ *         __HAL_RTC_WRITEPROTECTION_DISABLE() before calling this function.
+ * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+ *                the configuration information for RTC.
+ * @retval HAL status
+ */
+HAL_StatusTypeDef RTC_EnterInitMode(RTC_HandleTypeDef* hrtc) {
   uint32_t tickstart = 0U;
 
   /* Check if the Initialization mode is set */
-  if ((hrtc->Instance->ISR & RTC_ISR_INITF) == (uint32_t)RESET)
-  {
+  if ((hrtc->Instance->ISR & RTC_ISR_INITF) == (uint32_t) RESET) {
     /* Set the Initialization mode */
-    hrtc->Instance->ISR = (uint32_t)RTC_INIT_MASK;
+    hrtc->Instance->ISR = (uint32_t) RTC_INIT_MASK;
 
     /* Get tick */
     tickstart = HAL_GetTick();
 
     /* Wait till RTC is in INIT state and if Time out is reached exit */
-    while ((hrtc->Instance->ISR & RTC_ISR_INITF) == (uint32_t)RESET)
-    {
+    while ((hrtc->Instance->ISR & RTC_ISR_INITF) == (uint32_t) RESET)
       if ((HAL_GetTick() - tickstart) > RTC_TIMEOUT_VALUE)
-      {
         return HAL_TIMEOUT;
-      }
-    }
   }
 
   return HAL_OK;
 }
 
-
 /**
-  * @brief  Converts a 2 digit decimal to BCD format.
-  * @param  Value Byte to be converted
-  * @retval Converted byte
-  */
-uint8_t RTC_ByteToBcd2(uint8_t Value)
-{
+ * @brief  Converts a 2 digit decimal to BCD format.
+ * @param  Value Byte to be converted
+ * @retval Converted byte
+ */
+uint8_t RTC_ByteToBcd2(uint8_t Value) {
   uint32_t bcdhigh = 0U;
 
-  while (Value >= 10)
-  {
+  while (Value >= 10) {
     bcdhigh++;
     Value -= 10;
   }
 
-  return ((uint8_t)(bcdhigh << 4U) | Value);
+  return (uint8_t) (bcdhigh << 4U) | Value;
 }
 
 /**
-  * @brief  Converts from 2 digit BCD to Binary.
-  * @param  Value BCD value to be converted
-  * @retval Converted word
-  */
-uint8_t RTC_Bcd2ToByte(uint8_t Value)
-{
+ * @brief  Converts from 2 digit BCD to Binary.
+ * @param  Value BCD value to be converted
+ * @retval Converted word
+ */
+uint8_t RTC_Bcd2ToByte(uint8_t Value) {
   uint32_t tmp = 0U;
-  tmp = ((uint8_t)(Value & (uint8_t)0xF0) >> (uint8_t)0x4) * 10;
-  return (tmp + (Value & (uint8_t)0x0F));
+  tmp = ((uint8_t) (Value & (uint8_t) 0xF0) >> (uint8_t) 0x4) * 10;
+  return tmp + (Value & (uint8_t) 0x0F);
 }
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 #endif /* HAL_RTC_MODULE_ENABLED */
 /**
-  * @}
-  */
+ * @}
+ */
 
 /**
-  * @}
-  */
+ * @}
+ */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

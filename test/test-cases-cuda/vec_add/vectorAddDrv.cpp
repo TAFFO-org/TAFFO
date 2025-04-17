@@ -34,11 +34,11 @@
  */
 
 // Includes
-#include <stdio.h>
-#include <string.h>
-#include <iostream>
 #include <cstring>
 #include <cuda.h>
+#include <iostream>
+#include <stdio.h>
+#include <string.h>
 
 // includes, project
 #include <helper_cuda_drvapi.h>
@@ -54,29 +54,29 @@ CUdevice cuDevice;
 CUcontext cuContext;
 CUmodule cuModule;
 CUfunction vecAdd_kernel;
-float *h_A __attribute__((annotate("scalar(range(0,10) final) bufferid('h_a')")));
-float *h_B __attribute__((annotate("scalar(range(-20,20) final) bufferid('h_b')")));
-float *h_C;
+float* h_A __attribute__((annotate("scalar(range(0,10) final) bufferid('h_a')")));
+float* h_B __attribute__((annotate("scalar(range(-20,20) final) bufferid('h_b')")));
+float* h_C;
 CUdeviceptr d_A;
 CUdeviceptr d_B;
 CUdeviceptr d_C;
 
 // Functions
 int CleanupNoFailure();
-void RandomInit(float *, int);
-bool findModulePath(const char *, string &, char **, string &);
+void RandomInit(float*, int);
+bool findModulePath(const char*, string&, char**, string&);
 
 // define input fatbin file
 #ifndef PTX_FILE
 #ifndef __TAFFO__
-	#define PTX_FILE "vecAdd.ptx"
+#define PTX_FILE "vecAdd.ptx"
 #else
-	#define PTX_FILE "vecAdd.taffo.ptx"
+#define PTX_FILE "vecAdd.taffo.ptx"
 #endif
 #endif
 
 // Host code
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   printf("Vector Addition (Driver API)\n");
   int N = 50000, devID = 0;
   size_t size = N * sizeof(float);
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
   // Initialize
   checkCudaErrors(cuInit(0));
 
-  cuDevice = findCudaDeviceDRV(argc, (const char **)argv);
+  cuDevice = findCudaDeviceDRV(argc, (const char**) argv);
   // Create context
   checkCudaErrors(cuCtxCreate(&cuContext, 0, cuDevice));
 
@@ -93,11 +93,10 @@ int main(int argc, char **argv) {
 
   std::ostringstream ptx;
 
-  if (!findFatbinPath(PTX_FILE, module_path, argv, ptx)) {
+  if (!findFatbinPath(PTX_FILE, module_path, argv, ptx))
     exit(EXIT_FAILURE);
-  } else {
+  else
     printf("> initCUDA loading module: <%s>\n", module_path.c_str());
-  }
 
   if (!ptx.str().size()) {
     printf("ptx file empty. exiting..\n");
@@ -108,13 +107,12 @@ int main(int argc, char **argv) {
   checkCudaErrors(cuModuleLoadData(&cuModule, ptx.str().c_str()));
 
   // Get function handle from module
-  checkCudaErrors(
-      cuModuleGetFunction(&vecAdd_kernel, cuModule, "VecAdd"));
+  checkCudaErrors(cuModuleGetFunction(&vecAdd_kernel, cuModule, "VecAdd"));
 
   // Allocate input vectors h_A and h_B in host memory
-  h_A = (float *)malloc(size);
-  h_B = (float *)malloc(size);
-  h_C = (float *)malloc(size);
+  h_A = (float*) malloc(size);
+  h_B = (float*) malloc(size);
+  h_C = (float*) malloc(size);
 
   // Initialize input vectors
   RandomInit(h_A, N);
@@ -140,23 +138,23 @@ int main(int argc, char **argv) {
     int threadsPerBlock = 256;
     int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
-    void *args[] = {&d_A, &d_B, &d_C, &N};
+    void* args[] = {&d_A, &d_B, &d_C, &N};
 
     // Launch the CUDA kernel
-    checkCudaErrors(cuLaunchKernel(vecAdd_kernel, blocksPerGrid, 1, 1,
-                                   threadsPerBlock, 1, 1, 0, NULL, args, NULL));
-  } else {
+    checkCudaErrors(cuLaunchKernel(vecAdd_kernel, blocksPerGrid, 1, 1, threadsPerBlock, 1, 1, 0, NULL, args, NULL));
+  }
+  else {
     // This is the new CUDA 4.0 API for Kernel Parameter Passing and Kernel
     // Launch (advanced method)
     int offset = 0;
-    void *argBuffer[16];
-    *((CUdeviceptr *)&argBuffer[offset]) = d_A;
+    void* argBuffer[16];
+    *((CUdeviceptr*) &argBuffer[offset]) = d_A;
     offset += sizeof(d_A);
-    *((CUdeviceptr *)&argBuffer[offset]) = d_B;
+    *((CUdeviceptr*) &argBuffer[offset]) = d_B;
     offset += sizeof(d_B);
-    *((CUdeviceptr *)&argBuffer[offset]) = d_C;
+    *((CUdeviceptr*) &argBuffer[offset]) = d_C;
     offset += sizeof(d_C);
-    *((int *)&argBuffer[offset]) = N;
+    *((int*) &argBuffer[offset]) = N;
     offset += sizeof(N);
 
     // Grid/Block configuration
@@ -164,9 +162,8 @@ int main(int argc, char **argv) {
     int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
     // Launch the CUDA kernel
-    checkCudaErrors(cuLaunchKernel(vecAdd_kernel, blocksPerGrid, 1, 1,
-                                   threadsPerBlock, 1, 1, 0, NULL, NULL,
-                                   argBuffer));
+    checkCudaErrors(
+      cuLaunchKernel(vecAdd_kernel, blocksPerGrid, 1, 1, threadsPerBlock, 1, 1, 0, NULL, NULL, argBuffer));
   }
 
 #ifdef _DEBUG
@@ -183,9 +180,8 @@ int main(int argc, char **argv) {
   for (i = 0; i < N; ++i) {
     float sum = h_A[i] + h_B[i];
 
-    if (fabs(h_C[i] - sum) > 1e-7f) {
+    if (fabs(h_C[i] - sum) > 1e-7f)
       break;
-    }
   }
 
   CleanupNoFailure();
@@ -201,25 +197,21 @@ int CleanupNoFailure() {
   checkCudaErrors(cuMemFree(d_C));
 
   // Free host memory
-  if (h_A) {
+  if (h_A)
     free(h_A);
-  }
 
-  if (h_B) {
+  if (h_B)
     free(h_B);
-  }
 
-  if (h_C) {
+  if (h_C)
     free(h_C);
-  }
 
   checkCudaErrors(cuCtxDestroy(cuContext));
 
   return EXIT_SUCCESS;
 }
 // Allocates an array with random float entries.
-void RandomInit(float *data, int n) {
-  for (int i = 0; i < n; ++i) {
-    data[i] = rand() / (float)RAND_MAX;
-  }
+void RandomInit(float* data, int n) {
+  for (int i = 0; i < n; ++i)
+    data[i] = rand() / (float) RAND_MAX;
 }

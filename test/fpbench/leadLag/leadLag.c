@@ -1,4 +1,5 @@
 #include "stdio.h"
+
 #include <fenv.h>
 #include <math.h>
 #include <stdint.h>
@@ -9,8 +10,7 @@
 #define M 100
 #endif
 
-float ex0(float y, float yd)
-{
+float ex0(float y, float yd) {
 
   float __attribute__((annotate("scalar(range(-50, 50))"))) yc = 0.0f;
   float __attribute__((annotate("scalar(range(-2000, 2000))"))) u = 0.0f;
@@ -22,13 +22,12 @@ float ex0(float y, float yd)
   float v = y - yd;
   float __attribute__((annotate("scalar(range(-4, 4))"))) pre_abs = 0.0f;
   float __attribute__((annotate("target('tmp') scalar(range(-50, 50))"))) tmp_1;
-  if (v < -1.0f) {
+  if (v < -1.0f)
     tmp_1 = -1.0f;
-  } else if (1.0f < v) {
+  else if (1.0f < v)
     tmp_1 = 1.0f;
-  } else {
+  else
     tmp_1 = v;
-  }
   while (tmp) {
     yc = tmp_1;
 
@@ -38,18 +37,16 @@ float ex0(float y, float yd)
     xc1 = (0.01f * xc0) + (xc1);
     i = i + 1.0f;
     pre_abs = yc - xc1;
-    if (pre_abs < 0) {
+    if (pre_abs < 0)
       e = -pre_abs;
-    } else {
+    else
       e = pre_abs;
-    }
     tmp = e > 0.01f;
   }
   return xc1;
 }
 
-int main()
-{
+int main() {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 2;
   float __attribute__((annotate("target('main') scalar(range(0, 50))"))) y[len];
   float __attribute__((annotate("scalar(range(0, 50))"))) yd[len];
@@ -71,29 +68,24 @@ int main()
                  "RDTSC\n\t"
                  "mov %%edx, %0\n\t"
                  "mov %%eax, %1\n\t"
-                 : "=r"(cycles_high), "=r"(cycles_low)::"%rax", "%rbx", "%rcx",
-                   "%rdx");
-    for (int j = 0; j < len; ++j) {
+                 : "=r"(cycles_high), "=r"(cycles_low)::"%rax", "%rbx", "%rcx", "%rdx");
+    for (int j = 0; j < len; ++j)
       res[j] = ex0(y[j], yd[j]);
-    }
 
     asm volatile("RDTSCP\n\t"
                  "mov %%edx, %0\n\t"
                  "mov %%eax, %1\n\t"
                  "CPUID\n\t"
-                 : "=r"(cycles_high1), "=r"(cycles_low1)::"%rax", "%rbx",
-                   "%rcx", "%rdx");
-    uint64_t end = (uint64_t)cycles_high1 << 32 | cycles_low1;
-    uint64_t start = (uint64_t)cycles_high << 32 | cycles_low;
-    if (end > start) {
+                 : "=r"(cycles_high1), "=r"(cycles_low1)::"%rax", "%rbx", "%rcx", "%rdx");
+    uint64_t end = (uint64_t) cycles_high1 << 32 | cycles_low1;
+    uint64_t start = (uint64_t) cycles_high << 32 | cycles_low;
+    if (end > start)
       printf("Cycles: %li\n", end - start);
-    }
   }
 
   printf("Values Begin\n");
-  for (int j = 0; j < len; ++j) {
+  for (int j = 0; j < len; ++j)
     printf("%f\n", res[j]);
-  }
   printf("Values End\n");
   return 0;
 }

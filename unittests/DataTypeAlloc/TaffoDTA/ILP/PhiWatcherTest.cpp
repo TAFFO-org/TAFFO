@@ -2,28 +2,24 @@
 #include "TestUtils.h"
 #include "gtest/gtest.h"
 
-namespace
-{
+namespace {
 
 using namespace llvm;
 using namespace taffo_test;
 using namespace tuner;
 
-
-class PhiWatcherTest : public taffo_test::Test
-{
+class PhiWatcherTest : public taffo_test::Test {
 protected:
-  Function *F;
-  BasicBlock *BB;
+  Function* F;
+  BasicBlock* BB;
 
   PhiWatcher PW;
 
-  PHINode *phiNode;
-  Value *V1;
-  Value *V2;
+  PHINode* phiNode;
+  Value* V1;
+  Value* V2;
 
-  PhiWatcherTest()
-  {
+  PhiWatcherTest() {
     F = genFunction(*M, "functionName", Type::getVoidTy(Context), {});
     BB = BasicBlock::Create(Context, "basicblock", F);
 
@@ -35,16 +31,14 @@ protected:
   }
 };
 
-TEST_F(PhiWatcherTest, openPhiLoop)
-{
+TEST_F(PhiWatcherTest, openPhiLoop) {
   PW.openPhiLoop(phiNode, V1);
 
   auto ret = PW.getPhiNodeToClose(V1);
   ASSERT_EQ(ret, phiNode);
 }
 
-TEST_F(PhiWatcherTest, closePhiLoop)
-{
+TEST_F(PhiWatcherTest, closePhiLoop) {
   PW.openPhiLoop(phiNode, V1);
   PW.openPhiLoop(phiNode, V2);
   PW.closePhiLoop(phiNode, V1);

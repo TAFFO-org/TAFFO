@@ -43,26 +43,26 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB) but the
 /// STM32F429ZI only has 256KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
-const bool defaultSerialFlowctrl=false;
-//#define SERIAL_1_DMA //Serial 1 has no DMA as it would conflict with SPI6
-#define SERIAL_2_DMA   //Serial 2 is used by the piksi GPS, enable DMA
-//#define SERIAL_3_DMA //Serial 3 is not used
+const unsigned int defaultSerial = 1;
+const unsigned int defaultSerialSpeed = 19200;
+const bool defaultSerialFlowctrl = false;
+// #define SERIAL_1_DMA //Serial 1 has no DMA as it would conflict with SPI6
+#define SERIAL_2_DMA // Serial 2 is used by the piksi GPS, enable DMA
+// #define SERIAL_3_DMA //Serial 3 is not used
 
-//SD card driver
-static const unsigned char sdVoltage=33; //Board powered @ 3.3V
+// SD card driver
+static const unsigned char sdVoltage = 33; // Board powered @ 3.3V
 #ifdef __ENABLE_XRAM
-//Reduce SD clock to ~4.8MHz
+// Reduce SD clock to ~4.8MHz
 #define OVERRIDE_SD_CLOCK_DIVIDER_MAX 8
 #endif //__ENABLE_XRAM
-//#define SD_ONE_BIT_DATABUS //Use full 4 bit data bus to SD card
+// #define SD_ONE_BIT_DATABUS //Use full 4 bit data bus to SD card
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

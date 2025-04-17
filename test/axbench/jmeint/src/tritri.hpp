@@ -1,6 +1,6 @@
 /*
  * tritri.hpp
- * 
+ *
  * Created on: Sep 9, 2013
  * 			Author: Amir Yazdanbakhsh <a.yazdanbakhsh@gatech.edu>
  */
@@ -10,15 +10,16 @@
 #include <cstdlib>
 #include <iostream>
 
-//#define INSTRUMENT
+// #define INSTRUMENT
 #ifdef INSTRUMENT
 #define PRINT_INSTR(...) fprintf(stderr, __VA_ARGS__)
 #else
-#define PRINT_INSTR(...) do {} while (false);
+#define PRINT_INSTR(...) \
+  do {}                  \
+  while (false);
 #endif
 
-int tri_tri_intersect(float V0[3], float V1[3], float V2[3],
-		      float U0[3], float U1[3], float U2[3],
-		      float *res, int *output) ;
+int tri_tri_intersect(
+  float V0[3], float V1[3], float V2[3], float U0[3], float U1[3], float U2[3], float* res, int* output);
 
 #endif

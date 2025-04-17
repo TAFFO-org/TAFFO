@@ -41,22 +41,22 @@ namespace miosix {
  */
 
 /// Serial port baudrate
-const unsigned int SERIAL_PORT_SPEED=115200;
+const unsigned int SERIAL_PORT_SPEED = 115200;
 
 /// Uncomment to enable USART1 as well. This is only possible if WITH_DEVFS is
 /// defined in miosix_settings.h The device will appear as /dev/auxtty.
-//#define AUX_SERIAL "auxtty"
+// #define AUX_SERIAL "auxtty"
 
 /// Aux serial port baudrate
-const unsigned int AUX_SERIAL_SPEED=9600;
+const unsigned int AUX_SERIAL_SPEED = 9600;
 
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1.5KB) and the
 /// LPC2138 has 32KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// \internal Clock frequency of hardware timer, hardware specific data
-const unsigned int TIMER_CLOCK=14745600;
+const unsigned int TIMER_CLOCK = 14745600;
 
 /// \def WITH_RTC
 /// Uncomment to enable support for RTC. Time-related functions depend on it.
@@ -67,10 +67,10 @@ const unsigned int TIMER_CLOCK=14745600;
 /// Uncomment if you want that to resume after shutdown, the user must hold down
 /// the button for two seconds. Comment if you want instant resume.
 /// By default it is not defined (no wakeup delay)
-//#define WAKEUP_DELAY
+// #define WAKEUP_DELAY
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

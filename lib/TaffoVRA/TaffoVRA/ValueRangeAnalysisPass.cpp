@@ -1,12 +1,11 @@
-#include "ValueRangeAnalysisPass.hpp"
-
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "VRAGlobalStore.hpp"
+#include "ValueRangeAnalysisPass.hpp"
 
 #include <llvm/Analysis/MemorySSA.h>
-#include <llvm/Support/Debug.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
@@ -16,22 +15,23 @@ using namespace taffo;
 namespace taffo {
 
 cl::opt<bool> PropagateAll("propagate-all",
-  cl::desc("Propagate ranges for all functions, not only those marked as starting point."),
-  cl::init(false));
+                           cl::desc("Propagate ranges for all functions, not only those marked as starting point."),
+                           cl::init(false));
 
 cl::opt<unsigned> Unroll("unroll",
-  cl::desc("Default loop unroll count. Setting this to 0 disables loop unrolling. (Default: 1)"),
-  cl::value_desc("count"),
-  cl::init(1U));
+                         cl::desc("Default loop unroll count. Setting this to 0 disables loop unrolling. (Default: 1)"),
+                         cl::value_desc("count"),
+                         cl::init(1U));
 
-cl::opt<unsigned> MaxUnroll("max-unroll",
-  cl::desc("Max loop unroll count. Setting this to 0 disables loop unrolling. (Default: 256)"),
-  cl::value_desc("count"),
-  cl::init(256U));
+cl::opt<unsigned>
+  MaxUnroll("max-unroll",
+            cl::desc("Max loop unroll count. Setting this to 0 disables loop unrolling. (Default: 256)"),
+            cl::value_desc("count"),
+            cl::init(256U));
 
 } // namespace taffo
 
-PreservedAnalyses ValueRangeAnalysisPass::run(Module &M, ModuleAnalysisManager &AM) {
+PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& AM) {
   LLVM_DEBUG(log().logln("[ValueRangeAnalysisPass]", raw_ostream::Colors::MAGENTA));
   TaffoInfo::getInstance().initializeFromFile("taffo_info_memToReg.json", M);
 
@@ -49,17 +49,15 @@ PreservedAnalyses ValueRangeAnalysisPass::run(Module &M, ModuleAnalysisManager &
   return PreservedAnalyses::all();
 }
 
-void ValueRangeAnalysisPass::processModule(CodeInterpreter &CodeInt, Module &M)
-{
+void ValueRangeAnalysisPass::processModule(CodeInterpreter& CodeInt, Module& M) {
   bool FoundVisitableFunction = false;
-  for (Function &F : M) {
+  for (Function& F : M) {
     if (!F.empty() && (PropagateAll || TaffoInfo::getInstance().isStartingPoint(F))) {
       CodeInt.interpretFunction(&F);
       FoundVisitableFunction = true;
     }
   }
 
-  if (!FoundVisitableFunction) {
+  if (!FoundVisitableFunction)
     LLVM_DEBUG(dbgs() << DEBUG_HEAD << " No visitable functions found.\n");
-  }
 }

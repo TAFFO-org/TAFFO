@@ -1,7 +1,7 @@
 #pragma once
 
-#include <unordered_map>
 #include <list>
+#include <unordered_map>
 
 /**
  * @brief A map that preserves insertion order.
@@ -23,7 +23,7 @@ public:
   template <bool IsConst>
   class iterator;
 
-  using iterator_type       = iterator<false>;
+  using iterator_type = iterator<false>;
   using const_iterator_type = iterator<true>;
 
 private:
@@ -55,14 +55,16 @@ public:
   struct iterator_proxy {
     using value_type = std::conditional_t<IsConst, const Value, Value>;
 
-    const Key &first;
-    value_type &second;
+    const Key& first;
+    value_type& second;
 
-    iterator_proxy(const Key &first, value_type &second) : first(first), second(second) {}
-    iterator_proxy(const iterator_proxy &other) : first(other.first), second(other.second) {}
+    iterator_proxy(const Key& first, value_type& second)
+    : first(first), second(second) {}
+    iterator_proxy(const iterator_proxy& other)
+    : first(other.first), second(other.second) {}
 
     // Dummy operator to allow the assignment of iterators
-    iterator_proxy &operator=(const iterator_proxy &) { return *this; }
+    iterator_proxy& operator=(const iterator_proxy&) { return *this; }
   };
 
   /**
@@ -76,9 +78,8 @@ public:
   template <bool IsConst>
   class iterator {
   public:
-    using list_iterator = std::conditional_t<IsConst,
-        typename std::list<Key>::const_iterator,
-        typename std::list<Key>::iterator>;
+    using list_iterator =
+      std::conditional_t<IsConst, typename std::list<Key>::const_iterator, typename std::list<Key>::iterator>;
     using iterator_proxy_type = iterator_proxy<IsConst>;
     using value_type = std::conditional_t<IsConst, const Value, Value>;
     using pair_type = std::pair<const Key, value_type>;
@@ -89,28 +90,46 @@ public:
      * @param it Iterator over the order list.
      * @param container Pointer to the parent InsertionOrderedMap.
      */
-    iterator(list_iterator it, container_type *container)
-        : it(it), container(container) {}
+    iterator(list_iterator it, container_type* container)
+    : it(it), container(container) {}
 
     /// Pre-increment operator.
-    iterator& operator++() { ++it; return *this; }
+    iterator& operator++() {
+      ++it;
+      return *this;
+    }
 
     /// Post-increment operator.
-    iterator operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
+    iterator operator++(int) {
+      iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
 
     /// Pre-decrement operator.
-    iterator& operator--() { --it; return *this; }
+    iterator& operator--() {
+      --it;
+      return *this;
+    }
 
     /// Post-decrement operator.
-    iterator operator--(int) { iterator tmp = *this; --(*this); return tmp; }
+    iterator operator--(int) {
+      iterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
 
     /// Equality comparison.
-    template<typename IterType>
-    bool operator==(const IterType &other) const { return it == other.it; }
+    template <typename IterType>
+    bool operator==(const IterType& other) const {
+      return it == other.it;
+    }
 
     /// Inequality comparison.
-    template<typename IterType>
-    bool operator!=(const IterType &other) const { return !(*this == other); }
+    template <typename IterType>
+    bool operator!=(const IterType& other) const {
+      return !(*this == other);
+    }
 
     /**
      * @brief Less-than comparison.
@@ -121,8 +140,8 @@ public:
      * @param other The iterator to compare to.
      * @return True if this iterator precedes other.
      */
-    template<typename IterType>
-    bool operator<(const IterType &other) const {
+    template <typename IterType>
+    bool operator<(const IterType& other) const {
       return std::distance(container->order.begin(), it) < std::distance(container->order.begin(), other.it);
     }
 
@@ -135,8 +154,8 @@ public:
      * @param other The iterator to compare to.
      * @return True if this iterator follows other.
      */
-    template<typename IterType>
-    bool operator>(const IterType &other) const {
+    template <typename IterType>
+    bool operator>(const IterType& other) const {
       return std::distance(container->order.begin(), it) > std::distance(container->order.begin(), other.it);
     }
 
@@ -148,8 +167,8 @@ public:
      * @return An iterator_proxy holding references to the current element
      */
     pair_type operator*() const {
-      const Key &key = *it;
-      value_type &value = container->map.at(*it).first;
+      const Key& key = *it;
+      value_type& value = container->map.at(*it).first;
       return {key, value};
     }
 
@@ -160,16 +179,16 @@ public:
      *
      * @return Pointer to an iterator_proxy representing the current element
      */
-    iterator_proxy_type *operator->() const {
-      const Key &key = *it;
-      value_type &value = container->map.at(*it).first;
+    iterator_proxy_type* operator->() const {
+      const Key& key = *it;
+      value_type& value = container->map.at(*it).first;
       proxy.emplace(key, value);
       return &proxy.value();
     }
 
   private:
     list_iterator it;
-    container_type *container;
+    container_type* container;
     mutable std::optional<iterator_proxy_type> proxy;
     friend class InsertionOrderedMap;
   };
@@ -180,9 +199,7 @@ public:
    * @param key The key to search for.
    * @return true if the key exists in the map, false otherwise.
    */
-  bool contains(const Key &key) const {
-    return map.find(key) != map.end();
-  }
+  bool contains(const Key& key) const { return map.find(key) != map.end(); }
 
   /**
    * @brief Inserts a key-value pair into the map at the end.
@@ -194,17 +211,20 @@ public:
    * @return A pair consisting of an iterator to the element (newly inserted or already existing)
    *         and a bool that is true if the insertion took place.
    */
-  std::pair<iterator_type, bool> insert(const Key &key, const Value &value) {
+  std::pair<iterator_type, bool> insert(const Key& key, const Value& value) {
     auto it = map.find(key);
     if (it != map.end()) {
       // Key exists.
-      return { iterator_type(it->second.second, this), false };
-    } else {
+      return {iterator_type(it->second.second, this), false};
+    }
+    else {
       // New key.
       order.push_back(key);
       auto list_it = std::prev(order.end());
-      auto result = map.insert({ key, { value, list_it } });
-      return { iterator_type(result.first->second.second, this), true };
+      auto result = map.insert({
+        key, {value, list_it}
+      });
+      return {iterator_type(result.first->second.second, this), true};
     }
   }
 
@@ -217,9 +237,7 @@ public:
    * @return A pair consisting of an iterator to the element (newly inserted or already existing)
    *         and a bool that is true if the insertion took place.
    */
-  std::pair<iterator_type, bool> insert(const pair_type &p) {
-    return insert(p.first, p.second);
-  }
+  std::pair<iterator_type, bool> insert(const pair_type& p) { return insert(p.first, p.second); }
 
   /**
    * @brief Inserts elements from a range into the map at the end
@@ -230,7 +248,7 @@ public:
    * @param first Iterator to the first element in the range
    * @param last Iterator past the last element in the range
    */
-  template<typename IterType>
+  template <typename IterType>
   void insert(IterType first, IterType last) {
     for (; first != last; first++)
       insert(first->first, first->second);
@@ -247,8 +265,8 @@ public:
    * @param value The value to associate with the key
    * @return An iterator to the inserted (or updated) element
    */
-  template<typename IterType>
-  iterator_type insertAt(IterType pos, const Key &key, const Value &value) {
+  template <typename IterType>
+  iterator_type insertAt(IterType pos, const Key& key, const Value& value) {
     auto pos_list = pos.it; // underlying list iterator from custom iterator
     auto it = map.find(key);
     if (it != map.end()) {
@@ -260,10 +278,13 @@ public:
       auto new_it = order.insert(pos_list, key);
       it->second.second = new_it;
       return iterator_type(new_it, this);
-    } else {
+    }
+    else {
       // New key: insert at specified position.
       auto new_it = order.insert(pos_list, key);
-      auto result = map.insert({key, {value, new_it}});
+      auto result = map.insert({
+        key, {value, new_it}
+      });
       return iterator_type(result.first->second.second, this);
     }
   }
@@ -278,7 +299,7 @@ public:
    * @param first Iterator to the first element in the range
    * @param last Iterator past the last element in the range
    */
-  template<typename IterType>
+  template <typename IterType>
   void insertAt(IterType pos, IterType first, IterType last) {
     for (; first != last; ++first) {
       pos = insertAt(pos, first->first, first->second);
@@ -294,7 +315,7 @@ public:
    * @param key The key to access.
    * @return Reference to the associated Value.
    */
-  Value& at(const Key &key) {
+  Value& at(const Key& key) {
     auto it = map.find(key);
     assert(it != map.end() && "Value must be present");
     return it->second.first;
@@ -309,12 +330,14 @@ public:
    * @param key The key to access.
    * @return Reference to the associated Value.
    */
-  Value& operator[](const Key &key) {
+  Value& operator[](const Key& key) {
     auto it = map.find(key);
     if (it == map.end()) {
       order.push_back(key);
       auto list_it = std::prev(order.end());
-      auto result = map.insert({key, {Value(), list_it}});
+      auto result = map.insert({
+        key, {Value(), list_it}
+      });
       return result.first->second.first;
     }
     return it->second.first;
@@ -348,7 +371,7 @@ public:
    * @param key The key to search for.
    * @return Iterator to the element if found, otherwise end().
    */
-  iterator_type find(const Key &key) {
+  iterator_type find(const Key& key) {
     auto it = map.find(key);
     if (it == map.end())
       return end();
@@ -361,7 +384,7 @@ public:
    * @param key The key to search for.
    * @return Iterator to the element if found, otherwise end().
    */
-  const_iterator_type find(const Key &key) const {
+  const_iterator_type find(const Key& key) const {
     auto it = map.find(key);
     if (it == map.end())
       return end();
@@ -376,7 +399,7 @@ public:
    * @param key The key of the element to erase.
    * @return The number of elements removed (0 or 1).
    */
-  size_t erase(const Key &key) {
+  size_t erase(const Key& key) {
     auto it = map.find(key);
     if (it != map.end()) {
       order.erase(it->second.second);
@@ -394,14 +417,14 @@ public:
    * @param pos Iterator pointing to the element to erase.
    * @return Iterator to the element following the erased element.
    */
-  template<typename IterType>
+  template <typename IterType>
   iterator_type erase(IterType pos) {
     if (pos == end())
       return pos;
     auto listIt = pos.it;
     auto next = listIt;
     ++next;
-    const Key &key = *listIt;
+    const Key& key = *listIt;
     auto mapIt = map.find(key);
     if (mapIt != map.end()) {
       order.erase(mapIt->second.second);

@@ -12,9 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "MemToRegPass.hpp"
-
-#include "TaffoInfo/TaffoInfo.hpp"
 #include "PromoteMemToReg.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/Analysis/AssumptionCache.h>
@@ -24,6 +23,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/Support/Casting.h>
+
 #include <vector>
 
 using namespace llvm;
@@ -33,9 +33,9 @@ using namespace taffo;
 
 STATISTIC(NumPromoted, "Number of alloca's promoted");
 
-static bool promoteMemoryToRegister(Function &F, DominatorTree &DT, AssumptionCache &AC) {
-  std::vector<AllocaInst *> Allocas;
-  BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
+static bool promoteMemoryToRegister(Function& F, DominatorTree& DT, AssumptionCache& AC) {
+  std::vector<AllocaInst*> Allocas;
+  BasicBlock& BB = F.getEntryBlock(); // Get the entry node for the function
   bool Changed = false;
 
   while (true) {
@@ -44,7 +44,7 @@ static bool promoteMemoryToRegister(Function &F, DominatorTree &DT, AssumptionCa
     // Find allocas that are safe to promote, by looking at all instructions in
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) // Is it an alloca?
+      if (AllocaInst* AI = dyn_cast<AllocaInst>(I)) // Is it an alloca?
         if (isAllocaPromotable(AI))
           Allocas.push_back(AI);
 
@@ -58,17 +58,17 @@ static bool promoteMemoryToRegister(Function &F, DominatorTree &DT, AssumptionCa
   return Changed;
 }
 
-PreservedAnalyses MemToRegPass::run(Function &F, FunctionAnalysisManager &AM) {
+PreservedAnalyses MemToRegPass::run(Function& F, FunctionAnalysisManager& AM) {
   static bool initializedTaffoInfo = false;
 
-  Module &M = *F.getParent();
+  Module& M = *F.getParent();
   if (!initializedTaffoInfo) {
     TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", M);
     initializedTaffoInfo = true;
   }
 
-  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
-  auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  auto& DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto& AC = AM.getResult<AssumptionAnalysis>(F);
   if (!promoteMemoryToRegister(F, DT, AC))
     return PreservedAnalyses::all();
 

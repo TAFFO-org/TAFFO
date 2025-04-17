@@ -1,11 +1,12 @@
 #pragma once
 
 #include "../TaffoInfo/ValueInfo.hpp"
+
 #include <llvm/IR/Constants.h>
 
 namespace taffo {
 
-llvm::Type *getUnwrappedType(llvm::Value *value);
+llvm::Type* getUnwrappedType(llvm::Value* value);
 
 enum class FixedPointTypeGenError {
   NoError = 0,
@@ -31,12 +32,11 @@ enum class FixedPointTypeGenError {
  *    amount of allocated bits to use when the range is too large for
  *    the minimum amount of bits.
  *  @returns A fixed point type. */
-FixedPointInfo fixedPointTypeFromRange(
-    const Range &range,
-    FixedPointTypeGenError *outerr = nullptr,
-    int totalBits = 32,
-    int fracThreshold = 3,
-    int maxTotalBits = 64,
-    int totalBitsIncrement = 64);
+FixedPointInfo fixedPointTypeFromRange(const Range& range,
+                                       FixedPointTypeGenError* outerr = nullptr,
+                                       int totalBits = 32,
+                                       int fracThreshold = 3,
+                                       int maxTotalBits = 64,
+                                       int totalBitsIncrement = 64);
 
 } // namespace taffo

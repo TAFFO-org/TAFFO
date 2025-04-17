@@ -1,19 +1,20 @@
 #pragma once
 
-#include "TaffoInfo/ValueInfo.hpp"
 #include "../DataTypeAllocationPass.hpp"
 #include "CPUCosts.h"
+#include "MemWatcher.h"
 #include "Model.h"
 #include "OptimizerInfo.h"
-#include "Types/TypeUtils.hpp"
 #include "PhiWatcher.h"
-#include "MemWatcher.h"
+#include "TaffoInfo/ValueInfo.hpp"
+#include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Support/CommandLine.h>
-#include <unordered_map>
+
 #include <stack>
+#include <unordered_map>
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -46,17 +47,16 @@ namespace tuner {
 class Optimizer {
 public:
   /// Data related to function call
-  std::unordered_map<std::string, llvm::Function *> known_functions;
-  std::unordered_map<std::string, llvm::Function *> functions_still_to_visit;
-  std::vector<llvm::Function *> call_stack;
+  std::unordered_map<std::string, llvm::Function*> known_functions;
+  std::unordered_map<std::string, llvm::Function*> functions_still_to_visit;
+  std::vector<llvm::Function*> call_stack;
   std::stack<shared_ptr<OptimizerInfo>> retStack;
   std::unique_ptr<MetricBase> metric;
 
-
-  llvm::DenseMap<llvm::Value *, std::shared_ptr<OptimizerInfo>> valueToVariableName;
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<OptimizerInfo>> valueToVariableName;
   Model model;
-  llvm::Module &module;
-  DataTypeAllocationPass *tuner;
+  llvm::Module& module;
+  DataTypeAllocationPass* tuner;
 
   CPUCosts cpuCosts;
   PhiWatcher phiWatcher;
@@ -80,68 +80,68 @@ public:
   bool hasBF16;*/
 
 private:
-  llvm::Instruction *currentInstruction;
+  llvm::Instruction* currentInstruction;
   unsigned int currentInstructionTripCount = 1;
 
 public:
-  void handleGlobal(llvm::GlobalObject *glob, shared_ptr<TunerInfo> tunerInfo);
+  void handleGlobal(llvm::GlobalObject* glob, shared_ptr<TunerInfo> tunerInfo);
 
   bool finish();
 
-
-  explicit Optimizer(llvm::Module &mm, DataTypeAllocationPass *tuner, MetricBase *met, std::string modelFile, CPUCosts::CostType cType);
+  explicit Optimizer(
+    llvm::Module& mm, DataTypeAllocationPass* tuner, MetricBase* met, std::string modelFile, CPUCosts::CostType cType);
 
   ~Optimizer();
 
   void initialize();
 
-  void handleCallFromRoot(llvm::Function *f);
+  void handleCallFromRoot(llvm::Function* f);
 
-  std::shared_ptr<taffo::ValueInfo> getAssociatedMetadata(llvm::Value *pValue);
+  std::shared_ptr<taffo::ValueInfo> getAssociatedMetadata(llvm::Value* pValue);
 
   void printStatInfos();
 
 public:
-  void handleInstruction(llvm::Instruction *instruction, shared_ptr<TunerInfo> valueInfo);
+  void handleInstruction(llvm::Instruction* instruction, shared_ptr<TunerInfo> valueInfo);
 
   /** Returns the cost of the instruction currently being processed by handleInstruction. */
   int getCurrentInstructionCost();
 
-  void emitError(const string &stringhina);
+  void emitError(const string& stringhina);
 
-
-  shared_ptr<OptimizerInfo> getInfoOfValue(llvm::Value *value);
+  shared_ptr<OptimizerInfo> getInfoOfValue(llvm::Value* value);
 
   void
-  handleBinaryInstruction(llvm::Instruction *instr, const unsigned int OpCode, const shared_ptr<TunerInfo> &valueInfos);
-  void handleUnaryInstruction(llvm::Instruction *instr, const shared_ptr<TunerInfo> &valueInfos);
+  handleBinaryInstruction(llvm::Instruction* instr, const unsigned int OpCode, const shared_ptr<TunerInfo>& valueInfos);
+  void handleUnaryInstruction(llvm::Instruction* instr, const shared_ptr<TunerInfo>& valueInfos);
 
-  void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1, shared_ptr<OptimizerScalarInfo> op2,
+  void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1,
+                                    shared_ptr<OptimizerScalarInfo> op2,
                                     bool forceFixBitsConstraint);
 
-  shared_ptr<OptimizerInfo> handleGEPConstant(const llvm::ConstantExpr *cexp_i);
+  shared_ptr<OptimizerInfo> handleGEPConstant(const llvm::ConstantExpr* cexp_i);
 
+  bool valueHasInfo(llvm::Value* value);
 
-  bool valueHasInfo(llvm::Value *value);
+  list<shared_ptr<OptimizerInfo>> fetchFunctionCallArgumentInfo(const llvm::CallBase* call_i);
+  void
+  processFunction(llvm::Function& function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
 
-  list<shared_ptr<OptimizerInfo>> fetchFunctionCallArgumentInfo(const llvm::CallBase *call_i);
-  void processFunction(llvm::Function &function, list<shared_ptr<OptimizerInfo>> argInfo, shared_ptr<OptimizerInfo> retInfo);
+  void handleTerminators(llvm::Instruction* term, shared_ptr<TunerInfo> valueInfo);
 
-  void handleTerminators(llvm::Instruction *term, shared_ptr<TunerInfo> valueInfo);
+  shared_ptr<OptimizerScalarInfo> handleBinOpCommon(llvm::Instruction* instr,
+                                                    llvm::Value* op1,
+                                                    llvm::Value* op2,
+                                                    bool forceFixEquality,
+                                                    shared_ptr<TunerInfo> valueInfos);
 
-  shared_ptr<OptimizerScalarInfo>
-  handleBinOpCommon(llvm::Instruction *instr, llvm::Value *op1, llvm::Value *op2, bool forceFixEquality,
-                    shared_ptr<TunerInfo> valueInfos);
-
-  void saveInfoForPointer(llvm::Value *value, shared_ptr<OptimizerPointerInfo> pointerInfo);
-
+  void saveInfoForPointer(llvm::Value* value, shared_ptr<OptimizerPointerInfo> pointerInfo);
 
   shared_ptr<taffo::NumericTypeInfo> modelvarToTType(shared_ptr<OptimizerScalarInfo> sharedPtr);
 
   shared_ptr<taffo::ValueInfo> buildDataHierarchy(shared_ptr<OptimizerInfo> info);
 
-  void handleUnknownFunction(llvm::Instruction *call_i, shared_ptr<TunerInfo> valueInfo);
-
+  void handleUnknownFunction(llvm::Instruction* call_i, shared_ptr<TunerInfo> valueInfo);
 
   friend class MetricBase;
 };

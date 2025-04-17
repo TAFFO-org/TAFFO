@@ -9,5 +9,4 @@
 #define ANN_F __attribute__((annotate("scalar(range(0, 200) final) target('') bufferid('f')")))
 #define ANN_G __attribute__((annotate("scalar(range(0,60000) final) target('') bufferid('g')")))
 
-
 #endif

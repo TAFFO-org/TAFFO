@@ -1,21 +1,17 @@
-#include "TestUtils.h"
-
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
 #include "TaffoVRA/VRAnalyzer.hpp"
+#include "TestUtils.h"
 
-namespace
-{
+namespace {
 
 using namespace llvm;
 using namespace taffo;
 using namespace taffo_test;
 
-
-class VRAnalyzerTest : public taffo_test::Test
-{
+class VRAnalyzerTest : public taffo_test::Test {
 private:
-  Function *F0; // acts like a main from which instructions are called
+  Function* F0; // acts like a main from which instructions are called
 
 protected:
   ModuleAnalysisManager MAM = ModuleAnalysisManager();
@@ -24,13 +20,11 @@ protected:
   std::shared_ptr<VRALogger> VRAL = std::shared_ptr<VRALogger>(new VRALogger());
   VRAnalyzer VRA = VRAnalyzer(VRAL, CI);
 
-  Function *F;
-  BasicBlock *BB;
-  Instruction *I;
+  Function* F;
+  BasicBlock* BB;
+  Instruction* I;
 
-
-  VRAnalyzerTest()
-  {
+  VRAnalyzerTest() {
     F0 = genFunction(*M, "main", Type::getVoidTy(Context), {});
     BB = BasicBlock::Create(Context, "entry", F0);
   }
@@ -40,13 +34,12 @@ protected:
  * more in-depth testing on convexMerge is done in VRAStoreTest.cpp,
  * here we test only the sameScalar case
  */
-TEST_F(VRAnalyzerTest, convexMerge_VRAnalyzer)
-{
+TEST_F(VRAnalyzerTest, convexMerge_VRAnalyzer) {
   VRAnalyzer Other(VRAL, CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRA.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -61,13 +54,12 @@ TEST_F(VRAnalyzerTest, convexMerge_VRAnalyzer)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAnalyzerTest, convexMerge_VRAGlobalStore)
-{
+TEST_F(VRAnalyzerTest, convexMerge_VRAGlobalStore) {
   VRAGlobalStore Other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRA.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -82,13 +74,12 @@ TEST_F(VRAnalyzerTest, convexMerge_VRAGlobalStore)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAnalyzerTest, convexMerge_VRAFunctionStore)
-{
+TEST_F(VRAnalyzerTest, convexMerge_VRAFunctionStore) {
   VRAFunctionStore Other(VRAL);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRA.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -106,8 +97,7 @@ TEST_F(VRAnalyzerTest, convexMerge_VRAFunctionStore)
 /*
  * handling of instructions is tested by proxy via analyzeInstruction
  */
-TEST_F(VRAnalyzerTest, handleMathCallInstruction)
-{
+TEST_F(VRAnalyzerTest, handleMathCallInstruction) {
   F = genFunction(*M, "ceil", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
   VRA.analyzeInstruction(I);
@@ -121,8 +111,7 @@ TEST_F(VRAnalyzerTest, handleMathCallInstruction)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAnalyzerTest, handleMallocCall_calloc)
-{
+TEST_F(VRAnalyzerTest, handleMallocCall_calloc) {
   F = genFunction(*M, "calloc", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
 
@@ -138,8 +127,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_calloc)
   EXPECT_EQ(scalarNode->getRange()->max(), 0);
 }
 
-TEST_F(VRAnalyzerTest, handleMallocCall_scalar)
-{
+TEST_F(VRAnalyzerTest, handleMallocCall_scalar) {
   F = genFunction(*M, "malloc", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
   mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
@@ -157,8 +145,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_scalar)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handleMallocCall_scalarNoAnno)
-{
+TEST_F(VRAnalyzerTest, handleMallocCall_scalarNoAnno) {
   F = genFunction(*M, "malloc", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
 
@@ -171,13 +158,12 @@ TEST_F(VRAnalyzerTest, handleMallocCall_scalarNoAnno)
   EXPECT_EQ(ptrNode->getParent(), nullptr);
 }
 
-TEST_F(VRAnalyzerTest, handleMallocCall_struct)
-{
+TEST_F(VRAnalyzerTest, handleMallocCall_struct) {
   auto ST = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   F = genFunction(*M, "malloc", PointerType::get(ST, 0), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
   BitCastInst::Create(Instruction::BitCast, I, PointerType::get(ST, 0), "", BB);
-  auto *SI = new mdutils::StructInfo(2);
+  auto* SI = new mdutils::StructInfo(2);
   SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
   SI->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
   mdutils::MetadataManager::setMDInfoMetadata(I, SI);
@@ -200,8 +186,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_struct)
   EXPECT_EQ(scalarNode->getRange()->max(), 4);
 }
 
-TEST_F(VRAnalyzerTest, handleMallocCall_structNoAnno)
-{
+TEST_F(VRAnalyzerTest, handleMallocCall_structNoAnno) {
   auto ST = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   F = genFunction(*M, "malloc", PointerType::get(ST, 0), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
@@ -216,11 +201,11 @@ TEST_F(VRAnalyzerTest, handleMallocCall_structNoAnno)
   ASSERT_EQ(structNode->fields().size(), 0);
 }
 
-TEST_F(VRAnalyzerTest, handleMallocCall_pointer)
-{
+TEST_F(VRAnalyzerTest, handleMallocCall_pointer) {
   F = genFunction(*M, "malloc", PointerType::get(Type::getInt32Ty(Context), 0), {Type::getInt32Ty(Context)});
   I = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
-  BitCastInst::Create(Instruction::BitCast, I, PointerType::get(PointerType::get(Type::getInt32Ty(Context), 0), 0), "", BB);
+  BitCastInst::Create(
+    Instruction::BitCast, I, PointerType::get(PointerType::get(Type::getInt32Ty(Context), 0), 0), "", BB);
   mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
   GlobalStore->harvestMetadata(*M);
 
@@ -233,8 +218,7 @@ TEST_F(VRAnalyzerTest, handleMallocCall_pointer)
   EXPECT_EQ(ptrNode->getParent(), nullptr);
 }
 
-TEST_F(VRAnalyzerTest, handleIntrinsic_memcpy)
-{
+TEST_F(VRAnalyzerTest, handleIntrinsic_memcpy) {
   auto dst = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto src = ConstantInt::get(Type::getInt32Ty(Context), 2);
   auto dst_bitcast = new BitCastInst(dst, Type::getInt32Ty(Context), "", BB);
@@ -253,8 +237,7 @@ TEST_F(VRAnalyzerTest, handleIntrinsic_memcpy)
   EXPECT_EQ(scalarNode->getRange()->max(), 1);
 }
 
-TEST_F(VRAnalyzerTest, handleReturn)
-{
+TEST_F(VRAnalyzerTest, handleReturn) {
   // FIXME: needs a non-null Pass
   /*
   auto F0 = genFunction(*M, "f0", Type::getInt32Ty(Context), {});
@@ -267,10 +250,9 @@ TEST_F(VRAnalyzerTest, handleReturn)
 */
 }
 
-TEST_F(VRAnalyzerTest, handleCast)
-{
+TEST_F(VRAnalyzerTest, handleCast) {
   auto op = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
+  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2}));
   VRA.setNode(op, std::make_shared<VRAScalarNode>(*scalar));
   I = CastInst::Create(Instruction::CastOps::SExt, op, Type::getInt64Ty(Context), "cast", BB);
 
@@ -283,8 +265,7 @@ TEST_F(VRAnalyzerTest, handleCast)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handleBinaryInstr)
-{
+TEST_F(VRAnalyzerTest, handleBinaryInstr) {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto V2 = ConstantInt::get(Type::getInt32Ty(Context), 2);
   I = BinaryOperator::Create(Instruction::Add, V1, V2, "add", BB);
@@ -299,8 +280,7 @@ TEST_F(VRAnalyzerTest, handleBinaryInstr)
   EXPECT_EQ(scalar->getRange()->max(), 3);
 }
 
-TEST_F(VRAnalyzerTest, handleUnaryInstr)
-{
+TEST_F(VRAnalyzerTest, handleUnaryInstr) {
   auto V1 = ConstantFP::get(Type::getFloatTy(Context), 3.1415);
   I = UnaryOperator::Create(Instruction::FNeg, V1, "neg", BB);
 
@@ -314,8 +294,7 @@ TEST_F(VRAnalyzerTest, handleUnaryInstr)
   EXPECT_FLOAT_EQ(scalar->getRange()->max(), -3.1415);
 }
 
-TEST_F(VRAnalyzerTest, handleAllocaInstr_scalarNoAnno)
-{
+TEST_F(VRAnalyzerTest, handleAllocaInstr_scalarNoAnno) {
   I = new AllocaInst(Type::getInt32Ty(Context), 0, "alloca", BB);
 
   VRA.analyzeInstruction(I);
@@ -326,8 +305,7 @@ TEST_F(VRAnalyzerTest, handleAllocaInstr_scalarNoAnno)
   EXPECT_EQ(scalarNode, nullptr);
 }
 
-TEST_F(VRAnalyzerTest, handleAllocaInstr_structNoAnno)
-{
+TEST_F(VRAnalyzerTest, handleAllocaInstr_structNoAnno) {
   auto S = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   I = new AllocaInst(S, 0, "alloca", BB);
 
@@ -339,12 +317,11 @@ TEST_F(VRAnalyzerTest, handleAllocaInstr_structNoAnno)
   EXPECT_EQ(structNode->fields().size(), 0);
 }
 
-TEST_F(VRAnalyzerTest, handleAllocaInstr_struct)
-{
+TEST_F(VRAnalyzerTest, handleAllocaInstr_struct) {
   auto S = StructType::create({Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   I = new AllocaInst(S, 0, "alloca", BB);
   // populate UserInput
-  auto *SI = new mdutils::StructInfo(2);
+  auto* SI = new mdutils::StructInfo(2);
   SI->setField(0, std::make_shared<mdutils::InputInfo>(*genII(1, 2)));
   SI->setField(1, std::make_shared<mdutils::InputInfo>(*genII(3, 4)));
   mdutils::MetadataManager::setMDInfoMetadata(I, SI);
@@ -367,8 +344,7 @@ TEST_F(VRAnalyzerTest, handleAllocaInstr_struct)
   EXPECT_EQ(scalarNode->getRange()->max(), 4);
 }
 
-TEST_F(VRAnalyzerTest, handleAllocaInstr_scalar)
-{
+TEST_F(VRAnalyzerTest, handleAllocaInstr_scalar) {
   I = new AllocaInst(Type::getInt32Ty(Context), 0, "alloca", BB);
   mdutils::MetadataManager::setMDInfoMetadata(I, genII(1, 2));
   GlobalStore->harvestMetadata(*M);
@@ -382,17 +358,15 @@ TEST_F(VRAnalyzerTest, handleAllocaInstr_scalar)
   auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
   ASSERT_NE(scalarNode, nullptr);
   // TODO: check and find out why it's unreliable
-  //EXPECT_EQ(scalarNode->getRange()->min(), 1);
-  //EXPECT_EQ(scalarNode->getRange()->max(), 2);
+  // EXPECT_EQ(scalarNode->getRange()->min(), 1);
+  // EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handleLoadInstr)
-{
+TEST_F(VRAnalyzerTest, handleLoadInstr) {
   // FIXME: needs a non-null Pass
 }
 
-TEST_F(VRAnalyzerTest, handleStoreInstr_value)
-{
+TEST_F(VRAnalyzerTest, handleStoreInstr_value) {
   auto val = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto ptr = ConstantPointerNull::get(Type::getInt32PtrTy(Context));
   I = new StoreInst(val, ptr, BB);
@@ -408,12 +382,12 @@ TEST_F(VRAnalyzerTest, handleStoreInstr_value)
   EXPECT_EQ(scalarNode->getRange()->max(), 1);
 }
 
-TEST_F(VRAnalyzerTest, handleStoreInstr_ptr)
-{
-  auto val = new PtrToIntInst(ConstantPointerNull::get(Type::getInt32PtrTy(Context)), Type::getInt32Ty(Context), "", BB);
+TEST_F(VRAnalyzerTest, handleStoreInstr_ptr) {
+  auto val =
+    new PtrToIntInst(ConstantPointerNull::get(Type::getInt32PtrTy(Context)), Type::getInt32Ty(Context), "", BB);
   auto ptr = ConstantPointerNull::get(Type::getInt32PtrTy(Context));
   I = new StoreInst(val, ptr, BB);
-  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
+  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2}));
   VRA.setNode(I, std::make_shared<VRAScalarNode>(*scalar));
 
   VRA.analyzeInstruction(I);
@@ -427,12 +401,11 @@ TEST_F(VRAnalyzerTest, handleStoreInstr_ptr)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handleGEPInstr)
-{
+TEST_F(VRAnalyzerTest, handleGEPInstr) {
   auto ptr = ConstantPointerNull::get(Type::getInt32PtrTy(Context));
   auto idx = ConstantInt::get(Type::getInt32Ty(Context), 1);
   I = GetElementPtrInst::Create(Type::getInt32Ty(Context), ptr, {idx}, "", BB);
-  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
+  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2}));
   VRA.setNode(ptr, std::make_shared<VRAScalarNode>(*scalar));
 
   VRA.analyzeInstruction(I);
@@ -447,11 +420,11 @@ TEST_F(VRAnalyzerTest, handleGEPInstr)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handleBitCastInstr)
-{
-  auto ptr = new PtrToIntInst(ConstantPointerNull::get(Type::getInt32PtrTy(Context)), Type::getInt32Ty(Context), "", BB);
+TEST_F(VRAnalyzerTest, handleBitCastInstr) {
+  auto ptr =
+    new PtrToIntInst(ConstantPointerNull::get(Type::getInt32PtrTy(Context)), Type::getInt32Ty(Context), "", BB);
   I = new BitCastInst(ptr, Type::getInt32Ty(Context), "", BB);
-  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
+  auto scalar = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2}));
   VRA.setNode(ptr, std::make_shared<VRAScalarNode>(*scalar));
 
   VRA.analyzeInstruction(I);
@@ -464,8 +437,7 @@ TEST_F(VRAnalyzerTest, handleBitCastInstr)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handleCmpInstr)
-{
+TEST_F(VRAnalyzerTest, handleCmpInstr) {
   auto lhs = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto rhs = ConstantInt::get(Type::getInt32Ty(Context), 2);
   I = new ICmpInst(*BB, CmpInst::ICMP_EQ, lhs, rhs);
@@ -480,8 +452,7 @@ TEST_F(VRAnalyzerTest, handleCmpInstr)
   EXPECT_EQ(scalarNode->getRange()->max(), 0);
 }
 
-TEST_F(VRAnalyzerTest, handlePhiNode_scalar)
-{
+TEST_F(VRAnalyzerTest, handlePhiNode_scalar) {
   auto lhs = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto rhs = ConstantInt::get(Type::getInt32Ty(Context), 2);
   auto phi = PHINode::Create(Type::getInt32Ty(Context), 2, "", BB);
@@ -499,14 +470,13 @@ TEST_F(VRAnalyzerTest, handlePhiNode_scalar)
   EXPECT_EQ(scalarNode->getRange()->max(), 2);
 }
 
-TEST_F(VRAnalyzerTest, handlePhiNode_pointer)
-{
+TEST_F(VRAnalyzerTest, handlePhiNode_pointer) {
   auto lhs_val = ConstantInt::get(Type::getInt32Ty(Context), 5);
   auto rhs_val = ConstantInt::get(Type::getInt32Ty(Context), 6);
   auto lhs = ConstantExpr::getIntToPtr(lhs_val, Type::getInt32PtrTy(Context));
   auto rhs = ConstantExpr::getIntToPtr(rhs_val, Type::getInt32PtrTy(Context));
-  auto s1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2}));
-  auto s2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4}));
+  auto s1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2}));
+  auto s2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4}));
   VRA.setNode(lhs, std::make_shared<VRAPtrNode>(*new VRAPtrNode(std::make_shared<VRAScalarNode>(*s1))));
   VRA.setNode(rhs, std::make_shared<VRAPtrNode>(*new VRAPtrNode(std::make_shared<VRAScalarNode>(*s2))));
   auto phi = PHINode::Create(Type::getInt32PtrTy(Context), 2, "", BB);
@@ -523,11 +493,10 @@ TEST_F(VRAnalyzerTest, handlePhiNode_pointer)
   auto scalarNode = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ptrNode->getParent());
   ASSERT_NE(scalarNode, nullptr);
   EXPECT_EQ(scalarNode->getRange()->min(), 1);
-  //EXPECT_EQ(scalarNode->getRange()->max(), 4); // TODO: check if correct
+  // EXPECT_EQ(scalarNode->getRange()->max(), 4); // TODO: check if correct
 }
 
-TEST_F(VRAnalyzerTest, handleSelect)
-{
+TEST_F(VRAnalyzerTest, handleSelect) {
   auto cond = ConstantInt::get(Type::getInt1Ty(Context), 1);
   auto lhs = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto rhs = ConstantInt::get(Type::getInt32Ty(Context), 2);

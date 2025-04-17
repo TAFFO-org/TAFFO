@@ -8,6 +8,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/raw_ostream.h>
+
 #include <cassert>
 #include <cmath>
 
@@ -17,40 +18,43 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-Constant *FloatToFixed::convertConstant(Constant *flt, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol) {
+Constant*
+FloatToFixed::convertConstant(Constant* flt, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy typepol) {
   if (dyn_cast<UndefValue>(flt)) {
     return UndefValue::get(
-        getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt));
+      getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt));
   }
-  if (GlobalVariable *gvar = dyn_cast<GlobalVariable>(flt)) {
+  if (GlobalVariable* gvar = dyn_cast<GlobalVariable>(flt)) {
     return convertGlobalVariable(gvar, fixpt);
-  } else if (ConstantFP *fpc = dyn_cast<ConstantFP>(flt)) {
+  }
+  else if (ConstantFP* fpc = dyn_cast<ConstantFP>(flt)) {
     return convertLiteral(fpc, nullptr, fixpt, typepol);
-  } else if (ConstantAggregate *cag = dyn_cast<ConstantAggregate>(flt)) {
+  }
+  else if (ConstantAggregate* cag = dyn_cast<ConstantAggregate>(flt)) {
     return convertConstantAggregate(cag, fixpt, typepol);
-  } else if (ConstantDataSequential *cds =
-                 dyn_cast<ConstantDataSequential>(flt)) {
+  }
+  else if (ConstantDataSequential* cds = dyn_cast<ConstantDataSequential>(flt)) {
     return convertConstantDataSequential(cds, std::static_ptr_cast<FixedPointScalarType>(fixpt));
-  } else if (dyn_cast<ConstantAggregateZero>(flt)) {
-    Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt);
+  }
+  else if (dyn_cast<ConstantAggregateZero>(flt)) {
+    Type* newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt);
     return ConstantAggregateZero::get(newt);
-  } else if (ConstantExpr *cexp = dyn_cast<ConstantExpr>(flt)) {
+  }
+  else if (ConstantExpr* cexp = dyn_cast<ConstantExpr>(flt)) {
     return convertConstantExpr(cexp, fixpt, typepol);
   }
   return nullptr;
 }
 
-Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
-                                            std::shared_ptr<FixedPointType> &fixpt,
-                                            TypeMatchPolicy typepol)
-{
+Constant*
+FloatToFixed::convertConstantExpr(ConstantExpr* cexp, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy typepol) {
   if (isa<GEPOperator>(cexp)) {
-    Value *newval = operandPool[cexp->getOperand(0)];
+    Value* newval = operandPool[cexp->getOperand(0)];
     if (!newval) {
       LLVM_DEBUG(dbgs() << "[Warning] Operand of constant GEP not found in operandPool!\n");
       return nullptr;
     }
-    Constant *newconst = dyn_cast<Constant>(newval);
+    Constant* newconst = dyn_cast<Constant>(newval);
     if (!newconst)
       return nullptr;
 
@@ -59,86 +63,84 @@ Constant *FloatToFixed::convertConstantExpr(ConstantExpr *cexp,
     else
       fixpt = getFixpType(newval);
 
-    std::vector<Constant *> vals;
-    for (unsigned int i = 1; i < cexp->getNumOperands(); i++) {
+    std::vector<Constant*> vals;
+    for (unsigned int i = 1; i < cexp->getNumOperands(); i++)
       vals.push_back(cexp->getOperand(i));
-    }
 
-    ArrayRef<Constant *> idxlist(vals);
+    ArrayRef<Constant*> idxlist(vals);
     return ConstantExpr::getInBoundsGetElementPtr(nullptr, newconst, idxlist);
-
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "constant expression " << *cexp << " is not handled explicitly yet\n");
   }
   return nullptr;
 }
 
-Constant *FloatToFixed::convertGlobalVariable(GlobalVariable *glob, std::shared_ptr<FixedPointType> &fixpt) {
+Constant* FloatToFixed::convertGlobalVariable(GlobalVariable* glob, std::shared_ptr<FixedPointType>& fixpt) {
   bool hasfloats = false;
-  Type *prevt = getUnwrappedType(glob);
-  Type *newt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*glob), fixpt, &hasfloats);
+  Type* prevt = getUnwrappedType(glob);
+  Type* newt =
+    getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*glob), fixpt, &hasfloats);
   if (!newt)
     return nullptr;
   if (!hasfloats)
     return glob;
 
-  Constant *oldinit = glob->getInitializer();
-  Constant *newinit = nullptr;
+  Constant* oldinit = glob->getInitializer();
+  Constant* newinit = nullptr;
   if (oldinit && !oldinit->isNullValue()) {
     /* global variables can be written to, so we always convert them to the type allocated by the DTA */
     newinit = convertConstant(oldinit, fixpt, TypeMatchPolicy::ForceHint);
-  } else
+  }
+  else
     newinit = Constant::getNullValue(newt);
 
-  GlobalVariable *newglob = new GlobalVariable(*(glob->getParent()), newt, glob->isConstant(), glob->getLinkage(),
-                                               newinit);
+  GlobalVariable* newglob =
+    new GlobalVariable(*(glob->getParent()), newt, glob->isConstant(), glob->getLinkage(), newinit);
   newglob->setAlignment(MaybeAlign(glob->getAlignment()));
   newglob->setName(glob->getName() + ".fixp");
   return newglob;
 }
 
-
-Constant *
-FloatToFixed::convertConstantAggregate(ConstantAggregate *cag, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol)
-{
-  std::vector<Constant *> consts;
+Constant* FloatToFixed::convertConstantAggregate(ConstantAggregate* cag,
+                                                 std::shared_ptr<FixedPointType>& fixpt,
+                                                 TypeMatchPolicy typepol) {
+  std::vector<Constant*> consts;
   for (unsigned int i = 0; i < cag->getNumOperands(); i++) {
-    Constant *oldconst = cag->getOperand(i);
-    Constant *newconst = nullptr;
+    Constant* oldconst = cag->getOperand(i);
+    Constant* newconst = nullptr;
     if (getUnwrappedType(oldconst)->isFloatTy()) {
       newconst = convertConstant(cag->getOperand(i), fixpt, TypeMatchPolicy::ForceHint);
       if (!newconst)
         return nullptr;
-    } else {
+    }
+    else {
       newconst = oldconst;
     }
     consts.push_back(newconst);
   }
 
   if (isa<ConstantArray>(cag)) {
-    ArrayType *aty = ArrayType::get(consts[0]->getType(), consts.size());
+    ArrayType* aty = ArrayType::get(consts[0]->getType(), consts.size());
     return ConstantArray::get(aty, consts);
-
-  } else if (isa<ConstantVector>(cag)) {
+  }
+  else if (isa<ConstantVector>(cag)) {
     return ConstantVector::get(consts);
-
-  } else if (isa<ConstantStruct>(cag)) {
-    std::vector<Type *> types;
+  }
+  else if (isa<ConstantStruct>(cag)) {
+    std::vector<Type*> types;
     types.reserve(consts.size());
-    for (Constant *c : consts) {
+    for (Constant* c : consts)
       types.push_back(c->getType());
-    }
-    StructType *strtype = StructType::get(cag->getContext(), types);
+    StructType* strtype = StructType::get(cag->getContext(), types);
     return ConstantStruct::get(strtype, consts);
   }
   llvm_unreachable("a ConstantAggregate is not an array, vector or struct...");
 }
 
 template <class T>
-Constant *
-FloatToFixed::createConstantDataSequential(ConstantDataSequential *cds,
-                                           const std::shared_ptr<FixedPointType> &fixpt)
-{
+Constant* FloatToFixed::createConstantDataSequential(ConstantDataSequential* cds,
+                                                     const std::shared_ptr<FixedPointType>& fixpt) {
   std::vector<T> newConsts;
 
   for (unsigned int i = 0; i < cds->getNumElements(); i++) {
@@ -151,15 +153,14 @@ FloatToFixed::createConstantDataSequential(ConstantDataSequential *cds,
     newConsts.push_back(fixval.getExtValue());
   }
 
-  if (isa<ConstantDataArray>(cds)) {
+  if (isa<ConstantDataArray>(cds))
     return ConstantDataArray::get(cds->getContext(), newConsts);
-  }
   return ConstantDataVector::get(cds->getContext(), newConsts);
 }
 
 template <class T>
-Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *cds, const std::shared_ptr<FixedPointType> &fixpt)
-{
+Constant* FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential* cds,
+                                                       const std::shared_ptr<FixedPointType>& fixpt) {
   std::vector<T> newConsts;
 
   for (unsigned int i = 0; i < cds->getNumElements(); i++) {
@@ -170,14 +171,13 @@ Constant *FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential *c
     newConsts.push_back(thiselem.convertToDouble());
   }
 
-  if (isa<ConstantDataArray>(cds)) {
+  if (isa<ConstantDataArray>(cds))
     return ConstantDataArray::get(cds->getContext(), newConsts);
-  }
   return ConstantDataVector::get(cds->getContext(), newConsts);
 }
 
-
-Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cds, const std::shared_ptr<FixedPointScalarType> &fixpt) {
+Constant* FloatToFixed::convertConstantDataSequential(ConstantDataSequential* cds,
+                                                      const std::shared_ptr<FixedPointScalarType>& fixpt) {
   if (!getUnwrappedType(cds)->isFloatTy())
     return cds;
 
@@ -193,13 +193,11 @@ Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cd
   }
 
   if (fixpt->isFloatingPoint()) {
-    if (fixpt->getFloatStandard() == FixedPointScalarType::Float_float) {
+    if (fixpt->getFloatStandard() == FixedPointScalarType::Float_float)
       return createConstantDataSequentialFP<float>(cds, fixpt);
-    }
 
-    if (fixpt->getFloatStandard() == FixedPointScalarType::Float_double) {
+    if (fixpt->getFloatStandard() == FixedPointScalarType::Float_double)
       return createConstantDataSequentialFP<double>(cds, fixpt);
-    }
     // As the sequential data does not accept anything different from float or double, we are doomed.
     // It's better to crash, so we see this kind of error. Maybe we can modify something at program source code level?
     llvm_unreachable("You cannot have anything different from float or double here, my friend!");
@@ -209,13 +207,12 @@ Constant *FloatToFixed::convertConstantDataSequential(ConstantDataSequential *cd
   return nullptr;
 }
 
-
-Constant *
-FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, std::shared_ptr<FixedPointType> &fixpt, TypeMatchPolicy typepol)
-{
+Constant* FloatToFixed::convertLiteral(ConstantFP* fpc,
+                                       Instruction* context,
+                                       std::shared_ptr<FixedPointType>& fixpt,
+                                       TypeMatchPolicy typepol) {
   APFloat val = fpc->getValueAPF();
   APSInt fixval;
-
 
   // Old workflow, convert the value to a fixed point value
   if (fixpt->isFixedPoint()) {
@@ -233,18 +230,18 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, std::shared_
 
     std::shared_ptr<FixedPointScalarType> scalarFixpt = std::static_ptr_cast<FixedPointScalarType>(fixpt);
     if (convertAPFloat(val, fixval, context, scalarFixpt)) {
-      Type *intty = scalarFixpt->scalarToLLVMType(fpc->getContext());
+      Type* intty = scalarFixpt->scalarToLLVMType(fpc->getContext());
       return ConstantInt::get(intty, fixval);
-    } else {
+    }
+    else {
       return nullptr;
     }
   }
 
-
   // Just "convert", actually recast, the value to the correct data type if using floating point data
   if (fixpt->isFloatingPoint()) {
     std::shared_ptr<FixedPointScalarType> scalarFixpt = std::static_pointer_cast<FixedPointScalarType>(fixpt);
-    Type *intty = scalarFixpt->scalarToLLVMType(fpc->getContext());
+    Type* intty = scalarFixpt->scalarToLLVMType(fpc->getContext());
     bool loosesInfo;
 
     val.convert(intty->getFltSemantics(), APFloatBase::rmTowardPositive, &loosesInfo);
@@ -255,9 +252,10 @@ FloatToFixed::convertLiteral(ConstantFP *fpc, Instruction *context, std::shared_
   llvm_unreachable("We should have already covered all values, are you introducing a new data type?");
 }
 
-
-bool FloatToFixed::convertAPFloat(APFloat val, APSInt &fixval, Instruction *context, const std::shared_ptr<FixedPointScalarType> &fixpt)
-{
+bool FloatToFixed::convertAPFloat(APFloat val,
+                                  APSInt& fixval,
+                                  Instruction* context,
+                                  const std::shared_ptr<FixedPointScalarType>& fixpt) {
   bool precise = false;
 
   APFloat exp(pow(2.0, fixpt->getFractionalBits()));
@@ -273,13 +271,12 @@ bool FloatToFixed::convertAPFloat(APFloat val, APSInt &fixval, Instruction *cont
     std::string valstr2(valstr.begin(), valstr.end());
     OptimizationRemarkEmitter ORE(context->getFunction());
     if (cvtres == APFloat::opStatus::opInexact) {
-      ORE.emit(OptimizationRemark(DEBUG_TYPE, "ImpreciseConstConversion", context) << "fixed point conversion of constant "
-                                                                                   << valstr2
-                                                                                   << " is not precise\n");
-    } else {
-      ORE.emit(OptimizationRemark(DEBUG_TYPE, "ConstConversionFailed", context) << "impossible to convert constant "
-                                                                                << valstr2
-                                                                                << " to fixed point\n");
+      ORE.emit(OptimizationRemark(DEBUG_TYPE, "ImpreciseConstConversion", context)
+               << "fixed point conversion of constant " << valstr2 << " is not precise\n");
+    }
+    else {
+      ORE.emit(OptimizationRemark(DEBUG_TYPE, "ConstConversionFailed", context)
+               << "impossible to convert constant " << valstr2 << " to fixed point\n");
       return false;
     }
   }

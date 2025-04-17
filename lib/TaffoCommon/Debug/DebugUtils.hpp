@@ -4,8 +4,7 @@
 
 #ifndef NDEBUG
 
-#define IF_TAFFO_DEBUG \
-  if (::llvm::DebugFlag && ::llvm::isCurrentDebugType(DEBUG_TYPE))
+#define IF_TAFFO_DEBUG if (::llvm::DebugFlag && ::llvm::isCurrentDebugType(DEBUG_TYPE))
 
 #else
 

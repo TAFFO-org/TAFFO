@@ -1,15 +1,12 @@
-///TAFFO_TEST_ARGS -Xvra -propagate-all
+/// TAFFO_TEST_ARGS -Xvra -propagate-all
 #include <stdio.h>
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
   int a __attribute((annotate("scalar(disabled)")));
   float b __attribute((annotate("scalar(range(-2,2) final disabled)")));
   a = 1;
   b = 1234;
-  printf("%f\n", a/(b*2.0));
-  printf("%f\n", (b*2.0)/a);
+  printf("%f\n", a / (b * 2.0));
+  printf("%f\n", (b * 2.0) / a);
   return 0;
 }
-
-

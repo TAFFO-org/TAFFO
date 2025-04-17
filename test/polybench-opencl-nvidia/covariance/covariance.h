@@ -9,49 +9,49 @@
  */
 
 #ifndef COVARIANCE_H
-# define COVARIANCE_H
+#define COVARIANCE_H
 
 /* Default to STANDARD_DATASET. */
-# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
-#  define STANDARD_DATASET
-# endif
+#if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+#define STANDARD_DATASET
+#endif
 
 /* Do not define anything if the user manually defines the size. */
-# if !defined(M) && !defined(N)
+#if !defined(M) && !defined(N)
 /* Define the possible dataset sizes. */
-#  ifdef MINI_DATASET
+#ifdef MINI_DATASET
 #define M 512
 #define N 512
-#  endif
+#endif
 
-#  ifdef SMALL_DATASET
+#ifdef SMALL_DATASET
 #define M 1024
 #define N 1024
-#  endif
+#endif
 
-#  ifdef STANDARD_DATASET /* Default if unspecified. */
+#ifdef STANDARD_DATASET /* Default if unspecified. */
 #define M 2048
 #define N 2048
-#  endif
+#endif
 
-#  ifdef LARGE_DATASET
+#ifdef LARGE_DATASET
 #define M 4096
 #define N 4096
-#  endif
+#endif
 
-#  ifdef EXTRALARGE_DATASET
+#ifdef EXTRALARGE_DATASET
 #define M 8192
 #define N 8192
-#  endif
-# endif /* !N */
+#endif
+#endif /* !N */
 
-# define _PB_M POLYBENCH_LOOP_BOUND(M,m)
-# define _PB_N POLYBENCH_LOOP_BOUND(N,n)
+#define _PB_M POLYBENCH_LOOP_BOUND(M, m)
+#define _PB_N POLYBENCH_LOOP_BOUND(N, n)
 
-# ifndef DATA_TYPE
-#  define DATA_TYPE float
-#  define DATA_PRINTF_MODIFIER "%0.2lf "
-# endif
+#ifndef DATA_TYPE
+#define DATA_TYPE float
+#define DATA_PRINTF_MODIFIER "%0.2lf "
+#endif
 
 /* Thread block dimensions for kernel 1*/
 #define DIM_LOCAL_WORK_GROUP_KERNEL_1_X 256
@@ -64,6 +64,5 @@
 /* Thread block dimensions for kernel 3*/
 #define DIM_LOCAL_WORK_GROUP_KERNEL_3_X 256
 #define DIM_LOCAL_WORK_GROUP_KERNEL_3_Y 1
-
 
 #endif /* !COVARIANCE*/

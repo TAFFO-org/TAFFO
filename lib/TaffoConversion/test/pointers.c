@@ -1,28 +1,26 @@
 #include <stdio.h>
 double a __attribute((annotate("scalar(range(1, 2))")));
 double b __attribute((annotate("scalar(range(102400, 102400))")));
-double *pointer;
+double* pointer;
 double result;
 
-double resolvePointer(double * pointing);
+double resolvePointer(double* pointing);
 
-int main(){
+int main() {
 
-    pointer = &a;
-    //We are forcing the previous assignment, little clang
-    printf("pointer: %x\n", pointer);
+  pointer = &a;
+  // We are forcing the previous assignment, little clang
+  printf("pointer: %x\n", pointer);
 
-    scanf("%lf", pointer);
-    //Incrementing the value pointed by the pointer i.e. incrementing a
-    *pointer +=b;
+  scanf("%lf", pointer);
+  // Incrementing the value pointed by the pointer i.e. incrementing a
+  *pointer += b;
 
-    printf("a: %f, pointerref: %f\n", a, *pointer);
+  printf("a: %f, pointerref: %f\n", a, *pointer);
 
-    result = resolvePointer(pointer);
+  result = resolvePointer(pointer);
 
-    return 0;
+  return 0;
 }
 
-double resolvePointer(double * pointing){
-    return *pointing;
-}
+double resolvePointer(double* pointing) { return *pointing; }

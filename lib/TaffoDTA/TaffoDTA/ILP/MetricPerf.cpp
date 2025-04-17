@@ -1,11 +1,12 @@
-#include <PtrCasts.hpp>
-
 #include "LoopAnalyzerUtil.h"
 #include "MetricBase.h"
 #include "Optimizer.h"
 #include "Utils.h"
+
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/IntrinsicInst.h>
+
+#include <PtrCasts.hpp>
 
 using namespace std;
 using namespace llvm;
@@ -14,15 +15,20 @@ using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *value, shared_ptr<FixedPointInfo> fpInfo, shared_ptr<Range> rangeInfo, shared_ptr<double> suggestedMinError,
-                                                                               bool insertInList, string nameAppendix, bool insertENOBinMin, bool respectFloatingPointConstraint)
-{
+shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value* value,
+                                                                        shared_ptr<FixedPointInfo> fpInfo,
+                                                                        shared_ptr<Range> rangeInfo,
+                                                                        shared_ptr<double> suggestedMinError,
+                                                                        bool insertInList,
+                                                                        string nameAppendix,
+                                                                        bool insertENOBinMin,
+                                                                        bool respectFloatingPointConstraint) {
   assert(!valueHasInfo(value) && "The value considered already has optimizer info!");
 
   assert(fpInfo && "fpInfo should not be nullptr here!");
   assert(rangeInfo && "rangeInfo should not be nullptr here!");
 
-  auto &model = getModel();
+  auto& model = getModel();
 
   string varNameBase = uniqueIDForValue(value).append(nameAppendix);
   std::replace(varNameBase.begin(), varNameBase.end(), '.', '_');
@@ -36,11 +42,11 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
 
   LLVM_DEBUG(llvm::dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
 
-  auto optimizerInfo = make_shared<OptimizerScalarInfo>(varName, 0, fpInfo->getFractionalBits(), fpInfo->getBits(),
-                                                               fpInfo->isSigned(), *rangeInfo, "");
+  auto optimizerInfo = make_shared<OptimizerScalarInfo>(
+    varName, 0, fpInfo->getFractionalBits(), fpInfo->getBits(), fpInfo->isSigned(), *rangeInfo, "");
 
-
-  LLVM_DEBUG(llvm::dbgs() << "Allocating variable " << varName << " with limits [" << optimizerInfo->minBits << ", " << optimizerInfo->maxBits << "];\n";);
+  LLVM_DEBUG(llvm::dbgs() << "Allocating variable " << varName << " with limits [" << optimizerInfo->minBits << ", "
+                          << optimizerInfo->maxBits << "];\n";);
 
   string out;
   raw_string_ostream stream(out);
@@ -78,7 +84,6 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   int ENOBfp80 = 0;
   int ENOBbf16 = 0;
 
-
   // Enob constraints fix
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
@@ -86,12 +91,13 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
 
-  auto enobconstraint = [&](int ENOB, const std::string (OptimizerScalarInfo::*getVariable)(), const char *desc) mutable {
-    constraint.clear();
-    constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
-    constraint.push_back(make_pair(((*optimizerInfo).*getVariable)(), BIG_NUMBER));
-    model.insertLinearConstraint(constraint, Model::LE, BIG_NUMBER + ENOB /*, desc*/);
-  };
+  auto enobconstraint =
+    [&](int ENOB, const std::string (OptimizerScalarInfo::*getVariable)(), const char* desc) mutable {
+      constraint.clear();
+      constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
+      constraint.push_back(make_pair(((*optimizerInfo).*getVariable)(), BIG_NUMBER));
+      model.insertLinearConstraint(constraint, Model::LE, BIG_NUMBER + ENOB /*, desc*/);
+    };
   // Enob constraints float
   enobconstraint(ENOBfloat, &OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
@@ -110,42 +116,39 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   // Enob constraints Quad
   if (hasQuad) {
     ENOBquad = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_fp128);
-    enobconstraint(ENOBquad,
-                   &OptimizerScalarInfo::getQuadSelectedVariable,
-                   "Enob constraint for quad");
+    enobconstraint(ENOBquad, &OptimizerScalarInfo::getQuadSelectedVariable, "Enob constraint for quad");
   }
   // Enob constraints FP80
 
   if (hasFP80) {
     ENOBfp80 = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_x86_fp80);
-    enobconstraint(ENOBfp80,
-                   &OptimizerScalarInfo::getFP80SelectedVariable,
-                   "Enob constraint for fp80");
+    enobconstraint(ENOBfp80, &OptimizerScalarInfo::getFP80SelectedVariable, "Enob constraint for fp80");
   }
   // Enob constraints PPC128
 
   if (hasPPC128) {
     ENOBppc128 = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_ppc_fp128);
-    enobconstraint(ENOBppc128,
-                   &OptimizerScalarInfo::getPPC128SelectedVariable,
-                   "Enob constraint for ppc128");
+    enobconstraint(ENOBppc128, &OptimizerScalarInfo::getPPC128SelectedVariable, "Enob constraint for ppc128");
   }
   // Enob constraints FP80
 
   if (hasBF16) {
     ENOBbf16 = getENOBFromRange(rangeInfo, FloatingPointInfo::Float_bfloat);
-    enobconstraint(ENOBbf16,
-                   &OptimizerScalarInfo::getBF16SelectedVariable,
-                   "Enob constraint for bf16");
+    enobconstraint(ENOBbf16, &OptimizerScalarInfo::getBF16SelectedVariable, "Enob constraint for bf16");
   }
 
   constraint.clear();
   constraint.push_back(make_pair(optimizerInfo->getFractBitsVariable(), 1.0));
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), -BIG_NUMBER));
   // DO NOT REMOVE THE CAST OR SOMEONE WILL DEBUG THIS FOR AN WHOLE DAY AGAIN
-  model.insertLinearConstraint(constraint, Model::GE, (-BIG_NUMBER - FIX_DELTA_MAX) + ((int)fpInfo->getFractionalBits()) /*, "Limit the lower number of frac bits"+to_string(fpInfo->getPointPos())*/);
+  model.insertLinearConstraint(
+    constraint,
+    Model::GE,
+    (-BIG_NUMBER - FIX_DELTA_MAX)
+      + ((int)
+           fpInfo->getFractionalBits()) /*, "Limit the lower number of frac bits"+to_string(fpInfo->getPointPos())*/);
 
-  int enobMaxCost = max({ENOBfloat, ENOBdouble, (int)fpInfo->getFractionalBits()});
+  int enobMaxCost = max({ENOBfloat, ENOBdouble, (int) fpInfo->getFractionalBits()});
 
   enobMaxCost = hasDouble ? max(enobMaxCost, ENOBdouble) : enobMaxCost;
   enobMaxCost = hasHalf ? max(enobMaxCost, ENOBhalf) : enobMaxCost;
@@ -154,24 +157,23 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   enobMaxCost = hasPPC128 ? max(enobMaxCost, ENOBppc128) : enobMaxCost;
   enobMaxCost = hasBF16 ? max(enobMaxCost, ENOBbf16) : enobMaxCost;
 
-
   if (suggestedMinError) {
     /*If we have a suggested min initial error, that is used for error propagation, we should cap the enob to that erro.
      * In facts, it is not really necessary to "unbound" the minimum error while the input variables are not error free
-     * Think about a reading from a sensor (ADC) or something similar, the error there will be even if we use a double to
-     * store its result. Therefore we limit the enob to a useful value even for floating points.*/
-
+     * Think about a reading from a sensor (ADC) or something similar, the error there will be even if we use a double
+     * to store its result. Therefore we limit the enob to a useful value even for floating points.*/
 
     double errorEnob = getENOBFromError(*suggestedMinError);
 
-    LLVM_DEBUG(llvm::dbgs() << "We have a suggested min error, limiting the enob in the model to " << errorEnob << "\n";);
+    LLVM_DEBUG(llvm::dbgs() << "We have a suggested min error, limiting the enob in the model to " << errorEnob
+                            << "\n";);
 
     constraint.clear();
     constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
     model.insertLinearConstraint(constraint, Model::LE, errorEnob /*, "Enob constraint for error maximal"*/);
 
     // Capped at max
-    enobMaxCost = min(enobMaxCost, (int)errorEnob);
+    enobMaxCost = min(enobMaxCost, (int) errorEnob);
   }
 
   if (!MixedDoubleEnabled && respectFloatingPointConstraint) {
@@ -179,7 +181,6 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
     constraint.push_back(make_pair(optimizerInfo->getDoubleSelectedVariable(), 1.0));
     model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Disable double data type"*/);
   }
-
 
   /*//introducing precision cost: the more a variable is precise, the better it is
   model.insertObjectiveElement(make_pair(optimizerInfo->getFractBitsVariable(), (-1) * TUNING_ENOB));
@@ -190,10 +191,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   model.insertObjectiveElement(make_pair(optimizerInfo->getFloatSelectedVariable(), (-1) * TUNING_ENOB * ENOBfloat));
   model.insertObjectiveElement(
           make_pair(optimizerInfo->getDoubleSelectedVariable(), (-1) * TUNING_ENOB * ENOBdouble));*/
-  if (insertENOBinMin) {
-    model.insertObjectiveElement(
-        make_pair(optimizerInfo->getRealEnobVariable(), (-1)), MODEL_OBJ_ENOB, enobMaxCost);
-  }
+  if (insertENOBinMin)
+    model.insertObjectiveElement(make_pair(optimizerInfo->getRealEnobVariable(), (-1)), MODEL_OBJ_ENOB, enobMaxCost);
 
   // Constraint for mixed precision: only one constraint active at one time:
   //_float + _double + _fixed = 1
@@ -222,35 +221,28 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value *v
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, 0 /*, "If not fix, frac part to zero"*/);
 
-
-  if (insertInList) {
+  if (insertInList)
     saveInfoForValue(value, optimizerInfo);
-  }
 
   return optimizerInfo;
 }
 
-
-shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Value *toUse, Value *whereToUse)
-{
+shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Value* toUse, Value* whereToUse) {
   auto info_t = getInfoOfValue(toUse);
-  auto &model = getModel();
-  if (!info_t) {
+  auto& model = getModel();
+  if (!info_t)
     llvm_unreachable("Every value should have an info here!");
-  }
 
   auto info = dynamic_ptr_cast<OptimizerScalarInfo>(info_t);
-  if (!info) {
+  if (!info)
     llvm_unreachable("Here we should only have floating variable, not aggregate.");
-  }
 
   auto originalVar = info->getBaseName();
 
   string endName = uniqueIDForValue(whereToUse);
   std::replace(endName.begin(), endName.end(), '.', '_');
 
-
-  string varNameBase((originalVar + ("_CAST_") + endName));
+  string varNameBase(originalVar + ("_CAST_") + endName);
 
   string varName(varNameBase);
 
@@ -262,12 +254,11 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
 
   LLVM_DEBUG(dbgs() << "Allocating new variable, will have the following name: " << varName << "\n";);
 
-
   unsigned minBits = info->minBits;
   unsigned maxBits = info->maxBits;
 
-  auto optimizerInfo = make_shared<OptimizerScalarInfo>(varName, minBits, maxBits, info->totalBits, info->isSigned, *info->getRange(), info->getOverridedEnob());
-
+  auto optimizerInfo = make_shared<OptimizerScalarInfo>(
+    varName, minBits, maxBits, info->totalBits, info->isSigned, *info->getRange(), info->getOverridedEnob());
 
   LLVM_DEBUG(dbgs() << "Allocating variable " << varName << " with limits [" << minBits << ", " << maxBits
                     << "] with casting cost from " << info->getBaseName() << "\n";);
@@ -316,9 +307,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
   if (hasBF16)
     constraint.push_back(make_pair(optimizerInfo->getBF16SelectedVariable(), 1.0));
 
-
   model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "exactly 1 type"*/);
-
 
   // Real enob is still the same!
   // constraint.clear();
@@ -333,9 +322,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
   constraint.push_back(make_pair(optimizerInfo->getFixedSelectedVariable(), -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, 0 /*, "If no fix, fix frac part = 0"*/);
 
-  auto &cpuCosts = getCpuCosts();
+  auto& cpuCosts = getCpuCosts();
   double maxCastCost = cpuCosts.MaxMinCosts("CAST").first;
-
 
   // Variables for costs:
 
@@ -346,7 +334,6 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
   model.createVariable(C2, 0, 1);
 
   // Constraint for binary value to activate
-
 
   constraint.clear();
   constraint.push_back(make_pair(info->getFractBitsVariable(), 1.0));
@@ -366,29 +353,37 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
 
   // Casting costs
   // Is correct to only place here the maxCastCost, as only one cast will be active at a time
-  model.insertObjectiveElement(make_pair(C1, opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, maxCastCost);
-  model.insertObjectiveElement(make_pair(C2, opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, 0);
+  model.insertObjectiveElement(
+    make_pair(C1, opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::CAST_FIX_FIX)),
+    MODEL_OBJ_CASTCOST,
+    maxCastCost);
+  model.insertObjectiveElement(
+    make_pair(C2, opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::CAST_FIX_FIX)), MODEL_OBJ_CASTCOST, 0);
 
   // TYPE CAST
-  auto costcrosslambda = [&](std::string &variable, CPUCosts::CostsId cost, const string (OptimizerScalarInfo::*getFirstVariable)(), const string (OptimizerScalarInfo::*getSecondVariable)(), const std::string &desc) mutable {
+  auto costcrosslambda = [&](std::string& variable,
+                             CPUCosts::CostsId cost,
+                             const string (OptimizerScalarInfo::*getFirstVariable)(),
+                             const string (OptimizerScalarInfo::*getSecondVariable)(),
+                             const std::string& desc) mutable {
     constraint.clear();
     constraint.push_back(make_pair(((*info).*getFirstVariable)(), 1.0));
     constraint.push_back(make_pair(((*optimizerInfo).*getSecondVariable)(), 1.0));
     constraint.push_back(make_pair(variable, -1));
     model.insertLinearConstraint(constraint, Model::LE, 1 /*, desc*/);
-    model.insertObjectiveElement(make_pair(variable, opt->getCurrentInstructionCost() * cpuCosts.getCost(cost)), MODEL_OBJ_CASTCOST, 0);
+    model.insertObjectiveElement(
+      make_pair(variable, opt->getCurrentInstructionCost() * cpuCosts.getCost(cost)), MODEL_OBJ_CASTCOST, 0);
   };
 
   int counter2 = 3;
-  for (auto &CostsString : cpuCosts.CostsIdValues) {
-
+  for (auto& CostsString : cpuCosts.CostsIdValues) {
 
     if (CostsString.find("CAST") == 0 && CostsString.find("CAST_FIX_FIX") == std::string::npos) {
       const string (OptimizerScalarInfo::*first_f)() = nullptr;
       std::size_t first_i = 0;
       std::size_t second_i = 0;
-      const char *first_c;
-      const char *second_c;
+      const char* first_c;
+      const char* second_c;
       const string (OptimizerScalarInfo::*second_f)() = nullptr;
       std::size_t fixed_i = CostsString.find("FIX");
       std::size_t float_i = CostsString.find("FLOAT");
@@ -416,7 +411,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getFixedSelectedVariable;
           first_i = fixed_i;
           first_c = "Fixed";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getFixedSelectedVariable;
           second_i = fixed_i;
           second_c = "Fixed";
@@ -427,7 +423,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getFloatSelectedVariable;
           first_i = float_i;
           first_c = "Float";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getFloatSelectedVariable;
           second_i = float_i;
           second_c = "Float";
@@ -438,7 +435,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getDoubleSelectedVariable;
           first_i = double_i;
           first_c = "Double";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getDoubleSelectedVariable;
           second_i = double_i;
           second_c = "Double";
@@ -449,7 +447,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getQuadSelectedVariable;
           first_i = quad_i;
           first_c = "Quad";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getQuadSelectedVariable;
           second_i = quad_i;
           second_c = "Quad";
@@ -460,7 +459,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getFP80SelectedVariable;
           first_i = fp80_i;
           first_c = "FP80";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getFP80SelectedVariable;
           second_i = fp80_i;
           second_c = "FP80";
@@ -471,7 +471,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getPPC128SelectedVariable;
           first_i = ppc128_i;
           first_c = "PPC128";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getPPC128SelectedVariable;
           second_i = ppc128_i;
           second_c = "PPC128";
@@ -482,7 +483,8 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getHalfSelectedVariable;
           first_i = half_i;
           first_c = "Half";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getHalfSelectedVariable;
           second_i = half_i;
           second_c = "Half";
@@ -493,13 +495,13 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
           first_f = &OptimizerScalarInfo::getBF16SelectedVariable;
           first_i = half_i;
           first_c = "bf16";
-        } else {
+        }
+        else {
           second_f = &OptimizerScalarInfo::getBF16SelectedVariable;
           second_i = half_i;
           second_c = "bf16";
         }
       }
-
 
       if (first_i > second_i) {
         std::swap(first_f, second_f);
@@ -511,23 +513,27 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
 
       model.createVariable(CX, 0, 1);
 
-      LLVM_DEBUG(llvm::dbgs() << "Inserting constraint " << CX << " " << CostsString << " first " << first_c << " second " << second_c << " cost \n"
-                              << cpuCosts.getCost(cpuCosts.decodeId(CostsString)) << " wtih desc " << std::string(first_c) + " to " + std::string(second_c) << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "Inserting constraint " << CX << " " << CostsString << " first " << first_c
+                              << " second " << second_c << " cost \n"
+                              << cpuCosts.getCost(cpuCosts.decodeId(CostsString)) << " wtih desc "
+                              << std::string(first_c) + " to " + std::string(second_c) << "\n");
 
-      costcrosslambda(CX, cpuCosts.decodeId(CostsString), first_f,
-                      second_f, std::string(first_c) + " to " + std::string(second_c));
+      costcrosslambda(
+        CX, cpuCosts.decodeId(CostsString), first_f, second_f, std::string(first_c) + " to " + std::string(second_c));
     }
   }
   auto CX = std::string("C") + std::to_string(counter2) + "_" + varName;
   model.createVariable(CX, 0, 1);
-  costcrosslambda(CX, cpuCosts.CAST_FIX_FIX, &OptimizerScalarInfo::getFixedSelectedVariable, &OptimizerScalarInfo::getFixedSelectedVariable, "Fix to Fix");
+  costcrosslambda(CX,
+                  cpuCosts.CAST_FIX_FIX,
+                  &OptimizerScalarInfo::getFixedSelectedVariable,
+                  &OptimizerScalarInfo::getFixedSelectedVariable,
+                  "Fix to Fix");
 
   return optimizerInfo;
 }
 
-
-void MetricPerf::saveInfoForValue(Value *value, shared_ptr<OptimizerInfo> optInfo)
-{
+void MetricPerf::saveInfoForValue(Value* value, shared_ptr<OptimizerInfo> optInfo) {
   assert(value && "Value must not be nullptr!");
   assert(optInfo && "optInfo must be a valid info!");
   assert(!valueHasInfo(value) && "Double insertion of value info!");
@@ -536,35 +542,29 @@ void MetricPerf::saveInfoForValue(Value *value, shared_ptr<OptimizerInfo> optInf
   LLVM_DEBUG(value->print(dbgs()););
   LLVM_DEBUG(dbgs() << "\n";);
 
-  auto &valueToVariableName = getValueToVariableName();
-  auto &phiWatcher = getPhiWatcher();
-
+  auto& valueToVariableName = getValueToVariableName();
+  auto& phiWatcher = getPhiWatcher();
 
   valueToVariableName.insert(make_pair(value, optInfo));
 
   int closed_phi = 0;
-  while (PHINode *phiNode = phiWatcher.getPhiNodeToClose(value)) {
+  while (PHINode* phiNode = phiWatcher.getPhiNodeToClose(value)) {
     closePhiLoop(phiNode, value);
     closed_phi++;
   }
-  if (closed_phi) {
+  if (closed_phi)
     LLVM_DEBUG(dbgs() << "Closed " << closed_phi << " PHI loops\n";);
-  }
-
 
   int closed_mem = 0;
-  while (auto *phiNode = getMemWatcher().getPhiNodeToClose(value)) {
+  while (auto* phiNode = getMemWatcher().getPhiNodeToClose(value)) {
     closeMemLoop(phiNode, value);
     closed_mem++;
   }
-  if (closed_mem) {
+  if (closed_mem)
     LLVM_DEBUG(dbgs() << "Closed " << closed_mem << " MEM loops\n";);
-  }
 }
 
-
-void MetricPerf::closePhiLoop(PHINode *phiNode, Value *requestedValue)
-{
+void MetricPerf::closePhiLoop(PHINode* phiNode, Value* requestedValue) {
   LLVM_DEBUG(dbgs() << "Closing PhiNode reference!\n";);
   auto phiInfo = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(phiNode));
   auto destInfo = allocateNewVariableWithCastCost(requestedValue, phiNode);
@@ -595,8 +595,7 @@ void MetricPerf::closePhiLoop(PHINode *phiNode, Value *requestedValue)
   getPhiWatcher().closePhiLoop(phiNode, requestedValue);
 }
 
-void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
-{
+void MetricPerf::closeMemLoop(LoadInst* load, Value* requestedValue) {
   LLVM_DEBUG(dbgs() << "Closing MemPhi reference!\n";);
   auto phiInfo = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(load));
   // auto destInfo = allocateNewVariableWithCastCost(requestedValue, load);
@@ -606,9 +605,9 @@ void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
 
   string enob_var;
 
-  MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<llvm::MemorySSAAnalysis>(*load->getFunction()).getMSSA();
+  MemorySSA& memssa = getTuner()->getFunctionAnalysisResult<llvm::MemorySSAAnalysis>(*load->getFunction()).getMSSA();
   taffo::MemSSAUtils memssa_utils(memssa);
-  SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
+  SmallVectorImpl<Value*>& def_vals = memssa_utils.getDefiningValues(load);
   def_vals.push_back(load->getPointerOperand());
 
   for (unsigned int index = 0; index < def_vals.size(); index++) {
@@ -636,29 +635,18 @@ void MetricPerf::closeMemLoop(LoadInst *load, Value *requestedValue)
   getMemWatcher().closePhiLoop(load, requestedValue);
 }
 
-void MetricPerf::openPhiLoop(PHINode *phiNode, Value *value)
-{
-  getPhiWatcher().openPhiLoop(phiNode, value);
-}
+void MetricPerf::openPhiLoop(PHINode* phiNode, Value* value) { getPhiWatcher().openPhiLoop(phiNode, value); }
 
-void MetricPerf::openMemLoop(LoadInst *load, Value *value)
-{
-  getMemWatcher().openPhiLoop(load, value);
-}
+void MetricPerf::openMemLoop(LoadInst* load, Value* value) { getMemWatcher().openPhiLoop(load, value); }
 
-
-int MetricPerf::getENOBFromError(double error)
-{
+int MetricPerf::getENOBFromError(double error) {
   int enob = floor(log2(error));
-
 
   // Fix enob to be at least 0.
   return max(-enob, 0);
 }
 
-
-int MetricPerf::getENOBFromRange(const shared_ptr<Range> &range, FloatingPointInfo::FloatStandard standard)
-{
+int MetricPerf::getENOBFromRange(const shared_ptr<Range>& range, FloatingPointInfo::FloatStandard standard) {
   assert(range && "We must have a valid range here!");
 
   int fractionalDigits;
@@ -702,10 +690,12 @@ int MetricPerf::getENOBFromRange(const shared_ptr<Range> &range, FloatingPointIn
   if (range->min <= 0 && range->max >= 0) {
     // range overlapping 0
     smallestRepresentableNumber = 0;
-  } else if (range->min >= 0) {
+  }
+  else if (range->min >= 0) {
     // both are greater than 0
     smallestRepresentableNumber = range->min;
-  } else {
+  }
+  else {
     // Both are less than 0
     smallestRepresentableNumber = abs(range->max);
   }
@@ -719,13 +709,10 @@ int MetricPerf::getENOBFromRange(const shared_ptr<Range> &range, FloatingPointIn
   if (exponentInt < minExponentPower)
     exponentInt = minExponentPower;
 
-
   return (-exponentInt) + fractionalDigits;
 }
 
-
-std::string MetricPerf::getEnobActivationVariable(Value *value, int cardinal)
-{
+std::string MetricPerf::getEnobActivationVariable(Value* value, int cardinal) {
   assert(value && "Value must not be null!");
   assert(cardinal >= 0 && "Cardinal should be a positive number!");
   string valueName;
@@ -739,13 +726,12 @@ std::string MetricPerf::getEnobActivationVariable(Value *value, int cardinal)
   return toreturn;
 }
 
-int MetricPerf::getMinIntBitOfValue(Value *pValue)
-{
+int MetricPerf::getMinIntBitOfValue(Value* pValue) {
   int bits = -1024;
   double smallestRepresentableNumber;
-  auto *tuner = getTuner();
+  auto* tuner = getTuner();
 
-  auto *fp_i = dyn_cast<llvm::ConstantFP>(pValue);
+  auto* fp_i = dyn_cast<llvm::ConstantFP>(pValue);
   if (fp_i) {
     APFloat tmp = fp_i->getValueAPF();
     bool losesInfo;
@@ -753,7 +739,8 @@ int MetricPerf::getMinIntBitOfValue(Value *pValue)
     auto a = tmp.convertToDouble();
     LLVM_DEBUG(dbgs() << "Getting max bits of constant " << a << "!\n";);
     smallestRepresentableNumber = abs(a);
-  } else {
+  }
+  else {
     if (!tuner->hasTunerInfo(pValue)) {
       LLVM_DEBUG(dbgs() << "No info available for IntBit computation. Using default value\n";);
       return bits;
@@ -766,20 +753,20 @@ int MetricPerf::getMinIntBitOfValue(Value *pValue)
       return bits;
     }
 
-
     auto metadata_InputInfo = dynamic_ptr_cast<ScalarInfo>(metadata);
     assert(metadata_InputInfo && "Not an InputInfo!");
 
     auto range = metadata_InputInfo->range;
 
-
     if (range->min <= 0 && range->max >= 0) {
       LLVM_DEBUG(dbgs() << "The lowest possible number is a 0, infinite ENOB wooooo.\n";);
       return bits;
-    } else if (range->min >= 0) {
+    }
+    else if (range->min >= 0) {
       // both are greater than 0
       smallestRepresentableNumber = range->min;
-    } else {
+    }
+    else {
       // Both are less than 0
       smallestRepresentableNumber = abs(range->max);
     }
@@ -791,20 +778,20 @@ int MetricPerf::getMinIntBitOfValue(Value *pValue)
   return bits;
 }
 
-int MetricPerf::getMaxIntBitOfValue(Value *pValue)
-{
+int MetricPerf::getMaxIntBitOfValue(Value* pValue) {
   int bits = 1024;
-  auto *tuner = getTuner();
+  auto* tuner = getTuner();
 
   double biggestRepresentableNumber;
-  auto *fp_i = dyn_cast<llvm::ConstantFP>(pValue);
+  auto* fp_i = dyn_cast<llvm::ConstantFP>(pValue);
   if (fp_i) {
     APFloat tmp = fp_i->getValueAPF();
     bool losesInfo;
     tmp.convert(APFloatBase::IEEEdouble(), APFloat::rmNearestTiesToEven, &losesInfo);
     LLVM_DEBUG(dbgs() << "Getting max bits of constant!\n";);
     biggestRepresentableNumber = abs(tmp.convertToDouble());
-  } else {
+  }
+  else {
     if (!tuner->hasTunerInfo(pValue)) {
       LLVM_DEBUG(dbgs() << "No info available for IntBit computation. Using default value\n";);
       return bits;
@@ -816,7 +803,6 @@ int MetricPerf::getMaxIntBitOfValue(Value *pValue)
       LLVM_DEBUG(dbgs() << "No metadata available for IntBit computation. Using default value\n";);
       return bits;
     }
-
 
     auto metadata_InputInfo = dynamic_ptr_cast<ScalarInfo>(metadata);
     assert(metadata_InputInfo && "Not an InputInfo!");
@@ -832,9 +818,8 @@ int MetricPerf::getMaxIntBitOfValue(Value *pValue)
   return bits;
 }
 
-void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
-  auto *select = dyn_cast<SelectInst>(instruction);
+void MetricPerf::handleSelect(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
+  auto* select = dyn_cast<SelectInst>(instruction);
 
   if (!select->getType()->isFloatingPointTy()) {
     LLVM_DEBUG(dbgs() << "select node with non float value, skipping...\n";);
@@ -844,11 +829,8 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
   // The select is different from phi because we have all the value in the current basic block, therefore we will have
   //  them while computing top down
 
-
-  if (!select) {
+  if (!select)
     llvm_unreachable("Could not convert Select instruction to Selectinstruction");
-  }
-
 
   auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
   if (!fieldInfo) {
@@ -863,18 +845,19 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
   }
 
   // Allocating variable for result
-  shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->range, fieldInfo->error);
+  shared_ptr<OptimizerScalarInfo> variable =
+    allocateNewVariableForValue(instruction, fptype, fieldInfo->range, fieldInfo->error);
   auto constraint = vector<pair<string, double>>();
-  auto &model = getModel();
+  auto& model = getModel();
   constraint.clear();
 
-  vector<Value *> incomingValues;
+  vector<Value*> incomingValues;
   incomingValues.push_back(select->getFalseValue());
   incomingValues.push_back(select->getTrueValue());
 
   // Yes yes there is not the need to do a loop, but it has the same structure of the phi instruction!
   for (unsigned index = 0; index < incomingValues.size(); index++) {
-    Value *op = incomingValues[index];
+    Value* op = incomingValues[index];
     if (auto info = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op))) {
       if (info->doesReferToConstant()) {
         // We skip the variable if it is a constant
@@ -891,7 +874,6 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
       continue;
     }
 
-
     string enob_selection = getEnobActivationVariable(instruction, index);
     model.createVariable(enob_selection, 0, 1);
     constraint.push_back(make_pair(enob_selection, 1.0));
@@ -899,14 +881,15 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
 
   if (constraint.size() > 0) {
     model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "[INFO] All constants or unknown nodes, nothing to do!!!\n";);
     return;
   }
 
   for (unsigned index = 0; index < incomingValues.size(); index++) {
     LLVM_DEBUG(dbgs() << "[Select] Handlign operator " << index << "...\n";);
-    Value *op = incomingValues[index];
+    Value* op = incomingValues[index];
 
     if (auto info = getInfoOfValue(op)) {
       if (auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(info)) {
@@ -917,10 +900,10 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
           LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
           continue;
         }
-      } else {
+      }
+      else {
         LLVM_DEBUG(dbgs() << "Strange select value as it is not a number...\n";);
       }
-
 
       LLVM_DEBUG(dbgs() << "[Select] We have infos, treating as usual.\n";);
 
@@ -928,11 +911,9 @@ void MetricPerf::handleSelect(Instruction *instruction, shared_ptr<TunerInfo> va
 
       string enob_var = getEnobActivationVariable(select, index);
 
-
       assert(!enob_var.empty() && "Enob var not found!");
 
       opt->insertTypeEqualityConstraint(variable, destInfo, true);
-
 
       auto constraint = vector<pair<string, double>>();
       constraint.clear();

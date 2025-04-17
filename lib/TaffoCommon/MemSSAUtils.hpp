@@ -18,29 +18,28 @@
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/MemorySSA.h>
 
-namespace taffo
-{
+namespace taffo {
 
 #define DEFAULT_RANGE_COUNT 2U
 
-class MemSSAUtils
-{
+class MemSSAUtils {
 public:
-  MemSSAUtils(llvm::MemorySSA &MemSSA) : MemSSA(MemSSA) {}
+  MemSSAUtils(llvm::MemorySSA& MemSSA)
+  : MemSSA(MemSSA) {}
 
-  llvm::SmallVectorImpl<llvm::Value *> &getDefiningValues(llvm::Instruction *i);
+  llvm::SmallVectorImpl<llvm::Value*>& getDefiningValues(llvm::Instruction* i);
 
-  static llvm::Value *getOriginPointer(llvm::MemorySSA &MemSSA, llvm::Value *Pointer);
+  static llvm::Value* getOriginPointer(llvm::MemorySSA& MemSSA, llvm::Value* Pointer);
 
 private:
-  llvm::MemorySSA &MemSSA;
-  llvm::SmallSet<llvm::MemoryAccess *, DEFAULT_RANGE_COUNT> Visited;
-  llvm::SmallVector<llvm::Value *, DEFAULT_RANGE_COUNT> Res;
+  llvm::MemorySSA& MemSSA;
+  llvm::SmallSet<llvm::MemoryAccess*, DEFAULT_RANGE_COUNT> Visited;
+  llvm::SmallVector<llvm::Value*, DEFAULT_RANGE_COUNT> Res;
 
-  void findClobberingValues(llvm::Instruction *i, llvm::MemoryAccess *ma);
-  void findLOEValue(llvm::Instruction *I);
-  void findMemDefValue(llvm::Instruction *I, const llvm::MemoryDef *MD);
-  void findMemPhiValue(llvm::Instruction *I, llvm::MemoryPhi *MPhi);
+  void findClobberingValues(llvm::Instruction* i, llvm::MemoryAccess* ma);
+  void findLOEValue(llvm::Instruction* I);
+  void findMemDefValue(llvm::Instruction* I, const llvm::MemoryDef* MD);
+  void findMemPhiValue(llvm::Instruction* I, llvm::MemoryPhi* MPhi);
 };
 
 } // namespace taffo
