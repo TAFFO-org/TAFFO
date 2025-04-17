@@ -1,7 +1,7 @@
 #pragma once
 
-#include <map>
 #include <cassert>
+#include <map>
 
 /**
  * @brief Comparator for pointers to Value objects.
@@ -17,15 +17,9 @@ struct ValuePtrCompare {
   using is_transparent = void;
   ValueCompare comp;
 
-  bool operator()(const Value* lhs, const Value* rhs) const {
-    return comp(*lhs, *rhs);
-  }
-  bool operator()(const Value* lhs, const Value &rhs) const {
-    return comp(*lhs, rhs);
-  }
-  bool operator()(const Value &lhs, const Value* rhs) const {
-    return comp(lhs, *rhs);
-  }
+  bool operator()(const Value* lhs, const Value* rhs) const { return comp(*lhs, *rhs); }
+  bool operator()(const Value* lhs, const Value& rhs) const { return comp(*lhs, rhs); }
+  bool operator()(const Value& lhs, const Value* rhs) const { return comp(lhs, *rhs); }
 };
 
 /**
@@ -39,9 +33,7 @@ struct ValuePtrCompare {
  * @tparam KeyCompare The comparator used for keys.
  * @tparam ValueCompare The comparator used for values.
  */
-template <typename Key, typename Value,
-    typename KeyCompare = std::less<Key>,
-    typename ValueCompare = std::less<Value>>
+template <typename Key, typename Value, typename KeyCompare = std::less<Key>, typename ValueCompare = std::less<Value>>
 class BiMap {
 public:
   using value_type = std::pair<const Key, Value>;
@@ -57,15 +49,15 @@ public:
    * @return A pair consisting of an iterator to the inserted element (or to the element that prevented insertion)
    *         and a bool denoting whether the insertion took place.
    */
-  std::pair<iterator, bool> insert(const value_type &pair) {
+  std::pair<iterator, bool> insert(const value_type& pair) {
     auto res = keyValueMap.insert(pair);
     if (!res.second)
       return res;
-    auto revRes = valueKeyMap.insert({ &(res.first->second), pair.first });
+    auto revRes = valueKeyMap.insert({&(res.first->second), pair.first});
     if (!revRes.second) {
       // Rollback.
       keyValueMap.erase(res.first);
-      return { keyValueMap.end(), false };
+      return {keyValueMap.end(), false};
     }
     return res;
   }
@@ -76,7 +68,7 @@ public:
    * @param key The key of the element to erase.
    * @return The number of elements removed.
    */
-  size_t erase(const Key &key) {
+  size_t erase(const Key& key) {
     auto it = keyValueMap.find(key);
     if (it == keyValueMap.end())
       return 0;
@@ -91,7 +83,7 @@ public:
    * @param value The value of the element to erase.
    * @return The number of elements removed.
    */
-  size_t eraseByValue(const Value &value) {
+  size_t eraseByValue(const Value& value) {
     auto it = findByValue(value);
     if (it == keyValueMap.end())
       return 0;
@@ -106,8 +98,8 @@ public:
    * @param key The key to search for.
    * @return An iterator to the element, or keyValueMap.end() if not found.
    */
-  iterator find(const Key &key) { return keyValueMap.find(key); }
-  const_iterator find(const Key &key) const { return keyValueMap.find(key); }
+  iterator find(const Key& key) { return keyValueMap.find(key); }
+  const_iterator find(const Key& key) const { return keyValueMap.find(key); }
 
   /**
    * @brief Finds an element by its mapped value.
@@ -115,13 +107,13 @@ public:
    * @param value The value to search for.
    * @return An iterator to the element, or keyValueMap.end() if not found.
    */
-  iterator findByValue(const Value &value) {
+  iterator findByValue(const Value& value) {
     auto rit = valueKeyMap.find(value);
     if (rit == valueKeyMap.end())
       return keyValueMap.end();
     return keyValueMap.find(rit->second);
   }
-  const_iterator findByValue(const Value &value) const {
+  const_iterator findByValue(const Value& value) const {
     auto rit = valueKeyMap.find(value);
     if (rit == valueKeyMap.end())
       return keyValueMap.end();
@@ -134,9 +126,7 @@ public:
    * @param key The key to check.
    * @return True if the key is present, false otherwise.
    */
-  bool contains(const Key &key) const {
-    return keyValueMap.contains(key);
-  }
+  bool contains(const Key& key) const { return keyValueMap.contains(key); }
 
   /**
    * @brief Checks if a given value is present.
@@ -144,9 +134,7 @@ public:
    * @param value The value to check.
    * @return True if the value is present, false otherwise.
    */
-  bool containsValue(const Value &value) const {
-    return valueKeyMap.contains(value);
-  }
+  bool containsValue(const Value& value) const { return valueKeyMap.contains(value); }
 
   /**
    * @brief Updates an existing key to a new key.
@@ -158,7 +146,7 @@ public:
    * @param newKey The new key.
    * @return True if the update succeeded, false if the oldKey was not found or insertion failed.
    */
-  bool updateKey(const Key &oldKey, const Key &newKey) {
+  bool updateKey(const Key& oldKey, const Key& newKey) {
     auto it = keyValueMap.find(oldKey);
     if (it == keyValueMap.end())
       return false;
@@ -166,19 +154,19 @@ public:
     auto revIt = valueKeyMap.find(&(it->second));
     keyValueMap.erase(it);
     valueKeyMap.erase(revIt);
-    auto res = keyValueMap.insert({ newKey, value });
+    auto res = keyValueMap.insert({newKey, value});
     if (!res.second) {
       // Rollback.
-      auto r1 = keyValueMap.insert({ oldKey, value });
-      auto r2 = valueKeyMap.insert({ &value, oldKey });
+      auto r1 = keyValueMap.insert({oldKey, value});
+      auto r2 = valueKeyMap.insert({&value, oldKey});
       assert(r1.second && r2.second && "Rollback failure");
       return false;
     }
     if (!updateReverseMapping(newKey, &(res.first->second), value)) {
       // Rollback.
       keyValueMap.erase(res.first);
-      auto r1 = keyValueMap.insert({ oldKey, value });
-      auto r2 = valueKeyMap.insert({ &value, oldKey });
+      auto r1 = keyValueMap.insert({oldKey, value});
+      auto r2 = valueKeyMap.insert({&value, oldKey});
       assert(r1.second && r2.second && "Rollback failure");
       return false;
     }
@@ -195,7 +183,7 @@ public:
    * @param newKey The new key.
    * @return True if the update succeeded, false if the element was not found.
    */
-  bool updateKeyByValue(const Value &value, const Key &newKey) {
+  bool updateKeyByValue(const Value& value, const Key& newKey) {
     auto it = find_by_value(value);
     if (it == keyValueMap.end())
       return false;
@@ -216,8 +204,8 @@ public:
      * @param k The key.
      * @param v Pointer to the mapped value.
      */
-    Proxy(BiMap *b, const Key &k, Value *v)
-        : bimap(b), key(k), val_ptr(v) {}
+    Proxy(BiMap* b, const Key& k, Value* v)
+    : bimap(b), key(k), val_ptr(v) {}
 
     /**
      * @brief Implicit conversion to Value&.
@@ -234,14 +222,15 @@ public:
      * @param newValue The new value.
      * @return Reference to the updated value.
      */
-    Value& operator=(const Value &newValue) {
+    Value& operator=(const Value& newValue) {
       bimap->updateReverseMapping(key, val_ptr, newValue);
       return *val_ptr;
     }
+
   private:
-    BiMap *bimap;
+    BiMap* bimap;
     Key key;
-    Value *val_ptr;
+    Value* val_ptr;
   };
 
   /**
@@ -253,13 +242,13 @@ public:
    * @param key The key to access.
    * @return A Proxy object for assignment and value access.
    */
-  Proxy operator[](const Key &key) {
+  Proxy operator[](const Key& key) {
     auto it = keyValueMap.find(key);
     if (it == keyValueMap.end()) {
       auto pair = std::make_pair(key, Value());
       auto res = keyValueMap.insert(pair);
       it = res.first;
-      valueKeyMap.insert({ &(it->second), key });
+      valueKeyMap.insert({&(it->second), key});
     }
     return Proxy(this, key, &(it->second));
   }
@@ -314,17 +303,17 @@ private:
    * @param newValue The new value.
    * @return True if the reverse mapping was updated successfully, false otherwise.
    */
-  bool updateReverseMapping(const Key &key, Value *valPtr, const Value &newValue) {
+  bool updateReverseMapping(const Key& key, Value* valPtr, const Value& newValue) {
     Value oldValue = *valPtr;
     auto revIt = valueKeyMap.find(valPtr);
     if (revIt != valueKeyMap.end())
       valueKeyMap.erase(revIt);
     *valPtr = newValue;
-    auto revRes = valueKeyMap.insert({ valPtr, key });
+    auto revRes = valueKeyMap.insert({valPtr, key});
     if (!revRes.second) {
       // Rollback.
       *valPtr = oldValue;
-      auto r = valueKeyMap.insert({ valPtr, key });
+      auto r = valueKeyMap.insert({valPtr, key});
       assert(r.second && "Rollback failure");
       return false;
     }

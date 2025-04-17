@@ -1,17 +1,14 @@
 #pragma once
 
-
 #include "../FixedPointType.hpp"
 #include "SerializationUtils.hpp"
 #include "Types/TransparentType.hpp"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
+
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 
 namespace taffo {
-
-
-
 
 struct ConversionInfo : taffo::Printable {
   bool isBacktrackingNode;
@@ -23,7 +20,6 @@ struct ConversionInfo : taffo::Printable {
    * produces a floating point value */
   bool noTypeConversion = false;
   bool isArgumentPlaceholder = false;
-
 
   // significant iff origType is a float or a pointer to a float
   // and if operation == Convert
@@ -50,7 +46,7 @@ struct ConversionInfo : taffo::Printable {
       ss << "null";
     ss << ", roots: {";
     bool first = true;
-    for (llvm::Value *v : roots) {
+    for (llvm::Value* v : roots) {
       if (!first)
         ss << ", ";
       ss << v;
@@ -61,5 +57,4 @@ struct ConversionInfo : taffo::Printable {
   }
 };
 
-} // namespace taffo  
-
+} // namespace taffo

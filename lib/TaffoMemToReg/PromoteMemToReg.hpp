@@ -13,9 +13,9 @@
 
 #pragma once
 
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/AssumptionCache.h>
+#include <llvm/IR/Dominators.h>
+#include <llvm/IR/Instructions.h>
 
 namespace taffo {
 
@@ -25,7 +25,7 @@ namespace taffo {
 /// (transitively) using this alloca. This also enforces that there is only
 /// ever one layer of bitcasts or GEPs between the alloca and the lifetime
 /// markers.
-bool isAllocaPromotable(const llvm::AllocaInst *AI);
+bool isAllocaPromotable(const llvm::AllocaInst* AI);
 
 /// Promote the specified list of alloca instructions into scalar
 /// registers, inserting PHI nodes as appropriate.
@@ -34,7 +34,8 @@ bool isAllocaPromotable(const llvm::AllocaInst *AI);
 /// does not modify the CFG of the function at all.  All allocas must be from
 /// the same function.
 ///
-void PromoteMemToReg(llvm::ArrayRef<llvm::AllocaInst *> Allocas, llvm::DominatorTree &DT,
-                     llvm::AssumptionCache *AC = nullptr);
+void PromoteMemToReg(llvm::ArrayRef<llvm::AllocaInst*> Allocas,
+                     llvm::DominatorTree& DT,
+                     llvm::AssumptionCache* AC = nullptr);
 
-} // End taffo namespace
+} // namespace taffo

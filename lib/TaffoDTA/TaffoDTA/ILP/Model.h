@@ -1,7 +1,9 @@
 #pragma once
 
 #include "ortools/linear_solver/linear_solver.h"
+
 #include <llvm/Support/CommandLine.h>
+
 #include <map>
 #include <string>
 #include <vector>
@@ -20,10 +22,8 @@ extern llvm::cl::opt<bool> MixedDoubleEnabled;
 extern llvm::cl::opt<std::string> DumpModelFile;
 #endif
 
-namespace tuner
-{
-class Model
-{
+namespace tuner {
+class Model {
 public:
   enum ProblemType {
     MIN,
@@ -31,10 +31,10 @@ public:
   };
 
 private:
-  std::map<const std::string, operations_research::MPVariable *> variablesPool;
+  std::map<const std::string, operations_research::MPVariable*> variablesPool;
   std::map<const std::string, double> variableValues;
 
-  std::map<const std::string, std::vector<std::pair<operations_research::MPVariable *, double>>> objDeclarationOccoured;
+  std::map<const std::string, std::vector<std::pair<operations_research::MPVariable*, double>>> objDeclarationOccoured;
 
   std::map<const std::string, double> objMaxCosts;
 
@@ -54,11 +54,13 @@ public:
   }; // Usually, strict inequalities are not handled by the tools.
 
   // void createVariable(const std::string &varName);
-  void insertLinearConstraint(const std::vector<std::pair<std::string, double>> &variables, ConstraintType constraintType, double rightSide /*, std::string& comment*/);
-  bool isVariableDeclared(const std::string &variable);
+  void insertLinearConstraint(const std::vector<std::pair<std::string, double>>& variables,
+                              ConstraintType constraintType,
+                              double rightSide /*, std::string& comment*/);
+  bool isVariableDeclared(const std::string& variable);
   bool finalizeAndSolve();
-  void createVariable(const std::string &varName, double min, double max);
-  void insertObjectiveElement(const std::pair<std::string, double> &variables, std::string costName, double maxValue);
+  void createVariable(const std::string& varName, double min, double max);
+  void insertObjectiveElement(const std::pair<std::string, double>& variables, std::string costName, double maxValue);
   void writeOutObjectiveFunction();
   bool VARIABLE_NOT_DECLARED(std::string var);
   bool loadResultsFromFile(std::string modelFile);

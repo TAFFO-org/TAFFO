@@ -3,9 +3,7 @@
 using namespace llvm;
 using namespace taffo;
 
-double FixedPointInfo::getRoundingError() const {
-  return std::ldexp(1.0, -this->getFractionalBits());
-}
+double FixedPointInfo::getRoundingError() const { return std::ldexp(1.0, -this->getFractionalBits()); }
 
 APFloat FixedPointInfo::getMinValueBound() const {
   if (isSigned())
@@ -22,10 +20,10 @@ APFloat FixedPointInfo::getMaxValueBound() const {
   return APFloat(std::ldexp(MaxInt, -getFractionalBits()));
 }
 
-bool FixedPointInfo::operator==(const NumericTypeInfo &other) const {
+bool FixedPointInfo::operator==(const NumericTypeInfo& other) const {
   if (!NumericTypeInfo::operator==(other))
-  return false;
-  const auto *otherFixpInfo = cast<FixedPointInfo>(&other);
+    return false;
+  const auto* otherFixpInfo = cast<FixedPointInfo>(&other);
   return sign == otherFixpInfo->sign && bits == otherFixpInfo->bits && fractionalBits == otherFixpInfo->fractionalBits;
 }
 
@@ -48,7 +46,7 @@ json FixedPointInfo::serialize() const {
   return j;
 }
 
-void FixedPointInfo::deserialize(const json &j) {
+void FixedPointInfo::deserialize(const json& j) {
   assert(j["kind"] == "FixedPoint");
   sign = j["signed"].get<bool>();
   bits = j["bits"].get<int>();
@@ -57,19 +55,19 @@ void FixedPointInfo::deserialize(const json &j) {
 
 std::string FloatingPointInfo::getFloatStandardName(FloatStandard standard) {
   switch (standard) {
-  case Float_half: /*16-bit floating-point value*/
+  case Float_half:      /*16-bit floating-point value*/
     return "Float_half";
-  case Float_float: /*32-bit floating-point value*/
+  case Float_float:     /*32-bit floating-point value*/
     return "Float_float";
-  case Float_double: /*64-bit floating-point value*/
+  case Float_double:    /*64-bit floating-point value*/
     return "Float_double";
-  case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
+  case Float_fp128:     /*128-bit floating-point value (112-bit mantissa)*/
     return "Float_fp128";
-  case Float_x86_fp80: /*80-bit floating-point value (X87)*/
+  case Float_x86_fp80:  /*80-bit floating-point value (X87)*/
     return "Float_x86_fp80";
   case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
     return "Float_ppc_fp128";
-  case Float_bfloat: /*bfloat floating point value)*/
+  case Float_bfloat:    /*bfloat floating point value)*/
     return "Float_bfloat";
   }
   llvm_unreachable("[TAFFO] Unknown FloatType standard!");
@@ -82,32 +80,29 @@ double FloatingPointInfo::getRoundingError() const {
   // Computing the exponent value
   double k = floor(log2(this->greatestNumber));
 
-  // given that epsilon is the maximum error achievable given a certain amount of bit in mantissa (p) on the mantissa itself
-  // it will be multiplied by the exponent, that will be at most 2^k
-  // BTW we are probably carrying some type of error here Hehehe
-  // Complete formula -> epsilon * exponent_value
-  // that is (beta/2)*(b^-p)     *     b^k
-  // thus (beta/2) b*(k-p)
-  // given beta = 2 on binary machines (so I hope the target one is binary too...)
+  // given that epsilon is the maximum error achievable given a certain amount of bit in mantissa (p) on the mantissa
+  // itself it will be multiplied by the exponent, that will be at most 2^k BTW we are probably carrying some type of
+  // error here Hehehe Complete formula -> epsilon * exponent_value that is (beta/2)*(b^-p)     *     b^k thus (beta/2)
+  // b*(k-p) given beta = 2 on binary machines (so I hope the target one is binary too...)
   return exp2(k - p);
 }
 
 // FIXME: some values are not computed correctly because we cannot!
 APFloat FloatingPointInfo::getMinValueBound() const {
   switch (this->getStandard()) {
-  case Float_half: /*16-bit floating-point value*/
+  case Float_half:      /*16-bit floating-point value*/
     return APFloat::getLargest(APFloat::IEEEhalf(), true);
-  case Float_float: /*32-bit floating-point value*/
+  case Float_float:     /*32-bit floating-point value*/
     return APFloat::getLargest(APFloat::IEEEsingle(), true);
-  case Float_double: /*64-bit floating-point value*/
+  case Float_double:    /*64-bit floating-point value*/
     return APFloat::getLargest(APFloat::IEEEdouble(), true);
-  case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
+  case Float_fp128:     /*128-bit floating-point value (112-bit mantissa)*/
     return APFloat::getLargest(APFloat::IEEEquad(), true);
-  case Float_x86_fp80: /*80-bit floating-point value (X87)*/
+  case Float_x86_fp80:  /*80-bit floating-point value (X87)*/
     return APFloat::getLargest(APFloat::x87DoubleExtended(), true);
   case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
     return APFloat::getLargest(APFloat::PPCDoubleDouble(), true);
-  case Float_bfloat: /*bfloat floating point value)*/
+  case Float_bfloat:    /*bfloat floating point value)*/
     return APFloat::getLargest(APFloat::BFloat(), true);
   }
   llvm_unreachable("[TAFFO] Unknown FloatType standard!");
@@ -116,19 +111,19 @@ APFloat FloatingPointInfo::getMinValueBound() const {
 // FIXME: some values are not computed correctly because we cannot!
 APFloat FloatingPointInfo::getMaxValueBound() const {
   switch (this->getStandard()) {
-  case Float_half: /*16-bit floating-point value*/
+  case Float_half:      /*16-bit floating-point value*/
     return APFloat::getLargest(APFloat::IEEEhalf(), false);
-  case Float_float: /*32-bit floating-point value*/
+  case Float_float:     /*32-bit floating-point value*/
     return APFloat::getLargest(APFloat::IEEEsingle(), false);
-  case Float_double: /*64-bit floating-point value*/
+  case Float_double:    /*64-bit floating-point value*/
     return APFloat::getLargest(APFloat::IEEEdouble(), false);
-  case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
+  case Float_fp128:     /*128-bit floating-point value (112-bit mantissa)*/
     return APFloat::getLargest(APFloat::IEEEquad(), false);
-  case Float_x86_fp80: /*80-bit floating-point value (X87)*/
+  case Float_x86_fp80:  /*80-bit floating-point value (X87)*/
     return APFloat::getLargest(APFloat::x87DoubleExtended(), false);
   case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
     return APFloat::getLargest(APFloat::PPCDoubleDouble(), false);
-  case Float_bfloat: /*bfloat floating point value)*/
+  case Float_bfloat:    /*bfloat floating point value)*/
     return APFloat::getLargest(APFloat::BFloat(), false);
   }
 
@@ -141,16 +136,16 @@ int FloatingPointInfo::getP() const {
   // Therefore, we have actually 1 bit more wrt the ones stored
   int p;
   switch (this->getStandard()) {
-  case Float_half: /*16-bit floating-point value*/
+  case Float_half:     /*16-bit floating-point value*/
     p = APFloat::semanticsPrecision(APFloat::IEEEhalf());
     break;
-  case Float_float: /*32-bit floating-point value*/
+  case Float_float:    /*32-bit floating-point value*/
     p = APFloat::semanticsPrecision(APFloat::IEEEsingle());
     break;
-  case Float_double: /*64-bit floating-point value*/
+  case Float_double:   /*64-bit floating-point value*/
     p = APFloat::semanticsPrecision(APFloat::IEEEdouble());
     break;
-  case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
+  case Float_fp128:    /*128-bit floating-point value (112-bit mantissa)*/
     p = APFloat::semanticsPrecision(APFloat::IEEEquad());
     break;
   case Float_x86_fp80: /*80-bit floating-point value (X87)*/
@@ -160,7 +155,7 @@ int FloatingPointInfo::getP() const {
   case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
     p = APFloat::semanticsPrecision(APFloat::PPCDoubleDouble());
     break;
-  case Float_bfloat: /*128-bit floating-point value (two 64-bits)*/
+  case Float_bfloat:    /*128-bit floating-point value (two 64-bits)*/
     p = APFloat::semanticsPrecision(APFloat::BFloat());
     break;
   }
@@ -169,28 +164,28 @@ int FloatingPointInfo::getP() const {
 
 Type::TypeID FloatingPointInfo::getLLVMTypeID() const {
   switch (this->getStandard()) {
-    case Float_half: /*16-bit floating-point value*/
-      return Type::TypeID::HalfTyID;
-    case Float_float: /*32-bit floating-point value*/
-      return Type::TypeID::FloatTyID;
-    case Float_double: /*64-bit floating-point value*/
-      return Type::TypeID::DoubleTyID;
-    case Float_fp128: /*128-bit floating-point value (112-bit mantissa)*/
-      return Type::TypeID::FP128TyID;
-    case Float_x86_fp80: /*80-bit floating-point value (X87)*/
-      return Type::TypeID::X86_FP80TyID;
-    case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
-      return Type::TypeID::PPC_FP128TyID;
-    case Float_bfloat: /*bfloat floating point value)*/
-      return Type::TypeID::BFloatTyID;
+  case Float_half:      /*16-bit floating-point value*/
+    return Type::TypeID::HalfTyID;
+  case Float_float:     /*32-bit floating-point value*/
+    return Type::TypeID::FloatTyID;
+  case Float_double:    /*64-bit floating-point value*/
+    return Type::TypeID::DoubleTyID;
+  case Float_fp128:     /*128-bit floating-point value (112-bit mantissa)*/
+    return Type::TypeID::FP128TyID;
+  case Float_x86_fp80:  /*80-bit floating-point value (X87)*/
+    return Type::TypeID::X86_FP80TyID;
+  case Float_ppc_fp128: /*128-bit floating-point value (two 64-bits)*/
+    return Type::TypeID::PPC_FP128TyID;
+  case Float_bfloat:    /*bfloat floating point value)*/
+    return Type::TypeID::BFloatTyID;
   }
   llvm_unreachable("[TAFFO] Unknown FloatType standard!");
 }
 
-bool FloatingPointInfo::operator==(const NumericTypeInfo &other) const {
+bool FloatingPointInfo::operator==(const NumericTypeInfo& other) const {
   if (!NumericTypeInfo::operator==(other))
     return false;
-  const auto *b2 = cast<FloatingPointInfo>(&other);
+  const auto* b2 = cast<FloatingPointInfo>(&other);
   return standard == b2->getStandard();
 }
 
@@ -213,7 +208,7 @@ json FloatingPointInfo::serialize() const {
   return j;
 }
 
-void FloatingPointInfo::deserialize(const json &j) {
+void FloatingPointInfo::deserialize(const json& j) {
   assert(j["kind"] == "FloatingPoint");
   standard = static_cast<FloatStandard>(j["standard"].get<int>());
   greatestNumber = j["greatestNumber"].get<double>();

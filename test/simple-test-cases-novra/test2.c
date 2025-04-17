@@ -1,13 +1,11 @@
-///TAFFO_TEST_ARGS -disable-vra
-
+/// TAFFO_TEST_ARGS -disable-vra
 
 float global;
 
-float test(float param, int notafloat)
-{
+float test(float param, int notafloat) {
   int notafloat2;
   float local __attribute((annotate("range -1000000000 1000000000")));
-  
+
   local = 134217728.0;
   local *= param;
   local += notafloat;
@@ -15,9 +13,4 @@ float test(float param, int notafloat)
   return notafloat2;
 }
 
-int test2(int a)
-{
-  return a + 2.0;
-}
-
-
+int test2(int a) { return a + 2.0; }

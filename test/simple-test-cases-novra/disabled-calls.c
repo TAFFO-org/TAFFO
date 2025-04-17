@@ -1,16 +1,11 @@
-///TAFFO_TEST_ARGS -disable-vra
+/// TAFFO_TEST_ARGS -disable-vra
 #include <stdio.h>
 
-float test(float a)
-{
-  return a*2;
-}
+float test(float a) { return a * 2; }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
   float a __attribute((annotate("target('a') scalar(range(-128, 128) disabled)")));
   scanf("%f", &a);
   printf("%f\n", test(a));
   return 0;
 }
-

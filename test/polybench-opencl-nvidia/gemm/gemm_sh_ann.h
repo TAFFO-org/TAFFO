@@ -7,5 +7,4 @@
 #define ANN_ALPHA __attribute__((annotate("scalar(range(0,500) final) target('') bufferid('alpha')")))
 #define ANN_BETA __attribute__((annotate("scalar(range(0,50) final) target('') bufferid('beta')")))
 
-
 #endif

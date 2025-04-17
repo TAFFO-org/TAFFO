@@ -43,24 +43,24 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB) but the
 /// STM32F100RB only has 8KB of RAM so the stack is only 1.5KB.
-const unsigned int MAIN_STACK_SIZE=1024+512;
+const unsigned int MAIN_STACK_SIZE = 1024 + 512;
 
 /// Serial port
-const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
-const bool defaultSerialFlowctrl=false;
+const unsigned int defaultSerial = 1;
+const unsigned int defaultSerialSpeed = 19200;
+const bool defaultSerialFlowctrl = false;
 #define SERIAL_1_DMA
-//#define SERIAL_2_DMA //Serial 1 is not used, so not enabling DMA
-//#define SERIAL_3_DMA //Serial 1 is not used, so not enabling DMA
+// #define SERIAL_2_DMA //Serial 1 is not used, so not enabling DMA
+// #define SERIAL_3_DMA //Serial 1 is not used, so not enabling DMA
 
 ///\def STDOUT_REDIRECTED_TO_DCC
-///If defined, stdout is redirected to the debug communication channel, and
-///will be printed if OpenOCD is connected. If not defined, stdout will be
-///redirected throug USART1, as usual.
-//#define STDOUT_REDIRECTED_TO_DCC
+/// If defined, stdout is redirected to the debug communication channel, and
+/// will be printed if OpenOCD is connected. If not defined, stdout will be
+/// redirected throug USART1, as usual.
+// #define STDOUT_REDIRECTED_TO_DCC
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

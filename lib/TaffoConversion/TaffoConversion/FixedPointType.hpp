@@ -22,18 +22,21 @@ public:
   virtual bool isInvalid() const = 0;
   virtual bool isFixedPoint() const { return false; }
   virtual bool isFloatingPoint() const { return false; }
-  std::shared_ptr<taffo::TransparentType> toTransparentType(const std::shared_ptr<taffo::TransparentType> &srcType, bool *hasFloats = nullptr) const;
-  std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<taffo::TransparentType> &srcType, llvm::ArrayRef<unsigned int> indices);
-  std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<taffo::TransparentType> &srcType, llvm::iterator_range<const llvm::Use*> indices);
+  std::shared_ptr<taffo::TransparentType> toTransparentType(const std::shared_ptr<taffo::TransparentType>& srcType,
+                                                            bool* hasFloats = nullptr) const;
+  std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<taffo::TransparentType>& srcType,
+                                                  llvm::ArrayRef<unsigned int> indices);
+  std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<taffo::TransparentType>& srcType,
+                                                  llvm::iterator_range<const llvm::Use*> indices);
   virtual FixedPointTypeKind getKind() const = 0;
 
-  virtual bool operator==(const FixedPointType &other) const = 0;
-  bool operator!=(const FixedPointType &other) const { return !(*this == other); }
+  virtual bool operator==(const FixedPointType& other) const = 0;
+  bool operator!=(const FixedPointType& other) const { return !(*this == other); }
 
   virtual std::shared_ptr<FixedPointType> clone() const = 0;
 
 protected:
-  virtual bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType> &newType) const = 0;
+  virtual bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType>& newType) const = 0;
 };
 
 class FixedPointScalarType : public FixedPointType {
@@ -49,13 +52,13 @@ public:
     Float_bfloat
   };
 
-  static bool classof(const FixedPointType *type) { return type->getKind() == K_Scalar; }
+  static bool classof(const FixedPointType* type) { return type->getKind() == K_Scalar; }
 
   FixedPointScalarType();
   FixedPointScalarType(bool isSigned, int bits, int fractionalBits);
-  FixedPointScalarType(llvm::Type *type, bool isSigned = true);
-  FixedPointScalarType(taffo::NumericTypeInfo *numericType);
-  FixedPointScalarType(const FixedPointScalarType &other);
+  FixedPointScalarType(llvm::Type* type, bool isSigned = true);
+  FixedPointScalarType(taffo::NumericTypeInfo* numericType);
+  FixedPointScalarType(const FixedPointScalarType& other);
 
   bool isSigned() const { return sign; }
   void setSigned(bool isSigned) { this->sign = isSigned; }
@@ -69,10 +72,10 @@ public:
   bool isInvalid() const override;
   bool isFixedPoint() const override { return floatStandard == NotFloat; }
   bool isFloatingPoint() const override { return floatStandard != NotFloat; }
-  llvm::Type* scalarToLLVMType(llvm::LLVMContext &context) const;
+  llvm::Type* scalarToLLVMType(llvm::LLVMContext& context) const;
   FixedPointTypeKind getKind() const override { return K_Scalar; }
 
-  bool operator==(const FixedPointType &other) const override;
+  bool operator==(const FixedPointType& other) const override;
 
   std::shared_ptr<FixedPointType> clone() const override;
   std::string toString() const override;
@@ -84,16 +87,16 @@ private:
   FloatStandard floatStandard;
 
 protected:
-  bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType> &newType) const override;
+  bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType>& newType) const override;
 };
 
 class FixedPointStructType : public FixedPointType {
 public:
-  static bool classof(const FixedPointType *type) { return type->getKind() == K_Struct; }
+  static bool classof(const FixedPointType* type) { return type->getKind() == K_Struct; }
 
-  FixedPointStructType(const llvm::ArrayRef<std::shared_ptr<FixedPointType>> &fields);
-  FixedPointStructType(const std::shared_ptr<taffo::StructInfo> &structInfo, int *enableConversion);
-  FixedPointStructType(const FixedPointStructType &other);
+  FixedPointStructType(const llvm::ArrayRef<std::shared_ptr<FixedPointType>>& fields);
+  FixedPointStructType(const std::shared_ptr<taffo::StructInfo>& structInfo, int* enableConversion);
+  FixedPointStructType(const FixedPointStructType& other);
 
   size_t getNumFieldTypes() const { return fieldTypes.size(); }
   std::shared_ptr<FixedPointType> getFieldType(unsigned i) const { return fieldTypes[i]; }
@@ -101,7 +104,7 @@ public:
   bool isInvalid() const override;
   FixedPointTypeKind getKind() const override { return K_Struct; }
 
-  bool operator==(const FixedPointType &other) const override;
+  bool operator==(const FixedPointType& other) const override;
 
   std::shared_ptr<FixedPointType> clone() const override;
   std::string toString() const override;
@@ -110,7 +113,7 @@ private:
   llvm::SmallVector<std::shared_ptr<FixedPointType>, 4> fieldTypes;
 
 protected:
-  bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType> &newType) const override;
+  bool toTransparentTypeHelper(const std::shared_ptr<taffo::TransparentType>& newType) const override;
 };
 
 } // namespace taffo

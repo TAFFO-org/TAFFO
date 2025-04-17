@@ -1,94 +1,86 @@
 #include "InstructionMix.h"
+
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/IR/Intrinsics.h>
-#include <llvm/IR/Constants.h>
+
 #include <sstream>
 
 using namespace llvm;
 
-
-void InstructionMix::updateWithInstruction(Instruction *inst)
-{
+void InstructionMix::updateWithInstruction(Instruction* inst) {
   ninstr++;
   stat[inst->getOpcodeName()]++;
 
   if (isa<AllocaInst>(inst) || isa<LoadInst>(inst) || isa<StoreInst>(inst) || isa<GetElementPtrInst>(inst)) {
     stat["MemOp"]++;
-  } else if (isa<PHINode>(inst) || isa<SelectInst>(inst) || isa<FCmpInst>(inst) || isa<CmpInst>(inst)) {
+  }
+  else if (isa<PHINode>(inst) || isa<SelectInst>(inst) || isa<FCmpInst>(inst) || isa<CmpInst>(inst)) {
     stat["CmpOp"]++;
-  } else if (isa<CastInst>(inst)) {
+  }
+  else if (isa<CastInst>(inst)) {
     stat["CastOp"]++;
-  } else if (inst->isBinaryOp()) {
+  }
+  else if (inst->isBinaryOp()) {
     stat["MathOp"]++;
     if (inst->getType()->isFloatingPointTy()) {
       stat["FloatingPointOp"]++;
       if (inst->getOpcode() == Instruction::FMul || inst->getOpcode() == Instruction::FDiv)
         stat["FloatMulDivOp"]++;
-    } else
+    }
+    else
       stat["IntegerOp"]++;
   }
-  if (inst->isShift()) {
+  if (inst->isShift())
     stat["Shift"]++;
-  }
 
-  if (CallBase *call = dyn_cast<CallBase>(inst)) {
+  if (CallBase* call = dyn_cast<CallBase>(inst)) {
     std::stringstream stm;
 
-    if (isa<CallInst>(call)) {
+    if (isa<CallInst>(call))
       stm << "call(";
-    } else {
+    else
       stm << "invoke(";
-    }
 
-    Function *opnd = call->getCalledFunction();
-    if (opnd) {
+    Function* opnd = call->getCalledFunction();
+    if (opnd)
       stm << opnd->getName().str();
-    } else {
+    else
       stm << "%indirect";
-    }
 
     stm << ")";
     stat[stm.str()]++;
   }
 }
 
-
-int isDelimiterFunction(llvm::Function *opnd)
-{
-  if (opnd->getName() == "polybench_timer_start" ||
-      opnd->getName() == "timer_start") {
+int isDelimiterFunction(llvm::Function* opnd) {
+  if (opnd->getName() == "polybench_timer_start" || opnd->getName() == "timer_start") {
     return +1;
-  } else if (opnd->getName() == "polybench_timer_stop" ||
-             opnd->getName() == "timer_stop") {
+  }
+  else if (opnd->getName() == "polybench_timer_stop" || opnd->getName() == "timer_stop") {
     return -1;
-  } else if (opnd->getName().contains("AxBenchTimer")) {
-    if (opnd->getName().contains("nanosecondsSinceInit")) {
+  }
+  else if (opnd->getName().contains("AxBenchTimer")) {
+    if (opnd->getName().contains("nanosecondsSinceInit"))
       return -1;
-    } else {
+    else
       return +1;
-    }
   }
   return 0;
 }
 
+bool isFunctionInlinable(llvm::Function* fun) { return !isDelimiterFunction(fun); }
 
-bool isFunctionInlinable(llvm::Function *fun)
-{
-  return !isDelimiterFunction(fun);
-}
-
-
-int isDelimiterInstruction(llvm::Instruction *instr)
-{
-  CallBase *call = dyn_cast<CallBase>(instr);
+int isDelimiterInstruction(llvm::Instruction* instr) {
+  CallBase* call = dyn_cast<CallBase>(instr);
   if (!call)
     return 0;
 
-  Value *opnd = call->getCalledOperand();
-  if (Function *func = dyn_cast_or_null<Function>(opnd)) {
+  Value* opnd = call->getCalledOperand();
+  if (Function* func = dyn_cast_or_null<Function>(opnd)) {
     return isDelimiterFunction(func);
-
-  } else if (InlineAsm *iasm = dyn_cast_or_null<InlineAsm>(opnd)) {
+  }
+  else if (InlineAsm* iasm = dyn_cast_or_null<InlineAsm>(opnd)) {
     StringRef asmstr = iasm->getAsmString();
     if (asmstr.contains("LLVM-MCA-BEGIN"))
       return +1;
@@ -96,10 +88,10 @@ int isDelimiterInstruction(llvm::Instruction *instr)
       return -1;
     else
       return 0;
-
-  } else if (ConstantExpr *cexp = dyn_cast_or_null<ConstantExpr>(opnd)) {
+  }
+  else if (ConstantExpr* cexp = dyn_cast_or_null<ConstantExpr>(opnd)) {
     if (cexp->getOpcode() == Instruction::BitCast) {
-      Function *func = dyn_cast<Function>(cexp->getOperand(0));
+      Function* func = dyn_cast<Function>(cexp->getOperand(0));
       if (func)
         return isDelimiterFunction(func);
     }
@@ -108,26 +100,24 @@ int isDelimiterInstruction(llvm::Instruction *instr)
   return 0;
 }
 
-
-bool isSkippableInstruction(llvm::Instruction *instr)
-{
-  CallBase *call = dyn_cast<CallBase>(instr);
+bool isSkippableInstruction(llvm::Instruction* instr) {
+  CallBase* call = dyn_cast<CallBase>(instr);
   if (!call)
     return false;
-  Function *opnd = call->getCalledFunction();
+  Function* opnd = call->getCalledFunction();
   if (!opnd)
     return false;
 
   if (isDelimiterFunction(opnd))
     return true;
-  if (opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::annotation ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::var_annotation ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::ptr_annotation ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_label ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_value ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_declare ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::lifetime_end ||
-      opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::lifetime_start)
+  if (opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::annotation
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::var_annotation
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::ptr_annotation
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_label
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_value
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::dbg_declare
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::lifetime_end
+      || opnd->getIntrinsicID() == Intrinsic::IndependentIntrinsics::lifetime_start)
     return true;
   return false;
 }

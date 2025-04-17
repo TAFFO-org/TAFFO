@@ -43,27 +43,27 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1.5KB) and the
 /// STM32F207IG has 128KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-//This board only exposes USART3, without flow control
-const unsigned int defaultSerialSpeed=19200;
-//#define SERIAL_1_DMA //Serial 1 is not used, so not enabling DMA
-//#define SERIAL_2_DMA //Serial 2 is not used, so not enabling DMA
+// This board only exposes USART3, without flow control
+const unsigned int defaultSerialSpeed = 19200;
+// #define SERIAL_1_DMA //Serial 1 is not used, so not enabling DMA
+// #define SERIAL_2_DMA //Serial 2 is not used, so not enabling DMA
 #define SERIAL_3_DMA
 
 ///\def STDOUT_REDIRECTED_TO_DCC
-///If defined, stdout is redirected to the debug communication channel, and
-///will be printed if OpenOCD is connected. If not defined, stdout will be
-///redirected throug USART1, as usual.
-//#define STDOUT_REDIRECTED_TO_DCC
+/// If defined, stdout is redirected to the debug communication channel, and
+/// will be printed if OpenOCD is connected. If not defined, stdout will be
+/// redirected throug USART1, as usual.
+// #define STDOUT_REDIRECTED_TO_DCC
 
-//SD card driver
-static const unsigned char sdVoltage=33; //Board powered @ 3.3V
-#define SD_ONE_BIT_DATABUS //Can't use 4 bit databus due to pin conflicts
+// SD card driver
+static const unsigned char sdVoltage = 33; // Board powered @ 3.3V
+#define SD_ONE_BIT_DATABUS                 // Can't use 4 bit databus due to pin conflicts
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

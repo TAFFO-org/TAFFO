@@ -1,4 +1,4 @@
-///TAFFO_TEST_ARGS
+/// TAFFO_TEST_ARGS
 
 typedef struct {
   float g;
@@ -11,8 +11,7 @@ typedef struct {
   def c;
 } abc;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
   __attribute__((annotate("target('test') scalar()"))) float t1 = 123.0;
   __attribute__((annotate("backtracking scalar()"))) float t2 = 123.0;
   __attribute__((annotate("backtracking(true) scalar()"))) float t20 = 123.0;
@@ -29,4 +28,3 @@ int main(int argc, char *argv[])
   __attribute__((annotate("struct[scalar(range(-200, 200)), void, struct[scalar(range(-200, 200)), void]]"))) abc t8;
   return 0;
 }
-

@@ -2,20 +2,21 @@
 #include "TestUtils.h"
 #include "gtest/gtest.h"
 
-namespace
-{
+namespace {
 
 using namespace llvm;
 using namespace taffo_test;
 
+class UtilsTest : public taffo_test::Test {};
 
-class UtilsTest : public taffo_test::Test{};
-
-TEST_F(UtilsTest, uniqueID_instr)
-{
+TEST_F(UtilsTest, uniqueID_instr) {
   auto F = genFunction(*M, "functionName", Type::getVoidTy(Context), {});
   auto BB = BasicBlock::Create(Context, "basicblock", F);
-  auto I = BinaryOperator::Create(Instruction::Add, ConstantInt::get(Type::getInt32Ty(Context), 1), ConstantInt::get(Type::getInt32Ty(Context), 2), "instructionName", BB);
+  auto I = BinaryOperator::Create(Instruction::Add,
+                                  ConstantInt::get(Type::getInt32Ty(Context), 1),
+                                  ConstantInt::get(Type::getInt32Ty(Context), 2),
+                                  "instructionName",
+                                  BB);
 
   std::string id = tuner::uniqueIDForValue(I);
 
@@ -23,14 +24,17 @@ TEST_F(UtilsTest, uniqueID_instr)
   EXPECT_EQ(id.substr(0, expected.size()), expected);
   std::string rem = id.substr(expected.size());
   unsigned long addr = std::stol(rem);
-  EXPECT_EQ(addr, (intptr_t)I);
+  EXPECT_EQ(addr, (intptr_t) I);
 }
 
-TEST_F(UtilsTest, uniqueID_instrNoName)
-{
+TEST_F(UtilsTest, uniqueID_instrNoName) {
   auto F = genFunction(*M, "functionName", Type::getVoidTy(Context), {});
   auto BB = BasicBlock::Create(Context, "basicblock", F);
-  auto I = BinaryOperator::Create(Instruction::Add, ConstantInt::get(Type::getInt32Ty(Context), 1), ConstantInt::get(Type::getInt32Ty(Context), 2), "", BB);
+  auto I = BinaryOperator::Create(Instruction::Add,
+                                  ConstantInt::get(Type::getInt32Ty(Context), 1),
+                                  ConstantInt::get(Type::getInt32Ty(Context), 2),
+                                  "",
+                                  BB);
 
   std::string id = tuner::uniqueIDForValue(I);
 
@@ -38,11 +42,10 @@ TEST_F(UtilsTest, uniqueID_instrNoName)
   EXPECT_EQ(id.substr(0, expected.size()), expected);
   std::string rem = id.substr(expected.size());
   unsigned long addr = std::stol(rem);
-  EXPECT_EQ(addr, (intptr_t)I);
+  EXPECT_EQ(addr, (intptr_t) I);
 }
 
-TEST_F(UtilsTest, uniqueID_funarg)
-{
+TEST_F(UtilsTest, uniqueID_funarg) {
   auto F = genFunction(*M, "functionName", Type::getVoidTy(Context), {Type::getInt32Ty(Context)});
   auto arg = F->args().begin();
   arg->setName("argName");
@@ -52,12 +55,12 @@ TEST_F(UtilsTest, uniqueID_funarg)
   EXPECT_EQ(id.substr(0, expected.size()), expected);
   std::string rem = id.substr(expected.size());
   unsigned long addr = std::stol(rem);
-  EXPECT_EQ(addr, (intptr_t)arg);
+  EXPECT_EQ(addr, (intptr_t) arg);
 }
 
-TEST_F(UtilsTest, uniqueID_funargNoName)
-{
-  auto F = genFunction(*M, "functionName", Type::getVoidTy(Context), {Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
+TEST_F(UtilsTest, uniqueID_funargNoName) {
+  auto F =
+    genFunction(*M, "functionName", Type::getVoidTy(Context), {Type::getInt32Ty(Context), Type::getInt32Ty(Context)});
   auto arg = F->args().begin();
   std::string id = tuner::uniqueIDForValue(arg);
 
@@ -65,7 +68,7 @@ TEST_F(UtilsTest, uniqueID_funargNoName)
   EXPECT_EQ(id.substr(0, expected.size()), expected);
   std::string rem = id.substr(expected.size());
   unsigned long addr = std::stol(rem);
-  EXPECT_EQ(addr, (intptr_t)arg);
+  EXPECT_EQ(addr, (intptr_t) arg);
 
   arg++;
   id = tuner::uniqueIDForValue(arg);
@@ -73,12 +76,10 @@ TEST_F(UtilsTest, uniqueID_funargNoName)
   EXPECT_EQ(id.substr(0, expected.size()), expected);
   rem = id.substr(expected.size());
   addr = std::stol(rem);
-  EXPECT_EQ(addr, (intptr_t)arg);
+  EXPECT_EQ(addr, (intptr_t) arg);
 }
 
-
-TEST_F(UtilsTest, uniqueID_const)
-{
+TEST_F(UtilsTest, uniqueID_const) {
   auto C = ConstantInt::get(Type::getInt32Ty(Context), 42);
   std::string id = tuner::uniqueIDForValue(C);
 
@@ -86,6 +87,6 @@ TEST_F(UtilsTest, uniqueID_const)
   EXPECT_EQ(id.substr(0, expected.size()), expected);
   std::string rem = id.substr(expected.size());
   unsigned long addr = std::stol(rem);
-  EXPECT_EQ(addr, (intptr_t)C);
+  EXPECT_EQ(addr, (intptr_t) C);
 }
 }; // namespace

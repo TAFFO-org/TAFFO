@@ -1,12 +1,12 @@
-#include "TaffoInfo.hpp"
-
-#include "MetadataManager.hpp"
 #include "Debug/Logger.hpp"
+#include "MetadataManager.hpp"
+#include "TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Type.h"
 
+#include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Dominators.h>
+#include <llvm/IR/Type.h>
+
 #include <fstream>
 
 #define DEBUG_TYPE "taffo-util"
@@ -14,215 +14,173 @@
 using namespace taffo;
 using namespace llvm;
 
-TaffoInfo &TaffoInfo::getInstance() {
+TaffoInfo& TaffoInfo::getInstance() {
   static TaffoInfo instance;
   return instance;
 }
 
-void TaffoInfo::setTransparentType(Value &v, const std::shared_ptr<TransparentType> &t) {
-  transparentTypes[&v] = t;
-}
+void TaffoInfo::setTransparentType(Value& v, const std::shared_ptr<TransparentType>& t) { transparentTypes[&v] = t; }
 
-std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(Value &v) const {
+std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(Value& v) const {
   auto iter = transparentTypes.find(&v);
-  assert(  iter->second  && "Transparent type not present");
+  assert(iter->second && "Transparent type not present");
   return iter->second;
 }
 
-std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value &v) {
+std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value& v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())
     return iter->second;
   std::shared_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
-  LLVM_DEBUG(
-    Logger &logger = log();
-    logger.setContextTag(logContextTag);
-    logger.log("Missing transparent type for value: ", raw_ostream::Colors::YELLOW);
-    logger.logValueln(&v);
-    logger.log("Transparent type set to:            ", raw_ostream::Colors::YELLOW);
-    logger.logln(type, raw_ostream::Colors::CYAN);
-    if (type->isOpaquePointer())
-      logger.logln("Warning: the newly created transparent type is opaque", raw_ostream::Colors::RED);
-    logger.restorePrevContextTag();
-  );
+  LLVM_DEBUG(Logger& logger = log(); logger.setContextTag(logContextTag);
+             logger.log("Missing transparent type for value: ", raw_ostream::Colors::YELLOW);
+             logger.logValueln(&v);
+             logger.log("Transparent type set to:            ", raw_ostream::Colors::YELLOW);
+             logger.logln(type, raw_ostream::Colors::CYAN);
+             if (type->isOpaquePointer())
+               logger.logln("Warning: the newly created transparent type is opaque", raw_ostream::Colors::RED);
+             logger.restorePrevContextTag(););
   return transparentTypes[&v] = type;
 }
 
-bool TaffoInfo::hasTransparentType(const Value &v) {
+bool TaffoInfo::hasTransparentType(const Value& v) {
   auto iter = transparentTypes.find(&v);
   return iter != transparentTypes.end();
 }
 
-void TaffoInfo::addStartingPoint(Function &f) {
+void TaffoInfo::addStartingPoint(Function& f) {
   if (!is_contained(startingPoints, &f))
-  startingPoints.push_back(&f);
+    startingPoints.push_back(&f);
 }
 
-void TaffoInfo::addDefaultStartingPoint(Module &m) {
-  auto main = find_if(m.functions(),
-    [](Function &f) { return f.getName().equals("main"); });
+void TaffoInfo::addDefaultStartingPoint(Module& m) {
+  auto main = find_if(m.functions(), [](Function& f) { return f.getName().equals("main"); });
   if (main != m.end())
     addStartingPoint(*main);
 }
 
-bool TaffoInfo::isStartingPoint(Function &f) const {
-  return is_contained(startingPoints, &f);
+bool TaffoInfo::isStartingPoint(Function& f) const { return is_contained(startingPoints, &f); }
+
+bool TaffoInfo::hasStartingPoint(Module& m) const {
+  return any_of(m.functions(), [this](auto& f) { return isStartingPoint(f); });
 }
 
-bool TaffoInfo::hasStartingPoint(Module &m) const {
-  return any_of(m.functions(), [this](auto &f) { return isStartingPoint(f); });
-}
+void TaffoInfo::setIndirectFunction(CallInst& call, Function& f) { indirectFunctions[&call] = &f; }
 
-void TaffoInfo::setIndirectFunction(CallInst &call, Function &f) {
-  indirectFunctions[&call] = &f;
-}
-
-Function *TaffoInfo::getIndirectFunction(const CallInst &call) const {
+Function* TaffoInfo::getIndirectFunction(const CallInst& call) const {
   auto iter = indirectFunctions.find(&call);
   return iter != indirectFunctions.end() ? iter->second : nullptr;
 }
 
-bool TaffoInfo::isIndirectFunction(const CallInst &call) const {
-  return indirectFunctions.contains(&call);
-}
+bool TaffoInfo::isIndirectFunction(const CallInst& call) const { return indirectFunctions.contains(&call); }
 
-void TaffoInfo::setOpenCLTrampoline(Function &f, Function &kernF) {
-  oclTrampolines[&f] = &kernF;
-}
+void TaffoInfo::setOpenCLTrampoline(Function& f, Function& kernF) { oclTrampolines[&f] = &kernF; }
 
-Function *TaffoInfo::getOpenCLTrampoline(const Function &f) const {
+Function* TaffoInfo::getOpenCLTrampoline(const Function& f) const {
   auto iter = oclTrampolines.find(&f);
   return iter != oclTrampolines.end() ? iter->second : nullptr;
 }
 
-bool TaffoInfo::isOpenCLTrampoline(const Function &f) const {
-  return oclTrampolines.contains(&f);
-}
+bool TaffoInfo::isOpenCLTrampoline(const Function& f) const { return oclTrampolines.contains(&f); }
 
-void TaffoInfo::disableConversion(Instruction &i) {
-  disabledConversion.push_back(&i);
-}
+void TaffoInfo::disableConversion(Instruction& i) { disabledConversion.push_back(&i); }
 
-bool TaffoInfo::isConversionDisabled(Instruction &i) const {
-  return is_contained(disabledConversion, &i);
-}
+bool TaffoInfo::isConversionDisabled(Instruction& i) const { return is_contained(disabledConversion, &i); }
 
-void TaffoInfo::createValueInfo(Value &v) {
-  valueInfo[&v] = ValueInfoFactory::create(&v);
-}
+void TaffoInfo::createValueInfo(Value& v) { valueInfo[&v] = ValueInfoFactory::create(&v); }
 
-void TaffoInfo::setValueInfo(Value &v, const std::shared_ptr<ValueInfo> &vi) {
-  valueInfo[&v] = vi;
-}
+void TaffoInfo::setValueInfo(Value& v, const std::shared_ptr<ValueInfo>& vi) { valueInfo[&v] = vi; }
 
-void TaffoInfo::setValueInfo(Value &v, std::shared_ptr<ValueInfo> &&vi) {
-  valueInfo[&v] = std::move(vi);
-}
+void TaffoInfo::setValueInfo(Value& v, std::shared_ptr<ValueInfo>&& vi) { valueInfo[&v] = std::move(vi); }
 
-std::shared_ptr<ValueInfo> TaffoInfo::getValueInfo(const Value &v) const {
+std::shared_ptr<ValueInfo> TaffoInfo::getValueInfo(const Value& v) const {
   auto iter = valueInfo.find(&v);
   return iter != valueInfo.end() ? iter->second : nullptr;
 }
 
-bool TaffoInfo::hasValueInfo(const Value &v) const {
-  return valueInfo.contains(&v);
-}
+bool TaffoInfo::hasValueInfo(const Value& v) const { return valueInfo.contains(&v); }
 
-void TaffoInfo::setValueWeight(Value &v, int weight) {
-  valueWeights[&v] = weight;
-}
+void TaffoInfo::setValueWeight(Value& v, int weight) { valueWeights[&v] = weight; }
 
-int TaffoInfo::getValueWeight(const Value &v) const {
+int TaffoInfo::getValueWeight(const Value& v) const {
   auto iter = valueWeights.find(&v);
   return iter != valueWeights.end() ? iter->second : -1;
 }
 
-void TaffoInfo::setTaffoFunction(Function &originalF, Function &taffoF) {
+void TaffoInfo::setTaffoFunction(Function& originalF, Function& taffoF) {
   taffoCloneToOriginalFunction[&taffoF] = &originalF;
   originalToTaffoCloneFunctions[&originalF].insert(&taffoF);
 }
 
-bool TaffoInfo::isOriginalFunction(const Function &originalF) const {
+bool TaffoInfo::isOriginalFunction(const Function& originalF) const {
   return originalToTaffoCloneFunctions.contains(&originalF);
 }
 
-bool TaffoInfo::isTaffoCloneFunction(Function &f) const {
-  return taffoCloneToOriginalFunction.contains(&f);
-}
+bool TaffoInfo::isTaffoCloneFunction(Function& f) const { return taffoCloneToOriginalFunction.contains(&f); }
 
-void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, llvm::GlobalValue::LinkageTypes linkage){
+void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, llvm::GlobalValue::LinkageTypes linkage) {
   originalFunctionLinkage[&originalF] = linkage;
 }
 
-llvm::GlobalValue::LinkageTypes TaffoInfo::getOriginalFunctionLinkage(const llvm::Function& originalF) const{
+llvm::GlobalValue::LinkageTypes TaffoInfo::getOriginalFunctionLinkage(const llvm::Function& originalF) const {
   assert(originalFunctionLinkage.contains(&originalF) && "Original Function Linkage not inserted");
   return originalFunctionLinkage.at(&originalF);
 }
 
-void TaffoInfo::getTaffoCloneFunctions(const Function &originalF, SmallPtrSetImpl<Function*> &taffoFunctions) const {
+void TaffoInfo::getTaffoCloneFunctions(const Function& originalF, SmallPtrSetImpl<Function*>& taffoFunctions) const {
   auto iter = this->originalToTaffoCloneFunctions.find(&originalF);
   if (iter != this->originalToTaffoCloneFunctions.end())
     for (auto taffoF : iter->second)
       taffoFunctions.insert(taffoF);
 }
 
-void TaffoInfo::setMaxRecursionCount(Function &f, unsigned int maxRecursion) {
-  maxRecursionCount[&f] = maxRecursion;
-}
+void TaffoInfo::setMaxRecursionCount(Function& f, unsigned int maxRecursion) { maxRecursionCount[&f] = maxRecursion; }
 
-unsigned int TaffoInfo::getMaxRecursionCount(const Function &f) const {
+unsigned int TaffoInfo::getMaxRecursionCount(const Function& f) const {
   auto iter = maxRecursionCount.find(&f);
   return iter != maxRecursionCount.end() ? iter->second : 0;
 }
 
-void TaffoInfo::setLoopUnrollCount(Loop &l, unsigned int unrollCount) {
-  loopUnrollCount[&l] = unrollCount;
-}
+void TaffoInfo::setLoopUnrollCount(Loop& l, unsigned int unrollCount) { loopUnrollCount[&l] = unrollCount; }
 
-unsigned int TaffoInfo::getLoopUnrollCount(const Loop &l) const {
+unsigned int TaffoInfo::getLoopUnrollCount(const Loop& l) const {
   auto iter = loopUnrollCount.find(&l);
   return iter != loopUnrollCount.end() ? iter->second : 0;
 }
 
-void TaffoInfo::setError(Instruction &i, double err) {
-  error[&i] = err;
-}
+void TaffoInfo::setError(Instruction& i, double err) { error[&i] = err; }
 
-double TaffoInfo::getError(Instruction &i) const {
+double TaffoInfo::getError(Instruction& i) const {
   auto iter = error.find(&i);
   return iter != error.end() ? iter->second : 0.0;
 }
 
-void TaffoInfo::setCmpErrorMetadata(Instruction &i, CmpErrorInfo &compErrorInfo) {
+void TaffoInfo::setCmpErrorMetadata(Instruction& i, CmpErrorInfo& compErrorInfo) {
   cmpError[&i] = std::make_unique<CmpErrorInfo>(compErrorInfo);
 }
 
-std::shared_ptr<CmpErrorInfo> TaffoInfo::getCmpError(const Instruction &i) const {
+std::shared_ptr<CmpErrorInfo> TaffoInfo::getCmpError(const Instruction& i) const {
   auto iter = cmpError.find(&i);
   return iter != cmpError.end() ? iter->second : nullptr;
 }
 
-Type *TaffoInfo::getType(const std::string &typeId) const {
+Type* TaffoInfo::getType(const std::string& typeId) const {
   auto iter = idTypeMapping.find(typeId);
   return iter != idTypeMapping.end() ? iter->second : nullptr;
 }
 
-void TaffoInfo::eraseValue(Value &v) {
+void TaffoInfo::eraseValue(Value& v) {
   erasedValues.insert(&v);
   idValueMapping.eraseByValue(&v);
 }
 
-void TaffoInfo::eraseLoop(Loop &l) {
+void TaffoInfo::eraseLoop(Loop& l) {
   erasedLoops.insert(&l);
   idLoopMapping.eraseByValue(&l);
 }
 
-void TaffoInfo::dumpToFile(const std::string &filePath, Module &m) {
-  LLVM_DEBUG(
-    Logger &logger = log();
-    logger.setContextTag(logContextTag);
-    logger.logln("Dumping...");
-  );
+void TaffoInfo::dumpToFile(const std::string& filePath, Module& m) {
+  LLVM_DEBUG(Logger& logger = log(); logger.setContextTag(logContextTag); logger.logln("Dumping..."););
 
   generateTaffoIds();
   MetadataManager::setIdValueMapping(idValueMapping, m);
@@ -236,19 +194,11 @@ void TaffoInfo::dumpToFile(const std::string &filePath, Module &m) {
   outFile << jsonRepresentation.dump(4);
   outFile.close();
 
-  LLVM_DEBUG(
-    Logger &logger = log();
-    logger.logln("Dumped to file " + filePath);
-    logger.restorePrevContextTag();
-  );
+  LLVM_DEBUG(Logger& logger = log(); logger.logln("Dumped to file " + filePath); logger.restorePrevContextTag(););
 }
 
-void TaffoInfo::initializeFromFile(const std::string &filePath, Module &m) {
-  LLVM_DEBUG(
-    Logger &logger = log();
-    logger.setContextTag(logContextTag);
-    logger.logln("Initializing...");
-  );
+void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
+  LLVM_DEBUG(Logger& logger = log(); logger.setContextTag(logContextTag); logger.logln("Initializing..."););
 
   idValueMapping = MetadataManager::getIdValueMapping(m);
   idLoopMapping = MetadataManager::getIdLoopMapping(m);
@@ -263,50 +213,46 @@ void TaffoInfo::initializeFromFile(const std::string &filePath, Module &m) {
 
   deserialize(jsonRepresentation);
 
-  LLVM_DEBUG(
-    Logger &logger = log();
-    logger.logln("Initialized from file " + filePath);
-    logger.restorePrevContextTag();
-  );
+  LLVM_DEBUG(Logger& logger = log(); logger.logln("Initialized from file " + filePath);
+             logger.restorePrevContextTag(););
 }
 
 void TaffoInfo::generateTaffoIds() {
   // Collect all values from containers
   std::set<Value*> valueSet;
 
-  for (const auto &[v, transparentType] : transparentTypes) {
+  for (const auto& [v, transparentType] : transparentTypes)
     valueSet.insert(v);
-  }
-  for (auto *f : startingPoints)
+  for (auto* f : startingPoints)
     valueSet.insert(f);
-  for (auto &[call, f] : indirectFunctions) {
+  for (auto& [call, f] : indirectFunctions) {
     valueSet.insert(call);
     valueSet.insert(f);
   }
-  for (auto &[f, kernF] : oclTrampolines) {
+  for (auto& [f, kernF] : oclTrampolines) {
     valueSet.insert(f);
     valueSet.insert(kernF);
   }
-  for (auto *i : disabledConversion)
+  for (auto* i : disabledConversion)
     valueSet.insert(i);
-  for (auto &[taffoF, originalF] : taffoCloneToOriginalFunction) {
+  for (auto& [taffoF, originalF] : taffoCloneToOriginalFunction) {
     valueSet.insert(taffoF);
     valueSet.insert(originalF);
     // No need to get values of originalToTaffoCloneFunctions as they are the same of taffoCloneToOriginalFunction
   }
-  for (auto &[v, _] : valueInfo)
+  for (auto& [v, _] : valueInfo)
     valueSet.insert(v);
-  for (auto &[v, _] : valueWeights)
+  for (auto& [v, _] : valueWeights)
     valueSet.insert(v);
-  for (auto &[f, _] : maxRecursionCount)
+  for (auto& [f, _] : maxRecursionCount)
     valueSet.insert(f);
-  for (auto &[inst, _] : error)
+  for (auto& [inst, _] : error)
     valueSet.insert(inst);
-  for (auto &[inst, _] : cmpError)
+  for (auto& [inst, _] : cmpError)
     valueSet.insert(inst);
 
   // Set the taffoId of each value, updating idValueMapping and idTypeMapping
-  for (auto *value : valueSet) {
+  for (auto* value : valueSet) {
     if (erasedValues.contains(value))
       continue;
     generateTaffoId(value);
@@ -319,44 +265,44 @@ void TaffoInfo::generateTaffoIds() {
 
   // The same for loops
   std::set<Loop*> loopSet;
-  for (auto &[l, _] : loopUnrollCount)
+  for (auto& [l, _] : loopUnrollCount)
     loopSet.insert(l);
 
-  for (auto *l : loopSet)
+  for (auto* l : loopSet)
     if (!erasedLoops.contains(l))
       generateTaffoId(l);
 }
 
-void TaffoInfo::generateTaffoId(Value *v) {
+void TaffoInfo::generateTaffoId(Value* v) {
   if (idValueMapping.containsValue(v))
     return;
   std::string id = generateValueId(v);
   idValueMapping[id] = v;
 }
 
-void TaffoInfo::generateTaffoId(Loop *l) {
+void TaffoInfo::generateTaffoId(Loop* l) {
   if (idLoopMapping.containsValue(l))
     return;
   std::string id = generateLoopId(l);
-  for (Loop *subLoop : l->getSubLoops())
+  for (Loop* subLoop : l->getSubLoops())
     generateTaffoId(subLoop);
 }
 
-std::string TaffoInfo::generateValueId(const Value *v) {
+std::string TaffoInfo::generateValueId(const Value* v) {
   std::string idStr;
   raw_string_ostream os(idStr);
 
-  if (const auto *f = dyn_cast<Function>(v))
+  if (const auto* f = dyn_cast<Function>(v))
     os << f->getName();
   else if (isa<GlobalValue>(v))
     os << "global";
-  else if (const auto *inst = dyn_cast<Instruction>(v)) {
-    if (const Function *parentF = inst->getFunction())
+  else if (const auto* inst = dyn_cast<Instruction>(v)) {
+    if (const Function* parentF = inst->getFunction())
       os << parentF->getName() << "_";
     os << "inst";
   }
-  else if (const auto *arg = dyn_cast<Argument>(v)) {
-    if (const Function *parentF = arg->getParent())
+  else if (const auto* arg = dyn_cast<Argument>(v)) {
+    if (const Function* parentF = arg->getParent())
       os << parentF->getName() << "_";
     os << "arg";
   }
@@ -374,12 +320,12 @@ std::string TaffoInfo::generateValueId(const Value *v) {
   return os.str();
 }
 
-std::string TaffoInfo::generateLoopId(const Loop *l) {
+std::string TaffoInfo::generateLoopId(const Loop* l) {
   std::string idStr;
   raw_string_ostream os(idStr);
 
-  if (BasicBlock *header = l->getHeader())
-    if (const Function *F = header->getParent())
+  if (BasicBlock* header = l->getHeader())
+    if (const Function* F = header->getParent())
       os << F->getName() << "_";
 
   idCounter++;
@@ -394,16 +340,17 @@ void TaffoInfo::updateIdDigits() {
   do {
     newDigits++;
     idCounterCopy /= 10;
-  } while(idCounterCopy);
+  }
+  while (idCounterCopy);
 
   if (newDigits != idDigits) {
     idDigits = newDigits;
 
-    auto updateIds = [this](auto &map, const std::string &jsonMapName) {
+    auto updateIds = [this](auto& map, const std::string& jsonMapName) {
       std::vector<std::string> oldIds;
-      for (const auto &[id, _] : map)
+      for (const auto& [id, _] : map)
         oldIds.push_back(id);
-      for (const auto &oldId : oldIds) {
+      for (const auto& oldId : oldIds) {
         size_t pos = oldId.find_last_not_of("0123456789");
         std::string prefix = oldId.substr(0, pos + 1);
         std::string numericPart = oldId.substr(pos + 1);
@@ -428,29 +375,34 @@ json TaffoInfo::serialize() const {
 
   // Serialize id-value mapping
   j["valueCount"] = idValueMapping.size();
-  for (const auto &[id, value] : idValueMapping) {
+  for (const auto& [id, value] : idValueMapping) {
     json valueJson;
     // Determine the kind of LLVM value and record a suitable representation
-    if (auto *f = dyn_cast<Function>(value)) {
+    if (auto* f = dyn_cast<Function>(value)) {
       valueJson["repr"] = f->getName().str();
       valueJson["kind"] = "function";
-    } else if (isa<GlobalValue>(value)) {
+    }
+    else if (isa<GlobalValue>(value)) {
       valueJson["repr"] = toString(value);
       valueJson["kind"] = "global";
-    } else if (auto *inst = dyn_cast<Instruction>(value)) {
+    }
+    else if (auto* inst = dyn_cast<Instruction>(value)) {
       valueJson["repr"] = toString(inst);
       valueJson["kind"] = "instruction";
-      if (const Function *parentF = inst->getFunction())
+      if (const Function* parentF = inst->getFunction())
         valueJson["function"] = parentF->getName().str();
-    } else if (auto *arg = dyn_cast<Argument>(value)) {
+    }
+    else if (auto* arg = dyn_cast<Argument>(value)) {
       valueJson["repr"] = toString(arg);
       valueJson["kind"] = "argument";
-      if (const Function *parentF = arg->getParent())
+      if (const Function* parentF = arg->getParent())
         valueJson["function"] = parentF->getName().str();
-    } else if (isa<Constant>(value)) {
+    }
+    else if (isa<Constant>(value)) {
       valueJson["repr"] = toString(value);
       valueJson["kind"] = "constant";
-    } else {
+    }
+    else {
       valueJson["repr"] = toString(value);
       valueJson["kind"] = "value";
     }
@@ -459,18 +411,18 @@ json TaffoInfo::serialize() const {
 
   // Serialize id-loop mapping
   j["loopCount"] = idLoopMapping.size();
-  for (const auto &[id, loop] : idLoopMapping) {
+  for (const auto& [id, loop] : idLoopMapping) {
     json loopJson;
-    if (BasicBlock *header = loop->getHeader()) {
+    if (BasicBlock* header = loop->getHeader()) {
       loopJson["header"] = toString(header);
-      if (const Function *F = header->getParent())
+      if (const Function* F = header->getParent())
         loopJson["function"] = F->getName().str();
     }
     j["loops"][id] = loopJson;
   }
 
   // Serialize deducedPointerTypes as a field in each value’s JSON entry
-  for (const auto &[v, transparentType] : transparentTypes) {
+  for (const auto& [v, transparentType] : transparentTypes) {
     if (erasedValues.contains(v))
       continue;
     std::string id = idValueMapping.findByValue(v)->first;
@@ -488,7 +440,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize indirect functions
   j["indirectFunctions"] = json::object();
-  for (auto &[call, f] : indirectFunctions) {
+  for (auto& [call, f] : indirectFunctions) {
     if (erasedValues.contains(call) || erasedValues.contains(f))
       continue;
     std::string callId = idValueMapping.findByValue(call)->first;
@@ -498,7 +450,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize OpenCL trampolines
   j["oclTrampolines"] = json::object();
-  for (auto &[tramp, kernF] : oclTrampolines) {
+  for (auto& [tramp, kernF] : oclTrampolines) {
     if (erasedValues.contains(tramp) || erasedValues.contains(kernF))
       continue;
     std::string trampId = idValueMapping.findByValue(tramp)->first;
@@ -517,7 +469,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize taffoCloneToOriginalFunction
   j["taffoCloneToOriginalFunction"] = json::object();
-  for (auto &[taffoF, originalF] : taffoCloneToOriginalFunction) {
+  for (auto& [taffoF, originalF] : taffoCloneToOriginalFunction) {
     if (erasedValues.contains(taffoF) || erasedValues.contains(originalF))
       continue;
     std::string taffoId = idValueMapping.findByValue(taffoF)->first;
@@ -527,7 +479,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize originalToTaffoCloneFunctions
   j["originalToTaffoCloneFunctions"] = json::object();
-  for (auto &[originalF, taffoFunctions] : originalToTaffoCloneFunctions) {
+  for (auto& [originalF, taffoFunctions] : originalToTaffoCloneFunctions) {
     if (erasedValues.contains(originalF))
       continue;
     std::string originalId = idValueMapping.findByValue(originalF)->first;
@@ -542,7 +494,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize OpenCL trampolines
   j["originalFunctionLinkage"] = json::object();
-  for (auto &[fun, link] : originalFunctionLinkage) {
+  for (auto& [fun, link] : originalFunctionLinkage) {
     if (erasedValues.contains(fun))
       continue;
     std::string funId = idValueMapping.findByValue(fun)->first;
@@ -550,7 +502,7 @@ json TaffoInfo::serialize() const {
   }
 
   // Serialize valueInfo
-  for (auto &[v, vi] : valueInfo) {
+  for (auto& [v, vi] : valueInfo) {
     if (erasedValues.contains(v))
       continue;
     std::string id = idValueMapping.findByValue(v)->first;
@@ -558,7 +510,7 @@ json TaffoInfo::serialize() const {
   }
 
   // Serialize valueWeights
-  for (auto &[val, weight] : valueWeights) {
+  for (auto& [val, weight] : valueWeights) {
     if (erasedValues.contains(val))
       continue;
     std::string id = idValueMapping.findByValue(val)->first;
@@ -567,7 +519,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize maxRecursionCount
   j["maxRecursionCount"] = json::object();
-  for (auto &[fun, count] : maxRecursionCount) {
+  for (auto& [fun, count] : maxRecursionCount) {
     if (erasedValues.contains(fun))
       continue;
     std::string id = idValueMapping.findByValue(fun)->first;
@@ -576,7 +528,7 @@ json TaffoInfo::serialize() const {
 
   // Serialize loopUnrollCount
   j["loopUnrollCount"] = json::object();
-  for (auto &[loop, count] : loopUnrollCount) {
+  for (auto& [loop, count] : loopUnrollCount) {
     if (erasedLoops.contains(loop))
       continue;
     std::string id = idLoopMapping.findByValue(loop)->first;
@@ -584,7 +536,7 @@ json TaffoInfo::serialize() const {
   }
 
   // Serialize error
-  for (auto &[inst, errVal] : error) {
+  for (auto& [inst, errVal] : error) {
     if (erasedValues.contains(inst))
       continue;
     std::string id = idValueMapping.findByValue(inst)->first;
@@ -592,7 +544,7 @@ json TaffoInfo::serialize() const {
   }
 
   // Serialize cmpError
-  for (auto &[inst, cmpErr] : cmpError) {
+  for (auto& [inst, cmpErr] : cmpError) {
     if (erasedValues.contains(inst))
       continue;
     std::string id = idValueMapping.findByValue(inst)->first;
@@ -602,7 +554,7 @@ json TaffoInfo::serialize() const {
   return j;
 }
 
-void TaffoInfo::deserialize(const json &j) {
+void TaffoInfo::deserialize(const json& j) {
   // Clear existing state
   transparentTypes.clear();
   startingPoints.clear();
@@ -623,86 +575,86 @@ void TaffoInfo::deserialize(const json &j) {
   idCounter = j["idCounter"].get<unsigned int>();
 
   // Deserialize startingPoints
-  for (const auto &id : j["startingPoints"]) {
+  for (const auto& id : j["startingPoints"]) {
     std::string idStr = id.get<std::string>();
     auto iter = idValueMapping.find(idStr);
     if (iter != idValueMapping.end()) {
-      Value *val = iter->second;
-      if (auto *f = dyn_cast<Function>(val))
+      Value* val = iter->second;
+      if (auto* f = dyn_cast<Function>(val))
         startingPoints.push_back(f);
     }
   }
 
   // Deserialize indirectFunctions
-  for (auto &item : j["indirectFunctions"].items()) {
-    const std::string &callId = item.key();
+  for (auto& item : j["indirectFunctions"].items()) {
+    const std::string& callId = item.key();
     std::string funcId = item.value().get<std::string>();
     auto callIt = idValueMapping.find(callId);
     auto funcIt = idValueMapping.find(funcId);
     if (callIt != idValueMapping.end() && funcIt != idValueMapping.end()) {
-      Value *callVal = callIt->second;
-      Value *funcVal = funcIt->second;
-      if (auto *callInst = dyn_cast<CallInst>(callVal))
-        if (auto *f = dyn_cast<Function>(funcVal))
+      Value* callVal = callIt->second;
+      Value* funcVal = funcIt->second;
+      if (auto* callInst = dyn_cast<CallInst>(callVal))
+        if (auto* f = dyn_cast<Function>(funcVal))
           indirectFunctions[callInst] = f;
     }
   }
 
   // Deserialize oclTrampolines
-  for (auto &item : j["oclTrampolines"].items()) {
-    const std::string &trampId = item.key();
+  for (auto& item : j["oclTrampolines"].items()) {
+    const std::string& trampId = item.key();
     std::string kernFId = item.value().get<std::string>();
     auto trampIt = idValueMapping.find(trampId);
     auto kernFIt = idValueMapping.find(kernFId);
     if (trampIt != idValueMapping.end() && kernFIt != idValueMapping.end()) {
-      Value *trampVal = trampIt->second;
-      Value *kernFVal = kernFIt->second;
-      if (auto *trampF = dyn_cast<Function>(trampVal))
-        if (auto *kernF = dyn_cast<Function>(kernFVal))
+      Value* trampVal = trampIt->second;
+      Value* kernFVal = kernFIt->second;
+      if (auto* trampF = dyn_cast<Function>(trampVal))
+        if (auto* kernF = dyn_cast<Function>(kernFVal))
           oclTrampolines[trampF] = kernF;
     }
   }
 
   // Deserialize disabledConversion
-  for (const auto &id : j["disabledConversion"]) {
+  for (const auto& id : j["disabledConversion"]) {
     std::string idStr = id.get<std::string>();
     auto iter = idValueMapping.find(idStr);
     if (iter != idValueMapping.end()) {
-      Value *val = iter->second;
-      if (auto *inst = dyn_cast<Instruction>(val))
+      Value* val = iter->second;
+      if (auto* inst = dyn_cast<Instruction>(val))
         disabledConversion.push_back(inst);
     }
   }
 
   // Deserialize taffoCloneToOriginalFunction
-  for (auto &item : j["taffoCloneToOriginalFunction"].items()) {
-    const std::string &taffoId = item.key();
+  for (auto& item : j["taffoCloneToOriginalFunction"].items()) {
+    const std::string& taffoId = item.key();
     std::string originalId = item.value().get<std::string>();
     auto taffoIt = idValueMapping.find(taffoId);
     auto originalIt = idValueMapping.find(originalId);
     if (originalIt != idValueMapping.end() && taffoIt != idValueMapping.end()) {
-      Value *taffoVal = taffoIt->second;
-      Value *orignalVal = originalIt->second;
-      if (auto *taffoF = dyn_cast<Function>(taffoVal))
-        if (auto *originalF = dyn_cast<Function>(orignalVal))
+      Value* taffoVal = taffoIt->second;
+      Value* orignalVal = originalIt->second;
+      if (auto* taffoF = dyn_cast<Function>(taffoVal))
+        if (auto* originalF = dyn_cast<Function>(orignalVal))
           taffoCloneToOriginalFunction[taffoF] = originalF;
     }
   }
 
   // Deserialize originalToTaffoCloneFunctions
-  for (auto &item : j["originalToTaffoCloneFunctions"].items()) {
-    const std::string &originalId = item.key();
+  for (auto& item : j["originalToTaffoCloneFunctions"].items()) {
+    const std::string& originalId = item.key();
     auto originalIt = idValueMapping.find(originalId);
     if (originalIt == idValueMapping.end())
       continue;
-    Value *val = originalIt->second;
-    if (auto *originalF = dyn_cast<Function>(val)) {
-      for (const auto &taffoIdJson : item.value()) {
+    Value* val = originalIt->second;
+    if (auto* originalF = dyn_cast<Function>(val)) {
+      for (const auto& taffoIdJson : item.value()) {
         std::string taffoId = taffoIdJson.get<std::string>();
         auto taffoIt = idValueMapping.find(taffoId);
         if (taffoIt != idValueMapping.end()) {
-          Value *taffoVal = taffoIt->second;
-          if (auto *taffoF = dyn_cast<Function>(taffoVal))
+          Value* taffoVal = taffoIt->second;
+          if (auto* taffoF = dyn_cast<Function>(taffoVal))
             this->originalToTaffoCloneFunctions[originalF].insert(taffoF);
         }
       }
@@ -710,24 +662,24 @@ void TaffoInfo::deserialize(const json &j) {
   }
 
   // Deserialize originalFunctionLinkage
-  for (auto &item : j["originalFunctionLinkage"].items()) {
-    const std::string &funId = item.key();
+  for (auto& item : j["originalFunctionLinkage"].items()) {
+    const std::string& funId = item.key();
     int linkageEnum = item.value().get<int>();
     auto funIt = idValueMapping.find(funId);
     if (funIt != idValueMapping.end()) {
-      Value *funVal = funIt->second;
-      if (auto *funF = dyn_cast<Function>(funVal))
-          originalFunctionLinkage[funF] = static_cast<llvm::GlobalValue::LinkageTypes>(linkageEnum);
+      Value* funVal = funIt->second;
+      if (auto* funF = dyn_cast<Function>(funVal))
+        originalFunctionLinkage[funF] = static_cast<llvm::GlobalValue::LinkageTypes>(linkageEnum);
     }
   }
 
   // Deserialize values (valueInfo, deducedPointerType, valueWeights, constantUsers, error, cmpError)
-  for (auto &item : j["values"].items()) {
-    const std::string &id = item.key();
+  for (auto& item : j["values"].items()) {
+    const std::string& id = item.key();
     auto iter = idValueMapping.find(id);
     if (iter == idValueMapping.end())
       continue;
-    Value *val = iter->second;
+    Value* val = iter->second;
     json valueJson = item.value();
 
     // Deserialize valueInfo
@@ -747,19 +699,18 @@ void TaffoInfo::deserialize(const json &j) {
       transparentTypes[val] = TransparentTypeFactory::create(valueJson["transparentType"]);
 
     // Deserialize valueWeights
-    if (valueJson.contains("weight") && !valueJson["weight"].is_null()) {
+    if (valueJson.contains("weight") && !valueJson["weight"].is_null())
       valueWeights[val] = valueJson["weight"].get<int>();
-    }
 
     // Deserialize error
     if (valueJson.contains("error") && !valueJson["error"].is_null()) {
-      if (auto *inst = dyn_cast<Instruction>(val))
+      if (auto* inst = dyn_cast<Instruction>(val))
         error[inst] = valueJson["error"].get<double>();
     }
 
     // Deserialize cmpError
     if (valueJson.contains("cmpError") && !valueJson["cmpError"].is_null()) {
-      if (auto *inst = dyn_cast<Instruction>(val)) {
+      if (auto* inst = dyn_cast<Instruction>(val)) {
         auto cmpErr = std::make_shared<CmpErrorInfo>(0.0, true);
         cmpErr->deserialize(valueJson["cmpError"]);
         cmpError[inst] = cmpErr;
@@ -768,22 +719,22 @@ void TaffoInfo::deserialize(const json &j) {
   }
 
   // Deserialize maxRecursionCount
-  for (auto &item : j["maxRecursionCount"].items()) {
-    const std::string &funcId = item.key();
+  for (auto& item : j["maxRecursionCount"].items()) {
+    const std::string& funcId = item.key();
     auto iter = idValueMapping.find(funcId);
     if (iter != idValueMapping.end()) {
-      Value *val = iter->second;
-      if (auto *f = dyn_cast<Function>(val))
+      Value* val = iter->second;
+      if (auto* f = dyn_cast<Function>(val))
         maxRecursionCount[f] = item.value().get<unsigned int>();
     }
   }
 
   // Deserialize loopUnrollCount
-  for (auto &item : j["loopUnrollCount"].items()) {
-    const std::string &loopId = item.key();
+  for (auto& item : j["loopUnrollCount"].items()) {
+    const std::string& loopId = item.key();
     auto iter = idLoopMapping.find(loopId);
     if (iter != idLoopMapping.end()) {
-      Loop *loop = iter->second;
+      Loop* loop = iter->second;
       loopUnrollCount[loop] = item.value().get<unsigned int>();
     }
   }

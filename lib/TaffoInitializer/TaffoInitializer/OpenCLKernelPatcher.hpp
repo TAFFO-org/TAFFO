@@ -2,10 +2,9 @@
 
 #define DEBUG_TYPE "taffo-init"
 
-namespace taffo
-{
+namespace taffo {
 
-void createOpenCLKernelTrampolines(llvm::Module &M);
+void createOpenCLKernelTrampolines(llvm::Module& M);
 
 } // namespace taffo
 

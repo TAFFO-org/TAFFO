@@ -1,5 +1,4 @@
 #include <fenv.h>
-
 #include <stdint.h>
 #include <stdio.h>
 #define TRUE 1
@@ -9,7 +8,6 @@
 #define M 10000
 #endif
 
-
 #ifdef APP_MFUNC
 
 #else
@@ -17,14 +15,11 @@
 
 #endif
 
+float ex0(float x, float y) { return sqrt((x * x) + (y * y)); }
 
-float ex0(float x, float y) { return sqrt(((x * x) + (y * y))); }
-
-int internal_main()
-{
+int internal_main() {
   static const int len = sizeof(arr) / sizeof(arr[0]) / 2;
-  float __attribute__((annotate("target('main') scalar(range(1, 100))")))
-  x[len];
+  float __attribute__((annotate("target('main') scalar(range(1, 100))"))) x[len];
   float __attribute__((annotate("scalar(range(1, 100))"))) y[len];
 
   float res[len];
@@ -36,22 +31,18 @@ int internal_main()
 
   for (int i = 0; i < M; ++i) {
 
-
     long long start = miosix::getTime();
-    for (int j = 0; j < len; ++j) {
+    for (int j = 0; j < len; ++j)
       res[j] = ex0(x[j], y[j]);
-    }
 
     long long end = miosix::getTime();
 
-    if (end > start) {
+    if (end > start)
       printf("Cycles: %lli\n", end - start);
-    }
   }
   printf("Values Begin\n");
-  for (int j = 0; j < len; ++j) {
+  for (int j = 0; j < len; ++j)
     printf("%f\n", res[j]);
-  }
   printf("Values End\n");
   return 0;
 }

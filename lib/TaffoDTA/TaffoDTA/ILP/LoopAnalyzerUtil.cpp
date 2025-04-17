@@ -2,8 +2,8 @@
 // Created by nicola on 07/08/20.
 //
 
-#include "TaffoInfo/TaffoInfo.hpp"
 #include "LoopAnalyzerUtil.h"
+#include "TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/Analysis/ScalarEvolution.h>
@@ -18,8 +18,7 @@ using namespace llvm;
 using namespace taffo;
 using namespace tuner;
 
-unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction *instruction)
-{
+unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction* instruction) {
   auto bb = instruction->getParent();
   auto f = instruction->getParent()->getParent();
   auto loop = FAM.getResult<llvm::LoopAnalysis>(*f).getLoopFor(bb);
@@ -31,8 +30,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction *
   return info;
 }
 
-unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop *loop)
-{
+unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
   unsigned int LocalTrip;
 
   if (!loop) {
@@ -47,17 +45,21 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop *loop)
     if (LocalTrip > 0) {
       LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata = " << LocalTrip << "\n");
       TripCountDetectionSuccessCount++;
-    } else {
+    }
+    else {
       LocalTrip = 2;
-      LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata but it's zero, forcing default of " << LocalTrip << "\n");
+      LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata but it's zero, forcing default of " << LocalTrip
+                        << "\n");
       TripCountDetectionFailCount++;
     }
-  } else {
+  }
+  else {
     LocalTrip = FAM.getResult<ScalarEvolutionAnalysis>(*loop->getHeader()->getParent()).getSmallConstantTripCount(loop);
     if (LocalTrip > 0) {
       LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n";);
       TripCountDetectionSuccessCount++;
-    } else {
+    }
+    else {
       LocalTrip = 2;
       LLVM_DEBUG(dbgs() << "SCEV told us the trip count is zero; forcing the default of " << LocalTrip << "!\n");
       TripCountDetectionFailCount++;

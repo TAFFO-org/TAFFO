@@ -1,25 +1,21 @@
-///TAFFO_TEST_ARGS -Xvra -propagate-all -fopenmp
+/// TAFFO_TEST_ARGS -Xvra -propagate-all -fopenmp
 #include <omp.h>
 #include <stdio.h>
 
 #define MAX_N (100)
 
-float compute_thread_result(int index, float private_multiplier)
-{
-  return index * private_multiplier;
-}
+float compute_thread_result(int index, float private_multiplier) { return index * private_multiplier; }
 
-
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
   float result_container[MAX_N] __attribute((annotate("target('array') scalar(range(0,10000) final)")));
-  float multipliers_container[MAX_N] __attribute__((annotate("target('multipliers_container') scalar(range(0,10000) final)")));
+  float multipliers_container[MAX_N]
+    __attribute__((annotate("target('multipliers_container') scalar(range(0,10000) final)")));
   float result __attribute__((annotate("target('result') scalar(range(0,1000000) final)"))) = 0;
 
   int __attribute__((annotate("scalar(range(0,100) final)"))) i = 0;
   float private_multiplier __attribute__((annotate("target('private_multiplier') scalar(range(0,25) final)")));
 
-  #pragma omp parallel for private(private_multiplier) num_threads(4) schedule(static)
+#pragma omp parallel for private(private_multiplier) num_threads(4) schedule(static)
   {
     for (i = 0; i < MAX_N; i++) {
       private_multiplier = 5.43;
@@ -32,10 +28,8 @@ int main(int argc, char *argv[])
     }
   }
 
-
-  for (i = 0; i < MAX_N; i++) {
+  for (i = 0; i < MAX_N; i++)
     result += result_container[i];
-  }
 
   printf("result: %f\n", result);
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <llvm/Analysis/TargetTransformInfo.h>
+
 #include <map>
 #include <string>
 #include <vector>
@@ -9,12 +10,10 @@
 
 using namespace std;
 
-namespace tuner
-{
+namespace tuner {
 /// This class will manage data about the costs in a cpu model
 /// These data are loaded from a file!
-class CPUCosts
-{
+class CPUCosts {
 
 public:
   enum class CostType {
@@ -136,10 +135,13 @@ private:
   std::map<CostsId, bool> disableMap;
 
   CostType cType;
-  auto getType(unsigned int n, const string &tmpString, llvm::LLVMContext &context, llvm::Module &module) -> llvm::Type *;
-  void LLVMInizializer(llvm::Module &module, llvm::TargetTransformInfo &TTI, llvm::TargetTransformInfo::TargetCostKind costKind);
-  void SizeInizializer(llvm::Module &module, llvm::TargetTransformInfo &TTI);
-  void ApplyAttribute(string &attr);
+  auto getType(unsigned int n, const string& tmpString, llvm::LLVMContext& context, llvm::Module& module)
+    -> llvm::Type*;
+  void LLVMInizializer(llvm::Module& module,
+                       llvm::TargetTransformInfo& TTI,
+                       llvm::TargetTransformInfo::TargetCostKind costKind);
+  void SizeInizializer(llvm::Module& module, llvm::TargetTransformInfo& TTI);
+  void ApplyAttribute(string& attr);
   void InizializeDisabledList();
   void loadInstructionSet();
   int n_types = 0;
@@ -149,36 +151,38 @@ public:
 
   bool isDisabled(CostsId id) const;
 
-  CPUCosts(string &modelFile, CostType cType = CostType::Performance);
+  CPUCosts(string& modelFile, CostType cType = CostType::Performance);
 
-  CPUCosts(llvm::Module &module, llvm::TargetTransformInfo &TTI, CostType cType = CostType::Size);
+  CPUCosts(llvm::Module& module, llvm::TargetTransformInfo& TTI, CostType cType = CostType::Size);
 
-  void loadModelFile(string &basicString);
+  void loadModelFile(string& basicString);
 
-  static CostsId decodeId(const string &basicString);
+  static CostsId decodeId(const string& basicString);
 
   static string CostsIdToString(CostsId id);
 
   void dump();
 
-  bool cast_with_fix(CPUCosts::CostsId &cast);
+  bool cast_with_fix(CPUCosts::CostsId& cast);
 
   double getCost(CostsId id);
-  std::pair<double, double> MaxMinCosts(const string &ref);
+  std::pair<double, double> MaxMinCosts(const string& ref);
 
-  CPUCosts(const CPUCosts &rhs)
-      : costsMap(rhs.costsMap), disableNum(rhs.disableNum),
-        disableMap(rhs.disableMap), cType(rhs.cType),
-        n_types(rhs.n_types) {}
+  CPUCosts(const CPUCosts& rhs)
+  : costsMap(rhs.costsMap),
+    disableNum(rhs.disableNum),
+    disableMap(rhs.disableMap),
+    cType(rhs.cType),
+    n_types(rhs.n_types) {}
 
-  CPUCosts(CPUCosts &&rhs) noexcept
-      : costsMap(std::move(rhs.costsMap)),
-        disableNum(std::move(rhs.disableNum)),
-        disableMap(std::move(rhs.disableMap)), cType(rhs.cType),
-        n_types(rhs.n_types) {}
+  CPUCosts(CPUCosts&& rhs) noexcept
+  : costsMap(std::move(rhs.costsMap)),
+    disableNum(std::move(rhs.disableNum)),
+    disableMap(std::move(rhs.disableMap)),
+    cType(rhs.cType),
+    n_types(rhs.n_types) {}
 
-  CPUCosts &operator=(const CPUCosts &rhs)
-  {
+  CPUCosts& operator=(const CPUCosts& rhs) {
     if (this != &rhs) {
       n_types = rhs.n_types;
       disableNum.clear();
@@ -192,8 +196,7 @@ public:
     return *this;
   }
 
-  CPUCosts &operator=(CPUCosts &&rhs)
-  {
+  CPUCosts& operator=(CPUCosts&& rhs) {
     if (this != &rhs) {
       n_types = rhs.n_types;
       disableNum.clear();

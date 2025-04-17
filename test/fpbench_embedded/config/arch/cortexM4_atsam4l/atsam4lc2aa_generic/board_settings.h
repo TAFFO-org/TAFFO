@@ -42,29 +42,29 @@ namespace miosix {
 
 /// Select oscillator speed at startup. Currently supported configurations are
 /// 4, 8, 12MHz, all using RCFAST
-constexpr unsigned int bootClock=12000000;
+constexpr unsigned int bootClock = 12000000;
 
 /// If this is NOT defined, start32kHzOscillator() starts the 32kHz crystal
 /// oscillator, so you need a quarts crystal attached to the proper pins.
 /// If this IS defined, start32kHzOscillator() falls back to the internal RC osc
-//#define USE_RC_32K_OSCILLATOR
+// #define USE_RC_32K_OSCILLATOR
 
 /// Use AST as os_timer instead of TC1. This requires a 32kHz crystal to be
 /// connected to the board, reduces timing resolution to only 16kHz and makes
 /// context switches much slower but the os easily keeps time across deep sleeps
-//#define WITH_RTC_AS_OS_TIMER
+// #define WITH_RTC_AS_OS_TIMER
 
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB) but the
 /// atsam4lc2aa only has 32KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-const unsigned int defaultSerial=2;
-const unsigned int defaultSerialSpeed=115200;
+const unsigned int defaultSerial = 2;
+const unsigned int defaultSerialSpeed = 115200;
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

@@ -43,26 +43,26 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB)
 /// Application requires more than the usual 4KB stack, increasing to 5KB.
-const unsigned int MAIN_STACK_SIZE=5*1024;
+const unsigned int MAIN_STACK_SIZE = 5 * 1024;
 
-const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=115200;
-const bool defaultSerialFlowctrl=false;
+const unsigned int defaultSerial = 1;
+const unsigned int defaultSerialSpeed = 115200;
+const bool defaultSerialFlowctrl = false;
 // Uncomment AUX_SERIAL to enable. The device will appear as /dev/auxtty.
 #define AUX_SERIAL "auxtty"
-const unsigned int auxSerial=3;
-const unsigned int auxSerialSpeed=230400;
-const bool auxSerialFlowctrl=false;
+const unsigned int auxSerial = 3;
+const unsigned int auxSerialSpeed = 230400;
+const bool auxSerialFlowctrl = false;
 #define SERIAL_1_DMA
-//#define SERIAL_2_DMA
+// #define SERIAL_2_DMA
 #define SERIAL_3_DMA
 
-//SD card driver
-static const unsigned char sdVoltage=33; //Board powered @ 3.3V
+// SD card driver
+static const unsigned char sdVoltage = 33; // Board powered @ 3.3V
 // #define SD_ONE_BIT_DATABUS //Commented to use 4 bit databus
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

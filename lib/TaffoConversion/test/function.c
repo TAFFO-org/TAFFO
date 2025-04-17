@@ -1,79 +1,65 @@
-///TAFFO_TEST_ARGS 
-#include <stdio.h>
+/// TAFFO_TEST_ARGS
 #include <math.h>
+#include <stdio.h>
 
-double  __attribute((annotate("range 7 20000"))) global = 33.333;
+double __attribute((annotate("range 7 20000"))) global = 33.333;
 
-double fun(double x, double y){
-    float local;
-    local = x * y + global;
-    //global++;
-    return local;
+double fun(double x, double y) {
+  float local;
+  local = x * y + global;
+  // global++;
+  return local;
 }
 
-int funInt(double x, double y){
-    int local;
-    local = x * y + global;
-    global*=1.098;
-    return local;
+int funInt(double x, double y) {
+  int local;
+  local = x * y + global;
+  global *= 1.098;
+  return local;
 }
 
 int main() {
-    double a=10.2049;
-    double __attribute((annotate("range -7 40000"))) b=10.1024;
-    int c = 2;
-    
-    
-    a = fun(b,a);
-    printf("%f\n",a);
-    
-    
-    
-    // ------------------ //
-    
-    a = a/4000;
+  double a = 10.2049;
+  double __attribute((annotate("range -7 40000"))) b = 10.1024;
+  int c = 2;
 
+  a = fun(b, a);
+  printf("%f\n", a);
 
-    b = fun(a,b);
-    printf("%f\n",b);
+  // ------------------ //
 
-    
-        
-    // ----------------- //
-    
-    b = a/4096;
+  a = a / 4000;
 
-    
-    c = fun(b,a);
-    printf("%d\n",c);
-    
-    
-    // ------------------ //
-    
-    
-    printf("*******************\n");
-    
-    a=10.05;
+  b = fun(a, b);
+  printf("%f\n", b);
 
+  // ----------------- //
 
-    
-    a = funInt(b,a);
-    printf("%f\n",a);
-    
-    
-    a = sqrt(b);
-    b = exp(a*9.99);
-    
-    b = funInt(a,b);
-    printf("%f\n",b);
-    
-    b = a;
+  b = a / 4096;
 
-    
-    c = funInt(a,b);
-    printf("%d\n",c);
-    
+  c = fun(b, a);
+  printf("%d\n", c);
 
-    printf("-------------------\n");
-    return 0;
+  // ------------------ //
+
+  printf("*******************\n");
+
+  a = 10.05;
+
+  a = funInt(b, a);
+  printf("%f\n", a);
+
+  a = sqrt(b);
+  b = exp(a * 9.99);
+
+  b = funInt(a, b);
+  printf("%f\n", b);
+
+  b = a;
+
+  c = funInt(a, b);
+  printf("%d\n", c);
+
+  printf("-------------------\n");
+  return 0;
 }
