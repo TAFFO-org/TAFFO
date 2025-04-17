@@ -1,0 +1,40 @@
+name: code-format.yml
+
+on:
+  push:
+
+jobs:
+  code_format:
+    runs-on: ubuntu-latest
+    # skip if this push was done by a bot
+    if: ${{ github.actor != 'github-actions[bot]' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: true # allows the action to push commits
+
+      - name: Replace #include "llvm/..." with #include <llvm/...>
+        run: |
+          find . -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.c' -o -name '*.cpp' \) -print0
+          | xargs -0 -P "$(nproc || echo 4)" perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
+
+      - name: Format code
+        run: |
+          git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp'
+          | xargs -0 -n1 -P"$(nproc)" clang-format -i -style=file
+
+      - name: Commit & push changes
+        run: |
+          # Only commit if something changed
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -u
+            git commit --amend -m "$(git log -1 --pretty=%B)\nautomatic code formatting"
+            git push
+          else
+            echo "No changes to commit"
+          fi

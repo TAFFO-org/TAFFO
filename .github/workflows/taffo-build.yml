@@ -1,20 +1,22 @@
 name: CMake
 
-on: push
+on:
+  workflow_run:
+    workflows: ["code-format"]
+    types: [completed]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LLVM_DIR: /home/runner/llvm
   LD_LIBRARY_PATH: /home/runner/ortools/lib
-  
-  
 
 jobs:
+  # only run on pushes done by the code formatter bot
+  if: ${{ github.actor == 'github-actions[bot]' }}
 
   build_or-tools:
       uses: ./.github/workflows/or-tools.yml
-      
       
   build_LLVM:    
       uses: ./.github/workflows/llvm-setup.yml
@@ -79,4 +81,3 @@ jobs:
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -C ${{env.BUILD_TYPE}}  -j 11 --output-on-failure --timeout 3600
-
