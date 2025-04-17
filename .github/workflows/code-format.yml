@@ -18,12 +18,12 @@ jobs:
 
       - name: Replace #include "llvm/..." with #include <llvm/...>
         run: |
-          find . -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.c' -o -name '*.cpp' \) -print0
+          find . -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.c' -o -name '*.cpp' \) -print0 \
           | xargs -0 -P "$(nproc || echo 4)" perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
 
       - name: Format code
         run: |
-          git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp'
+          git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp' \
           | xargs -0 -n1 -P"$(nproc)" clang-format -i -style=file
 
       - name: Commit & push changes
