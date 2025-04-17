@@ -12,12 +12,6 @@ AlignConsecutiveDeclarations:
   Enabled: false
 AlignConsecutiveMacros:
   Enabled: false
-AlignConsecutiveTableGenBreakingDAGArgColons:
-  Enabled: false
-AlignConsecutiveTableGenCondOperatorColons:
-  Enabled: false
-AlignConsecutiveTableGenDefinitionColons:
-  Enabled: false
 AlignEscapedNewlines: Left
 AlignOperands: AlignAfterOperator
 AlignTrailingComments:
@@ -141,7 +135,6 @@ SpacesInParens: Never
 SpacesInSquareBrackets: false
 Standard: Latest
 TabWidth: 4
-TableGenBreakInsideDAGArg: BreakAll
 UseTab: Never
 VerilogBreakBetweenInstancePorts: true
 StatementMacros:
