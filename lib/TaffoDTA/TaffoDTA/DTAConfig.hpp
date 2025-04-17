@@ -2,6 +2,7 @@
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/Support/CommandLine.h>
+
 #include <string>
 
 #define DEBUG_TYPE "taffo-dta"

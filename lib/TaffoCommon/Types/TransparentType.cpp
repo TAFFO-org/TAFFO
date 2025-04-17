@@ -1,6 +1,5 @@
-#include "TransparentType.hpp"
-
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TransparentType.hpp"
 
 #include <memory>
 #include <sstream>
@@ -8,25 +7,25 @@
 using namespace llvm;
 using namespace taffo;
 
-std::shared_ptr<TransparentType> TransparentTypeFactory::create(const Value *value) {
-  if (auto *function = dyn_cast<Function>(value))
+std::shared_ptr<TransparentType> TransparentTypeFactory::create(const Value* value) {
+  if (auto* function = dyn_cast<Function>(value))
     return create(function->getReturnType(), 0);
-  if (auto *global = dyn_cast<GlobalValue>(value))
+  if (auto* global = dyn_cast<GlobalValue>(value))
     return create(global->getValueType(), 0);
   return create(value->getType(), 0);
 }
 
-std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type *unwrappedType, unsigned int indirections) {
-  if (auto *structType = dyn_cast<StructType>(unwrappedType))
+std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type* unwrappedType, unsigned int indirections) {
+  if (auto* structType = dyn_cast<StructType>(unwrappedType))
     return std::shared_ptr<TransparentType>(new TransparentStructType(structType, indirections));
-  if (auto *arrayType = dyn_cast<ArrayType>(unwrappedType))
+  if (auto* arrayType = dyn_cast<ArrayType>(unwrappedType))
     return std::shared_ptr<TransparentType>(new TransparentArrayType(arrayType, indirections));
-  if (auto *vectorType = dyn_cast<VectorType>(unwrappedType))
+  if (auto* vectorType = dyn_cast<VectorType>(unwrappedType))
     return std::shared_ptr<TransparentType>(new TransparentArrayType(vectorType, indirections));
   return std::shared_ptr<TransparentType>(new TransparentType(unwrappedType, indirections));
 }
 
-std::shared_ptr<TransparentType> TransparentTypeFactory::create(const json &j) {
+std::shared_ptr<TransparentType> TransparentTypeFactory::create(const json& j) {
   std::shared_ptr<TransparentType> type;
   if (j["kind"] == "Struct")
     type = std::shared_ptr<TransparentType>(new TransparentStructType());
@@ -45,7 +44,7 @@ std::shared_ptr<TransparentType> TransparentType::getPointedType() const {
   return pointedType;
 }
 
-int TransparentType::compareTransparency(const TransparentType &other) const {
+int TransparentType::compareTransparency(const TransparentType& other) const {
   if (*this == other)
     return 0;
 
@@ -71,7 +70,7 @@ Type* TransparentType::toLLVMType() const {
   return type;
 }
 
-bool TransparentType::operator==(const TransparentType &other) const {
+bool TransparentType::operator==(const TransparentType& other) const {
   return getKind() == other.getKind() && unwrappedType == other.unwrappedType && indirections == other.indirections;
 }
 
@@ -94,7 +93,7 @@ json TransparentType::serialize() const {
   return j;
 }
 
-void TransparentType::deserialize(const json &j) {
+void TransparentType::deserialize(const json& j) {
   unwrappedType = TaffoInfo::getInstance().getType(j["unwrappedType"]);
   indirections = j["indirections"];
   assert(unwrappedType != nullptr && "Unwrapped type not found");
@@ -114,32 +113,32 @@ bool TransparentArrayType::isOpaquePointer() const {
   return elementType->isOpaquePointer();
 }
 
-int TransparentArrayType::compareTransparency(const TransparentType &other) const {
+int TransparentArrayType::compareTransparency(const TransparentType& other) const {
   if (!isa<TransparentArrayType>(other)) {
     assert(other.isOpaquePointer());
     return 1;
   }
-  const auto &otherArray = cast<TransparentArrayType>(other);
+  const auto& otherArray = cast<TransparentArrayType>(other);
   int cmp = TransparentType::compareTransparency(other);
   if (cmp != 0)
     return cmp;
-  return  elementType->compareTransparency(*otherArray.elementType);
+  return elementType->compareTransparency(*otherArray.elementType);
 }
 
 llvm::SmallPtrSet<llvm::Type*, 4> TransparentArrayType::getContainedTypes() const {
   llvm::SmallPtrSet<llvm::Type*, 4> containedTypes = TransparentType::getContainedTypes();
   llvm::SmallPtrSet<llvm::Type*, 4> elementContaineTypes = getArrayElementType()->getContainedTypes();
-  containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());   
+  containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());
   return containedTypes;
 }
 
-bool TransparentArrayType::operator==(const TransparentType &other) const {
+bool TransparentArrayType::operator==(const TransparentType& other) const {
   if (this == &other)
     return true;
   if (getKind() != other.getKind())
     return false;
 
-  const auto &otherArray = cast<TransparentArrayType>(other);
+  const auto& otherArray = cast<TransparentArrayType>(other);
   if (!TransparentType::operator==(other))
     return false;
 
@@ -170,7 +169,7 @@ json TransparentArrayType::serialize() const {
   return j;
 }
 
-void TransparentArrayType::deserialize(const json &j) {
+void TransparentArrayType::deserialize(const json& j) {
   TransparentType::deserialize(j);
   elementType = TransparentTypeFactory::create(j["elementType"]);
 }
@@ -178,25 +177,25 @@ void TransparentArrayType::deserialize(const json &j) {
 bool TransparentStructType::isOpaquePointer() const {
   if (TransparentType::isOpaquePointer())
     return true;
-  for (const std::shared_ptr<TransparentType> &field : fieldTypes)
+  for (const std::shared_ptr<TransparentType>& field : fieldTypes)
     if (!field || field->isOpaquePointer())
       return true;
   return false;
 }
 
-bool TransparentStructType::containsFloatingPointType() const  {
-  for (const std::shared_ptr<TransparentType> &fieldType : *this)
-    if(fieldType->containsFloatingPointType())
+bool TransparentStructType::containsFloatingPointType() const {
+  for (const std::shared_ptr<TransparentType>& fieldType : *this)
+    if (fieldType->containsFloatingPointType())
       return true;
   return false;
 }
 
-int TransparentStructType::compareTransparency(const TransparentType &other) const {
+int TransparentStructType::compareTransparency(const TransparentType& other) const {
   if (!isa<TransparentStructType>(other)) {
     assert(other.isOpaquePointer());
     return 1;
   }
-  const auto &otherStruct = cast<TransparentStructType>(other);
+  const auto& otherStruct = cast<TransparentStructType>(other);
   assert(getNumFieldTypes() == otherStruct.getNumFieldTypes());
 
   int baseCmp = TransparentType::compareTransparency(other);
@@ -218,20 +217,20 @@ int TransparentStructType::compareTransparency(const TransparentType &other) con
 
 llvm::SmallPtrSet<llvm::Type*, 4> TransparentStructType::getContainedTypes() const {
   llvm::SmallPtrSet<llvm::Type*, 4> containedTypes = TransparentType::getContainedTypes();
-  for (auto &field : *this) {
+  for (auto& field : *this) {
     llvm::SmallPtrSet<llvm::Type*, 4> elementContaineTypes = field->getContainedTypes();
-    containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());   
+    containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());
   }
   return containedTypes;
 }
 
-bool TransparentStructType::operator==(const TransparentType &other) const {
+bool TransparentStructType::operator==(const TransparentType& other) const {
   if (this == &other)
     return true;
   if (getKind() != other.getKind())
     return false;
 
-  auto &otherStructType = cast<TransparentStructType>(other);
+  auto& otherStructType = cast<TransparentStructType>(other);
   if (!TransparentType::operator==(other))
     return false;
   if (fieldTypes.size() != otherStructType.fieldTypes.size())
@@ -251,8 +250,9 @@ std::shared_ptr<TransparentType> TransparentStructType::clone() const {
 }
 
 std::string TransparentStructType::toString() const {
-  if (!unwrappedType || std::ranges::any_of(fieldTypes,
-    [](const std::shared_ptr<TransparentType> &field) -> bool { return field != nullptr; }))
+  if (!unwrappedType || std::ranges::any_of(fieldTypes, [](const std::shared_ptr<TransparentType>& field) -> bool {
+        return field != nullptr;
+      }))
     return "InvalidType";
 
   std::string typeString = taffo::toString(unwrappedType);
@@ -260,7 +260,7 @@ std::string TransparentStructType::toString() const {
   ss << typeString.substr(0, typeString.find('{') + 1) << " ";
 
   bool first = true;
-  for (const auto &fieldType : fieldTypes) {
+  for (const auto& fieldType : fieldTypes) {
     if (!first)
       ss << ", ";
     else
@@ -276,14 +276,14 @@ json TransparentStructType::serialize() const {
   json j = TransparentType::serialize();
   j["kind"] = "Struct";
   j["fieldTypes"] = json::array();
-  for (const auto &field : fieldTypes)
+  for (const auto& field : fieldTypes)
     j["fieldTypes"].push_back(field ? field->serialize() : nullptr);
   return j;
 }
 
-void TransparentStructType::deserialize(const json &j) {
+void TransparentStructType::deserialize(const json& j) {
   TransparentType::deserialize(j);
   fieldTypes.clear();
-  for (const auto &f : j["fieldTypes"])
+  for (const auto& f : j["fieldTypes"])
     fieldTypes.push_back(TransparentTypeFactory::create(f));
 }

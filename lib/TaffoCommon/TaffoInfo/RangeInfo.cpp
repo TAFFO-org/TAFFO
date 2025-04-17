@@ -16,7 +16,7 @@ json Range::serialize() const {
   return j;
 }
 
-void Range::deserialize(const json &j) {
+void Range::deserialize(const json& j) {
   min = j["Min"].get<double>();
   max = j["Max"].get<double>();
 }

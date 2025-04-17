@@ -42,18 +42,18 @@ namespace miosix {
 
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB)
-const unsigned int MAIN_STACK_SIZE=2048;
+const unsigned int MAIN_STACK_SIZE = 2048;
 
 /// Serial port
-const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
-const bool defaultSerialFlowctrl=false;
+const unsigned int defaultSerial = 1;
+const unsigned int defaultSerialSpeed = 19200;
+const bool defaultSerialFlowctrl = false;
 #define SERIAL_1_DMA
-//#define SERIAL_2_DMA //Serial 1 is not used, so not enabling DMA
-//#define SERIAL_3_DMA //Serial 1 is not used, so not enabling DMA
+// #define SERIAL_2_DMA //Serial 1 is not used, so not enabling DMA
+// #define SERIAL_3_DMA //Serial 1 is not used, so not enabling DMA
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

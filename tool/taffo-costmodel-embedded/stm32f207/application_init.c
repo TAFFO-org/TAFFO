@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : application_init.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : application_init.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software component is licensed by ST under BSD 3-Clause license,
+ * the "License"; You may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at:
+ *                        opensource.org/licenses/BSD-3-Clause
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "application_init.h"
@@ -71,11 +71,10 @@ static void MX_USART3_UART_Init(void);
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int application_init(void)
-{
+ * @brief  The application entry point.
+ * @retval int
+ */
+int application_init(void) {
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -98,9 +97,9 @@ int application_init(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  //MX_FSMC_Init();
-  //MX_RTC_Init();
-  //MX_SDIO_SD_Init();
+  // MX_FSMC_Init();
+  // MX_RTC_Init();
+  // MX_SDIO_SD_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
@@ -109,29 +108,27 @@ int application_init(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   main();
-  while (1)
-  {
+  while (1) {
     /* USER CODE END WHILE */
-		HAL_Delay(1000);
+    HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
+   * in the RCC_OscInitTypeDef structure.
+   */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
@@ -142,38 +139,30 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
   RCC_OscInitStruct.PLL.PLLQ = 8;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
     Error_Handler();
-  }
   /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+   */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
-  {
     Error_Handler();
-  }
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
   PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-  {
     Error_Handler();
-  }
   HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_HSI, RCC_MCODIV_1);
 }
 
 /**
-  * @brief RTC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_RTC_Init(void)
-{
+ * @brief RTC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_RTC_Init(void) {
 
   /* USER CODE BEGIN RTC_Init 0 */
 
@@ -185,7 +174,7 @@ static void MX_RTC_Init(void)
 
   /* USER CODE END RTC_Init 1 */
   /** Initialize RTC Only
-  */
+   */
   hrtc.Instance = RTC;
   hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
   hrtc.Init.AsynchPrediv = 127;
@@ -194,31 +183,25 @@ static void MX_RTC_Init(void)
   hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
   hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
   if (HAL_RTC_Init(&hrtc) != HAL_OK)
-  {
     Error_Handler();
-  }
   /** Enable the RTC Tamper
-  */
+   */
   sTamper.Tamper = RTC_TAMPER_1;
   sTamper.PinSelection = RTC_TAMPERPIN_DEFAULT;
   sTamper.Trigger = RTC_TAMPERTRIGGER_RISINGEDGE;
   if (HAL_RTCEx_SetTamper(&hrtc, &sTamper) != HAL_OK)
-  {
     Error_Handler();
-  }
   /* USER CODE BEGIN RTC_Init 2 */
 
   /* USER CODE END RTC_Init 2 */
-
 }
 
 /**
-  * @brief SDIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SDIO_SD_Init(void)
-{
+ * @brief SDIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_SDIO_SD_Init(void) {
 
   /* USER CODE BEGIN SDIO_Init 0 */
 
@@ -235,22 +218,18 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
   hsd.Init.ClockDiv = 0;
   if (HAL_SD_Init(&hsd) != HAL_OK)
-  {
     Error_Handler();
-  }
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */
-
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
+ * @brief USART3 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART3_UART_Init(void) {
 
   /* USER CODE BEGIN USART3_Init 0 */
 
@@ -268,22 +247,18 @@ static void MX_USART3_UART_Init(void)
   huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart3.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
     Error_Handler();
-  }
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
-
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_GPIO_Init(void) {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
@@ -298,13 +273,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOG, SmartCard_CMDVCC_Pin|LED2_Pin|LED1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOG, SmartCard_CMDVCC_Pin | LED2_Pin | LED1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOH, SmartCard_3_5V_Pin|OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOH, SmartCard_3_5V_Pin | OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
@@ -322,8 +297,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : ULPI_D7_Pin ULPI_D5_Pin ULPI_D6_Pin ULPI_D2_Pin
                            ULPI_D1_Pin ULPI_D3_Pin ULPI_D4_Pin */
-  GPIO_InitStruct.Pin = ULPI_D7_Pin|ULPI_D5_Pin|ULPI_D6_Pin|ULPI_D2_Pin
-                          |ULPI_D1_Pin|ULPI_D3_Pin|ULPI_D4_Pin;
+  GPIO_InitStruct.Pin = ULPI_D7_Pin | ULPI_D5_Pin | ULPI_D6_Pin | ULPI_D2_Pin | ULPI_D1_Pin | ULPI_D3_Pin | ULPI_D4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -331,7 +305,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MII_TXD1_Pin MII_TXD0_Pin MII_TX_EN_Pin */
-  GPIO_InitStruct.Pin = MII_TXD1_Pin|MII_TXD0_Pin|MII_TX_EN_Pin;
+  GPIO_InitStruct.Pin = MII_TXD1_Pin | MII_TXD0_Pin | MII_TX_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -339,7 +313,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /*Configure GPIO pins : I2C1_SDA_Pin I2C1_SCL_Pin */
-  GPIO_InitStruct.Pin = I2C1_SDA_Pin|I2C1_SCL_Pin;
+  GPIO_InitStruct.Pin = I2C1_SDA_Pin | I2C1_SCL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -353,14 +327,14 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(User_Button__Button_B4__GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SmartCard_CMDVCC_Pin LED2_Pin LED1_Pin */
-  GPIO_InitStruct.Pin = SmartCard_CMDVCC_Pin|LED2_Pin|LED1_Pin;
+  GPIO_InitStruct.Pin = SmartCard_CMDVCC_Pin | LED2_Pin | LED1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /*Configure GPIO pins : USB_FS_DP_Pin USB_FS_DM_Pin USB_FS_ID_Pin */
-  GPIO_InitStruct.Pin = USB_FS_DP_Pin|USB_FS_DM_Pin|USB_FS_ID_Pin;
+  GPIO_InitStruct.Pin = USB_FS_DP_Pin | USB_FS_DM_Pin | USB_FS_ID_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -368,7 +342,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : DCMI_D7_Pin DCMI_D6_Pin DCMI_VSYNC_Pin DCMI_D5_Pin */
-  GPIO_InitStruct.Pin = DCMI_D7_Pin|DCMI_D6_Pin|DCMI_VSYNC_Pin|DCMI_D5_Pin;
+  GPIO_InitStruct.Pin = DCMI_D7_Pin | DCMI_D6_Pin | DCMI_VSYNC_Pin | DCMI_D5_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -376,7 +350,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 
   /*Configure GPIO pins : I2S_SD_Pin I2S_SCLK_Pin I2S_WS_Pin */
-  GPIO_InitStruct.Pin = I2S_SD_Pin|I2S_SCLK_Pin|I2S_WS_Pin;
+  GPIO_InitStruct.Pin = I2S_SD_Pin | I2S_SCLK_Pin | I2S_WS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -397,7 +371,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LED3_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SmartCard_3_5V_Pin OTG_FS_PowerSwitchOn_Pin */
-  GPIO_InitStruct.Pin = SmartCard_3_5V_Pin|OTG_FS_PowerSwitchOn_Pin;
+  GPIO_InitStruct.Pin = SmartCard_3_5V_Pin | OTG_FS_PowerSwitchOn_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -427,8 +401,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : DCMI_D4_Pin DCMI_D3_Pin DCMI_D2_Pin DCMI_D1_Pin
                            DCMI_HSYNC_Pin DCMI_D0_Pin */
-  GPIO_InitStruct.Pin = DCMI_D4_Pin|DCMI_D3_Pin|DCMI_D2_Pin|DCMI_D1_Pin
-                          |DCMI_HSYNC_Pin|DCMI_D0_Pin;
+  GPIO_InitStruct.Pin = DCMI_D4_Pin | DCMI_D3_Pin | DCMI_D2_Pin | DCMI_D1_Pin | DCMI_HSYNC_Pin | DCMI_D0_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -442,7 +415,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(VBUS_FS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MII_CRS_Pin MII_COL_Pin MII_RXD2_Pin MII_RXD3_Pin */
-  GPIO_InitStruct.Pin = MII_CRS_Pin|MII_COL_Pin|MII_RXD2_Pin|MII_RXD3_Pin;
+  GPIO_InitStruct.Pin = MII_CRS_Pin | MII_COL_Pin | MII_RXD2_Pin | MII_RXD3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -502,7 +475,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(SmartCard_OFF_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PF10 PF9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_9;
+  GPIO_InitStruct.Pin = GPIO_PIN_10 | GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
@@ -517,8 +490,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : MII_MDC_Pin MII_TXD2_Pin MII_TX_CLK_Pin MII_RXD0_Pin
                            MII_RXD1_Pin */
-  GPIO_InitStruct.Pin = MII_MDC_Pin|MII_TXD2_Pin|MII_TX_CLK_Pin|MII_RXD0_Pin
-                          |MII_RXD1_Pin;
+  GPIO_InitStruct.Pin = MII_MDC_Pin | MII_TXD2_Pin | MII_TX_CLK_Pin | MII_RXD0_Pin | MII_RXD1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -532,7 +504,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(SW1_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MII_RX_CLK_RMII_REF_CLK_Pin MII_MDIO_Pin MII_RX_DV_RMII_CRSDV_Pin */
-  GPIO_InitStruct.Pin = MII_RX_CLK_RMII_REF_CLK_Pin|MII_MDIO_Pin|MII_RX_DV_RMII_CRSDV_Pin;
+  GPIO_InitStruct.Pin = MII_RX_CLK_RMII_REF_CLK_Pin | MII_MDIO_Pin | MII_RX_DV_RMII_CRSDV_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -554,7 +526,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(DCMI_PIXCK_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ULPI_CLK_Pin ULPI_D0_Pin */
-  GPIO_InitStruct.Pin = ULPI_CLK_Pin|ULPI_D0_Pin;
+  GPIO_InitStruct.Pin = ULPI_CLK_Pin | ULPI_D0_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -568,16 +540,14 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(OTG_FS_OverCurrent_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MII_INT_Pin OneNAND_INT_Pin */
-  GPIO_InitStruct.Pin = MII_INT_Pin|OneNAND_INT_Pin;
+  GPIO_InitStruct.Pin = MII_INT_Pin | OneNAND_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
 }
 
 /* FSMC initialization function */
-static void MX_FSMC_Init(void)
-{
+static void MX_FSMC_Init(void) {
 
   /* USER CODE BEGIN FSMC_Init 0 */
 
@@ -590,7 +560,7 @@ static void MX_FSMC_Init(void)
   /* USER CODE END FSMC_Init 1 */
 
   /** Perform the NOR1 memory initialization sequence
-  */
+   */
   hnor1.Instance = FSMC_NORSRAM_DEVICE;
   hnor1.Extended = FSMC_NORSRAM_EXTENDED_DEVICE;
   /* hnor1.Init */
@@ -618,12 +588,10 @@ static void MX_FSMC_Init(void)
   /* ExtTiming */
 
   if (HAL_NOR_Init(&hnor1, &Timing, NULL) != HAL_OK)
-  {
-    Error_Handler( );
-  }
+    Error_Handler();
 
   /** Perform the SRAM2 memory initialization sequence
-  */
+   */
   hsram2.Instance = FSMC_NORSRAM_DEVICE;
   hsram2.Extended = FSMC_NORSRAM_EXTENDED_DEVICE;
   /* hsram2.Init */
@@ -651,12 +619,10 @@ static void MX_FSMC_Init(void)
   /* ExtTiming */
 
   if (HAL_SRAM_Init(&hsram2, &Timing, NULL) != HAL_OK)
-  {
-    Error_Handler( );
-  }
+    Error_Handler();
 
   /** Perform the SRAM3 memory initialization sequence
-  */
+   */
   hsram3.Instance = FSMC_NORSRAM_DEVICE;
   hsram3.Extended = FSMC_NORSRAM_EXTENDED_DEVICE;
   /* hsram3.Init */
@@ -684,9 +650,7 @@ static void MX_FSMC_Init(void)
   /* ExtTiming */
 
   if (HAL_SRAM_Init(&hsram3, &Timing, NULL) != HAL_OK)
-  {
-    Error_Handler( );
-  }
+    Error_Handler();
 
   /* USER CODE BEGIN FSMC_Init 2 */
 
@@ -698,30 +662,26 @@ static void MX_FSMC_Init(void)
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1)
-  {
-  }
+  while (1) {}
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t *file, uint32_t line)
-{
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t* file, uint32_t line) {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */

@@ -1,7 +1,6 @@
 #include "MetricBase.h"
-
-#include "PtrCasts.hpp"
 #include "Optimizer.h"
+#include "PtrCasts.hpp"
 
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Intrinsics.h>
@@ -18,48 +17,33 @@ using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-bool MetricBase::valueHasInfo(Value *value) { return opt->valueHasInfo(value); }
+bool MetricBase::valueHasInfo(Value* value) { return opt->valueHasInfo(value); }
 
-Model &MetricBase::getModel() { return opt->model; }
+Model& MetricBase::getModel() { return opt->model; }
 
-std::unordered_map<std::string, Function *> &
-MetricBase::getFunctions_still_to_visit()
-{
+std::unordered_map<std::string, Function*>& MetricBase::getFunctions_still_to_visit() {
   return opt->functions_still_to_visit;
 }
 
-std::vector<Function *> &MetricBase::getCall_stack() { return opt->call_stack; }
+std::vector<Function*>& MetricBase::getCall_stack() { return opt->call_stack; }
 
-DenseMap<Value *, std::shared_ptr<OptimizerInfo>> &
-MetricBase::getValueToVariableName()
-{
+DenseMap<Value*, std::shared_ptr<OptimizerInfo>>& MetricBase::getValueToVariableName() {
   return opt->valueToVariableName;
 }
 
-std::stack<shared_ptr<OptimizerInfo>> &MetricBase::getRetStack()
-{
-  return opt->retStack;
-}
+std::stack<shared_ptr<OptimizerInfo>>& MetricBase::getRetStack() { return opt->retStack; }
 
 void MetricBase::addDisabledSkipped() { opt->DisabledSkipped++; }
 
-shared_ptr<OptimizerInfo> MetricBase::getInfoOfValue(Value *value)
-{
-  return opt->getInfoOfValue(value);
-}
+shared_ptr<OptimizerInfo> MetricBase::getInfoOfValue(Value* value) { return opt->getInfoOfValue(value); }
 
-DataTypeAllocationPass *MetricBase::getTuner() { return opt->tuner; }
-PhiWatcher &MetricBase::getPhiWatcher() { return opt->phiWatcher; }
-std::unordered_map<std::string, Function *> &MetricBase::getKnown_functions()
-{
-  return opt->known_functions;
-}
-MemWatcher &MetricBase::getMemWatcher() { return opt->memWatcher; }
-CPUCosts &MetricBase::getCpuCosts() { return opt->cpuCosts; }
+DataTypeAllocationPass* MetricBase::getTuner() { return opt->tuner; }
+PhiWatcher& MetricBase::getPhiWatcher() { return opt->phiWatcher; }
+std::unordered_map<std::string, Function*>& MetricBase::getKnown_functions() { return opt->known_functions; }
+MemWatcher& MetricBase::getMemWatcher() { return opt->memWatcher; }
+CPUCosts& MetricBase::getCpuCosts() { return opt->cpuCosts; }
 
-
-shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
-{
+shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant* constant) {
   // Constant variable should, in general, not be saved anywhere.
   // In fact, the same constant may be used in different ways, but by the fact that
   // it is a constant, it may be modified in the final code
@@ -69,7 +53,8 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
   if (dyn_cast_or_null<GlobalObject>(constant)) {
     if (getTuner()->hasTunerInfo(constant)) {
       llvm_unreachable("This should already have been handled!");
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "Trying to process a non float global...\n";);
       return nullptr;
     }
@@ -101,7 +86,8 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
 
       // ENOB should not be considered for constant.... It is a constant and will be converted as best as possible
       // WE DO NOT SAVE CONSTANTS INFO!
-      auto info = allocateNewVariableForValue(constantFP, make_shared<FixedPointInfo>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
+      auto info = allocateNewVariableForValue(
+        constantFP, make_shared<FixedPointInfo>(fpInfo), make_shared<Range>(rangeInfo), nullptr, false, "", false);
       info->setReferToConstant(true);
       return info;
     }
@@ -113,13 +99,11 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
   }
 
   if (auto constantExpr = dyn_cast_or_null<ConstantExpr>(constant)) {
-    if (isa<GEPOperator>(constantExpr)) {
+    if (isa<GEPOperator>(constantExpr))
       return handleGEPConstant(constantExpr);
-    }
     LLVM_DEBUG(dbgs() << "Unknown constant expr!\n";);
     return nullptr;
   }
-
 
   LLVM_DEBUG(dbgs() << "Cannot handle ";);
   LLVM_DEBUG(constant->print(dbgs()););
@@ -128,33 +112,28 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant *constant)
   llvm_unreachable("Constant not handled!");
 }
 
-
-shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp_i)
-{
+shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr* cexp_i) {
   // The first operand is the beautiful object
-  Value *operand = cexp_i->getOperand(0U);
+  Value* operand = cexp_i->getOperand(0U);
 
   std::vector<unsigned> offset;
 
   // We compute all the offsets that will be used in our "data structure" to navigate it, to reach the correct range
   if (extractGEPOffset(operand->getType(),
-                       iterator_range<User::const_op_iterator>(cexp_i->op_begin() + 1,
-                                                               cexp_i->op_end()),
+                       iterator_range<User::const_op_iterator>(cexp_i->op_begin() + 1, cexp_i->op_end()),
                        offset)) {
 
-
     LLVM_DEBUG(dbgs() << "Exctracted offset: [";);
-    for (unsigned int i = 0; i < offset.size(); i++) {
+    for (unsigned int i = 0; i < offset.size(); i++)
       LLVM_DEBUG(dbgs() << offset[i] << ", ";);
-    }
     LLVM_DEBUG(dbgs() << "]\n";);
-    // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
+    // When we load an address from a "thing" we need to store a reference to it in order to successfully update the
+    // error
     auto optInfo_t = dynamic_ptr_cast<OptimizerPointerInfo>(getInfoOfValue(operand));
     if (!optInfo_t) {
       LLVM_DEBUG(dbgs() << "Probably trying to access a non float element, bailing out.\n";);
       return nullptr;
     }
-
 
     auto optInfo = optInfo_t->getOptInfo();
     if (!optInfo) {
@@ -172,38 +151,32 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr *cexp
       optInfo = structInfo->getField(offset[i]);
     }
 
-
     return make_shared<OptimizerPointerInfo>(optInfo);
   }
   return nullptr;
 }
 
+void emitError(string stringhina) { LLVM_DEBUG(dbgs() << "[ERROR] " << stringhina << "\n"); }
 
-void emitError(string stringhina)
-{
-  LLVM_DEBUG(dbgs() << "[ERROR] " << stringhina << "\n");
-}
-
-
-shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_ptr<StructInfo> pInfo, string name)
-{
+shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value* glob, shared_ptr<StructInfo> pInfo, string name) {
   shared_ptr<OptimizerStructInfo> optInfo = make_shared<OptimizerStructInfo>(pInfo->getNumFields());
 
   int i = 0;
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {
     if (auto structInfo = dynamic_ptr_cast<StructInfo>(*it)) {
       optInfo->setField(i, loadStructInfo(glob, structInfo, (name + "_" + to_string(i))));
-    } else if (auto ii = dyn_cast_or_null<ScalarInfo>(it->get())) {
+    }
+    else if (auto ii = dyn_cast_or_null<ScalarInfo>(it->get())) {
       auto fptype = dynamic_ptr_cast<FixedPointInfo>(ii->numericType);
       if (!fptype) {
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
-
-      } else {
-        auto info = allocateNewVariableForValue(glob, fptype, ii->range, ii->error, false,
-                                                name + "_" + to_string(i));
+      }
+      else {
+        auto info = allocateNewVariableForValue(glob, fptype, ii->range, ii->error, false, name + "_" + to_string(i));
         optInfo->setField(i, info);
       }
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "no info for struct member " << i << " of " << *glob);
     }
     i++;
@@ -212,13 +185,11 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value *glob, shared_p
   return optInfo;
 }
 
-
-void MetricBase::handleGEPInstr(Instruction *gep, shared_ptr<TunerInfo> valueInfo)
-{
-  const GetElementPtrInst *gep_i = dyn_cast<GetElementPtrInst>(gep);
+void MetricBase::handleGEPInstr(Instruction* gep, shared_ptr<TunerInfo> valueInfo) {
+  const GetElementPtrInst* gep_i = dyn_cast<GetElementPtrInst>(gep);
   LLVM_DEBUG(dbgs() << "Handling GEP. \n";);
 
-  Value *operand = gep_i->getOperand(0);
+  Value* operand = gep_i->getOperand(0);
   LLVM_DEBUG(dbgs() << "Operand: ";);
   LLVM_DEBUG(operand->print(dbgs()););
   LLVM_DEBUG(dbgs() << "\n";);
@@ -228,30 +199,32 @@ void MetricBase::handleGEPInstr(Instruction *gep, shared_ptr<TunerInfo> valueInf
   std::vector<unsigned> offset;
 
   if (extractGEPOffset(gep_i->getPointerOperandType(),
-                       iterator_range<User::const_op_iterator>(gep_i->idx_begin(),
-                                                               gep_i->idx_end()),
+                       iterator_range<User::const_op_iterator>(gep_i->idx_begin(), gep_i->idx_end()),
                        offset)) {
     LLVM_DEBUG(dbgs() << "Extracted offset: [";);
-    for (unsigned int i = 0; i < offset.size(); i++) {
+    for (unsigned int i = 0; i < offset.size(); i++)
       LLVM_DEBUG(dbgs() << offset[i] << ", ";);
-    }
     LLVM_DEBUG(dbgs() << "]\n";);
-    // When we load an address from a "thing" we need to store a reference to it in order to successfully update the error
+    // When we load an address from a "thing" we need to store a reference to it in order to successfully update the
+    // error
     auto baseinfo = getInfoOfValue(operand);
     if (!baseinfo) {
-      LLVM_DEBUG(dbgs() << "Operand pointer info missing; probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(
+        dbgs() << "Operand pointer info missing; probably trying to access a non float element, bailing out.\n";);
       return;
     }
     auto optInfo_t = dynamic_ptr_cast<OptimizerPointerInfo>(baseinfo);
     if (!optInfo_t) {
-      LLVM_DEBUG(dbgs() << "Operand pointer info has the wrong type!! Probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(dbgs() << "Operand pointer info has the wrong type!! Probably trying to access a non float element, "
+                           "bailing out.\n";);
       LLVM_DEBUG(dbgs() << "wrong info: " << baseinfo->toString() << "\n");
       return;
     }
 
     auto optInfo = optInfo_t->getOptInfo();
     if (!optInfo) {
-      LLVM_DEBUG(dbgs() << "Operand pointed value info null; probably trying to access a non float element, bailing out.\n";);
+      LLVM_DEBUG(
+        dbgs() << "Operand pointed value info null; probably trying to access a non float element, bailing out.\n";);
       return;
     }
 
@@ -259,13 +232,14 @@ void MetricBase::handleGEPInstr(Instruction *gep, shared_ptr<TunerInfo> valueInf
     for (unsigned int i = 0; i < offset.size(); i++) {
       auto structInfo = dynamic_ptr_cast<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
-        LLVM_DEBUG(dbgs() << "Pointer value info kind is not struct, probably trying to access a non float element, bailing out.\n";);
+        LLVM_DEBUG(
+          dbgs()
+            << "Pointer value info kind is not struct, probably trying to access a non float element, bailing out.\n";);
         return;
       }
 
       optInfo = structInfo->getField(offset[i]);
     }
-
 
     LLVM_DEBUG(dbgs() << "Infos associated: " << optInfo->toString() << "\n";);
     saveInfoForValue(gep, make_shared<OptimizerPointerInfo>(optInfo));
@@ -274,23 +248,23 @@ void MetricBase::handleGEPInstr(Instruction *gep, shared_ptr<TunerInfo> valueInf
   emitError("Cannot extract GEPOffset!");
 }
 
-bool MetricBase::extractGEPOffset(const Type *source_element_type,
+bool MetricBase::extractGEPOffset(const Type* source_element_type,
                                   const iterator_range<User::const_op_iterator> indices,
-                                  std::vector<unsigned> &offset)
-{
+                                  std::vector<unsigned>& offset) {
   assert(source_element_type != nullptr);
   LLVM_DEBUG((dbgs() << "extractGEPOffset() BEGIN\n"););
 
   for (auto idx_it = indices.begin(); idx_it != indices.end(); ++idx_it) {
-    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type) || isa<PointerType>(source_element_type)) {
+    if (isa<ArrayType>(source_element_type) || isa<VectorType>(source_element_type)
+        || isa<PointerType>(source_element_type)) {
       // This is needed to skip the array element in array of structures
       // In facts, we treats arrays as "scalar" things, so we just do not want to deal with them
       source_element_type = source_element_type->getContainedType(0);
       LLVM_DEBUG(dbgs() << "skipping array/vector/pointer...\n");
       continue;
     }
-  
-    const ConstantInt *int_i = dyn_cast<ConstantInt>(*idx_it);
+
+    const ConstantInt* int_i = dyn_cast<ConstantInt>(*idx_it);
     if (int_i) {
       int n = static_cast<int>(int_i->getSExtValue());
 
@@ -298,8 +272,10 @@ bool MetricBase::extractGEPOffset(const Type *source_element_type,
       offset.push_back(n);
       /*source_element_type =
               cast<StructType>(source_element_type)->getTypeAtIndex(n);*/
-      LLVM_DEBUG(dbgs() << "contained type " << n << ": " << *source_element_type << " (ID=" << source_element_type->getTypeID() << ")\n");
-    } else {
+      LLVM_DEBUG(dbgs() << "contained type " << n << ": " << *source_element_type
+                        << " (ID=" << source_element_type->getTypeID() << ")\n");
+    }
+    else {
       // We can skip only if is a sequential i.e. we are accessing an index of an array
       emitError("Index of GEP not constant");
       return false;
@@ -309,13 +285,11 @@ bool MetricBase::extractGEPOffset(const Type *source_element_type,
   return true;
 }
 
-void MetricBase::handleFCmp(Instruction *instr, shared_ptr<TunerInfo> valueInfo)
-{
+void MetricBase::handleFCmp(Instruction* instr, shared_ptr<TunerInfo> valueInfo) {
   assert(instr->getOpcode() == Instruction::FCmp && "Operand mismatch!");
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
-
 
   auto info1 = getInfoOfValue(op1);
   auto info2 = getInfoOfValue(op2);
@@ -340,29 +314,21 @@ void MetricBase::handleFCmp(Instruction *instr, shared_ptr<TunerInfo> valueInfo)
     }
   }
 
-
   shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
   shared_ptr<OptimizerScalarInfo> varCast2 = allocateNewVariableWithCastCost(op2, instr);
-
 
   // The two variables must only contain the same data type, no floating point value returned.
   opt->insertTypeEqualityConstraint(varCast1, varCast2, true);
 }
 
-void MetricBase::openPhiLoop(PHINode *phiNode, Value *value)
-{
-  getPhiWatcher().openPhiLoop(phiNode, value);
-}
+void MetricBase::openPhiLoop(PHINode* phiNode, Value* value) { getPhiWatcher().openPhiLoop(phiNode, value); }
 
-void MetricBase::openMemLoop(LoadInst *load, Value *value)
-{
-  getMemWatcher().openPhiLoop(load, value);
-}
+void MetricBase::openMemLoop(LoadInst* load, Value* value) { getMemWatcher().openPhiLoop(load, value); }
 
-
-shared_ptr<OptimizerScalarInfo>
-MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEquality, shared_ptr<TunerInfo> valueInfos)
-{
+shared_ptr<OptimizerScalarInfo> MetricBase::handleUnaryOpCommon(Instruction* instr,
+                                                                Value* op1,
+                                                                bool forceFixEquality,
+                                                                shared_ptr<TunerInfo> valueInfos) {
   auto info1 = getInfoOfValue(op1);
 
   if (!info1) {
@@ -385,19 +351,16 @@ MetricBase::handleUnaryOpCommon(Instruction *instr, Value *op1, bool forceFixEqu
   shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
 
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->range,
-                                                                       inputInfo->error);
+  shared_ptr<OptimizerScalarInfo> result =
+    allocateNewVariableForValue(instr, fptype, inputInfo->range, inputInfo->error);
 
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
 
   return result;
 }
 
-
-shared_ptr<OptimizerScalarInfo>
-MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool forceFixEquality,
-                              shared_ptr<TunerInfo> valueInfos)
-{
+shared_ptr<OptimizerScalarInfo> MetricBase::handleBinOpCommon(
+  Instruction* instr, Value* op1, Value* op2, bool forceFixEquality, shared_ptr<TunerInfo> valueInfos) {
   auto info1 = getInfoOfValue(op1);
   auto info2 = getInfoOfValue(op2);
 
@@ -418,14 +381,12 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
     return nullptr;
   }
 
-
   shared_ptr<OptimizerScalarInfo> varCast1 = allocateNewVariableWithCastCost(op1, instr);
   shared_ptr<OptimizerScalarInfo> varCast2 = allocateNewVariableWithCastCost(op2, instr);
 
-
   // Obviously the type should be sufficient to contain the result
-  shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instr, fptype, inputInfo->range,
-                                                                       inputInfo->error);
+  shared_ptr<OptimizerScalarInfo> result =
+    allocateNewVariableForValue(instr, fptype, inputInfo->range, inputInfo->error);
 
   opt->insertTypeEqualityConstraint(varCast1, varCast2, forceFixEquality);
   opt->insertTypeEqualityConstraint(varCast1, result, forceFixEquality);
@@ -433,10 +394,8 @@ MetricBase::handleBinOpCommon(Instruction *instr, Value *op1, Value *op2, bool f
   return result;
 }
 
-
-void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
-  const auto *call_i = dyn_cast<CallBase>(instruction);
+void MetricBase::handleCall(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
+  const auto* call_i = dyn_cast<CallBase>(instruction);
   if (!call_i) {
     llvm_unreachable("Cannot cast a call instruction to CallBase");
     return;
@@ -446,16 +405,14 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valu
   // Therefore this should be added as a cost, not simply ignored
 
   // fetch function name
-  Function *callee = call_i->getCalledFunction();
+  Function* callee = call_i->getCalledFunction();
   if (callee == nullptr) {
     emitError("Indirect calls not supported!");
     return;
   }
 
-
   const std::string calledFunctionName = callee->getName().str();
   LLVM_DEBUG(dbgs() << ("We are calling " + calledFunctionName + "\n"););
-
 
   auto function = getKnown_functions().find(calledFunctionName);
   if (function == getKnown_functions().end()) {
@@ -504,45 +461,46 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valu
     if (instruction->getType()->isFloatingPointTy()) {
       auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
       if (fptype) {
-        LLVM_DEBUG(dbgs() << fptype->toString();
-                   dbgs() << "\n";
-                   dbgs() << "Info: " << inputInfo->toString() << "\n";);
-        shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
-                                                                             inputInfo->range,
-                                                                             inputInfo->error);
+        LLVM_DEBUG(dbgs() << fptype->toString(); dbgs() << "\n"; dbgs() << "Info: " << inputInfo->toString() << "\n";);
+        shared_ptr<OptimizerScalarInfo> result =
+          allocateNewVariableForValue(instruction, fptype, inputInfo->range, inputInfo->error);
         retInfo = result;
         LLVM_DEBUG(dbgs() << "Allocated variable for returns.\n";);
-      } else {
+      }
+      else {
         LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n";);
       }
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "Has metadata but is not a floating point!!!\n";);
     }
-  } else if (auto pInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
+  }
+  else if (auto pInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
     auto info = loadStructInfo(instruction, pInfo, "");
     saveInfoForValue(instruction, info);
     retInfo = info;
     LLVM_DEBUG(dbgs() << "Allocated variable for struct returns (?).\n";);
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "No info available on return value, maybe it is not a floating point returning function.\n";);
   }
 
-
   // in retInfo we now have a variable for the return value of the function. Every return should be casted against it!
-
 
   auto it = getFunctions_still_to_visit().find(calledFunctionName);
   if (it != getFunctions_still_to_visit().end()) {
     // We mark the called function as visited from the global queue, so we will not visit it starting from root.
     getFunctions_still_to_visit().erase(calledFunctionName);
     LLVM_DEBUG(dbgs() << "Function " << calledFunctionName << " marked as visited in global queue.\n";);
-  } else {
-    LLVM_DEBUG(dbgs() << "\n\n==================================================\n";
-               dbgs() << "FUNCTION ALREADY VISITED!\n";
-               dbgs() << "As we have already visited the function we can not visit it again, as it will cause errors.\n";
-               dbgs() << "Probably, some precedent component of TAFFO did not clone this function, therefore this error.\n";
-               dbgs() << "==================================================\n\n";);
-    // Ok it may happen to visit the same function two times. In this case, just reuse the variable. If the function was cloneable, TAFFO would have already done it!
+  }
+  else {
+    LLVM_DEBUG(
+      dbgs() << "\n\n==================================================\n"; dbgs() << "FUNCTION ALREADY VISITED!\n";
+      dbgs() << "As we have already visited the function we can not visit it again, as it will cause errors.\n";
+      dbgs() << "Probably, some precedent component of TAFFO did not clone this function, therefore this error.\n";
+      dbgs() << "==================================================\n\n";);
+    // Ok it may happen to visit the same function two times. In this case, just reuse the variable. If the function was
+    // cloneable, TAFFO would have already done it!
     return;
   }
 
@@ -567,15 +525,13 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valu
   if (function != getKnown_functions().end()) {
     LLVM_DEBUG(dbgs() << ("The function belongs to the current module.\n"););
     // got the Function
-    Function *f = function->second;
+    Function* f = function->second;
 
     // check for recursion
     size_t call_count = 0;
-    for (size_t i = 0; i < getCall_stack().size(); i++) {
-      if (getCall_stack()[i] == f) {
+    for (size_t i = 0; i < getCall_stack().size(); i++)
+      if (getCall_stack()[i] == f)
         call_count++;
-      }
-    }
 
     // WE DO NOT SUPPORT RECURSION!
     if (call_count <= 1) {
@@ -584,18 +540,21 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valu
       LLVM_DEBUG(dbgs() << ("Processing function...\n"););
       opt->processFunction(*f, arg_errors, retInfo);
       LLVM_DEBUG(dbgs() << "Finished processing call " << calledFunctionName << " : ";);
-    } else {
+    }
+    else {
       emitError("Recursion NOT supported!");
       return;
     }
-
-  } else {
+  }
+  else {
     // FIXME: this branch is totally avoided as it is handled before, make the correct corrections
     // the function was not found in current module: it is undeclared
     const auto intrinsicsID = callee->getIntrinsicID();
     if (intrinsicsID == Intrinsic::not_intrinsic) {
-      // TODO: handle case of external function call: element must be in original type form and result is forced to be a double
-    } else {
+      // TODO: handle case of external function call: element must be in original type form and result is forced to be a
+      // double
+    }
+    else {
       switch (intrinsicsID) {
       case Intrinsic::memcpy:
         // handleMemCpyIntrinsics(call_i);
@@ -608,26 +567,22 @@ void MetricBase::handleCall(Instruction *instruction, shared_ptr<TunerInfo> valu
     }
   }
 
-
   return;
 }
 
-
-void MetricBase::handleReturn(Instruction *instr, shared_ptr<TunerInfo> valueInfo)
-{
-  const auto *ret_i = dyn_cast<ReturnInst>(instr);
+void MetricBase::handleReturn(Instruction* instr, shared_ptr<TunerInfo> valueInfo) {
+  const auto* ret_i = dyn_cast<ReturnInst>(instr);
   if (!ret_i) {
     llvm_unreachable("Could not convert Return Instruction to ReturnInstr");
     return;
   }
 
-  Value *ret_val = ret_i->getReturnValue();
+  Value* ret_val = ret_i->getReturnValue();
 
   if (!ret_val) {
     LLVM_DEBUG(dbgs() << "Handling return void, doing nothing.\n";);
     return;
   }
-
 
   // When returning, we must return the same data type used.
   // Therefore we should eventually take into account the conversion cost.
@@ -637,7 +592,6 @@ void MetricBase::handleReturn(Instruction *instr, shared_ptr<TunerInfo> valueInf
     return;
   }
 
-
   auto info = getRetStack().top();
   if (!info) {
     emitError("We wanted to save a result, but on the stack there is not an info available. This maybe an error!");
@@ -645,16 +599,14 @@ void MetricBase::handleReturn(Instruction *instr, shared_ptr<TunerInfo> valueInf
   }
 
   auto infoLinear = dynamic_ptr_cast<OptimizerScalarInfo>(info);
-  if (!infoLinear) {
+  if (!infoLinear)
     llvm_unreachable("Structure return still not handled!");
-  }
 
   auto allocated = allocateNewVariableWithCastCost(ret_val, instr);
   opt->insertTypeEqualityConstraint(infoLinear, allocated, true);
 }
 
-void MetricBase::saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInfo> pointerInfo)
-{
+void MetricBase::saveInfoForPointer(Value* value, shared_ptr<OptimizerPointerInfo> pointerInfo) {
   assert(value && "Value cannot be null!");
   assert(pointerInfo && "Pointer info cannot be nullptr!");
 
@@ -692,29 +644,25 @@ void MetricBase::saveInfoForPointer(Value *value, shared_ptr<OptimizerPointerInf
   }
 
   if (info_old_pointee->getKind() != info_new_pointee->getKind()) {
-    LLVM_DEBUG(dbgs()
-                   << "[WARNING] This pointer will in a point refer to two different variable that may have different data types.\n"
-                      "The results may be unpredictable, you have been warned!\n";);
+    LLVM_DEBUG(dbgs() << "[WARNING] This pointer will in a point refer to two different variable that may have "
+                         "different data types.\n"
+                         "The results may be unpredictable, you have been warned!\n";);
   }
 
   if (!info_old_pointee->operator==(*info_new_pointee)) {
-    LLVM_DEBUG(dbgs()
-                   << "[WARNING] This pointer will in a point refer to two different variable that may have different data types.\n"
-                      "The results may be unpredictable, you have been warned!\n";);
+    LLVM_DEBUG(dbgs() << "[WARNING] This pointer will in a point refer to two different variable that may have "
+                         "different data types.\n"
+                         "The results may be unpredictable, you have been warned!\n";);
   }
-
 
   getValueToVariableName()[value] = pointerInfo;
 }
 
-
-void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
+void MetricBase::handleUnknownFunction(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
 
   assert(instruction && "Instruction is nullptr");
-  const auto *call_i = dyn_cast<CallBase>(instruction);
+  const auto* call_i = dyn_cast<CallBase>(instruction);
   LLVM_DEBUG(dbgs() << "=====> Unknown function handling: " << call_i->getCalledFunction()->getName() << "\n";);
-
 
   assert(call_i && "Cannot cast instruction to call!");
   shared_ptr<OptimizerScalarInfo> retInfo;
@@ -724,25 +672,24 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Tune
       auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
       if (fptype) {
         LLVM_DEBUG(dbgs() << fptype->toString(););
-        shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype,
-                                                                             inputInfo->range,
-                                                                             inputInfo->error,
-                                                                             true,
-                                                                             "",
-                                                                             true,
-                                                                             false);
+        shared_ptr<OptimizerScalarInfo> result =
+          allocateNewVariableForValue(instruction, fptype, inputInfo->range, inputInfo->error, true, "", true, false);
         retInfo = result;
         LLVM_DEBUG(dbgs() << "Correctly handled. New info: " << retInfo->toString() << "\n";);
-      } else {
+      }
+      else {
         LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n";);
       }
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "The call does not return a floating point value.\n";);
     }
-  } else if (auto pInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
+  }
+  else if (auto pInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
     emitError("The function considered returns a struct [?]\n");
     return;
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "No info available on return value, maybe it is not a floating point returning function.\n";);
   }
 
@@ -754,19 +701,21 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Tune
       constraint.push_back(make_pair(retInfo->getDoubleSelectedVariable(), 1.0));
       getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for return value"*/);
       LLVM_DEBUG(dbgs() << "Forced return cast to double.\n";);
-    } else if (instruction->getType()->isFloatTy()) {
+    }
+    else if (instruction->getType()->isFloatTy()) {
       auto constraint = vector<pair<string, double>>();
       constraint.clear();
       constraint.push_back(make_pair(retInfo->getFloatSelectedVariable(), 1.0));
       getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for return value"*/);
       LLVM_DEBUG(dbgs() << "Forced return cast to float.\n";);
-    } else if (instruction->getType()->isFloatingPointTy()) {
+    }
+    else if (instruction->getType()->isFloatingPointTy()) {
       LLVM_DEBUG(dbgs() << "The function returns a floating point type not implemented in the model. Bailing out.\n";);
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "Probably the functions returns a pointer but i do not known what to do!\n";);
     }
   }
-
 
   // Return value handled, now it's time for parameters
   LLVM_DEBUG(dbgs() << ("Arguments:\n"););
@@ -782,7 +731,8 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Tune
       // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
       LLVM_DEBUG(dbgs() << "No info for the argument!\n";);
       continue;
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "Got this info: " << info->toString() << "\n";);
     }
 
@@ -798,21 +748,25 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Tune
         constraint.push_back(make_pair(info2->getFloatSelectedVariable(), 1.0));
         getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for argument value"*/);
         LLVM_DEBUG(dbgs() << "Forcing argument to float type.\n";);
-      } else if (hasDouble && (*arg_it)->getType()->isDoubleTy()) {
+      }
+      else if (hasDouble && (*arg_it)->getType()->isDoubleTy()) {
         auto info2 = allocateNewVariableWithCastCost(arg_it->get(), instruction);
         auto constraint = vector<pair<string, double>>();
         constraint.clear();
         constraint.push_back(make_pair(info2->getDoubleSelectedVariable(), 1.0));
         getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for argument value"*/);
         LLVM_DEBUG(dbgs() << "Forcing argument to double type.\n";);
-      } else if ((*arg_it)->getType()->isFloatingPointTy()) {
+      }
+      else if ((*arg_it)->getType()->isFloatingPointTy()) {
         LLVM_DEBUG(dbgs() << "The function uses a floating point type not implemented in the model. Bailing out.\n";);
-      } else {
+      }
+      else {
         LLVM_DEBUG(dbgs() << "Probably the functions uses a pointer but I do not known what to do!\n";);
       }
-
-    } else {
-      LLVM_DEBUG(dbgs() << "This is a struct passed to an external function but has been optimized by TAFFO. Is this even possible???\n";);
+    }
+    else {
+      LLVM_DEBUG(dbgs() << "This is a struct passed to an external function but has been optimized by TAFFO. Is this "
+                           "even possible???\n";);
     }
 
     LLVM_DEBUG(dbgs() << "\n\n";);
@@ -822,9 +776,7 @@ void MetricBase::handleUnknownFunction(Instruction *instruction, shared_ptr<Tune
   LLVM_DEBUG(dbgs() << "Function should be correctly handled now.\n";);
 }
 
-
-void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
+void MetricBase::handleAlloca(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
   if (!valueInfo) {
     LLVM_DEBUG(dbgs() << "No value info, skipping...\n";);
     return;
@@ -835,8 +787,7 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<TunerInfo> va
     return;
   }
 
-  auto *alloca = dyn_cast<AllocaInst>(instruction);
-
+  auto* alloca = dyn_cast<AllocaInst>(instruction);
 
   if (!alloca->getAllocatedType()->isPointerTy()) {
     if (valueInfo->metadata->getKind() == ValueInfo::K_Scalar) {
@@ -852,10 +803,10 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<TunerInfo> va
         LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
         return;
       }
-      auto info = allocateNewVariableForValue(alloca, fptype, fieldInfo->range, fieldInfo->error,
-                                              false);
+      auto info = allocateNewVariableForValue(alloca, fptype, fieldInfo->range, fieldInfo->error, false);
       saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(info));
-    } else if (valueInfo->metadata->getKind() == ValueInfo::K_Struct) {
+    }
+    else if (valueInfo->metadata->getKind() == ValueInfo::K_Struct) {
       LLVM_DEBUG(dbgs() << " ^ This is a real structure\n";);
 
       auto fieldInfo = dynamic_ptr_cast<StructInfo>(valueInfo->metadata);
@@ -866,12 +817,12 @@ void MetricBase::handleAlloca(Instruction *instruction, shared_ptr<TunerInfo> va
 
       auto optInfo = loadStructInfo(alloca, fieldInfo, "");
       saveInfoForValue(alloca, make_shared<OptimizerPointerInfo>(optInfo));
-
-    } else {
+    }
+    else {
       llvm_unreachable("Unknown metadata!");
     }
-
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << " ^ this is a pointer, skipping as it is unsupported at the moment.\n";);
     return;
   }

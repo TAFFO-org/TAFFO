@@ -7,8 +7,7 @@
 
 #define DEBUG_TYPE "taffo-vra"
 
-namespace taffo
-{
+namespace taffo {
 
 // clang-format off
 #define INTRINSIC_WHITELIST_FUN(BASE_NAME, POINTER) \
@@ -22,7 +21,7 @@ namespace taffo
     INTRINSIC_WHITELIST_FUN(BASE_NAME, POINTER)
 // clang-format on
 
-using map_value_t = std::shared_ptr<Range> (*)(const std::list<std::shared_ptr<Range>> &);
+using map_value_t = std::shared_ptr<Range> (*)(const std::list<std::shared_ptr<Range>>&);
 extern const std::map<const std::string, map_value_t> functionWhiteList;
 }; // namespace taffo
 

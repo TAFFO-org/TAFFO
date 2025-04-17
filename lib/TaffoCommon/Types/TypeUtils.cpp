@@ -1,6 +1,5 @@
-#include "TypeUtils.hpp"
-
 #include "../TaffoInfo/TaffoInfo.hpp"
+#include "TypeUtils.hpp"
 
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
@@ -10,18 +9,17 @@
 using namespace taffo;
 using namespace llvm;
 
-Type *taffo::getUnwrappedType(Value *value) {
+Type* taffo::getUnwrappedType(Value* value) {
   std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return transparentType->getUnwrappedType();
 }
 
-FixedPointInfo taffo::fixedPointTypeFromRange(
-    const Range &rng,
-    FixedPointTypeGenError *outerr,
-    int totalBits,
-    int fracThreshold,
-    int maxTotalBits,
-    int totalBitsIncrement) {
+FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
+                                              FixedPointTypeGenError* outerr,
+                                              int totalBits,
+                                              int fracThreshold,
+                                              int maxTotalBits,
+                                              int totalBitsIncrement) {
   if (outerr)
     *outerr = FixedPointTypeGenError::NoError;
 
@@ -35,7 +33,8 @@ FixedPointInfo taffo::fixedPointTypeFromRange(
   bool isSigned = rng.min < 0;
 
   if (std::isinf(rng.min) || std::isinf(rng.max)) {
-    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains +/-inf. Overflow may occur!\n");
+    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
+                      << " contains +/-inf. Overflow may occur!\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::UnboundedRange;
     return FixedPointInfo(isSigned, totalBits, 0);
@@ -68,13 +67,14 @@ FixedPointInfo taffo::fixedPointTypeFromRange(
      * we have after the fractional dot in the original representation
      * (assumed to be the float rng.Min and rng.Max) */
     maxFracBitsAmt = std::max(0, -exp + nonzerobits);
-  } else {
+  }
+  else {
     maxFracBitsAmt = INT_MAX;
   }
   int fractionalBits = std::min(bits - intBit, maxFracBitsAmt);
 
   // compensate for always zero fractional bits for numbers < 0.5
-  int negIntBitsAmt = std::max(0, (int)std::ceil(-std::log2(max)));
+  int negIntBitsAmt = std::max(0, (int) std::ceil(-std::log2(max)));
 
   while ((fractionalBits - negIntBitsAmt) < fracThreshold && bits < maxTotalBits) {
     bits += totalBitsIncrement;
@@ -83,13 +83,15 @@ FixedPointInfo taffo::fixedPointTypeFromRange(
 
   // Check dimension
   if (fractionalBits < fracThreshold) {
-    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Fractional part is too small!\n");
+    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
+                      << " Fractional part is too small!\n");
     fractionalBits = 0;
     if (intBit > bits) {
       LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Overflow may occur!\n");
       if (outerr)
         *outerr = FixedPointTypeGenError::NotEnoughIntAndFracBits;
-    } else {
+    }
+    else {
       if (outerr)
         *outerr = FixedPointTypeGenError::NotEnoughFracBits;
     }

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "NumericInfo.hpp"
-#include "RangeInfo.hpp"
-#include "Types/TransparentType.hpp"
-#include "SerializationUtils.hpp"
 #include "PtrCasts.hpp"
+#include "RangeInfo.hpp"
+#include "SerializationUtils.hpp"
+#include "Types/TransparentType.hpp"
 
 #include <llvm/IR/Instructions.h>
 
@@ -16,24 +16,26 @@ class TaffoInfo;
 
 class ValueInfoFactory {
 private: // TODO Make all of this private and accessible by TaffoInfo only
+
 public:
   friend class TaffoInfo;
 
-  static std::shared_ptr<ValueInfo> create(llvm::Value *value);
+  static std::shared_ptr<ValueInfo> create(llvm::Value* value);
 
-  static std::shared_ptr<ValueInfo> create(const std::shared_ptr<TransparentType> &type);
+  static std::shared_ptr<ValueInfo> create(const std::shared_ptr<TransparentType>& type);
 
-  static std::shared_ptr<ValueInfo> create(
-    const std::shared_ptr<TransparentType> &type,
-    std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap);
+  static std::shared_ptr<ValueInfo>
+  create(const std::shared_ptr<TransparentType>& type,
+         std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>>& recursionMap);
 };
 
-class InitializerPass; //TODO remove
+class InitializerPass; // TODO remove
 class AnnotationParser;
 
-class ValueInfo : public Serializable, public Printable {
+class ValueInfo : public Serializable,
+                  public Printable {
 public:
-  friend class InitializerPass; //TODO remove
+  friend class InitializerPass; // TODO remove
   friend class AnnotationParser;
 
   enum ValueInfoKind {
@@ -51,14 +53,14 @@ public:
   virtual ValueInfoKind getKind() const = 0;
   virtual bool isConversionEnabled() const = 0;
 
-  template<typename ValueInfoT = ValueInfo>
+  template <typename ValueInfoT = ValueInfo>
   std::shared_ptr<ValueInfoT> clone() const {
     return std::dynamic_ptr_cast<ValueInfoT>(cloneImpl());
   }
 
-  virtual void copyFrom(const ValueInfo &other);
+  virtual void copyFrom(const ValueInfo& other);
   json serialize() const override;
-  void deserialize(const json &j) override;
+  void deserialize(const json& j) override;
 
 protected:
   virtual std::shared_ptr<ValueInfo> cloneImpl() const = 0;
@@ -70,14 +72,14 @@ private:
 
 class ValueInfoWithRange : public ValueInfo {
 public:
-  static bool classof(const ValueInfo *valueInfo) {
+  static bool classof(const ValueInfo* valueInfo) {
     return valueInfo->getKind() == K_Scalar || valueInfo->getKind() == K_Struct;
   }
 };
 
 class ScalarInfo : public ValueInfoWithRange {
 public:
-  static bool classof(const ValueInfo *valueInfo) { return valueInfo->getKind() == K_Scalar; }
+  static bool classof(const ValueInfo* valueInfo) { return valueInfo->getKind() == K_Scalar; }
 
   std::shared_ptr<NumericTypeInfo> numericType;
   std::shared_ptr<Range> range;
@@ -90,19 +92,18 @@ public:
              std::shared_ptr<double> error = nullptr,
              bool conversionEnabled = false,
              bool final = false)
-  : numericType(numericType), range(range), error(error),
-  conversionEnabled(conversionEnabled), final(final) {}
+  : numericType(numericType), range(range), error(error), conversionEnabled(conversionEnabled), final(final) {}
 
   ValueInfoKind getKind() const override { return K_Scalar; }
-  bool isConversionEnabled() const override { return conversionEnabled; };
+  bool isConversionEnabled() const override { return conversionEnabled; }
   bool isFinal() const { return final; }
 
-  ScalarInfo &operator=(const ScalarInfo &other);
+  ScalarInfo& operator=(const ScalarInfo& other);
 
-  void copyFrom(const ValueInfo &other) override;
+  void copyFrom(const ValueInfo& other) override;
   std::string toString() const override;
   json serialize() const override;
-  void deserialize(const json &j) override;
+  void deserialize(const json& j) override;
 
 private:
   std::shared_ptr<ValueInfo> cloneImpl() const override;
@@ -110,7 +111,7 @@ private:
 
 class StructInfo : public ValueInfoWithRange {
 public:
-  static bool classof(const ValueInfo *valueInfo) { return valueInfo->getKind() == K_Struct; }
+  static bool classof(const ValueInfo* valueInfo) { return valueInfo->getKind() == K_Struct; }
 
   StructInfo(unsigned int numFields)
   : Fields(numFields, nullptr) {}
@@ -130,31 +131,31 @@ public:
   ValueInfoKind getKind() const override { return K_Struct; }
   bool isConversionEnabled() const override;
 
-  std::shared_ptr<ValueInfo> resolveFromIndexList(llvm::Type *type, llvm::ArrayRef<unsigned> indices) const;
+  std::shared_ptr<ValueInfo> resolveFromIndexList(llvm::Type* type, llvm::ArrayRef<unsigned> indices) const;
 
-  void copyFrom(const ValueInfo &other) override;
+  void copyFrom(const ValueInfo& other) override;
   std::string toString() const override;
   json serialize() const override;
-  void deserialize(const json &j) override;
+  void deserialize(const json& j) override;
 
 private:
   llvm::SmallVector<std::shared_ptr<ValueInfo>, 4> Fields;
 
-  bool isConversionEnabled(llvm::SmallPtrSetImpl<const StructInfo*> &visited) const;
+  bool isConversionEnabled(llvm::SmallPtrSetImpl<const StructInfo*>& visited) const;
 
   std::shared_ptr<ValueInfo> cloneImpl() const override;
 };
 
 class PointerInfo : public ValueInfo {
 public:
-  static bool classof(const ValueInfo *valueInfo) {
+  static bool classof(const ValueInfo* valueInfo) {
     return valueInfo->getKind() == K_Pointer || valueInfo->getKind() == K_GetElementPointer;
   }
 
-  PointerInfo(const std::shared_ptr<ValueInfo> &pointed)
+  PointerInfo(const std::shared_ptr<ValueInfo>& pointed)
   : pointed(pointed) {}
 
-  void setPointed(const std::shared_ptr<ValueInfo> &p) { pointed = p; }
+  void setPointed(const std::shared_ptr<ValueInfo>& p) { pointed = p; }
   std::shared_ptr<ValueInfo> getPointed() const { return pointed; }
   std::shared_ptr<ValueInfoWithRange> getUnwrappedInfo() const;
 
@@ -163,7 +164,7 @@ public:
 
   std::string toString() const override;
   json serialize() const override;
-  void deserialize(const json &j) override;
+  void deserialize(const json& j) override;
 
 protected:
   std::shared_ptr<ValueInfo> pointed;
@@ -173,12 +174,12 @@ protected:
 
 class GEPInfo : public PointerInfo {
 public:
-  static bool classof(const ValueInfo *valueInfo) { return valueInfo->getKind() == K_GetElementPointer; }
+  static bool classof(const ValueInfo* valueInfo) { return valueInfo->getKind() == K_GetElementPointer; }
 
-  GEPInfo(const std::shared_ptr<ValueInfo> &pointed)
+  GEPInfo(const std::shared_ptr<ValueInfo>& pointed)
   : PointerInfo(pointed) {}
 
-  GEPInfo(const std::shared_ptr<ValueInfo> &pointed, const llvm::ArrayRef<unsigned> offset)
+  GEPInfo(const std::shared_ptr<ValueInfo>& pointed, const llvm::ArrayRef<unsigned> offset)
   : PointerInfo(pointed), offset(offset.begin(), offset.end()) {}
 
   llvm::ArrayRef<unsigned> getOffset() const { return offset; }
@@ -188,7 +189,7 @@ public:
 
   std::string toString() const override;
   json serialize() const override;
-  void deserialize(const json &j) override;
+  void deserialize(const json& j) override;
 
 private:
   llvm::SmallVector<unsigned, 1> offset;
@@ -203,10 +204,10 @@ public:
   bool MayBeWrong;     ///< True if this comparison may be wrong due to propagated errors.
 
   CmpErrorInfo(double MaxTolerance, bool MayBeWrong = true)
-      : MaxTolerance(MaxTolerance), MayBeWrong(MayBeWrong) {}
+  : MaxTolerance(MaxTolerance), MayBeWrong(MayBeWrong) {}
 
   json serialize() const override;
-  void deserialize(const json &j) override;
+  void deserialize(const json& j) override;
 };
 
 } // namespace taffo

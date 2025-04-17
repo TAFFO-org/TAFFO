@@ -1,9 +1,9 @@
-///TAFFO_TEST_ARGS -disable-vra
+/// TAFFO_TEST_ARGS -disable-vra
+#include <inttypes.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
-#include <math.h>
 #ifdef __APPLE__
 #include <mach/mach_time.h>
 #elif _WIN32
@@ -13,7 +13,6 @@
 #elif
 #define NOBENCH
 #endif
-
 
 struct {
 #ifdef __APPLE__
@@ -25,21 +24,17 @@ struct {
 #endif
 } timer_state;
 
-
-void timerStart(void)
-{
+void timerStart(void) {
 #ifdef __APPLE__
   timer_state.stime = mach_absolute_time();
 #elif _WIN32
-  QueryPerformanceCounter((LARGE_INTEGER*)&(timer_state.stime));
+  QueryPerformanceCounter((LARGE_INTEGER*) &(timer_state.stime));
 #elif __linux__
   clock_gettime(CLOCK_MONOTONIC_RAW, &(timer_state.stime));
 #endif
 }
 
-
-uint64_t timerStop(void)
-{
+uint64_t timerStop(void) {
   uint64_t diff;
 
 #ifdef __APPLE__
@@ -54,8 +49,8 @@ uint64_t timerStop(void)
   LONGLONG freq;
   uint64_t tmp1, tmp2;
 
-  QueryPerformanceCounter((LARGE_INTEGER*)&etime);
-  QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+  QueryPerformanceCounter((LARGE_INTEGER*) &etime);
+  QueryPerformanceFrequency((LARGE_INTEGER*) &freq);
   diff = etime - timer_state.stime;
   tmp1 = (diff * 1000000) / freq;
   tmp2 = ((diff * 1000000) % freq) * 1000 / freq;
@@ -73,9 +68,7 @@ uint64_t timerStop(void)
   return diff;
 }
 
-
-uint64_t xorshift64star(void)
-{
+uint64_t xorshift64star(void) {
   static uint64_t x = UINT64_C(1970835257944453882);
   x ^= x >> 12;
   x ^= x << 25;
@@ -83,9 +76,7 @@ uint64_t xorshift64star(void)
   return x * UINT64_C(2685821657736338717);
 }
 
-
-int randomInRange(int a, int b)
-{
+int randomInRange(int a, int b) {
   int d = b - a;
   if (d <= 0)
     return a;
@@ -96,53 +87,46 @@ int randomInRange(int a, int b)
   return n % d + a;
 }
 
-
 #define N 0x40000
 #define PREHEAT 10
 #define TRIES 1000
 
-
-#define gen_perform(op) {                                     \
-  printf("operation: %s\n", #op);                             \
-                                                              \
-  uint64_t samples[TRIES];                                    \
-                                                              \
-  for (int t=0; t<TRIES; t++) {                               \
-    timerStart();                                             \
-    for (int i=0; i<N; i+=2) {                                \
-      buf[i] = buf[i] op buf[i+1];                            \
-    }                                                         \
-    __attribute__((annotate("range -3000 3000"))) float sync = 0.0;   \
-    for (int i=0; i<N; i++)                                   \
-      sync += buf[i];                                         \
-    samples[t] = timerStop();                                 \
-  }                                                           \
-                                                              \
-  uint64_t avg = 0;                                           \
-  for (int t=PREHEAT; t<TRIES; t++) {                         \
-    avg += samples[t];                                        \
-  }                                                           \
-  avg /= TRIES - PREHEAT;                                     \
-  printf("avg time (ns): %" PRIu64 "\n", avg);                \
-}
-
-
-int main(int argc, char *argv[])
-{
-  __attribute__((annotate("range -3000 3000"))) float buf[N*2];
-
-  for (int i=0; i<N; i++) {
-    buf[i] = (float)randomInRange(0, 0x100) / 32768.0;
+#define gen_perform(op)                                               \
+  {                                                                   \
+    printf("operation: %s\n", #op);                                   \
+                                                                      \
+    uint64_t samples[TRIES];                                          \
+                                                                      \
+    for (int t = 0; t < TRIES; t++) {                                 \
+      timerStart();                                                   \
+      for (int i = 0; i < N; i += 2) {                                \
+        buf[i] = buf[i] op buf[i + 1];                                \
+      }                                                               \
+      __attribute__((annotate("range -3000 3000"))) float sync = 0.0; \
+      for (int i = 0; i < N; i++)                                     \
+        sync += buf[i];                                               \
+      samples[t] = timerStop();                                       \
+    }                                                                 \
+                                                                      \
+    uint64_t avg = 0;                                                 \
+    for (int t = PREHEAT; t < TRIES; t++) {                           \
+      avg += samples[t];                                              \
+    }                                                                 \
+    avg /= TRIES - PREHEAT;                                           \
+    printf("avg time (ns): %" PRIu64 "\n", avg);                      \
   }
+
+int main(int argc, char* argv[]) {
+  __attribute__((annotate("range -3000 3000"))) float buf[N * 2];
+
+  for (int i = 0; i < N; i++)
+    buf[i] = (float) randomInRange(0, 0x100) / 32768.0;
   gen_perform(+)
-  
-  for (int i=0; i<N; i++) {
-    buf[i] = 1.0 + (float)randomInRange(0, (i+1) % 4) / 32768.0;
+
+    for (int i = 0; i < N; i++) {
+    buf[i] = 1.0 + (float) randomInRange(0, (i + 1) % 4) / 32768.0;
   }
   gen_perform(*)
 
-  return 0;
+    return 0;
 }
-
-
-

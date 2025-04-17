@@ -1,24 +1,22 @@
-#include "ValueInfo.hpp"
-
 #include "TaffoInfo.hpp"
+#include "ValueInfo.hpp"
 
 using namespace llvm;
 using namespace taffo;
 
-std::shared_ptr<ValueInfo> ValueInfoFactory::create(Value *value) {
+std::shared_ptr<ValueInfo> ValueInfoFactory::create(Value* value) {
   std::shared_ptr<TransparentType> type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return create(type);
 }
 
-std::shared_ptr<ValueInfo> ValueInfoFactory::create(const std::shared_ptr<TransparentType> &type) {
+std::shared_ptr<ValueInfo> ValueInfoFactory::create(const std::shared_ptr<TransparentType>& type) {
   std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> recursionMap;
   return create(type, recursionMap);
 }
 
 std::shared_ptr<ValueInfo> ValueInfoFactory::create(
-  const std::shared_ptr<TransparentType> &type,
-  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> &recursionMap)
-{
+  const std::shared_ptr<TransparentType>& type,
+  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>>& recursionMap) {
   auto iter = recursionMap.find(type);
   if (iter != recursionMap.end())
     return iter->second;
@@ -45,20 +43,20 @@ json ValueInfo::serialize() const {
   return j;
 }
 
-void ValueInfo::deserialize(const json &j) {
+void ValueInfo::deserialize(const json& j) {
   if (j.contains("target") && !j["target"].is_null())
     target = j["target"].get<std::string>();
   if (j.contains("bufferId") && !j["bufferId"].is_null())
     bufferId = j["bufferId"].get<std::string>();
 }
 
-void ValueInfo::copyFrom(const ValueInfo &other) {
+void ValueInfo::copyFrom(const ValueInfo& other) {
   assert(getKind() == other.getKind() && "Copying from different kind of valueInfo");
   target = other.target;
   bufferId = other.bufferId;
 }
 
-ScalarInfo &ScalarInfo::operator=(const ScalarInfo &other) {
+ScalarInfo& ScalarInfo::operator=(const ScalarInfo& other) {
   if (this != &other) {
     copyFrom(other);
     this->numericType = other.numericType;
@@ -70,9 +68,9 @@ ScalarInfo &ScalarInfo::operator=(const ScalarInfo &other) {
   return *this;
 }
 
-void ScalarInfo::copyFrom(const ValueInfo &other) {
+void ScalarInfo::copyFrom(const ValueInfo& other) {
   ValueInfo::copyFrom(other);
-  auto &otherScalar = cast<ScalarInfo>(other);
+  auto& otherScalar = cast<ScalarInfo>(other);
   numericType = otherScalar.numericType ? otherScalar.numericType->clone() : nullptr;
   range = otherScalar.range ? otherScalar.range->clone() : nullptr;
   error = otherScalar.error ? std::make_shared<double>(*otherScalar.error) : nullptr;
@@ -135,14 +133,15 @@ json ScalarInfo::serialize() const {
   return j;
 }
 
-void ScalarInfo::deserialize(const json &j) {
+void ScalarInfo::deserialize(const json& j) {
   ValueInfo::deserialize(j);
   if (j.contains("numericType") && !j["numericType"].is_null()) {
     std::string numericTypeKind = j["numericType"]["kind"].get<std::string>();
     if (numericTypeKind == "FixedPoint") {
       numericType = std::make_shared<FixedPointInfo>(false, 0, 0);
       numericType->deserialize(j["numericType"]);
-    } else if (numericTypeKind == "FloatingPoint") {
+    }
+    else if (numericTypeKind == "FloatingPoint") {
       numericType = std::make_shared<FloatingPointInfo>(FloatingPointInfo::Float_float, 0.0);
       numericType->deserialize(j["numericType"]);
     }
@@ -162,17 +161,18 @@ bool StructInfo::isConversionEnabled() const {
   return isConversionEnabled(visited);
 }
 
-bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*> &visited) const {
+bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*>& visited) const {
   visited.insert(this);
-  for (const auto &field : Fields) {
+  for (const auto& field : Fields) {
     if (!field)
       continue;
-    if (auto *si = dyn_cast<StructInfo>(field.get())) {
+    if (auto* si = dyn_cast<StructInfo>(field.get())) {
       if (visited.count(si) > 0)
         continue;
       if (si->isConversionEnabled(visited))
         return true;
-    } else {
+    }
+    else {
       if (field->isConversionEnabled())
         return true;
     }
@@ -180,8 +180,8 @@ bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*> &visited
   return false;
 }
 
-std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef<unsigned> indices) const {
-  Type *resolvedType = type;
+std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type* type, ArrayRef<unsigned> indices) const {
+  Type* resolvedType = type;
   std::shared_ptr<ValueInfo> resolvedInfo = this->clone();
   for (unsigned idx : indices) {
     if (resolvedInfo == nullptr)
@@ -196,17 +196,16 @@ std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type *type, ArrayRef
   return resolvedInfo;
 }
 
-void StructInfo::copyFrom(const ValueInfo &other) {
+void StructInfo::copyFrom(const ValueInfo& other) {
   ValueInfo::copyFrom(other);
-  auto &otherStruct = cast<StructInfo>(other);
+  auto& otherStruct = cast<StructInfo>(other);
   assert(getNumFields() == otherStruct.getNumFields() && "Copying from structInfo with different number of fields");
-  for (auto &&[field, otherField] : zip(*this, otherStruct)) {
-    if (otherField) {
+  for (auto&& [field, otherField] : zip(*this, otherStruct)) {
+    if (otherField)
       if (field)
         field->copyFrom(*otherField);
       else
         field = otherField->clone();
-    }
     else
       field = nullptr;
   }
@@ -214,12 +213,11 @@ void StructInfo::copyFrom(const ValueInfo &other) {
 
 std::shared_ptr<ValueInfo> StructInfo::cloneImpl() const {
   SmallVector<std::shared_ptr<ValueInfo>, 4> newFields;
-  for (const std::shared_ptr<ValueInfo> &field : Fields) {
+  for (const std::shared_ptr<ValueInfo>& field : Fields)
     if (field)
       newFields.push_back(field->clone());
     else
       newFields.push_back(nullptr);
-  }
   return std::make_shared<StructInfo>(newFields);
 }
 
@@ -227,14 +225,13 @@ std::string StructInfo::toString() const {
   std::stringstream ss;
   ss << "struct(";
   bool first = true;
-  for (const std::shared_ptr<ValueInfo> &field : Fields) {
+  for (const std::shared_ptr<ValueInfo>& field : Fields) {
     if (!first)
       ss << ", ";
-    if (field) {
+    if (field)
       ss << field->toString();
-    } else {
+    else
       ss << "void()";
-    }
     first = false;
   }
   ss << ")";
@@ -246,34 +243,36 @@ json StructInfo::serialize() const {
   j["kind"] = "StructInfo";
   j.update(ValueInfo::serialize());
   j["fields"] = json::array();
-  for (const auto &field : Fields) {
+  for (const auto& field : Fields)
     if (field)
       j["fields"].push_back(field->serialize());
     else
       j["fields"].push_back(nullptr);
-  }
   return j;
 }
 
-void StructInfo::deserialize(const json &j) {
+void StructInfo::deserialize(const json& j) {
   ValueInfo::deserialize(j);
   if (!j.contains("fields") || !j["fields"].is_array())
     report_fatal_error("StructInfo::deserialize: Missing or invalid fields array");
   Fields.clear();
-  for (auto &fieldJson : j["fields"]) {
+  for (auto& fieldJson : j["fields"]) {
     if (fieldJson.is_null()) {
       Fields.push_back(nullptr);
-    } else {
+    }
+    else {
       std::string fieldKind = fieldJson["kind"].get<std::string>();
       if (fieldKind == "ScalarInfo") {
         auto field = std::make_shared<ScalarInfo>(nullptr);
         field->deserialize(fieldJson);
         Fields.push_back(field);
-      } else if (fieldKind == "StructInfo") {
+      }
+      else if (fieldKind == "StructInfo") {
         auto field = std::make_shared<StructInfo>(0);
         field->deserialize(fieldJson);
         Fields.push_back(field);
-      } else {
+      }
+      else {
         report_fatal_error(StringRef("StructInfo::deserialize: Unknown field kind: " + fieldKind));
       }
     }
@@ -289,7 +288,7 @@ std::shared_ptr<ValueInfoWithRange> PointerInfo::getUnwrappedInfo() const {
 }
 
 bool PointerInfo::isConversionEnabled() const {
-  return true; //TODO
+  return true; // TODO
 }
 
 std::shared_ptr<ValueInfo> PointerInfo::cloneImpl() const {
@@ -299,19 +298,19 @@ std::shared_ptr<ValueInfo> PointerInfo::cloneImpl() const {
 }
 
 std::string PointerInfo::toString() const {
-  return ""; //TODO
+  return "";                     // TODO
 }
 
 json PointerInfo::serialize() const {
-  return ValueInfo::serialize();//TODO
+  return ValueInfo::serialize(); // TODO
 }
 
-void PointerInfo::deserialize(const json &j) {
-  ValueInfo::deserialize(j);//TODO
+void PointerInfo::deserialize(const json& j) {
+  ValueInfo::deserialize(j);     // TODO
 }
 
 bool GEPInfo::isConversionEnabled() const {
-  return true; //TODO
+  return true;                   // TODO
 }
 
 std::shared_ptr<ValueInfo> GEPInfo::cloneImpl() const {
@@ -321,15 +320,15 @@ std::shared_ptr<ValueInfo> GEPInfo::cloneImpl() const {
 }
 
 std::string GEPInfo::toString() const {
-  return ""; //TODO
+  return "";                     // TODO
 }
 
 json GEPInfo::serialize() const {
-  return ValueInfo::serialize();//TODO
+  return ValueInfo::serialize(); // TODO
 }
 
-void GEPInfo::deserialize(const json &j) {
-  ValueInfo::deserialize(j);//TODO
+void GEPInfo::deserialize(const json& j) {
+  ValueInfo::deserialize(j);     // TODO
 }
 
 json CmpErrorInfo::serialize() const {
@@ -339,7 +338,7 @@ json CmpErrorInfo::serialize() const {
   return j;
 }
 
-void CmpErrorInfo::deserialize(const json &j) {
+void CmpErrorInfo::deserialize(const json& j) {
   MaxTolerance = j["MaxTolerance"].get<double>();
   MayBeWrong = j["MayBeWrong"].get<bool>();
 }

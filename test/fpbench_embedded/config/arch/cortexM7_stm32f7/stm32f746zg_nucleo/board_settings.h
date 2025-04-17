@@ -42,21 +42,21 @@ namespace miosix {
 
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB)
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-const unsigned int defaultSerialSpeed=115200;
+const unsigned int defaultSerialSpeed = 115200;
 // #define SERIAL_1_DMA
 // #define SERIAL_2_DMA
 #define SERIAL_3_DMA
 
-//SD card driver
-static const unsigned char sdVoltage=33; //Board powered @ 3.3V
-#define SD_ONE_BIT_DATABUS //For now we'll use 1 bit bus
-#define SD_SDMMC 1 //Select either SDMMC1 or SDMMC2
+// SD card driver
+static const unsigned char sdVoltage = 33; // Board powered @ 3.3V
+#define SD_ONE_BIT_DATABUS                 // For now we'll use 1 bit bus
+#define SD_SDMMC 1                         // Select either SDMMC1 or SDMMC2
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

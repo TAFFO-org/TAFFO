@@ -4,7 +4,7 @@
 
 namespace taffo {
 
-void createCudaKernelTrampolines(llvm::Module &M);
+void createCudaKernelTrampolines(llvm::Module& M);
 
 } // namespace taffo
 

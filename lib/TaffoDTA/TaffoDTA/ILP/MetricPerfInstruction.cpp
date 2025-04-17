@@ -1,6 +1,6 @@
-#include "PtrCasts.hpp"
 #include "MetricBase.h"
 #include "Optimizer.h"
+#include "PtrCasts.hpp"
 #include "Utils.h"
 
 #include <llvm/Support/Debug.h>
@@ -11,17 +11,12 @@ using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-static void emitError(const string &stringhina)
-{
-  LLVM_DEBUG(dbgs() << "[ERROR] " << stringhina << "\n");
-}
+static void emitError(const string& stringhina) { LLVM_DEBUG(dbgs() << "[ERROR] " << stringhina << "\n"); }
 
-
-void MetricPerf::handleDisabled(std::shared_ptr<OptimizerScalarInfo> res, const CPUCosts &cpuCosts, const char *start)
-{
+void MetricPerf::handleDisabled(std::shared_ptr<OptimizerScalarInfo> res, const CPUCosts& cpuCosts, const char* start) {
   auto constraint = vector<pair<string, double>>();
-  auto &model = getModel();
-  for (const auto &tmpString : cpuCosts.CostsIdValues) {
+  auto& model = getModel();
+  for (const auto& tmpString : cpuCosts.CostsIdValues) {
     if (tmpString.find(start) == 0 && cpuCosts.isDisabled(cpuCosts.decodeId(tmpString))) {
 
       if (hasDouble && tmpString.find("DOUBLE") != string::npos) {
@@ -73,21 +68,17 @@ void MetricPerf::handleDisabled(std::shared_ptr<OptimizerScalarInfo> res, const 
   }
 }
 
-
-void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
-{
+void MetricPerf::handleFAdd(BinaryOperator* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos) {
   assert(instr->getOpcode() == Instruction::FAdd && "Operand mismatch!");
 
-  auto &cpuCosts = getCpuCosts();
-  auto &model = getModel();
+  auto& cpuCosts = getCpuCosts();
+  auto& model = getModel();
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
 
-
   auto info1 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op1));
   auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op2));
-
 
   auto res = handleBinOpCommon(instr, op1, op2, true, valueInfos);
   if (!res)
@@ -98,44 +89,52 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   handleDisabled(res, cpuCosts, "ADD");
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FIX)),
-      MODEL_OBJ_MATHCOST, maxCost);
-  model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FLOAT)),
-      MODEL_OBJ_MATHCOST, 0);
+    make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FIX)),
+    MODEL_OBJ_MATHCOST,
+    maxCost);
+  model.insertObjectiveElement(make_pair(res->getFloatSelectedVariable(),
+                                         opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FLOAT)),
+                               MODEL_OBJ_MATHCOST,
+                               0);
   if (hasDouble) {
-    model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getDoubleSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_DOUBLE)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasHalf) {
-    model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_HALF)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getHalfSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_HALF)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasQuad) {
-    model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_QUAD)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getQuadSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_QUAD)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasPPC128) {
-    model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_PPC128)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getPPC128SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_PPC128)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasFP80) {
-    model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FP80)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getFP80SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_FP80)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasBF16) {
-    model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_BF16)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getBF16SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::ADD_BF16)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   // enob constraint
@@ -155,13 +154,11 @@ void MetricPerf::handleFAdd(BinaryOperator *instr, const unsigned OpCode, const 
   // Handloed in allocating variable
 }
 
-
-void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
-{
+void MetricPerf::handleFNeg(UnaryOperator* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos) {
   assert(instr->getOpcode() == Instruction::FNeg && "Operand mismatch!");
 
-  auto &cpuCosts = getCpuCosts();
-  auto &model = getModel();
+  auto& cpuCosts = getCpuCosts();
+  auto& model = getModel();
 
   auto op1 = instr->getOperand(0);
 
@@ -176,43 +173,51 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
 
   double maxCost = getCpuCosts().MaxMinCosts("SUB").first;
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FIX)),
-      MODEL_OBJ_MATHCOST, maxCost);
-  model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
-      MODEL_OBJ_MATHCOST, 0);
+    make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FIX)),
+    MODEL_OBJ_MATHCOST,
+    maxCost);
+  model.insertObjectiveElement(make_pair(res->getFloatSelectedVariable(),
+                                         opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
+                               MODEL_OBJ_MATHCOST,
+                               0);
   if (hasDouble) {
-    model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getDoubleSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasHalf) {
-    model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_HALF)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getHalfSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_HALF)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasQuad) {
-    model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getQuadSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasPPC128) {
-    model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getPPC128SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasFP80) {
-    model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FP80)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getFP80SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FP80)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasBF16) {
-    model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getBF16SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   // Precision cost
   // Handloed in allocating variable
@@ -225,13 +230,11 @@ void MetricPerf::handleFNeg(UnaryOperator *instr, const unsigned OpCode, const s
   model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub first addend"*/);
 }
 
-
-void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
-{
+void MetricPerf::handleFSub(BinaryOperator* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos) {
   assert(instr->getOpcode() == Instruction::FSub && "Operand mismatch!");
 
-  auto &cpuCosts = getCpuCosts();
-  auto &model = getModel();
+  auto& cpuCosts = getCpuCosts();
+  auto& model = getModel();
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
@@ -247,47 +250,54 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
 
   double maxCost = getCpuCosts().MaxMinCosts("SUB").first;
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FIX)),
-      MODEL_OBJ_MATHCOST, maxCost);
-  model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
-      MODEL_OBJ_MATHCOST, 0);
+    make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FIX)),
+    MODEL_OBJ_MATHCOST,
+    maxCost);
+  model.insertObjectiveElement(make_pair(res->getFloatSelectedVariable(),
+                                         opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FLOAT)),
+                               MODEL_OBJ_MATHCOST,
+                               0);
   if (hasDouble) {
-    model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getDoubleSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_DOUBLE)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasHalf) {
-    model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_HALF)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getHalfSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_HALF)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasQuad) {
-    model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getQuadSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_QUAD)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasPPC128) {
-    model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getPPC128SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_PPC128)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasFP80) {
-    model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FP80)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getFP80SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_FP80)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasBF16) {
-    model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getBF16SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::SUB_BF16)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   // Precision cost
   // Handloed in allocating variable
-
 
   auto constraint = vector<pair<string, double>>();
   // Enob constraints
@@ -303,12 +313,11 @@ void MetricPerf::handleFSub(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob propagation in sub second addend"*/);
 }
 
-void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
-{
+void MetricPerf::handleFMul(BinaryOperator* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos) {
   assert(instr->getOpcode() == Instruction::FMul && "Operand mismatch!");
 
-  auto &cpuCosts = getCpuCosts();
-  auto &model = getModel();
+  auto& cpuCosts = getCpuCosts();
+  auto& model = getModel();
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
@@ -323,43 +332,51 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   double maxCost = getCpuCosts().MaxMinCosts("MUL").first;
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FIX)),
-      MODEL_OBJ_MATHCOST, maxCost);
-  model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FLOAT)),
-      MODEL_OBJ_MATHCOST, 0);
+    make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FIX)),
+    MODEL_OBJ_MATHCOST,
+    maxCost);
+  model.insertObjectiveElement(make_pair(res->getFloatSelectedVariable(),
+                                         opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FLOAT)),
+                               MODEL_OBJ_MATHCOST,
+                               0);
   if (hasDouble) {
-    model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getDoubleSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_DOUBLE)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasHalf) {
-    model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_HALF)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getHalfSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_HALF)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasQuad) {
-    model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_QUAD)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getQuadSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_QUAD)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasPPC128) {
-    model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_PPC128)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getPPC128SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_PPC128)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasFP80) {
-    model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FP80)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getFP80SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_FP80)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasBF16) {
-    model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_BF16)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getBF16SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::MUL_BF16)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   // Precision cost
@@ -378,16 +395,13 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   string enob_selection_2 = getEnobActivationVariable(instr, 2);
   model.createVariable(enob_selection_2, 0, 1);
 
-
   int intbit_1 = getMinIntBitOfValue(op1);
   int intbit_2 = getMinIntBitOfValue(op2);
-
 
   constraint.clear();
   constraint.push_back(make_pair(enob_selection_1, 1.0));
   constraint.push_back(make_pair(enob_selection_2, 1.0));
   model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-
 
   // New enob constraint (tighter)
   // c <= a+b-intbit_a-a+My
@@ -399,7 +413,6 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, -intbit_1 /*, "Enob: propagation in product 1"*/);
 
-
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
@@ -407,12 +420,11 @@ void MetricPerf::handleFMul(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertLinearConstraint(constraint, Model::LE, -intbit_2 /*, "Enob: propagation in product 2"*/);
 }
 
-void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
-{
+void MetricPerf::handleFDiv(BinaryOperator* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos) {
   assert(instr->getOpcode() == Instruction::FDiv && "Operand mismatch!");
 
-  auto &cpuCosts = getCpuCosts();
-  auto &model = getModel();
+  auto& cpuCosts = getCpuCosts();
+  auto& model = getModel();
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
@@ -428,49 +440,55 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   handleDisabled(res, cpuCosts, "DIV");
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FIX)),
-      MODEL_OBJ_MATHCOST, maxCost);
-  model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FLOAT)),
-      MODEL_OBJ_MATHCOST, 0);
+    make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FIX)),
+    MODEL_OBJ_MATHCOST,
+    maxCost);
+  model.insertObjectiveElement(make_pair(res->getFloatSelectedVariable(),
+                                         opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FLOAT)),
+                               MODEL_OBJ_MATHCOST,
+                               0);
   if (hasDouble) {
-    model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getDoubleSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_DOUBLE)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasHalf) {
-    model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_HALF)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getHalfSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_HALF)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasQuad) {
-    model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_QUAD)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getQuadSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_QUAD)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasPPC128) {
-    model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_PPC128)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getPPC128SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_PPC128)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasFP80) {
-    model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FP80)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getFP80SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_FP80)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
-
   if (hasBF16) {
-    model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_BF16)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getBF16SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::DIV_BF16)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   // Precision cost
   // Handled in allocating variable
-
 
   auto constraint = vector<pair<string, double>>();
   // Enob propagation
@@ -479,18 +497,15 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   string enob_selection_2 = getEnobActivationVariable(instr, 2);
   model.createVariable(enob_selection_2, 0, 1);
 
-
   int intbit_1 = getMinIntBitOfValue(op1);
   int intbit_2 = getMinIntBitOfValue(op2);
 
   int maxbits2 = getMaxIntBitOfValue(op2);
 
-
   constraint.clear();
   constraint.push_back(make_pair(enob_selection_1, 1.0));
   constraint.push_back(make_pair(enob_selection_2, 1.0));
   model.insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-
 
   // New enob constraint (tighter)
   // c <= a+b-intbit_a-a+My
@@ -502,7 +517,6 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   constraint.push_back(make_pair(enob_selection_1, -BIG_NUMBER));
   model.insertLinearConstraint(constraint, Model::LE, -intbit_1 + 2 * maxbits2 /*, "Enob: propagation in division 1"*/);
 
-
   constraint.clear();
   constraint.push_back(make_pair(res->getRealEnobVariable(), 1.0));
   constraint.push_back(make_pair(info1->getRealEnobVariable(), -1.0));
@@ -510,16 +524,14 @@ void MetricPerf::handleFDiv(BinaryOperator *instr, const unsigned OpCode, const 
   model.insertLinearConstraint(constraint, Model::LE, -intbit_2 + 2 * maxbits2 /*, "Enob: propagation in division 2"*/);
 }
 
-void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const shared_ptr<TunerInfo> &valueInfos)
-{
+void MetricPerf::handleFRem(BinaryOperator* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos) {
   assert(instr->getOpcode() == Instruction::FRem && "Operand mismatch!");
 
-  auto &cpuCosts = getCpuCosts();
-  auto &model = getModel();
+  auto& cpuCosts = getCpuCosts();
+  auto& model = getModel();
 
   auto op1 = instr->getOperand(0);
   auto op2 = instr->getOperand(1);
-
 
   auto res = handleBinOpCommon(instr, op1, op2, false, valueInfos);
 
@@ -530,43 +542,51 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
   handleDisabled(res, cpuCosts, "REM");
 
   model.insertObjectiveElement(
-      make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FIX)),
-      MODEL_OBJ_MATHCOST, maxCost);
-  model.insertObjectiveElement(
-      make_pair(res->getFloatSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FLOAT)),
-      MODEL_OBJ_MATHCOST, 0);
+    make_pair(res->getFixedSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FIX)),
+    MODEL_OBJ_MATHCOST,
+    maxCost);
+  model.insertObjectiveElement(make_pair(res->getFloatSelectedVariable(),
+                                         opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FLOAT)),
+                               MODEL_OBJ_MATHCOST,
+                               0);
   if (hasDouble) {
-    model.insertObjectiveElement(
-        make_pair(res->getDoubleSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getDoubleSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_DOUBLE)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasHalf) {
-    model.insertObjectiveElement(
-        make_pair(res->getHalfSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_HALF)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getHalfSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_HALF)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
   if (hasQuad) {
-    model.insertObjectiveElement(
-        make_pair(res->getQuadSelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_QUAD)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getQuadSelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_QUAD)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasPPC128) {
-    model.insertObjectiveElement(
-        make_pair(res->getPPC128SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_PPC128)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getPPC128SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_PPC128)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasFP80) {
-    model.insertObjectiveElement(
-        make_pair(res->getFP80SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FP80)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getFP80SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_FP80)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   if (hasBF16) {
-    model.insertObjectiveElement(
-        make_pair(res->getBF16SelectedVariable(), opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_BF16)),
-        MODEL_OBJ_MATHCOST, 0);
+    model.insertObjectiveElement(make_pair(res->getBF16SelectedVariable(),
+                                           opt->getCurrentInstructionCost() * cpuCosts.getCost(CPUCosts::REM_BF16)),
+                                 MODEL_OBJ_MATHCOST,
+                                 0);
   }
 
   // Precision cost
@@ -576,17 +596,13 @@ void MetricPerf::handleFRem(BinaryOperator *instr, const unsigned OpCode, const 
   assert(false && "Enob propagation in frem not handled!");
 }
 
-
-void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
+void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
   LLVM_DEBUG(dbgs() << "Handling casting instruction...\n";);
-
 
   if (isa<BitCastInst>(instruction)) {
     // FIXME: hack for jmeint to give info after the malloc
     auto bitcast = dyn_cast_or_null<BitCastInst>(instruction);
     assert(bitcast && "Not a bitcast???");
-
 
     // TODO FIX SOON!
     /*if (bitcast->getType()->isPointerTy() && bitcast->getType()->getPointerElementType()->isFloatingPointTy()) {
@@ -621,36 +637,30 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Tune
       return;
     }*/
 
-
     LLVM_DEBUG(dbgs() << "[Warning] Bitcasting not supported for model generation.";);
     return;
   }
 
-  if (isa<FPExtInst>(instruction) ||
-      isa<FPTruncInst>(instruction)) {
+  if (isa<FPExtInst>(instruction) || isa<FPTruncInst>(instruction)) {
     handleFPPrecisionShift(instruction, valueInfo);
     return;
   }
 
-  if (isa<TruncInst>(instruction) ||
-      isa<ZExtInst>(instruction) ||
-      isa<SExtInst>(instruction)) {
+  if (isa<TruncInst>(instruction) || isa<ZExtInst>(instruction) || isa<SExtInst>(instruction)) {
     LLVM_DEBUG(dbgs() << "Cast between integers, skipping...\n";);
     return;
   }
 
-  if (isa<UIToFPInst>(instruction) ||
-      isa<SIToFPInst>(instruction)) {
+  if (isa<UIToFPInst>(instruction) || isa<SIToFPInst>(instruction)) {
 
     auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
     if (!fieldInfo) {
       LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
 
-      if (valueInfo->metadata) {
+      if (valueInfo->metadata)
         LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n";);
-      } else {
+      else
         LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
-      }
       return;
     }
 
@@ -660,9 +670,8 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Tune
       return;
     }
 
-
-    shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->range,
-                                                                           fieldInfo->error);
+    shared_ptr<OptimizerScalarInfo> variable =
+      allocateNewVariableForValue(instruction, fptype, fieldInfo->range, fieldInfo->error);
 
     // Limiting the ENOB as coming from an integer we can have an error at min of 1
     // Look that here we have the original program, so these instruction are not related to fixed point implementation!
@@ -673,30 +682,24 @@ void MetricPerf::handleCastInstruction(Instruction *instruction, shared_ptr<Tune
     return;
   }
 
-  if (isa<FPToSIInst>(instruction) ||
-      isa<FPToUIInst>(instruction)) {
+  if (isa<FPToSIInst>(instruction) || isa<FPToUIInst>(instruction)) {
     LLVM_DEBUG(dbgs() << "Casting Floating point to integer, no costs introduced.\n";);
     return;
   }
 
-  if (isa<IntToPtrInst>(instruction) ||
-      isa<PtrToIntInst>(instruction)) {
+  if (isa<IntToPtrInst>(instruction) || isa<PtrToIntInst>(instruction)) {
     LLVM_DEBUG(dbgs() << "Black magic with pointers is happening. We do not want to awake the dragon, rigth?\n";);
     return;
   }
 
-
   llvm_unreachable("Did I really forgot something?");
 }
 
+void MetricPerf::handleStore(Instruction* instruction, const shared_ptr<TunerInfo>& valueInfo) {
+  auto* store = dyn_cast<StoreInst>(instruction);
 
-void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<TunerInfo> &valueInfo)
-{
-  auto *store = dyn_cast<StoreInst>(instruction);
-
-  if (!store) {
+  if (!store)
     llvm_unreachable("Instruction mismatch!");
-  }
 
   auto opWhereToStore = store->getPointerOperand();
   auto opRegister = store->getValueOperand();
@@ -723,20 +726,18 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<TunerInf
 
     LLVM_DEBUG(dbgs() << "Storing " << info2->toString() << " into " << info1->toString() << "\n";);
 
-
     auto info_pointer = dynamic_ptr_cast<OptimizerScalarInfo>(info_pointer_t->getOptInfo());
 
     shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableWithCastCost(opRegister, instruction);
 
     opt->insertTypeEqualityConstraint(info_pointer, variable, true);
 
-
     bool isConstant;
 
     if (!info_variable_oeig_t->doesReferToConstant()) {
       isConstant = false;
-      // We do this only if storing a real result from a computation, if it comes from a constant we do not override the enob.
-      // getModel().insertComment("Restriction for new enob [STORE]", 2);
+      // We do this only if storing a real result from a computation, if it comes from a constant we do not override the
+      // enob. getModel().insertComment("Restriction for new enob [STORE]", 2);
       string newEnobVariable = info_pointer->getRealEnobVariable();
       newEnobVariable.append("_storeENOB");
       getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
@@ -752,78 +753,73 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<TunerInf
       int ENOBppc128 = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_ppc_fp128);
       int ENOBbf16 = getENOBFromRange(info_pointer->getRange(), FloatingPointInfo::Float_bfloat);
 
-
       constraint.clear();
       constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
       constraint.push_back(make_pair(info_pointer->getFractBitsVariable(), -1.0));
       constraint.push_back(make_pair(info_pointer->getFixedSelectedVariable(), BIG_NUMBER));
       getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER /*, "Enob constraint for fix"*/);
 
-
-      auto enoblambda = [&](int ENOB, const std::string (OptimizerScalarInfo::*getvariable)(), const char *desc) mutable {
-        constraint.clear();
-        constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
-        constraint.push_back(make_pair(((*info_pointer).*getvariable)(), BIG_NUMBER));
-        getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER + ENOB /*, desc*/);
-      };
+      auto enoblambda =
+        [&](int ENOB, const std::string (OptimizerScalarInfo::*getvariable)(), const char* desc) mutable {
+          constraint.clear();
+          constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
+          constraint.push_back(make_pair(((*info_pointer).*getvariable)(), BIG_NUMBER));
+          getModel().insertLinearConstraint(constraint, Model::LE, BIG_NUMBER + ENOB /*, desc*/);
+        };
 
       // Enob constraints float
       enoblambda(ENOBfloat, &OptimizerScalarInfo::getFloatSelectedVariable, "Enob constraint for float");
 
       // Enob constraints Double
-      if (hasDouble) {
+      if (hasDouble)
         enoblambda(ENOBdouble, &OptimizerScalarInfo::getDoubleSelectedVariable, "Enob constraint for double");
-      }
 
       // Enob constraints half
-      if (hasHalf) {
+      if (hasHalf)
         enoblambda(ENOBhalf, &OptimizerScalarInfo::getHalfSelectedVariable, "Enob constraint for half");
-      }
 
       // Enob constraints quad
-      if (hasQuad) {
+      if (hasQuad)
         enoblambda(ENOBquad, &OptimizerScalarInfo::getQuadSelectedVariable, "Enob constraint for quad");
-      }
 
       // Enob constraints fp80
-      if (hasFP80) {
+      if (hasFP80)
         enoblambda(ENOBfp80, &OptimizerScalarInfo::getFP80SelectedVariable, "Enob constraint for fp80");
-      }
 
       // Enob constraints ppc128
-      if (hasPPC128) {
+      if (hasPPC128)
         enoblambda(ENOBppc128, &OptimizerScalarInfo::getPPC128SelectedVariable, "Enob constraint for ppc128");
-      }
 
       // Enob constraints bf16
-      if (hasBF16) {
+      if (hasBF16)
         enoblambda(ENOBbf16, &OptimizerScalarInfo::getBF16SelectedVariable, "Enob constraint for bf16");
-      }
 
       constraint.clear();
       constraint.push_back(make_pair(info_pointer->getRealEnobVariable(), 1.0));
       constraint.push_back(make_pair(info_variable_oeig_t->getRealEnobVariable(), -1.0));
-      getModel().insertLinearConstraint(constraint, Model::LE, 0 /*, "Enob constraint ENOB propagation in load/store"*/);
-    } else {
+      getModel().insertLinearConstraint(
+        constraint, Model::LE, 0 /*, "Enob constraint ENOB propagation in load/store"*/);
+    }
+    else {
       LLVM_DEBUG(dbgs() << "[INFO] The value to store is a constant, not inserting it as may cause problems...\n";);
       // getModel().insertComment("Storing constant, no new enob.", 1);
       isConstant = true;
     }
 
-
     // We save the infos so we should retrieve them more quickly when using MemSSA
     // We save the ENOB of the stored variable that is the correct one to use
     auto a = make_shared<OptimizerScalarInfo>(info_variable_oeig_t->getBaseName(),
                                               info_variable_oeig_t->getMinBits(),
-                                              info_pointer->getMaxBits(), info_pointer->getTotalBits(),
+                                              info_pointer->getMaxBits(),
+                                              info_pointer->getTotalBits(),
                                               info_pointer->isSigned,
-                                              *info_pointer->getRange(), info_pointer->getOverridedEnob());
+                                              *info_pointer->getRange(),
+                                              info_pointer->getOverridedEnob());
     a->setReferToConstant(isConstant);
 
     saveInfoForValue(instruction, a);
-
-
-  } else if (opRegister->getType()->isPointerTy()) {
+  }
+  else if (opRegister->getType()->isPointerTy()) {
     // Storing a pointer. In the value there should be a pointer already, and the value where to store is, in fact,
     // a pointer to a pointer
     LLVM_DEBUG(dbgs() << "The register is: ";);
@@ -843,16 +839,14 @@ void MetricPerf::handleStore(Instruction *instruction, const shared_ptr<TunerInf
     // We wrap the info with a dereference information
     // When a double load occours, for example, this will be handled succesfully, hopefully!
     saveInfoForPointer(opWhereToStore, make_shared<OptimizerPointerInfo>(info2));
-
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "Storing a non-floating point, skipping...\n";);
     return;
   }
 }
 
-
-void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
+void MetricPerf::handleFPPrecisionShift(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
 
   auto operand = instruction->getOperand(0); // The argument to be casted
 
@@ -864,18 +858,20 @@ void MetricPerf::handleFPPrecisionShift(Instruction *instruction, shared_ptr<Tun
   }
 
   // Copy information as for us is like a NOP
-  saveInfoForValue(instruction, make_shared<OptimizerScalarInfo>(sinfos->getBaseName(),
-                                                                 sinfos->getMinBits(),
-                                                                 sinfos->getMaxBits(), sinfos->getTotalBits(),
-                                                                 sinfos->isSigned, *sinfos->getRange(),
-                                                                 sinfos->getOverridedEnob()));
+  saveInfoForValue(instruction,
+                   make_shared<OptimizerScalarInfo>(sinfos->getBaseName(),
+                                                    sinfos->getMinBits(),
+                                                    sinfos->getMaxBits(),
+                                                    sinfos->getTotalBits(),
+                                                    sinfos->isSigned,
+                                                    *sinfos->getRange(),
+                                                    sinfos->getOverridedEnob()));
 
   LLVM_DEBUG(dbgs() << "For this fpext/fptrunc, reusing variable" << sinfos->getBaseName() << "\n";);
 }
 
-void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> valueInfo)
-{
-  auto *phi = dyn_cast<PHINode>(instruction);
+void MetricPerf::handlePhi(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
+  auto* phi = dyn_cast<PHINode>(instruction);
 
   if (!phi->getType()->isFloatingPointTy()) {
     LLVM_DEBUG(dbgs() << "Phi node with non float value, skipping...\n";);
@@ -888,14 +884,12 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> value
   // In the former case we proceed as usual, in the latter case, we need to insert the value in a special set that will
   // be monitored in case of insertions. In that case, the phi loop can be closed.
 
-  // We treat phi as normal assignment, without looking at the real "backend" implementation. This may be quite different
-  // from the real execution, but the overall meaning is the same.
+  // We treat phi as normal assignment, without looking at the real "backend" implementation. This may be quite
+  // different from the real execution, but the overall meaning is the same.
 
-
-  auto *phi_n = dyn_cast<PHINode>(phi);
-  if (!phi_n) {
+  auto* phi_n = dyn_cast<PHINode>(phi);
+  if (!phi_n)
     llvm_unreachable("Could not convert Phi instruction to PHINode");
-  }
   if (phi_n->getNumIncomingValues() < 1) {
     // This phi node has no value, really?
     llvm_unreachable("Why on earth there is a Phi instruction with no incoming values?");
@@ -919,13 +913,13 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> value
   }
 
   // Allocating variable for result
-  shared_ptr<OptimizerScalarInfo> variable = allocateNewVariableForValue(instruction, fptype, fieldInfo->range, fieldInfo->error);
+  shared_ptr<OptimizerScalarInfo> variable =
+    allocateNewVariableForValue(instruction, fptype, fieldInfo->range, fieldInfo->error);
   auto constraint = vector<pair<string, double>>();
   constraint.clear();
 
-
   for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
-    Value *op = phi_n->getIncomingValue(index);
+    Value* op = phi_n->getIncomingValue(index);
     if (auto info = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op))) {
       if (info->doesReferToConstant()) {
         // We skip the variable if it is a constant
@@ -943,17 +937,17 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> value
 
   if (constraint.size() > 0) {
     getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "[INFO] All constants phi node, nothing to do!!!\n";);
     return;
   }
-
 
   int missing = 0;
 
   for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
     LLVM_DEBUG(dbgs() << "[Phi] Handlign operator " << index << "...\n";);
-    Value *op = phi_n->getIncomingValue(index);
+    Value* op = phi_n->getIncomingValue(index);
 
     if (auto info = getInfoOfValue(op)) {
       if (auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(info)) {
@@ -966,12 +960,12 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> value
         }
       }
 
-
       LLVM_DEBUG(dbgs() << "[Phi] We have infos, treating as usual.\n";);
       // because yes, integrity checks....
       openPhiLoop(phi_n, op);
       closePhiLoop(phi_n, op);
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n";);
       openPhiLoop(phi_n, op);
       missing++;
@@ -983,16 +977,14 @@ void MetricPerf::handlePhi(Instruction *instruction, shared_ptr<TunerInfo> value
   getPhiWatcher().dumpState();
 }
 
-
-void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo> &valueInfo)
-{
+void MetricPerf::handleLoad(Instruction* instruction, const shared_ptr<TunerInfo>& valueInfo) {
   LLVM_DEBUG(dbgs() << "Handle Load\n");
   if (!valueInfo) {
     LLVM_DEBUG(dbgs() << "No value info, skipping...\n";);
     return;
   }
 
-  auto *load = dyn_cast<LoadInst>(instruction);
+  auto* load = dyn_cast<LoadInst>(instruction);
   auto loaded = load->getPointerOperand();
   shared_ptr<OptimizerInfo> infos = getInfoOfValue(loaded);
 
@@ -1001,7 +993,6 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
     emitError("Loaded a variable with no information attached, or attached info not a Pointer type!");
     return;
   }
-
 
   if (load->getType()->isFloatingPointTy()) {
     auto sinfos = dynamic_ptr_cast<OptimizerScalarInfo>(pinfos->getOptInfo());
@@ -1031,18 +1022,19 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
 
     auto a = make_shared<OptimizerScalarInfo>(sinfos->getBaseName(),
                                               sinfos->getMinBits(),
-                                              sinfos->getMaxBits(), sinfos->getTotalBits(),
+                                              sinfos->getMaxBits(),
+                                              sinfos->getTotalBits(),
                                               sinfos->isSigned,
-                                              *sinfos->getRange(), newEnobVariable);
-
+                                              *sinfos->getRange(),
+                                              newEnobVariable);
 
     // We are loading a floating point, which means we have it's value in a register.
     // As we cannot cast anything during a load, the register will use the very same variable
 
     // Running MemorySSA to find Values from which the load can actually load
-    MemorySSA &memssa = getTuner()->getFunctionAnalysisResult<MemorySSAAnalysis>(*load->getFunction()).getMSSA();
+    MemorySSA& memssa = getTuner()->getFunctionAnalysisResult<MemorySSAAnalysis>(*load->getFunction()).getMSSA();
     taffo::MemSSAUtils memssa_utils(memssa);
-    SmallVectorImpl<Value *> &def_vals = memssa_utils.getDefiningValues(load);
+    SmallVectorImpl<Value*>& def_vals = memssa_utils.getDefiningValues(load);
     def_vals.push_back(load->getPointerOperand());
 
     assert(def_vals.size() > 0 && "Loading a not defined value?");
@@ -1060,7 +1052,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
 
     for (unsigned index = 0; index < def_vals.size(); index++) {
       toSkip[index] = true;
-      Value *op = def_vals[index];
+      Value* op = def_vals[index];
       if (!op) {
         LLVM_DEBUG(dbgs() << "Skipping null value!\n";);
         continue;
@@ -1086,16 +1078,16 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
 
       string enob_selection = getEnobActivationVariable(instruction, index);
       LLVM_DEBUG(dbgs() << "Declaring " << enob_selection << " for enob...\n";);
-      if (!getModel().isVariableDeclared(enob_selection)) {
+      if (!getModel().isVariableDeclared(enob_selection))
         getModel().createVariable(enob_selection, 0, 1);
-      }
       constraint.push_back(make_pair(enob_selection, 1.0));
       toSkip[index] = false;
     }
 
     if (constraint.size() > 0) {
       getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
-    } else {
+    }
+    else {
       LLVM_DEBUG(dbgs() << "[INFO] All constants memPhi node, nothing to do!!!\n";);
       // return;
     }
@@ -1104,7 +1096,7 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
 
     for (unsigned index = 0; index < def_vals.size(); index++) {
       LLVM_DEBUG(dbgs() << "[memPhi] Handling operator " << index << "...\n";);
-      Value *op = def_vals[index];
+      Value* op = def_vals[index];
 
       if (toSkip[index]) {
         LLVM_DEBUG(dbgs() << "Need to skip this...\n";);
@@ -1116,7 +1108,8 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
         // because yes, integrity checks....
         openMemLoop(load, op);
         closeMemLoop(load, op);
-      } else {
+      }
+      else {
         LLVM_DEBUG(dbgs() << "[memPhi] No value available, inserting in delayed set.\n";);
         openMemLoop(load, op);
         missing++;
@@ -1125,13 +1118,14 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
 
     LLVM_DEBUG(dbgs() << "missing no. = " << missing << "\n");
     LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n");
-
-  } else if (load->getType()->isPointerTy()) {
+  }
+  else if (load->getType()->isPointerTy()) {
     LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n";);
     // Unwrap the pointer, hoping that it is pointing to something
     auto info = pinfos->getOptInfo();
     if (info->getKind() != OptimizerInfo::K_Pointer) {
-      LLVM_DEBUG(dbgs() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, wrapping it...";);
+      LLVM_DEBUG(dbgs() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, "
+                           "wrapping it...";);
       // FIXME: hack to prevent problem when using global pointer as arrays
       LLVM_DEBUG(dbgs() << "Unfortunately got " << info->toString() << "\n";);
 
@@ -1139,8 +1133,8 @@ void MetricPerf::handleLoad(Instruction *instruction, const shared_ptr<TunerInfo
     }
     LLVM_DEBUG(dbgs() << "The final register will have as info: " << info->toString() << "\n";);
     saveInfoForValue(instruction, info);
-
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "Loading a non floating point value, ingoring.\n";);
     return;
   }

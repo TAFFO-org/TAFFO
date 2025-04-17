@@ -1,8 +1,9 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
 #include <llvm/IR/Type.h>
 #include <llvm/Support/Debug.h>
+
+#include <nlohmann/json.hpp>
 #include <sstream>
 
 using json = nlohmann::ordered_json;
@@ -28,7 +29,7 @@ public:
    *
    * @param j A json object containing the serialized state.
    */
-  virtual void deserialize(const json &j) = 0;
+  virtual void deserialize(const json& j) = 0;
 
   virtual ~Serializable() = default;
 };
@@ -60,13 +61,13 @@ template <typename T>
 using is_printable = std::is_base_of<Printable, std::decay_t<T>>;
 
 // Overload of << to print Printable to std::ostream
-inline std::ostream &operator<<(std::ostream &os, const Printable &obj) {
+inline std::ostream& operator<<(std::ostream& os, const Printable& obj) {
   os << obj.toString();
   return os;
 }
 
 // Overload of << to print Printable to llvm::raw_ostream
-inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Printable &obj) {
+inline llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const Printable& obj) {
   os << obj.toString();
   return os;
 }
@@ -76,17 +77,18 @@ template <typename T, typename = void>
 struct has_llvm_print : std::false_type {};
 
 template <typename T>
-struct has_llvm_print<T, std::void_t<
-  decltype(std::declval<const std::remove_pointer_t<T>&>().print(std::declval<llvm::raw_ostream&>()))>>
-  : std::true_type {};
+struct has_llvm_print<
+  T,
+  std::void_t<decltype(std::declval<const std::remove_pointer_t<T>&>().print(std::declval<llvm::raw_ostream&>()))>>
+: std::true_type {};
 
 template <typename T>
 inline constexpr bool has_llvm_print_v = has_llvm_print<T>::value;
 
 // toString for any T or T* that has a `print(llvm::raw_ostream&)` method
 template <typename T>
-requires has_llvm_print_v<T>
-std::string toString(const T &obj) {
+  requires has_llvm_print_v<T>
+std::string toString(const T& obj) {
   std::string str;
   llvm::raw_string_ostream os(str);
   if constexpr (std::is_pointer_v<T>)

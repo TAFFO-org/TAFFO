@@ -8,44 +8,30 @@
 
 namespace taffo {
 
-class VRAFunctionStore : protected VRAStore, public AnalysisStore
-{
+class VRAFunctionStore : protected VRAStore,
+                         public AnalysisStore {
 public:
   VRAFunctionStore(std::shared_ptr<VRALogger> VRAL)
-      : VRAStore(VRASK_VRAFunctionStore, VRAL),
-        AnalysisStore(ASK_VRAFunctionStore) {}
+  : VRAStore(VRASK_VRAFunctionStore, VRAL), AnalysisStore(ASK_VRAFunctionStore) {}
 
-  void convexMerge(const AnalysisStore &Other) override;
-  std::shared_ptr<CodeAnalyzer> newCodeAnalyzer(CodeInterpreter &CI) override;
-  std::shared_ptr<AnalysisStore> newFunctionStore(CodeInterpreter &CI) override;
-  bool hasValue(const llvm::Value *V) const override { return DerivedRanges.count(V); }
+  void convexMerge(const AnalysisStore& Other) override;
+  std::shared_ptr<CodeAnalyzer> newCodeAnalyzer(CodeInterpreter& CI) override;
+  std::shared_ptr<AnalysisStore> newFunctionStore(CodeInterpreter& CI) override;
+  bool hasValue(const llvm::Value* V) const override { return DerivedRanges.count(V); }
   std::shared_ptr<CILogger> getLogger() const override { return Logger; }
 
-  void setNode(const llvm::Value *V, std::shared_ptr<ValueInfo> Node) override
-  {
-    VRAStore::setNode(V, Node);
-  }
+  void setNode(const llvm::Value* V, std::shared_ptr<ValueInfo> Node) override { VRAStore::setNode(V, Node); }
 
-  std::shared_ptr<ValueInfo> getNode(const llvm::Value *V) override
-  {
-    return VRAStore::getNode(V);
-  }
+  std::shared_ptr<ValueInfo> getNode(const llvm::Value* V) override { return VRAStore::getNode(V); }
 
   // Function handling stuff
   std::shared_ptr<ValueInfo> getRetVal() const { return ReturnValue; }
   void setRetVal(std::shared_ptr<ValueInfo> RetVal);
-  void setArgumentRanges(const llvm::Function &F,
-                         const std::list<std::shared_ptr<ValueInfo>> &AARanges);
+  void setArgumentRanges(const llvm::Function& F, const std::list<std::shared_ptr<ValueInfo>>& AARanges);
 
-  static bool classof(const AnalysisStore *AS)
-  {
-    return AS->getKind() == ASK_VRAFunctionStore;
-  }
+  static bool classof(const AnalysisStore* AS) { return AS->getKind() == ASK_VRAFunctionStore; }
 
-  static bool classof(const VRAStore *VS)
-  {
-    return VS->getKind() == VRASK_VRAFunctionStore;
-  }
+  static bool classof(const VRAStore* VS) { return VS->getKind() == VRASK_VRAFunctionStore; }
 
 protected:
   std::shared_ptr<ValueInfo> ReturnValue;

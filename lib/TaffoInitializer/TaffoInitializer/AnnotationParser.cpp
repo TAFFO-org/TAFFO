@@ -4,6 +4,7 @@
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/Support/raw_ostream.h>
+
 #include <cctype>
 #include <memory>
 
@@ -18,24 +19,22 @@ void AnnotationParser::reset() {
   valueInfoBuild.reset();
 }
 
-bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value *annotatedValue) {
+bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value* annotatedValue) {
   Type* type = getUnwrappedType(annotatedValue);
   reset();
   stringStream = std::istringstream(annotationStr.str());
 
   bool res = parseSyntax(type);
-  if (res){
+  if (res) {
     error = "";
     TaffoInfo::getInstance().setValueInfo(*annotatedValue, buildValueInfo());
   }
   return res;
 }
 
-StringRef AnnotationParser::getLastError() {
-  return error;
-}
+StringRef AnnotationParser::getLastError() { return error; }
 
-bool AnnotationParser::parseSyntax(Type *type) {
+bool AnnotationParser::parseSyntax(Type* type) {
   stringStream.unsetf(std::ios_base::skipws);
   char next = skipWhitespace();
   stringStream.putback(next);
@@ -54,8 +53,8 @@ bool AnnotationParser::parseSyntax(Type *type) {
         return false;
       target = tgt;
       startingPoint = true;
-
-    } else if (peek("errtarget")) {
+    }
+    else if (peek("errtarget")) {
       std::string tgt;
       if (!expect("("))
         return false;
@@ -64,8 +63,8 @@ bool AnnotationParser::parseSyntax(Type *type) {
       if (!expect(")"))
         return false;
       target = tgt;
-
-    } else if (peek("backtracking")) {
+    }
+    else if (peek("backtracking")) {
       if (peek("(")) {
         if (!expectBoolean(backtracking)) {
           int64_t tmp;
@@ -76,20 +75,21 @@ bool AnnotationParser::parseSyntax(Type *type) {
         }
         if (!expect(")"))
           return false;
-      } else {
+      }
+      else {
         backtracking = true;
         backtrackingDepth = std::numeric_limits<unsigned int>::max();
       }
-
-    } else if (peek("struct")) {
+    }
+    else if (peek("struct")) {
       if (!parseStruct(valueInfoBuild, type))
         return false;
-
-    } else if (peek("scalar")) {
+    }
+    else if (peek("scalar")) {
       if (!parseScalar(valueInfoBuild, type))
         return false;
-
-    } else if (peek("bufferid")) {
+    }
+    else if (peek("bufferid")) {
       std::string buffId;
       if (!expect("("))
         return false;
@@ -98,8 +98,8 @@ bool AnnotationParser::parseSyntax(Type *type) {
       if (!expect(")"))
         return false;
       bufferId = buffId;
-
-    } else {
+    }
+    else {
       error = "Unknown identifier at character index " + std::to_string(stringStream.tellg());
       return false;
     }
@@ -118,8 +118,7 @@ bool AnnotationParser::parseSyntax(Type *type) {
   return true;
 }
 
-
-bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Type *type) {
+bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo, Type* type) {
   if (!expect("("))
     return false;
 
@@ -127,7 +126,7 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
     error = "Duplicated content definition in this context";
     return false;
   }
-  auto *scalarInfo = new ScalarInfo(nullptr, nullptr, nullptr, true);
+  auto* scalarInfo = new ScalarInfo(nullptr, nullptr, nullptr, true);
   thisValueInfo.reset(scalarInfo);
 
   while (!peek(")")) {
@@ -143,16 +142,15 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
         return false;
       if (!expect(")"))
         return false;
-
-    } else if (peek("type")) {
+    }
+    else if (peek("type")) {
       if (!expect("("))
         return false;
       bool isSigned = true;
       int64_t total, frac;
       if (!peek("signed")) {
-        if (peek("unsigned")) {
+        if (peek("unsigned"))
           isSigned = false;
-        }
       }
       if (!expectInteger(total))
         return false;
@@ -165,8 +163,8 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
       if (!expect(")"))
         return false;
       scalarInfo->numericType = std::make_shared<FixedPointInfo>(isSigned, total, frac);
-
-    } else if (peek("error")) {
+    }
+    else if (peek("error")) {
       scalarInfo->error = std::make_shared<double>(0);
       if (!expect("("))
         return false;
@@ -174,12 +172,14 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
         return false;
       if (!expect(")"))
         return false;
-
-    } else if (peek("disabled")) {
+    }
+    else if (peek("disabled")) {
       scalarInfo->conversionEnabled = false;
-    } else if (peek("final")) {
+    }
+    else if (peek("final")) {
       scalarInfo->final = true;
-    } else {
+    }
+    else {
       error = "Unknown identifier at character index " + std::to_string(stringStream.tellg());
       return false;
     }
@@ -187,8 +187,8 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
   return true;
 }
 
-bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, Type *type) {
-  auto *structType = dyn_cast<StructType>(type);
+bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, Type* type) {
+  auto* structType = dyn_cast<StructType>(type);
   if (!structType) {
     std::string errStr;
     raw_string_ostream ss(errStr);
@@ -210,18 +210,15 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
   bool first = true;
   unsigned int currentField = 0;
   while (!peek("]")) {
-    if (first) {
+    if (first)
       first = false;
-    } else {
-      if (!expect(","))
-        return false;
-    }
+    else if (!expect(","))
+      return false;
 
     if (currentField >= numFields) {
       std::string errStr;
       raw_string_ostream ss(errStr);
-      ss << "Typechecking failed: " << (currentField + 1)
-         << " fields specified but only " << numFields
+      ss << "Typechecking failed: " << (currentField + 1) << " fields specified but only " << numFields
          << " fields present in LLVM struct type " << *structType;
       error = ss.str();
       return false;
@@ -233,19 +230,19 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
         return false;
       fields.push_back(tmp);
       currentField++;
-
-    } else if (peek("struct")) {
+    }
+    else if (peek("struct")) {
       std::shared_ptr<ValueInfo> tmp;
       if (!parseStruct(tmp, structType->getElementType(currentField)))
         return false;
       fields.push_back(tmp);
       currentField++;
-
-    } else if (peek("void")) {
+    }
+    else if (peek("void")) {
       fields.push_back(nullptr);
       currentField++;
-
-    } else {
+    }
+    else {
       error = "Unknown identifier at character index " + std::to_string(stringStream.tellg());
       return false;
     }
@@ -254,8 +251,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
   if (currentField < numFields) {
     std::string errStr;
     raw_string_ostream ss(errStr);
-    ss << "Typechecking failed: only " << currentField
-       << " fields specified but " << numFields
+    ss << "Typechecking failed: only " << currentField << " fields specified but " << numFields
        << " fields are expected in LLVM struct type " << *structType;
     error = ss.str();
     return false;
@@ -265,7 +261,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, Ty
     error = "Empty structures not allowed";
     return false;
   }
-  auto *structInfo = new StructInfo(fields);
+  auto* structInfo = new StructInfo(fields);
   thisValueInfo.reset(structInfo);
   return true;
 }
@@ -282,7 +278,7 @@ char AnnotationParser::skipWhitespace() {
 
 bool AnnotationParser::expect(std::string kw) {
   char next = skipWhitespace();
-  error = "Expected " + kw + " at character index " + std::to_string((int)(stringStream.tellg()) - 1);
+  error = "Expected " + kw + " at character index " + std::to_string((int) (stringStream.tellg()) - 1);
   if (next == '\0')
     return false;
   size_t i = 0;
@@ -294,9 +290,9 @@ bool AnnotationParser::expect(std::string kw) {
   return i == kw.size();
 }
 
-bool AnnotationParser::expectString(std::string &res) {
+bool AnnotationParser::expectString(std::string& res) {
   char next = skipWhitespace();
-  error = "Expected string at character index " + std::to_string((int)(stringStream.tellg()) - 1);
+  error = "Expected string at character index " + std::to_string((int) (stringStream.tellg()) - 1);
   res = "";
   if (next != '\'')
     return false;
@@ -325,14 +321,15 @@ bool AnnotationParser::peek(std::string kw) {
   return res;
 }
 
-bool AnnotationParser::expectInteger(int64_t &res) {
+bool AnnotationParser::expectInteger(int64_t& res) {
   char next = skipWhitespace();
-  error = "Expected integer at character index " + std::to_string((int)(stringStream.tellg()) - 1);
+  error = "Expected integer at character index " + std::to_string((int) (stringStream.tellg()) - 1);
   bool neg = false;
   int base = 10;
   if (next == '+') {
     stringStream >> next;
-  } else if (next == '-') {
+  }
+  else if (next == '-') {
     neg = true;
     stringStream >> next;
   }
@@ -345,11 +342,12 @@ bool AnnotationParser::expectInteger(int64_t &res) {
       if (!isdigit(next))
         return false;
     }
-  } else if (!isdigit(next))
+  }
+  else if (!isdigit(next))
     return false;
   res = 0;
   while (true) {
-    if (base <= 10 && (next < '0' || '0'+base-1 < next))
+    if (base <= 10 && (next < '0' || '0' + base - 1 < next))
       break;
     else if (base == 16 && !isxdigit(next))
       break;
@@ -366,9 +364,9 @@ bool AnnotationParser::expectInteger(int64_t &res) {
   return true;
 }
 
-bool AnnotationParser::expectReal(double &res) {
+bool AnnotationParser::expectReal(double& res) {
   char next = skipWhitespace();
-  error = "Expected real at character index " + std::to_string((int)(stringStream.tellg()) - 1);
+  error = "Expected real at character index " + std::to_string((int) (stringStream.tellg()) - 1);
   stringStream.putback(next);
   std::streampos pos = stringStream.tellg();
   stringStream >> res;
@@ -380,14 +378,15 @@ bool AnnotationParser::expectReal(double &res) {
   return true;
 }
 
-bool AnnotationParser::expectBoolean(bool &res) {
+bool AnnotationParser::expectBoolean(bool& res) {
   char next = skipWhitespace();
-  error = "Expected boolean at character index " + std::to_string((int)(stringStream.tellg()) - 1);
+  error = "Expected boolean at character index " + std::to_string((int) (stringStream.tellg()) - 1);
   stringStream.putback(next);
   if (peek("true") || peek("yes")) {
     res = true;
     return true;
-  } else if (peek("false") || peek("no")) {
+  }
+  else if (peek("false") || peek("no")) {
     res = false;
     return true;
   }

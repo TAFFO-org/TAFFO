@@ -43,28 +43,28 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1.5KB) and the
 /// STM32F205 has 128KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
-const bool defaultSerialFlowctrl=false;
+const unsigned int defaultSerial = 1;
+const unsigned int defaultSerialSpeed = 19200;
+const bool defaultSerialFlowctrl = false;
 #define SERIAL_1_DMA
-//#define SERIAL_2_DMA
-//#define SERIAL_3_DMA
+// #define SERIAL_2_DMA
+// #define SERIAL_3_DMA
 
 ///\def STDOUT_REDIRECTED_TO_DCC
-///If defined, stdout is redirected to the debug communication channel, and
-///will be printed if OpenOCD is connected. If not defined, stdout will be
-///redirected throug USART1, as usual.
-//#define STDOUT_REDIRECTED_TO_DCC
+/// If defined, stdout is redirected to the debug communication channel, and
+/// will be printed if OpenOCD is connected. If not defined, stdout will be
+/// redirected throug USART1, as usual.
+// #define STDOUT_REDIRECTED_TO_DCC
 
-//SD card driver
-static const unsigned char sdVoltage=33; //Board powered @ 3.3V
+// SD card driver
+static const unsigned char sdVoltage = 33; // Board powered @ 3.3V
 #define SD_ONE_BIT_DATABUS
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

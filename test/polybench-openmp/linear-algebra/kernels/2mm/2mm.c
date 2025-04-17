@@ -4,7 +4,7 @@
  *
  * Contact:
  * William Killian <killian@udel.edu>
- * 
+ *
  * Copyright 2013, The University of Delaware
  */
 #include <math.h>
@@ -19,16 +19,17 @@
 /* Default data type is double, default size is 4000. */
 #include "2mm.h"
 
-
 /* Array initialization. */
-static void init_array(int ni, int nj, int nk, int nl,
-                       DATA_TYPE *alpha,
-                       DATA_TYPE *beta,
+static void init_array(int ni,
+                       int nj,
+                       int nk,
+                       int nl,
+                       DATA_TYPE* alpha,
+                       DATA_TYPE* beta,
                        DATA_TYPE POLYBENCH_2D(A, NI, NK, ni, nl),
                        DATA_TYPE POLYBENCH_2D(B, NK, NJ, nk, nj),
                        DATA_TYPE POLYBENCH_2D(C, NL, NJ, nl, nj),
-                       DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
-{
+                       DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl)) {
   int i __attribute__((annotate("scalar(range(0, " PB_XSTR(NK) ") final)")));
   int j __attribute__((annotate("scalar(range(0, " PB_XSTR(NL) ") final)")));
 
@@ -36,24 +37,21 @@ static void init_array(int ni, int nj, int nk, int nl,
   *beta = 2123;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nk; j++)
-      A[i][j] = ((DATA_TYPE)i * j) / ni;
+      A[i][j] = ((DATA_TYPE) i * j) / ni;
   for (i = 0; i < nk; i++)
     for (j = 0; j < nj; j++)
-      B[i][j] = ((DATA_TYPE)i * (j + 1)) / nj;
+      B[i][j] = ((DATA_TYPE) i * (j + 1)) / nj;
   for (i = 0; i < nl; i++)
     for (j = 0; j < nj; j++)
-      C[i][j] = ((DATA_TYPE)i * (j + 3)) / nl;
+      C[i][j] = ((DATA_TYPE) i * (j + 3)) / nl;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nl; j++)
-      D[i][j] = ((DATA_TYPE)i * (j + 2)) / nk;
+      D[i][j] = ((DATA_TYPE) i * (j + 2)) / nk;
 }
-
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
-static void print_array(int ni, int nl,
-                        DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
-{
+static void print_array(int ni, int nl, DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl)) {
   int i, j;
 
   for (i = 0; i < ni; i++)
@@ -65,18 +63,19 @@ static void print_array(int ni, int nl,
   fprintf(stderr, "\n");
 }
 
-
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-static void kernel_2mm(int ni, int nj, int nk, int nl,
+static void kernel_2mm(int ni,
+                       int nj,
+                       int nk,
+                       int nl,
                        DATA_TYPE alpha,
                        DATA_TYPE beta,
                        DATA_TYPE POLYBENCH_2D(tmp, NI, NJ, ni, nj),
                        DATA_TYPE POLYBENCH_2D(A, NI, NK, ni, nk),
                        DATA_TYPE POLYBENCH_2D(B, NK, NJ, nk, nj),
                        DATA_TYPE POLYBENCH_2D(C, NL, NJ, nl, nj),
-                       DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl))
-{
+                       DATA_TYPE POLYBENCH_2D(D, NI, NL, ni, nl)) {
   int i, j, k;
 #pragma scop
 /* D := alpha*A*B*C + beta*D */
@@ -100,9 +99,7 @@ static void kernel_2mm(int ni, int nj, int nk, int nl,
 #pragma endscop
 }
 
-
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
   /* Retrieve problem size. */
   int ni = NI;
   int nj = NJ;
@@ -112,26 +109,28 @@ int main(int argc, char **argv)
   /* Variable declaration/allocation. */
   DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
   DATA_TYPE __attribute__((annotate("scalar()"))) beta;
-  POLYBENCH_2D_ARRAY_DECL(tmp, DATA_TYPE __attribute__((annotate("target('tmp') scalar(range(0, 30000000000000) final)"))), NI, NJ, ni, nj);
+  POLYBENCH_2D_ARRAY_DECL(
+    tmp, DATA_TYPE __attribute__((annotate("target('tmp') scalar(range(0, 30000000000000) final)"))), NI, NJ, ni, nj);
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE __attribute__((annotate("target('A') scalar()"))), NI, NK, ni, nk);
   POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE __attribute__((annotate("target('B') scalar()"))), NK, NJ, nk, nj);
   POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE __attribute__((annotate("target('C') scalar()"))), NL, NJ, nl, nj);
-  POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE __attribute__((annotate("target('D') scalar(range(0, 16000000000000000000) final)"))), NI, NL, ni, nl);
-
+  POLYBENCH_2D_ARRAY_DECL(
+    D, DATA_TYPE __attribute__((annotate("target('D') scalar(range(0, 16000000000000000000) final)"))), NI, NL, ni, nl);
 
   /* Initialize array(s). */
-  init_array(ni, nj, nk, nl, &alpha, &beta,
-             POLYBENCH_ARRAY(A),
-             POLYBENCH_ARRAY(B),
-             POLYBENCH_ARRAY(C),
-             POLYBENCH_ARRAY(D));
+  init_array(
+    ni, nj, nk, nl, &alpha, &beta, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(B), POLYBENCH_ARRAY(C), POLYBENCH_ARRAY(D));
 
   /* Start timer. */
   polybench_start_instruments;
 
   /* Run kernel. */
-  kernel_2mm(ni, nj, nk, nl,
-             alpha, beta,
+  kernel_2mm(ni,
+             nj,
+             nk,
+             nl,
+             alpha,
+             beta,
              POLYBENCH_ARRAY(tmp),
              POLYBENCH_ARRAY(A),
              POLYBENCH_ARRAY(B),

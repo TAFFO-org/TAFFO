@@ -8,20 +8,16 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-
-bool FloatToFixed::isSupportedCudaFunction(Function *F)
-{
+bool FloatToFixed::isSupportedCudaFunction(Function* F) {
   if (F->getName() == "cuMemcpyHtoD_v2")
     return true;
   if (F->getName() == "cuMemcpyDtoH_v2")
-    return true;  
+    return true;
   return false;
 }
 
-
-Value *FloatToFixed::convertCudaCall(CallBase *C)
-{
-  Function *F = C->getCalledFunction();
+Value* FloatToFixed::convertCudaCall(CallBase* C) {
+  Function* F = C->getCalledFunction();
 
   unsigned BufferArgId;
   unsigned BufferSizeArgId;
@@ -29,43 +25,44 @@ Value *FloatToFixed::convertCudaCall(CallBase *C)
   if (F->getName() == "cuMemcpyHtoD_v2") {
     BufferArgId = 1;
     BufferSizeArgId = 2;
-  } else if (F->getName() == "cuMemcpyDtoH_v2") {
+  }
+  else if (F->getName() == "cuMemcpyDtoH_v2") {
     BufferArgId = 0;
     BufferSizeArgId = 2;
-  } else {
+  }
+  else {
     llvm_unreachable("Wait why are we handling a Cuda call that we don't know about?");
     return Unsupported;
   }
-  
-  Value *TheBuffer = C->getArgOperand(BufferArgId);
-  if (auto *BC = dyn_cast<BitCastOperator>(TheBuffer)) {
+
+  Value* TheBuffer = C->getArgOperand(BufferArgId);
+  if (auto* BC = dyn_cast<BitCastOperator>(TheBuffer))
     TheBuffer = BC->getOperand(0);
-  }
-  Value *NewBuffer = matchOp(TheBuffer);
+  Value* NewBuffer = matchOp(TheBuffer);
   if (!NewBuffer || !hasConversionInfo(NewBuffer)) {
     LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
     return Unsupported;
   }
   LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
   LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
-  Type *VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
-  Value *NewBufferArg;
-  if (NewBuffer->getType() != VoidPtrTy) {
+  Type* VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
+  Value* NewBufferArg;
+  if (NewBuffer->getType() != VoidPtrTy)
     NewBufferArg = new BitCastInst(NewBuffer, VoidPtrTy, "", C);
-  } else {
+  else
     NewBufferArg = NewBuffer;
-  }
   C->setArgOperand(BufferArgId, NewBufferArg);
 
   LLVM_DEBUG(dbgs() << "Attempting to adjust buffer size\n");
-  Type *OldTy = TheBuffer->getType();
-  Type *NewTy = NewBuffer->getType();
-  Value *OldBufSz = C->getArgOperand(BufferSizeArgId);
-  Value *NewBufSz = adjustBufferSize(OldBufSz, OldTy, NewTy, C, true);
+  Type* OldTy = TheBuffer->getType();
+  Type* NewTy = NewBuffer->getType();
+  Value* OldBufSz = C->getArgOperand(BufferSizeArgId);
+  Value* NewBufSz = adjustBufferSize(OldBufSz, OldTy, NewTy, C, true);
   if (OldBufSz != NewBufSz) {
     C->setArgOperand(BufferSizeArgId, NewBufSz);
     LLVM_DEBUG(dbgs() << "Buffer size was adjusted\n");
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "Buffer size did not need any adjustment\n");
   }
 

@@ -55,14 +55,14 @@ namespace miosix {
  */
 
 /// Size of stack for main().
-const unsigned int MAIN_STACK_SIZE=4096;
+const unsigned int MAIN_STACK_SIZE = 4096;
 
 /// Serial port
-const unsigned int defaultSerial=0;
-const unsigned int defaultSerialSpeed=115200;
+const unsigned int defaultSerial = 0;
+const unsigned int defaultSerialSpeed = 115200;
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

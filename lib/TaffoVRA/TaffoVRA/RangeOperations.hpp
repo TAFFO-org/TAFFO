@@ -1,10 +1,11 @@
 #pragma once
 
+#include "TaffoInfo/ValueInfo.hpp"
+
+#include <llvm/IR/InstrTypes.h>
+
 #include <list>
 #include <string>
-
-#include "TaffoInfo/ValueInfo.hpp"
-#include <llvm/IR/InstrTypes.h>
 
 #define DEBUG_TYPE "taffo-vra"
 
@@ -14,28 +15,24 @@ namespace taffo {
 // Wrappers
 //-----------------------------------------------------------------------------
 /** Handle binary instructions */
-std::shared_ptr<Range> handleBinaryInstruction(const std::shared_ptr<Range> op1,
-                                    const std::shared_ptr<Range> op2,
-                                    const unsigned OpCode);
+std::shared_ptr<Range>
+handleBinaryInstruction(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2, const unsigned OpCode);
 
 /** Handle unary instructions */
-std::shared_ptr<Range> handleUnaryInstruction(const std::shared_ptr<Range> op,
-                                   const unsigned OpCode);
+std::shared_ptr<Range> handleUnaryInstruction(const std::shared_ptr<Range> op, const unsigned OpCode);
 
 /** Handle cast instructions */
-std::shared_ptr<Range> handleCastInstruction(const std::shared_ptr<Range> op,
-                                  const unsigned OpCode,
-                                  const llvm::Type *dest);
+std::shared_ptr<Range>
+handleCastInstruction(const std::shared_ptr<Range> op, const unsigned OpCode, const llvm::Type* dest);
 
 /** Return true if this function call can be handled by taffo::handleMathCallInstruction */
-bool isMathCallInstruction(const std::string &function);
+bool isMathCallInstruction(const std::string& function);
 
 /** Handle call to known math functions. Return nullptr if unknown */
-std::shared_ptr<Range> handleMathCallInstruction(const std::list<std::shared_ptr<Range>> &ops,
-                                      const std::string &function);
+std::shared_ptr<Range> handleMathCallInstruction(const std::list<std::shared_ptr<Range>>& ops,
+                                                 const std::string& function);
 
-std::shared_ptr<Range> handleCompare(const std::list<std::shared_ptr<Range>> &ops,
-                          const llvm::CmpInst::Predicate pred);
+std::shared_ptr<Range> handleCompare(const std::list<std::shared_ptr<Range>>& ops, const llvm::CmpInst::Predicate pred);
 
 //-----------------------------------------------------------------------------
 // Arithmetic
@@ -65,7 +62,7 @@ std::shared_ptr<Range> handleAShr(const std::shared_ptr<Range> op1, const std::s
 // Cast
 //-----------------------------------------------------------------------------
 /** Trunc */
-std::shared_ptr<Range> handleTrunc(const std::shared_ptr<Range> gop, const llvm::Type *dest);
+std::shared_ptr<Range> handleTrunc(const std::shared_ptr<Range> gop, const llvm::Type* dest);
 
 /** Cast To Unsigned Integer */
 std::shared_ptr<Range> handleCastToUI(const std::shared_ptr<Range> op);
@@ -74,7 +71,7 @@ std::shared_ptr<Range> handleCastToUI(const std::shared_ptr<Range> op);
 std::shared_ptr<Range> handleCastToSI(const std::shared_ptr<Range> op);
 
 /** FPTrunc */
-std::shared_ptr<Range> handleFPTrunc(const std::shared_ptr<Range> op, const llvm::Type *dest);
+std::shared_ptr<Range> handleFPTrunc(const std::shared_ptr<Range> op, const llvm::Type* dest);
 
 //-----------------------------------------------------------------------------
 // Boolean
@@ -106,9 +103,11 @@ std::shared_ptr<Range> getAlwaysTrue();
 
 std::shared_ptr<Range> getUnionRange(const std::shared_ptr<Range> op1, const std::shared_ptr<Range> op2);
 
-std::shared_ptr<ValueInfoWithRange> getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1, const std::shared_ptr<ValueInfoWithRange> op2);
+std::shared_ptr<ValueInfoWithRange> getUnionRange(const std::shared_ptr<ValueInfoWithRange> op1,
+                                                  const std::shared_ptr<ValueInfoWithRange> op2);
 
-std::shared_ptr<ValueInfoWithRange> fillRangeHoles(const std::shared_ptr<ValueInfoWithRange> &src, const std::shared_ptr<ValueInfoWithRange> &dst);
+std::shared_ptr<ValueInfoWithRange> fillRangeHoles(const std::shared_ptr<ValueInfoWithRange>& src,
+                                                   const std::shared_ptr<ValueInfoWithRange>& dst);
 
 } // namespace taffo
 

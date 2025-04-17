@@ -1,8 +1,8 @@
 #pragma once
 
+#include "InitializerPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
-#include "InitializerPass.hpp"
 
 #include <sstream>
 #include <string>
@@ -27,17 +27,17 @@ private:
   std::shared_ptr<ValueInfo> valueInfoBuild;
 
   void reset();
-  bool parseSyntax(llvm::Type *type);
-  bool parseScalar(std::shared_ptr<ValueInfo> &thisValueInfo, llvm::Type *type);
-  bool parseStruct(std::shared_ptr<ValueInfo> &thisValueInfo, llvm::Type *type);
+  bool parseSyntax(llvm::Type* type);
+  bool parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo, llvm::Type* type);
+  bool parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, llvm::Type* type);
   char skipWhitespace();
-  bool expectString(std::string &res);
+  bool expectString(std::string& res);
   bool peek(std::string kw);
   bool expect(std::string kw);
-  bool expectInteger(int64_t &res);
-  bool expectReal(double &res);
-  bool expectBoolean(bool &res);
-  std::shared_ptr<ValueInfo> &&buildValueInfo();
+  bool expectInteger(int64_t& res);
+  bool expectReal(double& res);
+  bool expectBoolean(bool& res);
+  std::shared_ptr<ValueInfo>&& buildValueInfo();
 };
 
 } // namespace taffo

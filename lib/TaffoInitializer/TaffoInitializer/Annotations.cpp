@@ -1,18 +1,17 @@
-#include "InitializerPass.hpp"
-
 #include "AnnotationParser.hpp"
+#include "Debug/Logger.hpp"
+#include "InitializerPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TransparentType.hpp"
-#include "Debug/Logger.hpp"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Debug.h"
 
+#include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 
 using namespace llvm;
@@ -20,10 +19,10 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-init"
 
-Function *InitializerPass::findStartingPointFunctionGlobal(Module &m) {
-  GlobalVariable *StartFuncGlob = nullptr;
+Function* InitializerPass::findStartingPointFunctionGlobal(Module& m) {
+  GlobalVariable* StartFuncGlob = nullptr;
 
-  for (GlobalVariable &Global : m.globals()) {
+  for (GlobalVariable& Global : m.globals()) {
     if (Global.getName() == "__taffo_vra_starting_function") {
       StartFuncGlob = &Global;
       break;
@@ -32,12 +31,12 @@ Function *InitializerPass::findStartingPointFunctionGlobal(Module &m) {
   if (!StartFuncGlob)
     return nullptr;
 
-  Constant *Init = StartFuncGlob->getInitializer();
-  ConstantExpr *ValCExpr = dyn_cast_or_null<ConstantExpr>(Init);
+  Constant* Init = StartFuncGlob->getInitializer();
+  ConstantExpr* ValCExpr = dyn_cast_or_null<ConstantExpr>(Init);
   if (!ValCExpr)
     report_fatal_error("__taffo_vra_starting_function not initialized to anything or initialized incorrectly!");
 
-  Function *startingPointFun = nullptr;
+  Function* startingPointFun = nullptr;
   while (ValCExpr && ValCExpr->getOpcode() == Instruction::BitCast) {
     if (isa<Function>(ValCExpr->getOperand(0))) {
       startingPointFun = dyn_cast<Function>(ValCExpr->getOperand(0));
@@ -54,18 +53,18 @@ Function *InitializerPass::findStartingPointFunctionGlobal(Module &m) {
   return startingPointFun;
 }
 
-void InitializerPass::readAndRemoveGlobalAnnotations(Module &m) {
-  if (GlobalVariable *annotationsGlobalVar = m.getGlobalVariable("llvm.global.annotations")) {
-    if (auto *annotations = dyn_cast<ConstantArray>(annotationsGlobalVar->getInitializer()))
+void InitializerPass::readAndRemoveGlobalAnnotations(Module& m) {
+  if (GlobalVariable* annotationsGlobalVar = m.getGlobalVariable("llvm.global.annotations")) {
+    if (auto* annotations = dyn_cast<ConstantArray>(annotationsGlobalVar->getInitializer()))
       for (unsigned i = 0, n = annotations->getNumOperands(); i < n; i++)
-        if (auto *annotation = dyn_cast<ConstantStruct>(annotations->getOperand(i))) {
+        if (auto* annotation = dyn_cast<ConstantStruct>(annotations->getOperand(i))) {
           // Structure of the expression (ConstantStruct operand #0 is the expression):
           // [OpType] operand,
           // [BitCast] *function,
           // [GetElementPtr] *annotation,
           // [GetElementPtr] *filename,
           // [Int] source code line
-          if (auto *expr = dyn_cast<ConstantExpr>(annotation->getOperand(0)))
+          if (auto* expr = dyn_cast<ConstantExpr>(annotation->getOperand(0)))
             if (expr->getOpcode() == Instruction::BitCast)
               parseAnnotation(cast<ConstantExpr>(annotation->getOperand(1)), expr->getOperand(0));
         }
@@ -73,16 +72,16 @@ void InitializerPass::readAndRemoveGlobalAnnotations(Module &m) {
   }
 }
 
-void InitializerPass::readAndRemoveLocalAnnotations(Function &f) {
+void InitializerPass::readAndRemoveLocalAnnotations(Function& f) {
   bool foundStartingPoint = false;
-  for (Instruction &inst : make_early_inc_range(instructions(f))) {
-    if (auto *call = dyn_cast<CallInst>(&inst)) {
+  for (Instruction& inst : make_early_inc_range(instructions(f))) {
+    if (auto* call = dyn_cast<CallInst>(&inst)) {
       if (!call->getCalledFunction())
         continue;
       if (call->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
         bool isStartingPoint = false;
-        Value *annotatedValue = inst.getOperand(0);
-        Value *annotationValue = inst.getOperand(1);
+        Value* annotatedValue = inst.getOperand(0);
+        Value* annotationValue = inst.getOperand(1);
         parseAnnotation(annotatedValue, annotationValue, &isStartingPoint);
         foundStartingPoint |= isStartingPoint;
         call->eraseFromParent();
@@ -93,8 +92,8 @@ void InitializerPass::readAndRemoveLocalAnnotations(Function &f) {
     TaffoInfo::getInstance().addStartingPoint(f);
 }
 
-void InitializerPass::readAndRemoveLocalAnnotations(Module &m) {
-  for (Function &f : m.functions()) {
+void InitializerPass::readAndRemoveLocalAnnotations(Module& m) {
+  for (Function& f : m.functions()) {
     readAndRemoveLocalAnnotations(f);
     /* Otherwise dce pass ignores the function (removed also where it's not required).
      * Don't remove for OCL trampolines because we want to keep the useless code there
@@ -107,14 +106,14 @@ void InitializerPass::readAndRemoveLocalAnnotations(Module &m) {
     TaffoInfo::getInstance().addDefaultStartingPoint(m);
 }
 
-void InitializerPass::parseAnnotation(Value *annotatedValue, Value *annotationValue, bool *isStartingPoint) {
-  auto *annotationContent = cast<GlobalVariable>(annotationValue);
-  auto *annotationStrConstant = cast<ConstantDataSequential>(annotationContent->getInitializer());
+void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationValue, bool* isStartingPoint) {
+  auto* annotationContent = cast<GlobalVariable>(annotationValue);
+  auto* annotationStrConstant = cast<ConstantDataSequential>(annotationContent->getInitializer());
   StringRef annotationStr = annotationStrConstant->getAsString();
 
   AnnotationParser parser;
   if (!parser.parseAnnotationAndGenValueInfo(annotationStr, annotatedValue)) {
-    Logger &logger = log();
+    Logger& logger = log();
     logger.logln("TAFFO Annotation parser error:", raw_ostream::Colors::RED);
     logger.increaseIndent();
     logger.log("In annotation: \"", raw_ostream::Colors::RED);
@@ -131,20 +130,18 @@ void InitializerPass::parseAnnotation(Value *annotatedValue, Value *annotationVa
 
   // parseAnnotationAndGenValueInfo has generated the valueInfo: we need to generate also the valueInitInfo.
   // For functions, valueInitInfo is generated only for call sites, not for the function itself.
-  if (auto *annotatedFun = dyn_cast<Function>(annotatedValue)) {
+  if (auto* annotatedFun = dyn_cast<Function>(annotatedValue)) {
     annotatedFunctions.insert(annotatedFun);
-    for (User *user : annotatedFun->users()) {
+    for (User* user : annotatedFun->users()) {
       if (!isa<CallInst>(user) && !isa<InvokeInst>(user))
         continue;
       infoPropagationQueue.push_back(user);
-      taffoInitInfo.createValueInitInfo(
-        user, 0, parser.backtracking ? parser.backtrackingDepth : 0);
+      taffoInitInfo.createValueInitInfo(user, 0, parser.backtracking ? parser.backtrackingDepth : 0);
     }
   }
   else {
     infoPropagationQueue.push_back(annotatedValue);
-    taffoInitInfo.createValueInitInfo(
-      annotatedValue, 0, parser.backtracking ? parser.backtrackingDepth : 0);
+    taffoInitInfo.createValueInitInfo(annotatedValue, 0, parser.backtracking ? parser.backtrackingDepth : 0);
   }
 }
 
@@ -152,12 +149,9 @@ void InitializerPass::removeNotFloats() {
   for (auto val : make_early_inc_range(infoPropagationQueue)) {
     bool containsFloatingPoint = TaffoInfo::getInstance().getOrCreateTransparentType(*val)->containsFloatingPointType();
     if (!containsFloatingPoint) {
-      LLVM_DEBUG(
-        Logger &logger = log();
-        logger.log("Removing ",llvm::raw_ostream::Colors::YELLOW);
-        logger.log(val,llvm::raw_ostream::Colors::YELLOW);
-        logger.logln(" from infoPropagationQueue as it is not float", raw_ostream::Colors::YELLOW);
-      );
+      LLVM_DEBUG(Logger& logger = log(); logger.log("Removing ", llvm::raw_ostream::Colors::YELLOW);
+                 logger.log(val, llvm::raw_ostream::Colors::YELLOW);
+                 logger.logln(" from infoPropagationQueue as it is not float", raw_ostream::Colors::YELLOW););
       infoPropagationQueue.remove(val);
     }
   }

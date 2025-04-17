@@ -13,14 +13,14 @@
 
 #pragma once
 
-#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/PassManager.h>
 
 namespace taffo {
 
 class MemToRegPass : public llvm::PassInfoMixin<MemToRegPass> {
 public:
-  llvm::PreservedAnalyses run(llvm::Function &F, llvm::FunctionAnalysisManager &AM);
+  llvm::PreservedAnalyses run(llvm::Function& F, llvm::FunctionAnalysisManager& AM);
 };
 
 } // end namespace taffo

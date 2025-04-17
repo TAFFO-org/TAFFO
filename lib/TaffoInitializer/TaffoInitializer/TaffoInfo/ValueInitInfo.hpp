@@ -11,7 +11,7 @@ class ValueInitInfo : Printable {
 public:
   friend class ValueInitInfoFactory;
 
-  ValueInfo *getValueInfo() { return valueInfo; }
+  ValueInfo* getValueInfo() { return valueInfo; }
   void setRootDistance(unsigned int distance) { rootDistance = distance; }
   unsigned int getRootDistance() const { return rootDistance; }
   unsigned int getUserRootDistance() const { return std::max(rootDistance, rootDistance + 1); }
@@ -23,13 +23,13 @@ public:
   std::string toString() const override;
 
 private:
-  ValueInfo *valueInfo;
+  ValueInfo* valueInfo;
   unsigned int rootDistance;
   unsigned int backtrackingDepth;
 
   ValueInitInfo() = delete;
 
-  ValueInitInfo(ValueInfo *valueInfo, unsigned int rootDistance, unsigned int backtrackingDepth)
+  ValueInitInfo(ValueInfo* valueInfo, unsigned int rootDistance, unsigned int backtrackingDepth)
   : valueInfo(valueInfo), rootDistance(rootDistance), backtrackingDepth(backtrackingDepth) {}
 };
 
@@ -37,7 +37,8 @@ class ValueInitInfoFactory {
 private:
   friend class TaffoInitInfo;
 
-  static ValueInitInfo createValueInitInfo(ValueInfo *valueInfo, unsigned int rootDistance, unsigned int backtrackingDepth) {
+  static ValueInitInfo
+  createValueInitInfo(ValueInfo* valueInfo, unsigned int rootDistance, unsigned int backtrackingDepth) {
     return ValueInitInfo(valueInfo, rootDistance, backtrackingDepth);
   }
 };

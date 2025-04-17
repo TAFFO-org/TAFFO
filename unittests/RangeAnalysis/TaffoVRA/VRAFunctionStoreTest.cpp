@@ -1,19 +1,16 @@
-#include "TestUtils.h"
-
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAFunctionStore.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
 #include "TaffoVRA/VRAnalyzer.hpp"
+#include "TestUtils.h"
 
-namespace
-{
+namespace {
 
 using namespace llvm;
 using namespace taffo;
 using namespace taffo_test;
 
-class VRAFunctionStoreTest : public taffo_test::Test
-{
+class VRAFunctionStoreTest : public taffo_test::Test {
 private:
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::shared_ptr<VRAGlobalStore>(new VRAGlobalStore());
 
@@ -23,8 +20,8 @@ protected:
   std::shared_ptr<VRALogger> VRAL = std::shared_ptr<VRALogger>(new VRALogger());
   VRAFunctionStore VRAfs = VRAFunctionStore(VRAL);
 
-  Function *F;
-  std::vector<Type *> args;
+  Function* F;
+  std::vector<Type*> args;
   std::list<NodePtrT> argsRanges;
   NodePtrT retval;
   NodePtrT ret;
@@ -34,13 +31,12 @@ protected:
  * more in-depth testing on convexMerge is done in VRAStoreTest.cpp,
  * here we test only the sameScalar case
  */
-TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer)
-{
+TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer) {
   VRAnalyzer Other(VRAL, CI);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRAfs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -55,13 +51,12 @@ TEST_F(VRAFunctionStoreTest, convexMerge_VRAnalyzer)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore)
-{
+TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore) {
   VRAGlobalStore Other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRAfs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -76,13 +71,12 @@ TEST_F(VRAFunctionStoreTest, convexMerge_VRAGlobalStore)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAFunctionStoreTest, convexMerge_VRAFunctionStore)
-{
+TEST_F(VRAFunctionStoreTest, convexMerge_VRAFunctionStore) {
   VRAFunctionStore Other(VRAL);
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRAfs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   Other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -97,9 +91,8 @@ TEST_F(VRAFunctionStoreTest, convexMerge_VRAFunctionStore)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAFunctionStoreTest, setRetVal_new)
-{
-  retval = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 10}));
+TEST_F(VRAFunctionStoreTest, setRetVal_new) {
+  retval = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 10}));
   VRAfs.setRetVal(retval);
 
   ret = VRAfs.getRetVal();
@@ -110,8 +103,7 @@ TEST_F(VRAFunctionStoreTest, setRetVal_new)
   EXPECT_EQ(retcast->getRange()->max(), 10);
 }
 
-TEST_F(VRAFunctionStoreTest, setRetVal_null)
-{
+TEST_F(VRAFunctionStoreTest, setRetVal_null) {
   retval = nullptr;
   VRAfs.setRetVal(retval);
 
@@ -119,11 +111,10 @@ TEST_F(VRAFunctionStoreTest, setRetVal_null)
   EXPECT_EQ(ret, nullptr);
 }
 
-TEST_F(VRAFunctionStoreTest, setRetVal_union)
-{
-  retval = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 10}));
+TEST_F(VRAFunctionStoreTest, setRetVal_union) {
+  retval = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 10}));
   VRAfs.setRetVal(retval);
-  retval = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{5, 15}));
+  retval = std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {5, 15}));
   VRAfs.setRetVal(retval);
 
   ret = VRAfs.getRetVal();
@@ -134,10 +125,10 @@ TEST_F(VRAFunctionStoreTest, setRetVal_union)
   EXPECT_EQ(retcast->getRange()->max(), 15);
 }
 
-TEST_F(VRAFunctionStoreTest, setArgumentRanges)
-{
+TEST_F(VRAFunctionStoreTest, setArgumentRanges) {
   args = {Type::getInt32Ty(Context), Type::getInt32Ty(Context)};
-  argsRanges = {std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 10})), std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{5, 15}))};
+  argsRanges = {std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 10})),
+                std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {5, 15}))};
   F = genFunction(*M, Type::getVoidTy(Context), args);
   VRAfs.setArgumentRanges(*F, argsRanges);
 

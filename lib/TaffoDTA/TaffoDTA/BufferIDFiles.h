@@ -1,8 +1,9 @@
 #pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
-#include <string>
+
 #include <map>
+#include <string>
 
 #define DEBUG_TYPE "taffo-dta"
 

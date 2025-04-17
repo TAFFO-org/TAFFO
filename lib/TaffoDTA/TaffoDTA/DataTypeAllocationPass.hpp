@@ -8,19 +8,19 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/PassManager.h>
-#include <string>
+
 #include <map>
+#include <string>
 
 #define DEBUG_TYPE "taffo-dta"
 
 namespace tuner {
 
-bool isMergeable(const std::shared_ptr<taffo::FixedPointInfo> &fpv,
-                 const std::shared_ptr<taffo::FixedPointInfo> &fpu);
-std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo> &fpv,
-                                       const std::shared_ptr<taffo::FixedPointInfo> &fpu);
-std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo> &fpv,
-                                          const std::shared_ptr<taffo::NumericTypeInfo> &fpu);
+bool isMergeable(const std::shared_ptr<taffo::FixedPointInfo>& fpv, const std::shared_ptr<taffo::FixedPointInfo>& fpu);
+std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
+                                             const std::shared_ptr<taffo::FixedPointInfo>& fpu);
+std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                              const std::shared_ptr<taffo::NumericTypeInfo>& fpu);
 
 struct TunerInfo {
   std::shared_ptr<taffo::ValueInfo> metadata;
@@ -29,7 +29,7 @@ struct TunerInfo {
 };
 
 struct FunInfo {
-  llvm::Function *newFun;
+  llvm::Function* newFun;
   /* {function argument index, type of argument}
    * argument idx is -1 for return value */
   std::vector<std::pair<int, std::shared_ptr<taffo::ValueInfo>>> fixArgs;
@@ -38,68 +38,66 @@ struct FunInfo {
 class DataTypeAllocationPass : public llvm::PassInfoMixin<DataTypeAllocationPass> {
 public:
   /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value *, std::shared_ptr<TunerInfo>> info;
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<TunerInfo>> info;
   /* original function -> cloned function map */
-  llvm::DenseMap<llvm::Function *, std::vector<FunInfo>> functionPool;
+  llvm::DenseMap<llvm::Function*, std::vector<FunInfo>> functionPool;
   /* buffer ID sets */
-  std::map<std::string, llvm::SmallPtrSet<llvm::Value *, 2>> bufferIDSets;
+  std::map<std::string, llvm::SmallPtrSet<llvm::Value*, 2>> bufferIDSets;
 
-  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
 
-  void retrieveAllMetadata(llvm::Module &m, std::vector<llvm::Value *> &vals,
-                           llvm::SmallPtrSetImpl<llvm::Value *> &valset);
-  
-  void retrieveBufferID(llvm::Value *V);
+  void
+  retrieveAllMetadata(llvm::Module& m, std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
 
-  bool processMetadataOfValue(llvm::Value *v, const std::shared_ptr<taffo::ValueInfo>& valueInfo);
+  void retrieveBufferID(llvm::Value* V);
 
-  bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo> &scalarInfo, llvm::Value *value);
+  bool processMetadataOfValue(llvm::Value* v, const std::shared_ptr<taffo::ValueInfo>& valueInfo);
 
-  void sortQueue(std::vector<llvm::Value *> &vals,
-                 llvm::SmallPtrSetImpl<llvm::Value *> &valset);
+  bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value);
 
-  void mergeFixFormat(const std::vector<llvm::Value *> &vals,
-                      const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
+  void sortQueue(std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+
+  void mergeFixFormat(const std::vector<llvm::Value*>& vals, const llvm::SmallPtrSetImpl<llvm::Value*>& valset);
 
 #ifdef TAFFO_BUILD_ILP_DTA
-  void buildModelAndOptimze(llvm::Module &m,
-                            const std::vector<llvm::Value *> &vals,
-                            const llvm::SmallPtrSetImpl<llvm::Value *> &valset);
+  void buildModelAndOptimze(llvm::Module& m,
+                            const std::vector<llvm::Value*>& vals,
+                            const llvm::SmallPtrSetImpl<llvm::Value*>& valset);
 #endif // TAFFO_BUILD_ILP_DTA
 
-  bool mergeFixFormat(llvm::Value *v, llvm::Value *u);
+  bool mergeFixFormat(llvm::Value* v, llvm::Value* u);
 
-  bool mergeFixFormatIterative(llvm::Value *v, llvm::Value *u);
+  bool mergeFixFormatIterative(llvm::Value* v, llvm::Value* u);
 
   void mergeBufferIDSets();
 
-  void restoreTypesAcrossFunctionCall(llvm::Value *arg_or_call_param);
-  void setTypesOnFunctionArgumentFromCallArgument(llvm::Value *call_param, std::shared_ptr<taffo::ValueInfo> finalMd);
-  void setTypesOnCallArgumentFromFunctionArgument(llvm::Argument *arg, std::shared_ptr<taffo::ValueInfo> finalMd);
+  void restoreTypesAcrossFunctionCall(llvm::Value* arg_or_call_param);
+  void setTypesOnFunctionArgumentFromCallArgument(llvm::Value* call_param, std::shared_ptr<taffo::ValueInfo> finalMd);
+  void setTypesOnCallArgumentFromFunctionArgument(llvm::Argument* arg, std::shared_ptr<taffo::ValueInfo> finalMd);
 
-  std::vector<llvm::Function *> collapseFunction(llvm::Module &m);
+  std::vector<llvm::Function*> collapseFunction(llvm::Module& m);
 
-  llvm::Function *findEqFunction(llvm::Function *fun, llvm::Function *origin);
+  llvm::Function* findEqFunction(llvm::Function* fun, llvm::Function* origin);
 
-  void attachFPMetaData(std::vector<llvm::Value *> &vals);
+  void attachFPMetaData(std::vector<llvm::Value*>& vals);
 
-  void attachFunctionMetaData(llvm::Module &m);
+  void attachFunctionMetaData(llvm::Module& m);
 
-  std::shared_ptr<TunerInfo> getTunerInfo(llvm::Value *val)
-  {
+  std::shared_ptr<TunerInfo> getTunerInfo(llvm::Value* val) {
     auto vi = info.find(val);
     if (vi == info.end()) {
       LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
       info[val] = std::make_shared<TunerInfo>(TunerInfo());
       return info[val];
-    } else {
+    }
+    else {
       return vi->getSecond();
     }
   }
 
-  bool hasTunerInfo(llvm::Value *val) { return info.find(val) != info.end(); }
+  bool hasTunerInfo(llvm::Value* val) { return info.find(val) != info.end(); }
 
-  bool conversionDisabled(llvm::Value *val) {
+  bool conversionDisabled(llvm::Value* val) {
     if (llvm::isa<llvm::Constant>(val))
       return false;
     if (llvm::isa<llvm::Argument>(val)) {
@@ -111,21 +109,22 @@ public:
     return !(valueInfo && valueInfo->isConversionEnabled()) && incomingValuesDisabled(val);
   }
 
-  bool incomingValuesDisabled(llvm::Value *v) {
+  bool incomingValuesDisabled(llvm::Value* v) {
     using namespace llvm;
     if (!taffo::getUnwrappedType(v)->isFloatTy())
       return true;
 
-    if (auto *phi = dyn_cast<PHINode>(v)) {
+    if (auto* phi = dyn_cast<PHINode>(v)) {
       bool disabled = false;
-      for (Value *inc : phi->incoming_values()) {
+      for (Value* inc : phi->incoming_values()) {
         if (!isa<PHINode>(inc) && conversionDisabled(inc)) {
           disabled = true;
           break;
         }
       }
       return disabled;
-    } else {
+    }
+    else {
       return true;
     }
   }
@@ -135,24 +134,25 @@ public:
 #endif // TAFFO_BUILD_ILP_DTA
 
   template <typename AnalysisT>
-  typename AnalysisT::Result& getFunctionAnalysisResult(llvm::Function& F)
-  {
-    auto &FAM = MAM->getResult<llvm::FunctionAnalysisManagerModuleProxy>(*(F.getParent())).getManager();
+  typename AnalysisT::Result& getFunctionAnalysisResult(llvm::Function& F) {
+    auto& FAM = MAM->getResult<llvm::FunctionAnalysisManagerModuleProxy>(*(F.getParent())).getManager();
     return FAM.getResult<AnalysisT>(F);
   }
 
-  llvm::ModuleAnalysisManager& getMAM() { assert(MAM); return *MAM; }
+  llvm::ModuleAnalysisManager& getMAM() {
+    assert(MAM);
+    return *MAM;
+  }
 
-  llvm::FunctionAnalysisManager& getFAM(llvm::Module& M)
-  {
+  llvm::FunctionAnalysisManager& getFAM(llvm::Module& M) {
     assert(MAM);
     return MAM->getResult<llvm::FunctionAnalysisManagerModuleProxy>(M).getManager();
   }
 
 private:
-  llvm::ModuleAnalysisManager *MAM = nullptr;
+  llvm::ModuleAnalysisManager* MAM = nullptr;
 };
 
 } // namespace tuner
- 
+
 #undef DEBUG_TYPE
