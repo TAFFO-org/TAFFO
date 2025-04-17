@@ -23,6 +23,12 @@ void TaffoInfo::setTransparentType(Value &v, const std::shared_ptr<TransparentTy
   transparentTypes[&v] = t;
 }
 
+std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(Value &v) const {
+  auto iter = transparentTypes.find(&v);
+  assert(  iter->second  && "Transparent type not present");
+  return iter->second;
+}
+
 std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value &v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())

@@ -71,9 +71,10 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*> *variables, std::shared
   LLVM_DEBUG(dbgs() << "Collecting metadata for: " << *instr << "\n");
 
   ConversionInfo vi;
+  auto& taffoInfo = TaffoInfo::getInstance();
   vi.isBacktrackingNode = false;
   vi.fixpTypeRootDistance = 0;
-  vi.origType = getUnwrappedType(instr);
+  vi.origType =  taffoInfo.getOrCreateTransparentType(*instr);
 
   if (std::shared_ptr<ScalarInfo> fpInfo = std::dynamic_ptr_cast<ScalarInfo>(raw)) {
     if (!fpInfo->isConversionEnabled())

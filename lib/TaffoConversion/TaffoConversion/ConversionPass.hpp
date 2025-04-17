@@ -17,7 +17,9 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
+#include <memory>
 
+#include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -313,62 +315,49 @@ struct FloatToFixed {
                                       TypeMatchPolicy::ForceHint);
   }
 
-  llvm::Value *fallbackMatchValue(llvm::Value *fallval, llvm::Type *origType,
+  llvm::Value *fallbackMatchValue(llvm::Value *value, const std::shared_ptr<TransparentType>& origType,
                                   llvm::Instruction *ip = nullptr)
   {
-    LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(fallval) == operandPool.end()) << "\n");
-    llvm::Value *cvtfallval = operandPool[fallval];
+    LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(value) == operandPool.end()) << "\n");
+    llvm::Value *fallBackValue = operandPool[value];
 
     LLVM_DEBUG({
       llvm::dbgs() << "check\n"
-                   << *fallval << "\nwas converted\n";
-      if (cvtfallval == nullptr) {
+                   << *value << "\nwas converted\n";
+      if (fallBackValue == nullptr) {
         llvm::dbgs() << "nullptr"
                      << "\n";
       } else {
-        llvm::dbgs() << *cvtfallval << "\n";
+        llvm::dbgs() << *fallBackValue << "\n";
       }
     });
 
-    if (cvtfallval == ConversionError) {
+    if (fallBackValue == ConversionError) {
       LLVM_DEBUG(llvm::dbgs()
-                 << "error: bail out reverse match of " << *fallval << "\n");
+                 << "error: bail out reverse match of " << *value << "\n");
       return nullptr;
     }
 
-    LLVM_DEBUG(llvm::dbgs() << "hasInfo " << hasConversionInfo(cvtfallval) << "\n";);
-    if (!hasConversionInfo(cvtfallval))
-      return cvtfallval;
-    LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << getConversionInfo(cvtfallval)->noTypeConversion << "\n";);
-    if (getConversionInfo(cvtfallval)->noTypeConversion)
-      return cvtfallval;
+    LLVM_DEBUG(llvm::dbgs() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
+    if (!hasConversionInfo(fallBackValue))
+      return fallBackValue;
+    LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->noTypeConversion << "\n";);
+    if (getConversionInfo(fallBackValue)->noTypeConversion)
+      return fallBackValue;
 
     if (!ip) {
-      if ((ip = llvm::dyn_cast<llvm::Instruction>(cvtfallval))){
-        ip->getNextNode();
-      }
       // argument is not an instruction, insert it's convertion in the first basic block
-      if (ip == nullptr && llvm::isa<llvm::Argument>(cvtfallval)){
-        auto arg = llvm::cast<llvm::Argument>(cvtfallval);
+      if (ip == nullptr && llvm::isa<llvm::Argument>(fallBackValue)){
+        auto arg = llvm::cast<llvm::Argument>(fallBackValue);
         ip = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
       }
       
       assert(ip && "ip mandatory for non-instruction values");
     }
-    /*Nel caso in cui la chiave (valore rimosso in precedenze) è un float
-      il rispettivo value è un fix che deve essere convertito in float per
-      retrocompatibilità. Se la chiave non è un float allora uso il rispettivo
-      value associato così com'è.*/
-    if (cvtfallval->getType()->isPointerTy() &&
-        cvtfallval->getType() != origType) {
-      llvm::BitCastInst *bc = new llvm::BitCastInst(cvtfallval, origType);
-      cpMetaData(bc, cvtfallval);
-      bc->insertBefore(ip);
-      return bc;
-    }
-    if (origType->isFloatingPointTy())
-      return genConvertFixToFloat(cvtfallval, getFixpType(cvtfallval), origType);
-    return cvtfallval;
+
+    if (origType->containsFloatingPointType())
+      return genConvertFixToFloat(fallBackValue, getFixpType(fallBackValue), origType);
+    return fallBackValue;
   }
 
   /** Generate code for converting the value of a scalar from floating point to
@@ -384,18 +373,11 @@ struct FloatToFixed {
                                     const std::shared_ptr<FixedPointScalarType> &fixpt,
                                     llvm::Instruction *ip = nullptr);
 
-  /** Generate code for converting the value of a scalar from fixed point to
-   *  floating point.
-   *  @param flt A fixed point scalar value.
-   *  @param fixpt The fixed point type of the input
-   *  @param ip The instruction which will use the returned value.
-   *    Used for placing generated fixed point runtime conversion code in
-   *    case val was not to be converted statically. Not required if val
-   *    is an instruction or a constant.
-   *  @returns The converted value. */
+
+
   llvm::Value *genConvertFixToFloat(llvm::Value *fix,
                                     const std::shared_ptr<FixedPointType> &fixpt,
-                                    llvm::Type *destt);
+                                    const std::shared_ptr<TransparentType> & destt);
 
   /** Generate code for converting between two fixed point formats.
    *  @param flt A fixed point scalar value.
@@ -494,7 +476,7 @@ struct FloatToFixed {
       return false;
     if (vi->fixpType->isInvalid())
       return false;
-    if (*taffoInfo.getOrCreateTransparentType(val) == *taffoInfo.getOrCreateTransparentType(vi->origType))
+    if (*taffoInfo.getTransparentType(*val) == *vi->origType)
       return false;
     return true;
   }

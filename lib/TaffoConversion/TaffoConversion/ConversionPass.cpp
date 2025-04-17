@@ -335,9 +335,10 @@ void FloatToFixed::sortQueue(std::vector<Value*> &vals) {
       }
 
       if (!hasConversionInfo(u)) {
+        auto& taffoInfo = TaffoInfo::getInstance();
         LLVM_DEBUG(dbgs() << "[WARNING] Value " << *u << " will not be converted because it has no metadata\n");
         newConversionInfo(u)->noTypeConversion = true;
-        getConversionInfo(u)->origType = getUnwrappedType(u);
+        getConversionInfo(u)->origType = taffoInfo.getOrCreateTransparentType(*u);
       }
 
       LLVM_DEBUG(dbgs() << "[U] " << *u << "\n");
@@ -548,7 +549,7 @@ void FloatToFixed::propagateCall(std::vector<Value*> &vals, SmallVectorImpl<Valu
       newF->setAttributes(AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
       LLVM_DEBUG(dbgs() << "Set new attributes, hopefully without breaking anything\n");
     }
-    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF << "\n");
+    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n" << *newF->getFunctionType() << "\n");
 
     std::vector<Value*> newVals; // propagate fixp conversion
     oldIt = oldF->arg_begin();
@@ -610,7 +611,7 @@ void FloatToFixed::propagateCall(std::vector<Value*> &vals, SmallVectorImpl<Valu
         continue;
       newVals.push_back(v);
       demandConversionInfo(v)->fixpType = getFixpType(call);
-      getConversionInfo(v)->origType = nullptr;
+      getConversionInfo(v)->origType = taffoInfo.getOrCreateTransparentType(*v);
       getConversionInfo(v)->fixpTypeRootDistance = 0;
     }
 

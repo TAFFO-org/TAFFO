@@ -3,6 +3,7 @@
 
 #include "../FixedPointType.hpp"
 #include "SerializationUtils.hpp"
+#include "Types/TransparentType.hpp"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -27,7 +28,7 @@ struct ConversionInfo : taffo::Printable {
   // significant iff origType is a float or a pointer to a float
   // and if operation == Convert
   std::shared_ptr<FixedPointType> fixpType = std::make_shared<FixedPointScalarType>();
-  llvm::Type *origType = nullptr;
+  std::shared_ptr<TransparentType> origType = nullptr;
 
   std::string toString() const override {
     std::stringstream ss;
@@ -39,7 +40,7 @@ struct ConversionInfo : taffo::Printable {
     ss << "isArgumentPlaceholder: " << (isArgumentPlaceholder ? "true" : "false") << ", ";
     ss << "origType: ";
     if (origType)
-      ss << taffo::toString(origType);
+      ss << origType->toString();
     else
       ss << "null";
     ss << ", fixpType: ";

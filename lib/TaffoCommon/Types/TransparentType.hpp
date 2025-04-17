@@ -53,6 +53,7 @@ public:
   bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
   bool isStructType() const { return unwrappedType->isStructTy(); }
   bool isFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
+  bool isIntegerType() const { return unwrappedType->isIntegerTy(); }
   virtual bool containsFloatingPointType() const { return unwrappedType->isFloatingPointTy(); }
   bool isPointerType() const { return indirections > 0 || isOpaquePointer(); }
   virtual bool isOpaquePointer() const { return unwrappedType->isPointerTy(); }

@@ -1,4 +1,6 @@
 #include "ConversionPass.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/APFloat.h>
@@ -14,6 +16,7 @@
 #include <llvm/Analysis/ConstantFolding.h>
 #include <cassert>
 #include <cmath>
+#include <memory>
 
 #include "Debug/Logger.hpp"
 
@@ -352,17 +355,18 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
 
 // TODO: rewrite this mess!
 Value *FloatToFixed::genConvertFixedToFixed(
-  Value *fix, const std::shared_ptr<FixedPointScalarType> &srct, const std::shared_ptr<FixedPointScalarType> &destt, Instruction *ip)
+  Value *fix, const std::shared_ptr<FixedPointScalarType> &srcFixedType, const std::shared_ptr<FixedPointScalarType> &dstFixedType, Instruction *ip)
 {
-  if (*srct == *destt)
+  auto& taffoInfo = TaffoInfo::getInstance();
+  if (*srcFixedType == *dstFixedType)
     return fix;
 
   LLVM_DEBUG(
     Logger& logger = log();
     logger.log("Called fixedToFixed with src ");
-    logger.log(*srct, llvm::raw_ostream::Colors::BLUE);
+    logger.log(*srcFixedType, llvm::raw_ostream::Colors::BLUE);
     logger.log(" to dst ");
-    logger.logln(*destt, llvm::raw_ostream::Colors::BLUE);
+    logger.logln(*dstFixedType, llvm::raw_ostream::Colors::BLUE);
   );
 
 
@@ -371,63 +375,64 @@ Value *FloatToFixed::genConvertFixedToFixed(
     ip = getFirstInsertionPointAfter(fixinst);
   assert(ip && "ip required when converted value not an instruction");
 
-  Type *llvmsrct = fix->getType();
-  Type *llvmdestt = destt->scalarToLLVMType(fix->getContext());
+  std::shared_ptr<TransparentType> srcType = taffoInfo.getTransparentType(*fix);
+  std::shared_ptr<TransparentType> dstType = dstFixedType->toTransparentType(srcType);
+  Type* srcLLVMType = srcType->toLLVMType();
+  Type* dstLLVMType = dstType->toLLVMType();
 
   // Source and destination are both float
-  if (llvmsrct->isFloatingPointTy() &&
-      llvmdestt->isFloatingPointTy()) {
+  if (srcType->isFloatingPointType() &&
+      dstType->isFloatingPointType()) {
     IRBuilder<NoFolder> builder(ip);
 
     LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
-    int startingBit = llvmsrct->getPrimitiveSizeInBits();
-    int destinationBit = llvmdestt->getPrimitiveSizeInBits();
+    int startingBit = srcLLVMType->getPrimitiveSizeInBits();
+    int destinationBit = dstLLVMType->getPrimitiveSizeInBits();
 
     if (startingBit == destinationBit) {
       // No casting is actually needed
-      LLVM_DEBUG(assert((llvmsrct->dump(), llvmdestt->dump(), 1) && llvmsrct == llvmdestt && "Floating types having same bits but differents types"));
-      assert( llvmsrct == llvmdestt && "Floating types having same bits but differents types");
+      assert( *srcType == *dstType && "Floating types having same bits but differents types");
       LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] no casting needed.\n");
       return fix;
     } else if (startingBit < destinationBit) {
       // Extension needed
-      return cpMetaData(builder.CreateFPExt(fix, llvmdestt), fix, ip);
+      return cpMetaData(builder.CreateFPExt(fix, dstLLVMType), fix, ip);
     } else {
       // Truncation needed
-      return cpMetaData(builder.CreateFPTrunc(fix, llvmdestt), fix, ip);
+      return cpMetaData(builder.CreateFPTrunc(fix, dstLLVMType), fix, ip);
     }
   }
 
   /*We should never have these case in general, but when using mixed precision this can (and will) happen*/
-  if (srct->isFloatingPoint() &&
-      destt->isFixedPoint()) {
-    return genConvertFloatToFix(fix, destt, ip);
+  if (srcFixedType->isFloatingPoint() &&
+      dstFixedType->isFixedPoint()) {
+    return genConvertFloatToFix(fix, dstFixedType, ip);
   }
 
-  if (srct->isFixedPoint() &&
-      destt->isFloatingPoint()) {
-    return genConvertFixToFloat(fix, srct, llvmdestt);
+  if (srcFixedType->isFixedPoint() &&
+      dstFixedType->isFloatingPoint()) {
+    return genConvertFixToFloat(fix, srcFixedType, dstType);
   }
 
-  assert(llvmsrct->isSingleValueType() && "cannot change type of a pointer");
-  assert(llvmsrct->isIntegerTy() && "cannot change type of a float");
+  assert(srcLLVMType->isSingleValueType() && "cannot be a struct or an array");
+  assert(srcLLVMType->isIntegerTy() && "src must be an integer");
 
   IRBuilder<NoFolder> builder(ip);
 
   auto genSizeChange = [&](Value *fix) -> Value * {
-    if (srct->isSigned()) {
-      return cpMetaData(builder.CreateSExtOrTrunc(fix, llvmdestt), fix);
+    if (srcFixedType->isSigned()) {
+      return cpMetaData(builder.CreateSExtOrTrunc(fix, dstLLVMType), fix);
     } else {
-      return cpMetaData(builder.CreateZExtOrTrunc(fix, llvmdestt), fix);
+      return cpMetaData(builder.CreateZExtOrTrunc(fix, dstLLVMType), fix);
     }
   };
 
   auto genPointMovement = [&](Value *fix) -> Value * {
-    int deltab = destt->getFractionalBits() - srct->getFractionalBits();
+    int deltab = dstFixedType->getFractionalBits() - srcFixedType->getFractionalBits();
     if (deltab > 0) {
       return cpMetaData(builder.CreateShl(fix, deltab), fix);
     } else if (deltab < 0) {
-      if (srct->isSigned()) {
+      if (srcFixedType->isSigned()) {
         return cpMetaData(builder.CreateAShr(fix, -deltab), fix);
       } else {
         return cpMetaData(builder.CreateLShr(fix, -deltab), fix);
@@ -436,65 +441,69 @@ Value *FloatToFixed::genConvertFixedToFixed(
     return fix;
   };
 
-  if (destt->getBits() > srct->getBits())
+  if (dstFixedType->getBits() > srcFixedType->getBits())
     return genPointMovement(genSizeChange(fix));
   return genSizeChange(genPointMovement(fix));
 }
 
 
 // TODO: rewrite this mess!
-Value *FloatToFixed::genConvertFixToFloat(Value *fix, const std::shared_ptr<FixedPointType> &fixpt, Type *destt)
+Value *FloatToFixed::genConvertFixToFloat(Value *fixValue, const std::shared_ptr<FixedPointType> &fixpt, const std::shared_ptr<TransparentType>& dstType)
 {
-  LLVM_DEBUG(dbgs() << "******** trace: genConvertFixToFloat ";
-             fix->print(dbgs());
-             dbgs() << " -> ";
-             destt->print(dbgs());
-             dbgs() << "\n";);
+  Logger &log = Logger::getInstance();
+  auto &taffoInfo = TaffoInfo::getInstance();
+  Type* dstLLVMType = dstType->toLLVMType();
 
-  if (fix->getType()->isFloatingPointTy()) {
-    if (isa<Instruction>(fix) || isa<Argument>(fix)) {
+  LLVM_DEBUG(log << "******** trace: genConvertFixToFloat ";
+             log.logValue(fixValue);
+             log << " -> ";
+             log.logln(dstType); 
+             );
+
+  auto fixValueType = taffoInfo.getTransparentType(*fixValue);
+  if (fixValueType->isFloatingPointType()) {
+    if (isa<Instruction>(fixValue) || isa<Argument>(fixValue)) {
       Instruction *ip = nullptr;
-      if (Instruction *i = dyn_cast<Instruction>(fix)) {
+      if (Instruction *i = dyn_cast<Instruction>(fixValue)) {
         ip = getFirstInsertionPointAfter(i);
-      } else if (Argument *arg = dyn_cast<Argument>(fix)) {
+      } else if (Argument *arg = dyn_cast<Argument>(fixValue)) {
         ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
       }
       IRBuilder<NoFolder> builder(ip);
 
-      LLVM_DEBUG(dbgs() << "[genConvertFixToFloat] converting a floating point to a floating point\n");
-      int startingBit = fix->getType()->getPrimitiveSizeInBits();
-      int destinationBit = destt->getPrimitiveSizeInBits();
+      LLVM_DEBUG(log << "[genConvertFixToFloat] converting a floating point to a floating point\n");
+      int startingBit =  fixValueType->toLLVMType()->getPrimitiveSizeInBits();
+      int destinationBit = dstLLVMType->getPrimitiveSizeInBits();
+      assert(!fixValueType->isPointerType() && !dstType->isPointerType() && "In FixToFloat src and dst cannot be pointers");
 
       if (startingBit == destinationBit) {
         // No casting is actually needed
-        LLVM_DEBUG(assert((fix->dump(), destt->dump(), 1) && fix->getType() == destt && "Floating types having same bits but differents types"));
-        assert(fix->getType() == destt && "Floating types having same bits but differents types");
-        LLVM_DEBUG(dbgs() << "[genConvertFixToFloat] no casting needed.\n");
-        return fix;
+        assert(*fixValueType == *dstType && "Floating types having same bits but differents types");
+        LLVM_DEBUG(log << "[genConvertFixToFloat] no casting needed.\n");
+        return fixValue;
       } else if (startingBit < destinationBit) {
         // Extension needed
-        return cpMetaData(builder.CreateFPExt(fix, destt), fix, ip);
+        return cpMetaData(builder.CreateFPExt(fixValue, dstLLVMType), fixValue, ip);
       } else {
         // Truncation needed
-        return cpMetaData(builder.CreateFPTrunc(fix, destt), fix, ip);
+        return cpMetaData(builder.CreateFPTrunc(fixValue, dstLLVMType), fixValue, ip);
       }
-    } else if (Constant *cst = dyn_cast<Constant>(fix)) {
+    } else if (Constant *cst = dyn_cast<Constant>(fixValue)) {
 
-      int startingBit = fix->getType()->getPrimitiveSizeInBits();
-      int destinationBit = destt->getPrimitiveSizeInBits();
+      int startingBit =  fixValueType->toLLVMType()->getPrimitiveSizeInBits();
+      int destinationBit = dstLLVMType->getPrimitiveSizeInBits();
 
       if (startingBit == destinationBit) {
         // No casting is actually needed
-        LLVM_DEBUG(assert((fix->dump(), destt->dump(), 1) && fix->getType() == destt && "Floating types having same bits but differents types"));
-        assert(fix->getType() == destt && "Floating types having same bits but differents types");
-        LLVM_DEBUG(dbgs() << "[genConvertFixToFloat] no casting needed.\n");
-        return fix;
+        assert( *fixValueType == *dstType && "Floating types having same bits but differents types");
+        LLVM_DEBUG(log << "[genConvertFixToFloat] no casting needed.\n");
+        return fixValue;
       } else if (startingBit < destinationBit) {
         // Extension needed
-        return ConstantExpr::getCast(Instruction::FPExt, cst, destt);
+        return ConstantExpr::getCast(Instruction::FPExt, cst, dstLLVMType);
       } else {
         // Truncation needed
-        return ConstantExpr::getCast(Instruction::FPTrunc, cst, destt);
+        return ConstantExpr::getCast(Instruction::FPTrunc, cst, dstLLVMType);
       }
 
       std::shared_ptr<FixedPointScalarType> scalarFixpt = std::static_ptr_cast<FixedPointScalarType>(fixpt);
@@ -508,29 +517,29 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const std::shared_ptr<Fixe
       Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
       assert(DblRes && "Constant folding failed...");
       LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-      Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+      Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *ModuleDL);
       assert(Res && "Constant folding failed...");
       LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
       return Res;
     }
   }
 
-  if (!fix->getType()->isIntegerTy()) {
+  if (!fixValue->getType()->isIntegerTy()) {
     LLVM_DEBUG(errs() << "can't wrap-convert to flt non integer value ";
-               fix->print(errs());
+               fixValue->print(errs());
                errs() << "\n");
     return nullptr;
   }
 
 
   FixToFloatCount++;
-  FixToFloatWeight += std::pow(2, std::min((int)(sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(fix)));
+  FixToFloatWeight += std::pow(2, std::min((int)(sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(fixValue)));
 
-  if (isa<Instruction>(fix) || isa<Argument>(fix)) {
+  if (isa<Instruction>(fixValue) || isa<Argument>(fixValue)) {
     Instruction *ip = nullptr;
-    if (Instruction *i = dyn_cast<Instruction>(fix)) {
+    if (Instruction *i = dyn_cast<Instruction>(fixValue)) {
       ip = getFirstInsertionPointAfter(i);
-    } else if (Argument *arg = dyn_cast<Argument>(fix)) {
+    } else if (Argument *arg = dyn_cast<Argument>(fixValue)) {
       ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
     }
     IRBuilder<NoFolder> builder(ip);
@@ -540,32 +549,32 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const std::shared_ptr<Fixe
     double twoebits = pow(2.0, scalarFixpt->getFractionalBits());
     if (twoebits == 1.0) {
       LLVM_DEBUG(dbgs() << "Optimizing conversion removing division by one!\n");
-      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fix, destt) : builder.CreateUIToFP(fix, destt);
+      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, dstLLVMType) : builder.CreateUIToFP(fixValue, dstLLVMType);
       return floattmp;
     }
 
-    const fltSemantics &FltSema = destt->getFltSemantics();
+    const fltSemantics &FltSema = dstLLVMType->getFltSemantics();
     double MaxDest = APFloat::getLargest(FltSema).convertToDouble();
     double MaxSrc = pow(2.0, scalarFixpt->getBits());
     if (MaxDest < MaxSrc || MaxDest < twoebits) {
-      LLVM_DEBUG(dbgs() << "fixToFloat: Extending " << *destt << " to float because source integer is too small\n");
-      Type *TmpTy = Type::getFloatTy(fix->getContext());
-      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fix, TmpTy) : builder.CreateUIToFP(fix, TmpTy);
-      cpMetaData(floattmp, fix);
+      LLVM_DEBUG(dbgs() << "fixToFloat: Extending " << *dstType << " to float because source integer is too small\n");
+      Type *TmpTy = Type::getFloatTy(fixValue->getContext());
+      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, TmpTy) : builder.CreateUIToFP(fixValue, TmpTy);
+      cpMetaData(floattmp, fixValue);
       return cpMetaData(
           builder.CreateFPTrunc(
             builder.CreateFDiv(floattmp,
-              cpMetaData(ConstantFP::get(TmpTy, twoebits), fix)),
-          destt),
-        fix);
+              cpMetaData(ConstantFP::get(TmpTy, twoebits), fixValue)),
+          dstLLVMType),
+        fixValue);
     } else {
-      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fix, destt) : builder.CreateUIToFP(fix, destt);
-      cpMetaData(floattmp, fix);
-      return cpMetaData(builder.CreateFDiv(floattmp,cpMetaData(ConstantFP::get(destt, twoebits), fix)),
-                        fix);
+      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, dstLLVMType) : builder.CreateUIToFP(fixValue, dstLLVMType);
+      cpMetaData(floattmp, fixValue);
+      return cpMetaData(builder.CreateFDiv(floattmp,cpMetaData(ConstantFP::get(dstLLVMType, twoebits), fixValue)),
+                        fixValue);
     }
 
-  } else if (Constant *cst = dyn_cast<Constant>(fix)) {
+  } else if (Constant *cst = dyn_cast<Constant>(fixValue)) {
     std::shared_ptr<FixedPointScalarType> scalarFixpt = std::static_ptr_cast<FixedPointScalarType>(fixpt);
     // Always convert to double then to the destination type
     // No need to worry about efficiency, as everything will be constant folded
@@ -577,7 +586,7 @@ Value *FloatToFixed::genConvertFixToFloat(Value *fix, const std::shared_ptr<Fixe
     Constant *DblRes = ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
     assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
     LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-    Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, destt, *ModuleDL);
+    Constant *Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *ModuleDL);
     assert(Res && "Constant folding failed...");
     LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
     return Res;

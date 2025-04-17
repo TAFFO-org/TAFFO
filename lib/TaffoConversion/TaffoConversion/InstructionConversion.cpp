@@ -1,6 +1,7 @@
 #include "FixedPointType.hpp"
 #include "ConversionPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Constants.h>
@@ -116,6 +117,7 @@ Value *FloatToFixed::convertAlloca(AllocaInst *alloca, const std::shared_ptr<Fix
 
 
 Value *FloatToFixed::convertLoad(LoadInst *load, std::shared_ptr<FixedPointType> &fixpt, Module &m) {
+  auto& taffoInfo = TaffoInfo::getInstance();
   Value *ptr = load->getPointerOperand();
   Value *newptr = operandPool[ptr];
   if (newptr == ConversionError)
@@ -138,7 +140,7 @@ Value *FloatToFixed::convertLoad(LoadInst *load, std::shared_ptr<FixedPointType>
     if (getConversionInfo(load)->noTypeConversion) {
       assert(newinst->getType()->isIntegerTy() &&
              "DTA bug; improperly tagged struct/pointer!");
-      return genConvertFixToFloat(newinst, getFixpType(newptr), load->getType());
+      return genConvertFixToFloat(newinst, getFixpType(newptr), taffoInfo.getTransparentType(*load));
     }
     return newinst;
   }
@@ -147,18 +149,19 @@ Value *FloatToFixed::convertLoad(LoadInst *load, std::shared_ptr<FixedPointType>
 
 
 Value *FloatToFixed::convertStore(StoreInst *store, Module &m) {
-  Value *ptr = store->getPointerOperand();
+  auto& taffoInfo = TaffoInfo::getInstance();
+  Value *oldPtrOperand = store->getPointerOperand();
   Value *val = store->getValueOperand();
-  Value *newptr = matchOp(ptr);
-  if (!newptr)
+  Value *newPtrOperand = matchOp(oldPtrOperand);
+  if (!newPtrOperand)
     return nullptr;
   Value *newval;
-  Type *peltype = getUnwrappedType(newptr);
+  std::shared_ptr<TransparentType> newPtrOperandType = taffoInfo.getTransparentType(*newPtrOperand);
   if (isFloatingPointToConvert(val)) {
     /* value is converted (thus we can match it) */
-    if (isConvertedFixedPoint(newptr)) {
-      std::shared_ptr<FixedPointType> valtype = getFixpType(newptr);
-      if (peltype->isPointerTy()) {
+    if (isConvertedFixedPoint(newPtrOperand)) {
+      std::shared_ptr<FixedPointType> valtype = getFixpType(newPtrOperand);
+      if (newPtrOperandType->isPointerType()) {
         /* store <value ptr> into <value ptr> pointer; both are converted
          * so everything is fine and there is nothing special to do.
          * Only logging type mismatches because we trust DTA has done its job */
@@ -169,26 +172,26 @@ Value *FloatToFixed::convertStore(StoreInst *store, Module &m) {
               << "unsolvable fixp type mismatch between store dest and src!\n");
       } else {
         /* best case: store <value> into <value> pointer */
-        valtype = getFixpType(newptr);
+        valtype = getFixpType(newPtrOperand);
         newval = translateOrMatchOperandAndType(val, valtype, store);
       }
     } else {
       /* store fixp <value ptr?> into original <value ptr?> pointer
        * try to match the stored value if possible */
-      newval = fallbackMatchValue(val, peltype, store);
+      newval = fallbackMatchValue(val, newPtrOperandType, store);
       if (!newval)
         return Unsupported;
     }
   } else {
     /* pointer is converted, but value is not converted */
-    if (isConvertedFixedPoint(newptr)) {
-      std::shared_ptr<FixedPointType> valtype = getFixpType(newptr);
+    if (isConvertedFixedPoint(newPtrOperand)) {
+      std::shared_ptr<FixedPointType> valtype = getFixpType(newPtrOperand);
       /* the value to store is not converted but the pointer is */
       /*Checking for the value to be a pointer in order to assert that is a
        * converted type is not sufficient anymore because of destination
        * datatype can be a float too. This raises a bug when storing constants
        * (in other cases should be ok)*/
-      if (peltype->isIntegerTy() || !peltype->isPointerTy()) {
+      if (newPtrOperandType->isIntegerType() || !newPtrOperandType->isPointerType()) {
         /* value is not a pointer; we can convert it to fixed point */
         newval = genConvertFloatToFix(val, std::static_ptr_cast<FixedPointScalarType>(valtype));
       } else {
@@ -197,7 +200,7 @@ Value *FloatToFixed::convertStore(StoreInst *store, Module &m) {
         LLVM_DEBUG(
             dbgs()
             << "[Store] HACK: bitcasting operands of wrong type to new type\n");
-        BitCastInst *bc = new BitCastInst(val, peltype);
+        BitCastInst *bc = new BitCastInst(val, newPtrOperandType->toLLVMType());
         cpMetaData(bc, val);
         bc->insertBefore(store);
         newval = bc;
@@ -216,7 +219,7 @@ Value *FloatToFixed::convertStore(StoreInst *store, Module &m) {
     align = store->getAlign();
   }
   StoreInst *newinst =
-      new StoreInst(newval, newptr, store->isVolatile(), align,
+      new StoreInst(newval, newPtrOperand, store->isVolatile(), align,
                     store->getOrdering(), store->getSyncScopeID());
   newinst->insertAfter(store);
   return newinst;
@@ -292,6 +295,7 @@ Value *FloatToFixed::convertInsertValue(InsertValueInst *inv, std::shared_ptr<Fi
 }
 
 Value *FloatToFixed::convertPhi(PHINode *phi, std::shared_ptr<FixedPointType> &fixpt) {
+  auto& taffoInfo = TaffoInfo::getInstance();
   if (!phi->getType()->isFloatingPointTy() ||
       getConversionInfo(phi)->noTypeConversion) {
     /* in the conversion chain the floating point number was converted to
@@ -302,7 +306,7 @@ Value *FloatToFixed::convertPhi(PHINode *phi, std::shared_ptr<FixedPointType> &f
     bool donesomething = false;
     for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
       Value *thisval = phi->getIncomingValue(i);
-      Value *newval = fallbackMatchValue(thisval, thisval->getType(), phi);
+      Value *newval = fallbackMatchValue(thisval, taffoInfo.getTransparentType(*thisval), phi);
       if (newval && newval != ConversionError) {
         phi->setIncomingValue(i, newval);
         donesomething = true;
@@ -353,6 +357,7 @@ Value *FloatToFixed::convertSelect(SelectInst *sel, std::shared_ptr<FixedPointTy
 }
 
 Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType> &fixpt) {
+  auto& taffoInfo = TaffoInfo::getInstance();
   /* If the function return a float the new return type will be a fix point of
    * type fixpt, otherwise the return type is left unchanged.*/
   Function *oldF = call->getCalledFunction();
@@ -394,7 +399,7 @@ Value *FloatToFixed::convertCall(CallBase *call, std::shared_ptr<FixedPointType>
       if (!hasConversionInfo(*call_arg)) {
         thisArgument = *call_arg;
       } else {
-        thisArgument = fallbackMatchValue(*call_arg, f_arg->getType(), call);
+        thisArgument = fallbackMatchValue(*call_arg, taffoInfo.getTransparentType(*f_arg), call);
       }
     } else if (hasConversionInfo(*call_arg) &&
                getConversionInfo(*call_arg)->noTypeConversion == false) {
@@ -966,6 +971,7 @@ Value *FloatToFixed::convertCast(CastInst *cast, const std::shared_ptr<FixedPoin
 
 Value *FloatToFixed::fallback(Instruction *unsupp, std::shared_ptr<FixedPointType> &fixpt)
 {
+  auto& taffoInfo = TaffoInfo::getInstance();
   Value *fallval;
   Value *fixval;
   std::vector<Value*> newops;
@@ -974,7 +980,7 @@ Value *FloatToFixed::fallback(Instruction *unsupp, std::shared_ptr<FixedPointTyp
   FallbackCount++;
   for (int i = 0, n = unsupp->getNumOperands(); i < n; i++) {
     fallval = unsupp->getOperand(i);
-    fixval = fallbackMatchValue(fallval, fallval->getType(), unsupp);
+    fixval = fallbackMatchValue(fallval, taffoInfo.getTransparentType(*fallval), unsupp);
     if (fixval) {
       LLVM_DEBUG(dbgs() << "  Substituted operand number : " << i + 1 << " of "
                         << n << "\n");
