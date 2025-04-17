@@ -77,6 +77,7 @@ void kernel_covariance(int m, int n,
       for (i = 0; i < _PB_N; i++)
         mean[j] += data[i][j];
       mean[j] /= float_n;
+      printf("mean: %f\n", mean[j]);
     }
 
   for (i = 0; i < _PB_N; i++)
@@ -128,7 +129,7 @@ int main(int argc, char** argv)
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
-  polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(cov)));
+  /*polybench_prevent_dce(print_array(m, POLYBENCH_ARRAY(cov)));*/
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(data);
