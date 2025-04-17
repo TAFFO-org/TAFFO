@@ -1,6 +1,10 @@
 #include "TransparentType.hpp"
 
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <memory>
 #include <sstream>
@@ -8,7 +12,28 @@
 using namespace llvm;
 using namespace taffo;
 
+
+bool containsPtrType(Type* type){
+  if (type->isSingleValueType()) return type->isPointerTy();
+  if (type->isArrayTy()){ return containsPtrType(type->getArrayElementType());}
+  if ( StructType* structType = dyn_cast<StructType>(type)){
+    for (Type* fieldType : structType->elements()){
+     if (containsPtrType(fieldType)) return true; 
+    }
+    return false;
+  }
+  llvm_unreachable("Type not handled in containsPtrType");
+}
+
+
+std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type *type) 
+{ 
+  assert(!containsPtrType(type) && "Long life transparent pointer"); 
+  return create(type, 0);
+}
+
 std::shared_ptr<TransparentType> TransparentTypeFactory::create(const Value *value) {
+  assert(!isa<BasicBlock>(value) && "BasicBlock cannot have a transparent type");
   if (auto *function = dyn_cast<Function>(value))
     return create(function->getReturnType(), 0);
   if (auto *global = dyn_cast<GlobalValue>(value))

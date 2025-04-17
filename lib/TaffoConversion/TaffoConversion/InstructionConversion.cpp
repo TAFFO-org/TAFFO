@@ -3,6 +3,7 @@
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
+#include "Debug/Logger.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
@@ -201,7 +202,7 @@ Value *FloatToFixed::convertStore(StoreInst *store, Module &m) {
             dbgs()
             << "[Store] HACK: bitcasting operands of wrong type to new type\n");
         BitCastInst *bc = new BitCastInst(val, newPtrOperandType->toLLVMType());
-        cpMetaData(bc, val);
+        copyValueInfo(bc, val);
         bc->insertBefore(store);
         newval = bc;
       }
@@ -505,7 +506,7 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr, const std::shared_ptr<Fi
       llvm_unreachable("Unknown variable type. Are you trying to implement a "
                        "new datatype?");
     }
-    cpMetaData(fixop, instr);
+    copyValueInfo(fixop, instr);
     updateConstTypeMetadata(fixop, 0U, fixpt);
     return fixop;
   }
@@ -513,7 +514,7 @@ Value *FloatToFixed::convertUnaryOp(Instruction *instr, const std::shared_ptr<Fi
 }
 
 
-Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<FixedPointScalarType> &fixpt)
+Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<FixedPointScalarType> &dstType)
 {
   /* Instruction::[Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
    * are handled by the fallback function, not here */
@@ -529,17 +530,17 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
     LLVM_DEBUG(instr->getOperand(0)->print(dbgs()););
     LLVM_DEBUG(dbgs() << "\n";);
     Value *val1 =
-        translateOrMatchOperandAndType(instr->getOperand(0), fixpt, instr);
+        translateOrMatchOperandAndType(instr->getOperand(0), dstType, instr);
     Value *val2 =
-        translateOrMatchOperandAndType(instr->getOperand(1), fixpt, instr);
+        translateOrMatchOperandAndType(instr->getOperand(1), dstType, instr);
     if (!val1 || !val2)
       return nullptr;
     IRBuilder<NoFolder> builder(instr);
     Value *fixop;
     if (opc == Instruction::FAdd) {
-      if (fixpt->isFixedPoint()) {
+      if (dstType->isFixedPoint()) {
         fixop = builder.CreateBinOp(Instruction::Add, val1, val2);
-      } else if (fixpt->isFloatingPoint()) {
+      } else if (dstType->isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FAdd, val1, val2);
       } else {
         llvm_unreachable("Unknown variable type. Are you trying to implement a "
@@ -547,8 +548,8 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
       }
     } else if (opc == Instruction::FSub) {
       // TODO: improve overflow resistance by shifting late
-      LLVM_DEBUG(dbgs() << *fixpt << "\n";);
-      if (fixpt->isFixedPoint()) {
+      LLVM_DEBUG(dbgs() << *dstType << "\n";);
+      if (dstType->isFixedPoint()) {
         fixop = builder.CreateBinOp(Instruction::Sub, val1, val2);
         LLVM_DEBUG(val1->print(dbgs()););
         LLVM_DEBUG(dbgs() << "\n";);
@@ -556,32 +557,32 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
         LLVM_DEBUG(dbgs() << "\n";);
         LLVM_DEBUG(fixop->print(dbgs()););
         LLVM_DEBUG(dbgs() << "\n";);
-      } else if (fixpt->isFloatingPoint()) {
+      } else if (dstType->isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FSub, val1, val2);
       } else {
         llvm_unreachable("Unknown variable type. Are you trying to implement a "
                          "new datatype?");
       }
     } else /* if (opc == Instruction::FRem) */ {
-      if (fixpt->isFixedPoint()) {
-        if (fixpt->isSigned())
+      if (dstType->isFixedPoint()) {
+        if (dstType->isSigned())
           fixop = builder.CreateBinOp(Instruction::SRem, val1, val2);
         else
           fixop = builder.CreateBinOp(Instruction::URem, val1, val2);
-      } else if (fixpt->isFloatingPoint()) {
+      } else if (dstType->isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FRem, val1, val2);
       } else {
         llvm_unreachable("Unknown variable type. Are you trying to implement a "
                          "new datatype?");
       }
     }
-    updateConstTypeMetadata(fixop, 0U, fixpt);
-    updateConstTypeMetadata(fixop, 1U, fixpt);
+    updateConstTypeMetadata(fixop, 0U, dstType);
+    updateConstTypeMetadata(fixop, 1U, dstType);
     return fixop;
   } else if (opc == Instruction::FMul) {
-    std::shared_ptr<FixedPointType> intype1 = fixpt->clone();
-    std::shared_ptr<FixedPointType> intype2 = fixpt->clone();
-    if (fixpt->isFixedPoint()) {
+    std::shared_ptr<FixedPointType> intype1 = dstType->clone();
+    std::shared_ptr<FixedPointType> intype2 = dstType->clone();
+    if (dstType->isFixedPoint()) {
       Value *val1 =
           translateOrMatchOperand(instr->getOperand(0), intype1, instr,
                                   TypeMatchPolicy::RangeOverHintMaxInt);
@@ -593,7 +594,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
       std::shared_ptr<FixedPointScalarType> scalarIntype1 = std::static_ptr_cast<FixedPointScalarType>(intype1);
       std::shared_ptr<FixedPointScalarType> scalarIntype2 = std::static_ptr_cast<FixedPointScalarType>(intype2);
       std::shared_ptr<FixedPointScalarType> intermtype = std::make_shared<FixedPointScalarType>(
-          fixpt->isSigned(),
+          dstType->isSigned(),
           scalarIntype1->getBits() + scalarIntype2->getBits(),
           scalarIntype1->getFractionalBits() + scalarIntype2->getFractionalBits());
       Type *dbfxt = intermtype->scalarToLLVMType(instr->getContext());
@@ -602,7 +603,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
       Value *ext1 = nullptr;
       Value *ext2 = nullptr;
       if (dbfxt->getScalarSizeInBits() > MaxTotalBitsConv) {
-        dbfxt = fixpt->scalarToLLVMType(instr->getContext());
+        dbfxt = dstType->scalarToLLVMType(instr->getContext());
 
         ext1 = val1;
         ext2 = val2;
@@ -615,12 +616,12 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
 
           auto diff = llvmto->getScalarSizeInBits() - llvmfrom->getScalarSizeInBits();
           // create metadata same as val2 but more bits
-          cpMetaData(ext, val);
+          copyValueInfo(ext, val);
           updateFPTypeMetadata(ext, from->isSigned(), from->getFractionalBits(), from->getBits() + diff);
 
           ext = builder.CreateShl(ext, diff);
           // create metadata same as val2 but more bits and appropriate scalar frac
-          cpMetaData(ext, val);
+          copyValueInfo(ext, val);
           updateFPTypeMetadata(ext, from->isSigned(), from->getFractionalBits() + diff, from->getBits() + diff);
 
           // update inttype2 to correct type
@@ -639,7 +640,7 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
         const auto frac1_s = scalarIntype1->getFractionalBits();
         const auto frac2_s = scalarIntype2->getFractionalBits();
 
-        auto target_frac = fixpt->getFractionalBits();
+        auto target_frac = dstType->getFractionalBits();
         int shift_right1 = 0;
         int shift_right2 = 0;
         auto new_frac1 = frac1_s;
@@ -680,22 +681,22 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
         scalarIntype1->setFractionalBits(new_frac1);
         scalarIntype2->setFractionalBits(new_frac2);
 
-        cpMetaData(ext1, val1);
+        copyValueInfo(ext1, val1);
         updateFPTypeMetadata(ext1, scalarIntype1->isSigned(), scalarIntype1->getFractionalBits(), scalarIntype1->getBits());
-        cpMetaData(ext2, val2);
+        copyValueInfo(ext2, val2);
         updateFPTypeMetadata(ext2, scalarIntype2->isSigned(), scalarIntype2->getFractionalBits(), scalarIntype2->getBits());
         intermtype->setBits(scalarIntype1->getBits());
         intermtype->setFractionalBits(new_frac);
         fixop = builder.CreateMul(ext1, ext2);
         updateConstTypeMetadata(fixop, 0U, scalarIntype1);
         updateConstTypeMetadata(fixop, 1U, scalarIntype2);
-        cpMetaData(fixop, instr);
+        copyValueInfo(fixop, instr);
         updateFPTypeMetadata(fixop, intermtype->isSigned(),
                              intermtype->getFractionalBits(),
                              intermtype->getBits());
 
 
-        return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+        return genConvertFixedToFixed(fixop, intermtype, dstType, instr);
 
       } else {
 
@@ -705,18 +706,19 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
         ext2 = scalarIntype2->isSigned() ? builder.CreateSExt(val2, dbfxt)
                                         : builder.CreateZExt(val2, dbfxt);
         fixop = builder.CreateMul(ext1, ext2);
-        cpMetaData(ext1, val1);
-        cpMetaData(ext2, val2);
-        cpMetaData(fixop, instr);
+        copyValueInfo(ext1, val1);
+        copyValueInfo(ext2, val2);
+        
+        copyValueInfo(fixop, instr, TransparentTypeFactory::create(fixop->getType()));
         updateFPTypeMetadata(fixop, intermtype->isSigned(),
                              intermtype->getFractionalBits(),
                              intermtype->getBits());
         updateConstTypeMetadata(fixop, 0U, scalarIntype1);
         updateConstTypeMetadata(fixop, 1U, scalarIntype2);
-        return genConvertFixedToFixed(fixop, intermtype, fixpt, instr);
+        return genConvertFixedToFixed(fixop, intermtype, dstType, instr);
       }
 
-    } else if (fixpt->isFloatingPoint()) {
+    } else if (dstType->isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
                                             instr, TypeMatchPolicy::ForceHint);
       Value *val2 = translateOrMatchOperand(instr->getOperand(1), intype2,
@@ -732,37 +734,37 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
     }
   } else if (opc == Instruction::FDiv) {
     // TODO: fix by using HintOverRange when it is actually implemented
-    std::shared_ptr<FixedPointType> intype1 = fixpt->clone();
-    std::shared_ptr<FixedPointType> intype2 = fixpt->clone();
-    if (fixpt->isFixedPoint()) {
+    std::shared_ptr<FixedPointType> intype1 = dstType->clone();
+    std::shared_ptr<FixedPointType> intype2 = dstType->clone();
+    if (dstType->isFixedPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1, instr, TypeMatchPolicy::RangeOverHintMaxFrac);
       Value *val2 = translateOrMatchOperand(instr->getOperand(1), intype2, instr, TypeMatchPolicy::RangeOverHintMaxInt);
       if (!val1 || !val2)
         return nullptr;
       std::shared_ptr<FixedPointScalarType> scalarIntype1 = std::static_ptr_cast<FixedPointScalarType>(intype1);
       std::shared_ptr<FixedPointScalarType> scalarIntype2 = std::static_ptr_cast<FixedPointScalarType>(intype2);
-      LLVM_DEBUG(dbgs() << "fdiv val1 = " << *val1 << " type = " << *scalarIntype1 << "\n");
-      LLVM_DEBUG(dbgs() << "fdiv val2 = " << *val2 << " type = " << *scalarIntype2 << "\n");
+      LLVM_DEBUG(log() << "fdiv val1 = " << *val1 << " type = " << *scalarIntype1 << "\n");
+      LLVM_DEBUG(log() << "fdiv val2 = " << *val2 << " type = " << *scalarIntype2 << "\n");
 
       /* Compute types of the intermediates */
-      bool SignedRes = fixpt->isSigned();
+      bool SignedRes = dstType->isSigned();
       unsigned Ext2Exp = std::max(0, scalarIntype2->getFractionalBits() - (SignedRes && !scalarIntype2->isSigned() ? 1 : 0));
-      unsigned Ext1Exp = fixpt->getFractionalBits() + Ext2Exp;
+      unsigned Ext1Exp = dstType->getFractionalBits() + Ext2Exp;
       unsigned Size = std::max(scalarIntype1->getBits(), scalarIntype2->getBits());
       if (Ext1Exp + scalarIntype1->getIntegerBits() > Size)
         Size = scalarIntype1->getBits() + scalarIntype2->getBits();
 
       if (Size > MaxTotalBitsConv) {
         Ext1Exp = scalarIntype1->getFractionalBits();
-        Size = fixpt->getBits();
-        unsigned target = fixpt->getFractionalBits();
+        Size = dstType->getBits();
+        unsigned target = dstType->getFractionalBits();
 
         //  we want fixpt->getFractionalBits() == Ext1Exp - Ext2Exp
         if (Ext1Exp < Ext2Exp) {
           Ext2Exp = Ext1Exp;
         }
         if (Ext1Exp - Ext2Exp < target){
-           int diff = fixpt->getFractionalBits() - (int)target;
+           int diff = dstType->getFractionalBits() - (int)target;
            Ext2Exp = diff > (int)MinQuotientFrac ? (unsigned)diff : MinQuotientFrac; // HOW prevent division by 0?
         }
 
@@ -777,25 +779,25 @@ Value *FloatToFixed::convertBinOp(Instruction *instr, const std::shared_ptr<Fixe
       Value *ext2 = genConvertFixedToFixed(val2, scalarIntype2, ext2type, instr);
 
       /* Generate division */
-      std::shared_ptr<FixedPointScalarType> fixoptype = std::make_shared<FixedPointScalarType>(SignedRes, Size, Ext1Exp - Ext2Exp);
+      std::shared_ptr<FixedPointScalarType> intermType = std::make_shared<FixedPointScalarType>(SignedRes, Size, Ext1Exp - Ext2Exp);
       IRBuilder<NoFolder> builder(instr);
-      Value *fixop = fixpt->isSigned() ? builder.CreateSDiv(ext1, ext2)
+      Value *intermResult = dstType->isSigned() ? builder.CreateSDiv(ext1, ext2)
                                             : builder.CreateUDiv(ext1, ext2);
 
       LLVM_DEBUG(dbgs() << "fdiv ext1 = " << *ext1 << " type = " << *ext1type << "\n");
       LLVM_DEBUG(dbgs() << "fdiv ext2 = " << *ext2 << " type = " << *ext2type << "\n");
-      LLVM_DEBUG(dbgs() << "fdiv fixop = " << *fixop << "type = " << *fixoptype << "\n");
+      LLVM_DEBUG(dbgs() << "fdiv fixop = " << *intermResult << "type = " << *intermType << "\n");
 
-      cpMetaData(ext1, val1);
-      cpMetaData(ext2, val2);
-      cpMetaData(fixop, instr);
-      updateFPTypeMetadata(fixop, fixoptype->isSigned(),
-                           fixoptype->getFractionalBits(),
-                           fixoptype->getBits());
-      updateConstTypeMetadata(fixop, 0U, ext1type);
-      updateConstTypeMetadata(fixop, 1U, ext2type);
-      return genConvertFixedToFixed(fixop, fixoptype, fixpt, instr);
-    } else if (fixpt->isFloatingPoint()) {
+      copyValueInfo(ext1, val1);
+      copyValueInfo(ext2, val2);
+      copyValueInfo(intermResult, instr, TransparentTypeFactory::create(intermResult->getType()) );
+      updateFPTypeMetadata(intermResult, intermType->isSigned(),
+                           intermType->getFractionalBits(),
+                           intermType->getBits());
+      updateConstTypeMetadata(intermResult, 0U, ext1type);
+      updateConstTypeMetadata(intermResult, 1U, ext2type);
+      return genConvertFixedToFixed(intermResult, intermType, dstType, instr);
+    } else if (dstType->isFloatingPoint()) {
       Value *val1 = translateOrMatchOperand(instr->getOperand(0), intype1,
                                             instr, TypeMatchPolicy::ForceHint);
       Value *val2 = translateOrMatchOperand(instr->getOperand(1), intype2,
@@ -980,10 +982,10 @@ Value *FloatToFixed::fallback(Instruction *unsupp, std::shared_ptr<FixedPointTyp
   FallbackCount++;
   for (int i = 0, n = unsupp->getNumOperands(); i < n; i++) {
     fallval = unsupp->getOperand(i);
-    fixval = fallbackMatchValue(fallval, taffoInfo.getTransparentType(*fallval), unsupp);
-    if (fixval) {
+    if (taffoInfo.hasTransparentType(*fallval)) {
       LLVM_DEBUG(dbgs() << "  Substituted operand number : " << i + 1 << " of "
                         << n << "\n");
+      fixval = fallbackMatchValue(fallval, taffoInfo.getTransparentType(*fallval), unsupp);
       newops.push_back(fixval);
     } else {
       newops.push_back(fallval);

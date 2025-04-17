@@ -87,7 +87,7 @@ void FloatToFixed::handleKmpcFork(CallInst *patchedDirectCall,
   // Insert the indirect call after the patched direct call
   auto indirectCall = CallInst::Create(indirectFunction, indirectCallArgs);
   indirectCall->insertAfter(patchedDirectCall);
-  cpMetaData(indirectCall, patchedDirectCall);
+  copyValueInfo(indirectCall, patchedDirectCall);
 
   // Remove the patched direct call
   patchedDirectCall->eraseFromParent();

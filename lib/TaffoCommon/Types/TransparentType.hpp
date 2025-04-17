@@ -19,6 +19,9 @@ namespace taffo {
 class TransparentType;
 
 class TransparentTypeFactory {
+public: 
+  static std::shared_ptr<TransparentType> create(llvm::Type* type );
+
 private:
   friend class TransparentType;
   friend class TransparentArrayType;

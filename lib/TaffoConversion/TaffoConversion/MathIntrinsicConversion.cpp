@@ -1,4 +1,5 @@
 #include "ConversionPass.hpp"
+#include "Types/TransparentType.hpp"
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/NoFolder.h>
@@ -38,6 +39,7 @@ bool FloatToFixed::isSupportedMathIntrinsicFunction(Function *F)
 Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, const std::shared_ptr<FixedPointScalarType> &fixpt)
 {
   /* Use the normal fallback path to handle non-converted values */
+  auto& taffoInfo = TaffoInfo::getInstance();
   if (getConversionInfo(C)->noTypeConversion)
     return Unsupported;
 
@@ -84,12 +86,12 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, const std::shared
 
           auto diff = llvmto->getScalarSizeInBits() - llvmfrom->getScalarSizeInBits();
           // create metadata same as val2 but more bits
-          cpMetaData(ext, val);
+          copyValueInfo(ext, val);
           updateFPTypeMetadata(ext, from->isSigned(), from->getFractionalBits(), from->getBits() + diff);
 
           ext = builder.CreateShl(ext, diff);
           // create metadata same as val2 but more bits and appropriate scalar frac
-          cpMetaData(ext, val);
+          copyValueInfo(ext, val);
           updateFPTypeMetadata(ext, from->isSigned(), from->getFractionalBits() + diff, from->getBits() + diff);
 
           // update inttype2 to correct type
@@ -150,9 +152,9 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, const std::shared
         scalarIntype1->setFractionalBits(new_frac1);
         scalarIntype2->setFractionalBits(new_frac2);
 
-        cpMetaData(ext1, val1);
+        copyValueInfo(ext1, val1);
         updateFPTypeMetadata(ext1, scalarIntype1->isSigned(), scalarIntype1->getFractionalBits(), scalarIntype1->getBits());
-        cpMetaData(ext2, val2);
+        copyValueInfo(ext2, val2);
         updateFPTypeMetadata(ext2, scalarIntype2->isSigned(), scalarIntype2->getFractionalBits(), scalarIntype2->getBits());
         intermtype->setBits(scalarIntype1->getBits());
         intermtype->setFractionalBits(new_frac);
@@ -165,14 +167,16 @@ Value *FloatToFixed::convertMathIntrinsicFunction(CallBase *C, const std::shared
         ext2 = scalarIntype2->isSigned() ? builder.CreateSExt(val2, dbfxt)
                                         : builder.CreateZExt(val2, dbfxt);
         fixop = builder.CreateMul(ext1, ext2);
-        cpMetaData(ext1, val1);
-        cpMetaData(ext2, val2);
+        copyValueInfo(ext1, val1);
+        copyValueInfo(ext2, val2);
       }
+
+      copyValueInfo(fixop, C, TransparentTypeFactory::create(fixop->getType()));
+      
       Value *fixopcvt = genConvertFixedToFixed(fixop, intermtype, fixpt, C);
       Value *res = builder.CreateAdd(fixopcvt, val3);
 
-      cpMetaData(fixop, C);
-      cpMetaData(res, C);
+      copyValueInfo(res, C);
       updateFPTypeMetadata(fixop, intermtype->isSigned(),
                            intermtype->getFractionalBits(),
                            intermtype->getBits());

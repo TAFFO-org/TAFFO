@@ -237,12 +237,12 @@ void FloatToFixed::openPhiLoop(PHINode *phi)
   info.placeh_noconv = createPlaceholder(phi->getType(), phi->getParent(), "phi_noconv");
   *(newConversionInfo(info.placeh_noconv)) = *(getConversionInfo(phi));
   phi->replaceAllUsesWith(info.placeh_noconv);
-  cpMetaData(info.placeh_noconv, phi);
+  copyValueInfo(info.placeh_noconv, phi);
   if (isFloatingPointToConvert(phi)) {
     Type *convt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*phi), getFixpType(phi));
     info.placeh_conv = createPlaceholder(convt, phi->getParent(), "phi_conv");
     *(newConversionInfo(info.placeh_conv)) = *(getConversionInfo(phi));
-    cpMetaData(info.placeh_conv, phi);
+    copyValueInfo(info.placeh_conv, phi);
   } else {
     info.placeh_conv = info.placeh_noconv;
   }

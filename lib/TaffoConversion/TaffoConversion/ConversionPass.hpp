@@ -253,10 +253,12 @@ struct FloatToFixed {
       llvm::Instruction *ip = nullptr,
       TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac)
   {
+    auto& taffoInfo = TaffoInfo::getInstance();
     llvm::Value *res;
     if (val->getType()->getNumContainedTypes() > 0) {
       if (llvm::Constant *cst = llvm::dyn_cast<llvm::Constant>(val)) {
         res = convertConstant(cst, iofixpt, typepol);
+        taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
       } else {
         res = matchOp(val);
         if (res) {
@@ -504,15 +506,19 @@ struct FloatToFixed {
     return true;
   }
 
-  llvm::Value *cpMetaData(llvm::Value *dst, llvm::Value *src, llvm::Instruction *target = nullptr, std::shared_ptr<taffo::TransparentType> dstType = nullptr) {
+  llvm::Value *copyValueInfo(llvm::Value *dst, llvm::Value *src,  std::shared_ptr<taffo::TransparentType> dstType = nullptr) {
     using namespace llvm;
     using namespace taffo;
+    auto& taffoInfo = TaffoInfo::getInstance();
     if (std::shared_ptr<ValueInfo> srcInfo = TaffoInfo::getInstance().getValueInfo(*src)) {
       std::shared_ptr<ValueInfo> dstInfo = srcInfo->clone();
-      TaffoInfo::getInstance().setValueInfo(*dst, dstInfo);
+      taffoInfo.setValueInfo(*dst, dstInfo);
     }
-    if (dstType)
-      TaffoInfo::getInstance().setTransparentType(*dst, dstType);
+    if (dstType){
+      taffoInfo.setTransparentType(*dst, dstType);
+    }else{
+      taffoInfo.setTransparentType(*dst,taffoInfo.getTransparentType(*src));
+    }
 
     //TODO check old impl because I don't know what this does
     /*if (openMPIndirectMD) {
