@@ -21,15 +21,23 @@ jobs:
           find . -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.c' -o -name '*.cpp' \) -print0 \
           | xargs -0 -P "$(nproc || echo 4)" perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
 
-      - name: Install clang-format
+      - name: Install clang-format‑19
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y wget gnupg lsb-release software-properties-common
+          # Import the LLVM signing key
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          # Add the LLVM 19 repo for this Ubuntu release
+          UBUNTU_CODENAME=$(lsb_release -cs)
+          echo "deb http://apt.llvm.org/${UBUNTU_CODENAME}/ llvm-toolchain-${UBUNTU_CODENAME}-19 main" \
+          | sudo tee /etc/apt/sources.list.d/llvm19.list
+          sudo apt-get update
+          sudo apt-get install -y clang-format-19
 
       - name: Format code
         run: |
           git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp' \
-          | xargs -0 -n1 -P"$(nproc)" clang-format -i -style=file
+          | xargs -0 -n1 -P"$(nproc)" clang-format-19 -i -style=file
 
       - name: Commit & push changes
         run: |
