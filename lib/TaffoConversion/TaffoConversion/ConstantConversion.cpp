@@ -49,7 +49,7 @@ FloatToFixed::convertConstant(Constant* flt, std::shared_ptr<FixedPointType>& fi
 Constant*
 FloatToFixed::convertConstantExpr(ConstantExpr* cexp, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy typepol) {
   if (isa<GEPOperator>(cexp)) {
-    Value* newval = operandPool[cexp->getOperand(0)];
+    Value* newval = convertedValues[cexp->getOperand(0)];
     if (!newval) {
       LLVM_DEBUG(dbgs() << "[Warning] Operand of constant GEP not found in operandPool!\n");
       return nullptr;

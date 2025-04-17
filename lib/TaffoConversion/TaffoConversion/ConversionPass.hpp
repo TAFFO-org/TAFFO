@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
 #include "PtrCasts.hpp"
 #include "TaffoInfo/ConversionInfo.hpp"
@@ -66,7 +67,7 @@ struct FloatToFixed {
    *  Values not to be converted do not appear in the map.
    *  Values which have not been converted successfully are mapped to
    *  one of two sentinel values, ConversionError or Unsupported. */
-  llvm::DenseMap<llvm::Value*, llvm::Value*> operandPool;
+  llvm::DenseMap<llvm::Value*, llvm::Value*> convertedValues;
 
   /** Map from original function (as cloned by Initializer)
    *  to function cloned by this pass in order to change argument
@@ -184,7 +185,7 @@ struct FloatToFixed {
    *    the converted value if the original value was converted,
    *    or the original value itself if it does not require conversion. */
   llvm::Value* matchOp(llvm::Value* val) {
-    llvm::Value* res = operandPool[val];
+    llvm::Value* res = convertedValues[val];
     return res == ConversionError ? nullptr : (res ? res : val);
   }
 
@@ -224,18 +225,18 @@ struct FloatToFixed {
    *    is an instruction or a constant.
    *  @returns A fixed point value corresponding to val or nullptr if
    *    val was to be converted but its conversion failed. */
-  llvm::Value *translateOrMatchAnyOperand(
-      llvm::Value *val, std::shared_ptr<FixedPointType> &iofixpt,
-      llvm::Instruction *ip = nullptr,
-      TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac)
-  {
+  llvm::Value* translateOrMatchAnyOperand(llvm::Value* val,
+                                          std::shared_ptr<FixedPointType>& iofixpt,
+                                          llvm::Instruction* ip = nullptr,
+                                          TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac) {
     auto& taffoInfo = TaffoInfo::getInstance();
-    llvm::Value *res;
+    llvm::Value* res;
     if (val->getType()->getNumContainedTypes() > 0) {
       if (llvm::Constant* cst = llvm::dyn_cast<llvm::Constant>(val)) {
         res = convertConstant(cst, iofixpt, typepol);
         taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
-      } else {
+      }
+      else {
         res = matchOp(val);
         if (res) {
           if (typepol == TypeMatchPolicy::ForceHint)
@@ -291,20 +292,18 @@ struct FloatToFixed {
 
   llvm::Value* fallbackMatchValue(llvm::Value* value,
                                   const std::shared_ptr<TransparentType>& origType,
-                                  llvm::Instruction* ip = nullptr) {
-    LLVM_DEBUG(llvm::dbgs() << "Alredy inserted " << !(operandPool.find(value) == operandPool.end()) << "\n");
-    llvm::Value* fallBackValue = operandPool[value];
+                                  llvm::Instruction* insertionPoint = nullptr) {
+    Logger& log = Logger::getInstance();
 
-    LLVM_DEBUG({
-      llvm::dbgs() << "check\n" << *value << "\nwas converted\n";
-      if (fallBackValue == nullptr) {
-        llvm::dbgs() << "nullptr"
-                     << "\n";
-      }
-      else {
-        llvm::dbgs() << *fallBackValue << "\n";
-      }
-    });
+    llvm::Value* fallBackValue = convertedValues.at(value);
+    assert(fallBackValue != nullptr && "Value was converted to a nullptr");
+
+    LLVM_DEBUG(log.increaseIndent(); log << "[FalbackMatchingValue] "; if (fallBackValue != nullptr) {
+      log.logValue(value);
+      log << " was converted to ";
+      log.logValue(fallBackValue);
+      log << "\n";
+    } log.decreaseIndent(););
 
     if (fallBackValue == ConversionError) {
       LLVM_DEBUG(llvm::dbgs() << "error: bail out reverse match of " << *value << "\n");
@@ -318,17 +317,17 @@ struct FloatToFixed {
     if (getConversionInfo(fallBackValue)->noTypeConversion)
       return fallBackValue;
 
-    if (!ip) {
+    if (!insertionPoint) {
       // argument is not an instruction, insert it's convertion in the first basic block
-      if (ip == nullptr && llvm::isa<llvm::Argument>(fallBackValue)) {
+      if (insertionPoint == nullptr && llvm::isa<llvm::Argument>(fallBackValue)) {
         auto arg = llvm::cast<llvm::Argument>(fallBackValue);
-        ip = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
+        insertionPoint = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
       }
 
-      assert(ip && "ip mandatory for non-instruction values");
+      assert(insertionPoint && "ip mandatory for non-instruction values");
     }
 
-    if (origType->containsFloatingPointType())
+    if (origType->isFloatingPointType() && !origType->isPointerType())
       return genConvertFixToFloat(fallBackValue, getFixpType(fallBackValue), origType);
     return fallBackValue;
   }
@@ -472,7 +471,8 @@ struct FloatToFixed {
     return true;
   }
 
-  llvm::Value *copyValueInfo(llvm::Value *dst, llvm::Value *src,  std::shared_ptr<taffo::TransparentType> dstType = nullptr) {
+  llvm::Value*
+  copyValueInfo(llvm::Value* dst, llvm::Value* src, std::shared_ptr<taffo::TransparentType> dstType = nullptr) {
     using namespace llvm;
     using namespace taffo;
     auto& taffoInfo = TaffoInfo::getInstance();
@@ -480,11 +480,10 @@ struct FloatToFixed {
       std::shared_ptr<ValueInfo> dstInfo = srcInfo->clone();
       taffoInfo.setValueInfo(*dst, dstInfo);
     }
-    if (dstType){
+    if (dstType)
       taffoInfo.setTransparentType(*dst, dstType);
-    }else{
-      taffoInfo.setTransparentType(*dst,taffoInfo.getTransparentType(*src));
-    }
+    else
+      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src));
 
     // TODO check old impl because I don't know what this does
     /*if (openMPIndirectMD) {

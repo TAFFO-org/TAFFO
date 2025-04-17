@@ -4,6 +4,8 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 #include <llvm/ADT/APFloat.h>
 #include <llvm/Analysis/ConstantFolding.h>
 #include <llvm/IR/Constants.h>
@@ -54,10 +56,12 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
 
     std::shared_ptr<FixedPointType> newType = getFixpType(v);
     LLVM_DEBUG(dbgs() << "  [req. ty.] " << *newType << "\n");
+    if (isa<BranchInst>(v))
+      int pizza = 0;
     Value* newv = convertSingleValue(m, v, newType);
     getConversionInfo(v)->fixpType = newType;
     if (newv) {
-      operandPool[v] = newv;
+      convertedValues[v] = newv;
       LLVM_DEBUG(dbgs() << "  [out  ty.] " << *newType << "\n");
     }
 
@@ -109,16 +113,16 @@ Value* FloatToFixed::createPlaceholder(Type* type, BasicBlock* where, StringRef 
 }
 
 /* also inserts the new value in the basic blocks, alongside the old one */
-Value *FloatToFixed::convertSingleValue(Module &m, Value *val, std::shared_ptr<FixedPointType> &fixpt) {
+Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<FixedPointType>& fixpt) {
   auto& taffoInfo = TaffoInfo::getInstance();
-  Value *res = Unsupported;
+  Value* res = Unsupported;
 
   if (getConversionInfo(val)->isArgumentPlaceholder) {
     return matchOp(val);
   }
   else if (Constant* con = dyn_cast<Constant>(val)) {
     /* Since constants never change, there is never anything to substitute in them */
-    if (!getConversionInfo(con)->noTypeConversion){
+    if (!getConversionInfo(con)->noTypeConversion) {
       res = convertConstant(con, fixpt, TypeMatchPolicy::RangeOverHintMaxFrac);
       taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
     }
@@ -127,6 +131,12 @@ Value *FloatToFixed::convertSingleValue(Module &m, Value *val, std::shared_ptr<F
   }
   else if (Instruction* instr = dyn_cast<Instruction>(val)) {
     res = convertInstruction(m, instr, fixpt);
+    LLVM_DEBUG(
+      // Check that all operands are valid
+      if (User* user = dyn_cast<User>(res)) {
+        for (auto& operand : user->operands())
+          assert(operand.get() != nullptr);
+      });
   }
   else if (Argument* argument = dyn_cast<Argument>(val)) {
     if (getUnwrappedType(argument)->isFloatTy())
@@ -140,8 +150,8 @@ Value *FloatToFixed::convertSingleValue(Module &m, Value *val, std::shared_ptr<F
 
 /* do not use on pointer operands */
 /* In iofixpt there is also the source type*/
-Value *
-FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType> &iofixpt, Instruction *ip, TypeMatchPolicy typepol, bool wasHintForced) {
+Value* FloatToFixed::translateOrMatchOperand(
+  Value* val, std::shared_ptr<FixedPointType>& iofixpt, Instruction* ip, TypeMatchPolicy typepol, bool wasHintForced) {
   auto& taffoInfo = TaffoInfo::getInstance();
   LLVM_DEBUG(dbgs() << "translateOrMatchOperand of " << *val << "\n");
 
@@ -157,7 +167,7 @@ FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType
   }
 
   assert(val->getType()->getNumContainedTypes() == 0 && "translateOrMatchOperand val is not a scalar value");
-  Value* res = operandPool[val];
+  Value* res = convertedValues[val];
   if (res) { // this means it has been converted, but can also be a floating point!
     if (res == ConversionError)
       /* the value should have been converted but it hasn't; bail out */
@@ -233,8 +243,8 @@ FloatToFixed::translateOrMatchOperand(Value *val, std::shared_ptr<FixedPointType
    * enter that function iofixpt cannot change anymore
    *   in other words, by duplicating this logic here we potentially avoid a loss
    * of range if the suggested iofixpt is not enough for the value */
-  if (Constant *c = dyn_cast<Constant>(val)) {
-    Value *res = convertConstant(c, iofixpt, typepol);
+  if (Constant* c = dyn_cast<Constant>(val)) {
+    Value* res = convertConstant(c, iofixpt, typepol);
     taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
     return res;
   }
@@ -286,15 +296,15 @@ bool FloatToFixed::associateFixFormat(const std::shared_ptr<ScalarInfo>& II, std
 }
 
 // TODO: rewrite this mess!
-Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<FixedPointScalarType> &fixpt, Instruction *ip)
-{
+Value*
+FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointScalarType>& fixpt, Instruction* ip) {
   auto& taffoInfo = TaffoInfo::getInstance();
   assert(flt->getType()->isFloatingPointTy() && "genConvertFloatToFixed called on a non-float scalar");
   LLVM_DEBUG(dbgs() << "Called floatToFixed\n";);
 
   if (Constant* c = dyn_cast<Constant>(flt)) {
     std::shared_ptr<FixedPointType> fixptcopy = fixpt->clone();
-    Value *res = convertConstant(c, fixptcopy, TypeMatchPolicy::ForceHint);
+    Value* res = convertConstant(c, fixptcopy, TypeMatchPolicy::ForceHint);
     taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
     assert(*fixptcopy == *fixpt && "why is there a pointer here?");
     return res;
@@ -320,19 +330,19 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
 
   /* insert new instructions before ip */
   if (!destt->isFloatingPointTy()) {
-    if (SIToFPInst *instr = dyn_cast<SIToFPInst>(flt)) {
-      Value *intparam = instr->getOperand(0);
-      return copyValueInfo(builder.CreateShl(
-                            copyValueInfo(builder.CreateIntCast(intparam, destt, true), flt),
-                            fixpt->getFractionalBits()),
-                        flt);
-    } else if (UIToFPInst *instr = dyn_cast<UIToFPInst>(flt)) {
-      Value *intparam = instr->getOperand(0);
-      return copyValueInfo(builder.CreateShl(
-                            copyValueInfo(builder.CreateIntCast(intparam, destt, false), flt),
-                            fixpt->getFractionalBits()),
-                        flt);
-    } else {
+    if (SIToFPInst* instr = dyn_cast<SIToFPInst>(flt)) {
+      Value* intparam = instr->getOperand(0);
+      return copyValueInfo(
+        builder.CreateShl(copyValueInfo(builder.CreateIntCast(intparam, destt, true), flt), fixpt->getFractionalBits()),
+        flt);
+    }
+    else if (UIToFPInst* instr = dyn_cast<UIToFPInst>(flt)) {
+      Value* intparam = instr->getOperand(0);
+      return copyValueInfo(builder.CreateShl(copyValueInfo(builder.CreateIntCast(intparam, destt, false), flt),
+                                             fixpt->getFractionalBits()),
+                           flt);
+    }
+    else {
       double twoebits = pow(2.0, fixpt->getFractionalBits());
       const fltSemantics& FltSema = SrcTy->getFltSemantics();
       double MaxSrc = APFloat::getLargest(FltSema).convertToDouble();
@@ -343,18 +353,17 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
         SanitizedFloat = builder.CreateFPCast(flt, Type::getFloatTy(flt->getContext()));
         copyValueInfo(SanitizedFloat, flt);
       }
-      Type *IntermType = SanitizedFloat->getType();
-      Value *interm = copyValueInfo(builder.CreateFMul(
-                                     copyValueInfo(ConstantFP::get(IntermType, twoebits), SanitizedFloat),
-                                     SanitizedFloat),
-                                 SanitizedFloat);
-      if (fixpt->isSigned()) {
+      Type* IntermType = SanitizedFloat->getType();
+      Value* interm = copyValueInfo(
+        builder.CreateFMul(copyValueInfo(ConstantFP::get(IntermType, twoebits), SanitizedFloat), SanitizedFloat),
+        SanitizedFloat);
+      if (fixpt->isSigned())
         return copyValueInfo(builder.CreateFPToSI(interm, destt), SanitizedFloat);
-      } else {
+      else
         return copyValueInfo(builder.CreateFPToUI(interm, destt), SanitizedFloat);
-      }
     }
-  } else {
+  }
+  else {
     LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
     int startingBit = flt->getType()->getPrimitiveSizeInBits();
     int destinationBit = destt->getPrimitiveSizeInBits();
@@ -369,7 +378,8 @@ Value *FloatToFixed::genConvertFloatToFix(Value *flt, const std::shared_ptr<Fixe
     else if (startingBit < destinationBit) {
       // Extension needed
       return copyValueInfo(builder.CreateFPExt(flt, destt), flt);
-    } else {
+    }
+    else {
       // Truncation needed
       return copyValueInfo(builder.CreateFPTrunc(flt, destt), flt);
     }
@@ -417,7 +427,8 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
     else if (startingBit < destinationBit) {
       // Extension needed
       return copyValueInfo(builder.CreateFPExt(fix, dstLLVMType), fix);
-    } else {
+    }
+    else {
       // Truncation needed
       return copyValueInfo(builder.CreateFPTrunc(fix, dstLLVMType), fix);
     }
@@ -435,24 +446,23 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
 
   IRBuilder<NoFolder> builder(ip);
 
-  auto genSizeChange = [&](Value *fix) -> Value * {
-    if (srcFixedType->isSigned()) {
+  auto genSizeChange = [&](Value* fix) -> Value* {
+    if (srcFixedType->isSigned())
       return copyValueInfo(builder.CreateSExtOrTrunc(fix, dstLLVMType), fix);
-    } else {
+    else
       return copyValueInfo(builder.CreateZExtOrTrunc(fix, dstLLVMType), fix);
-    }
   };
 
   auto genPointMovement = [&](Value* fix) -> Value* {
     int deltab = dstFixedType->getFractionalBits() - srcFixedType->getFractionalBits();
     if (deltab > 0) {
       return copyValueInfo(builder.CreateShl(fix, deltab), fix);
-    } else if (deltab < 0) {
-      if (srcFixedType->isSigned()) {
+    }
+    else if (deltab < 0) {
+      if (srcFixedType->isSigned())
         return copyValueInfo(builder.CreateAShr(fix, -deltab), fix);
-      } else {
+      else
         return copyValueInfo(builder.CreateLShr(fix, -deltab), fix);
-      }
     }
     return fix;
   };
@@ -498,7 +508,8 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
       else if (startingBit < destinationBit) {
         // Extension needed
         return copyValueInfo(builder.CreateFPExt(fixValue, dstLLVMType), fixValue);
-      } else {
+      }
+      else {
         // Truncation needed
         return copyValueInfo(builder.CreateFPTrunc(fixValue, dstLLVMType), fixValue);
       }
@@ -572,20 +583,21 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
     double MaxSrc = pow(2.0, scalarFixpt->getBits());
     if (MaxDest < MaxSrc || MaxDest < twoebits) {
       LLVM_DEBUG(dbgs() << "fixToFloat: Extending " << *dstType << " to float because source integer is too small\n");
-      Type *TmpTy = Type::getFloatTy(fixValue->getContext());
-      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, TmpTy) : builder.CreateUIToFP(fixValue, TmpTy);
+      Type* TmpTy = Type::getFloatTy(fixValue->getContext());
+      Value* floattmp =
+        scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, TmpTy) : builder.CreateUIToFP(fixValue, TmpTy);
       copyValueInfo(floattmp, fixValue);
       return copyValueInfo(
-          builder.CreateFPTrunc(
-            builder.CreateFDiv(floattmp,
-              copyValueInfo(ConstantFP::get(TmpTy, twoebits), fixValue)),
-          dstLLVMType),
+        builder.CreateFPTrunc(builder.CreateFDiv(floattmp, copyValueInfo(ConstantFP::get(TmpTy, twoebits), fixValue)),
+                              dstLLVMType),
         fixValue);
-    } else {
-      Value *floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, dstLLVMType) : builder.CreateUIToFP(fixValue, dstLLVMType);
+    }
+    else {
+      Value* floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, dstLLVMType)
+                                                : builder.CreateUIToFP(fixValue, dstLLVMType);
       copyValueInfo(floattmp, fixValue);
-      return copyValueInfo(builder.CreateFDiv(floattmp,copyValueInfo(ConstantFP::get(dstLLVMType, twoebits), fixValue)),
-                        fixValue);
+      return copyValueInfo(
+        builder.CreateFDiv(floattmp, copyValueInfo(ConstantFP::get(dstLLVMType, twoebits), fixValue)), fixValue);
     }
   }
   else if (Constant* cst = dyn_cast<Constant>(fixValue)) {

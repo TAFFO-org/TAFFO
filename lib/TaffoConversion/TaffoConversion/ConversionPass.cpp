@@ -240,10 +240,11 @@ void FloatToFixed::openPhiLoop(PHINode* phi) {
     info.placeh_conv = createPlaceholder(convt, phi->getParent(), "phi_conv");
     *(newConversionInfo(info.placeh_conv)) = *(getConversionInfo(phi));
     copyValueInfo(info.placeh_conv, phi);
-  } else {
+  }
+  else {
     info.placeh_conv = info.placeh_noconv;
   }
-  operandPool[info.placeh_noconv] = info.placeh_conv;
+  convertedValues[info.placeh_noconv] = info.placeh_conv;
 
   LLVM_DEBUG(dbgs() << "created placeholder (non-converted=[" << *info.placeh_noconv << "], converted=["
                     << *info.placeh_conv << "]) for phi " << *phi << "\n");
@@ -257,7 +258,7 @@ void FloatToFixed::closePhiLoops() {
   for (auto data : phiReplacementData) {
     PHINode* origphi = data.first;
     PHIInfo& info = data.second;
-    Value* substphi = operandPool[origphi];
+    Value* substphi = convertedValues[origphi];
 
     LLVM_DEBUG(dbgs() << "restoring data flow of phi " << *origphi << "\n");
     if (info.placeh_noconv != info.placeh_conv)
@@ -394,7 +395,7 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
     isrootok[root] = true;
 
   for (Value* qi : q) {
-    Value* cqi = operandPool[qi];
+    Value* cqi = convertedValues[qi];
     assert(cqi && "every value should have been processed at this point!!");
     if (cqi == ConversionError) {
       if (!potentiallyUsesMemory(qi))
@@ -418,7 +419,7 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
       Instruction* i = dyn_cast<Instruction>(v);
       if (!i || (!toDelete(*i)))
         continue;
-      if (operandPool[v] == v) {
+      if (convertedValues[v] == v) {
         LLVM_DEBUG(dbgs() << *i << " not deleted, as it was converted by self-mutation\n");
         continue;
       }
@@ -559,7 +560,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
           U.set(placehValue);
         }
         *newConversionInfo(placehValue) = *getConversionInfo(oldIt);
-        operandPool[placehValue] = newIt;
+        convertedValues[placehValue] = newIt;
 
         getConversionInfo(placehValue)->isArgumentPlaceholder = true;
         newVals.push_back(placehValue);
