@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true # allows the action to push commits
 
-      - name: Replace #include "llvm/..." with #include <llvm/...>
+      - name: Replace \#include "llvm/..." with \#include <llvm/...>
         run: |
           find . -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.c' -o -name '*.cpp' \) -print0 \
           | xargs -0 -P "$(nproc || echo 4)" perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
@@ -47,7 +47,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -u
             git commit --amend -m "$(git log -1 --pretty=%B)\nautomatic code formatting"
-            git push
+            git push --force-with-lease
           else
             echo "No changes to commit"
           fi
