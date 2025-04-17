@@ -12,9 +12,6 @@ env:
   LD_LIBRARY_PATH: /home/runner/ortools/lib
 
 jobs:
-  # only run on pushes done by the code formatter bot
-  if: ${{ github.actor == 'github-actions[bot]' }}
-
   build_or-tools:
       uses: ./.github/workflows/or-tools.yml
       

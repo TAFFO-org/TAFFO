@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# githooks/pre-commit — auto‐fix includes & clang‐format on staged files
+#
+
+# Only operate on C/C++ files that are staged for commit
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(c|cpp|h|hpp)$' || true)
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# 1) Replace #include "llvm/…" with <llvm/...> in each staged file
+echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$(nproc || echo 1)" \
+      perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
+
+# 2) Run clang-format on each staged file
+echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$(nproc || echo 1)" \
+      clang-format -i -style=file
+
+# 3) Restage any changes made by the above
+echo "$STAGED" | xargs git add
+
+# Let the commit proceed
+exit 0
