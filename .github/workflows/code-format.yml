@@ -21,11 +21,6 @@ jobs:
           find . -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.c' -o -name '*.cpp' \) -print0 \
           | xargs -0 -P "$(nproc || echo 4)" perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
 
-      - name: Install clang-format
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format
-
       - name: Format code
         run: |
           git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp' \

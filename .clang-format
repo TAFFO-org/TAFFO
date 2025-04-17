@@ -87,7 +87,6 @@ KeepEmptyLines:
 LambdaBodyIndentation: Signature
 Language: Cpp
 LineEnding: LF
-MainIncludeChar: AngleBracket
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
 PackConstructorInitializers: NextLineOnly
