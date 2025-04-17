@@ -3,6 +3,29 @@
 # githooks/pre-commit — auto‐fix includes & clang‐format on staged files
 #
 
+
+exec 1>&2
+
+function glutenFree {
+  gluten=`grep -r  -i "pizza" lib`
+  res=1
+  if [[ $gluten != "" ]] ; then
+  res=0
+	cat <<\EOF
+Error: Your code is not glutenFree pls remove pizzas
+EOF
+  echo $gluten
+  fi
+  return $res
+}
+
+echo "Scanning For Pizza"
+glutenFree
+res=$?
+if [[ $res == 0 ]] ; then
+  exit 1
+fi 
+
 # Only operate on C/C++ files that are staged for commit
 STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(c|cpp|h|hpp)$' || true)
 if [ -z "$STAGED" ]; then

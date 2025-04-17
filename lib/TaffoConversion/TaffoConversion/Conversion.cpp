@@ -56,8 +56,6 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
 
     std::shared_ptr<FixedPointType> newType = getFixpType(v);
     LLVM_DEBUG(dbgs() << "  [req. ty.] " << *newType << "\n");
-    if (isa<BranchInst>(v))
-      int pizza = 0;
     Value* newv = convertSingleValue(m, v, newType);
     getConversionInfo(v)->fixpType = newType;
     if (newv) {
