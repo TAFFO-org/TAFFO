@@ -20,18 +20,18 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-init"
 
 Function* InitializerPass::findStartingPointFunctionGlobal(Module& m) {
-  GlobalVariable* StartFuncGlob = nullptr;
+  GlobalVariable* startFunGlob = nullptr;
 
   for (GlobalVariable& Global : m.globals()) {
     if (Global.getName() == "__taffo_vra_starting_function") {
-      StartFuncGlob = &Global;
+      startFunGlob = &Global;
       break;
     }
   }
-  if (!StartFuncGlob)
+  if (!startFunGlob)
     return nullptr;
 
-  Constant* Init = StartFuncGlob->getInitializer();
+  Constant* Init = startFunGlob->getInitializer();
   ConstantExpr* ValCExpr = dyn_cast_or_null<ConstantExpr>(Init);
   if (!ValCExpr)
     report_fatal_error("__taffo_vra_starting_function not initialized to anything or initialized incorrectly!");
@@ -47,8 +47,8 @@ Function* InitializerPass::findStartingPointFunctionGlobal(Module& m) {
   if (!ValCExpr || !startingPointFun)
     report_fatal_error("__taffo_vra_starting_function initialized incorrectly!");
 
-  StartFuncGlob->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*StartFuncGlob);
+  startFunGlob->eraseFromParent();
+  TaffoInfo::getInstance().eraseValue(*startFunGlob);
 
   return startingPointFun;
 }
@@ -69,6 +69,7 @@ void InitializerPass::readAndRemoveGlobalAnnotations(Module& m) {
               parseAnnotation(cast<ConstantExpr>(annotation->getOperand(1)), expr->getOperand(0));
         }
     annotationsGlobalVar->eraseFromParent();
+    TaffoInfo::getInstance().eraseValue(*annotationsGlobalVar);
   }
 }
 
@@ -85,6 +86,7 @@ void InitializerPass::readAndRemoveLocalAnnotations(Function& f) {
         parseAnnotation(annotatedValue, annotationValue, &isStartingPoint);
         foundStartingPoint |= isStartingPoint;
         call->eraseFromParent();
+        TaffoInfo::getInstance().eraseValue(*call);
       }
     }
   }

@@ -18,6 +18,7 @@ private:
 
   InsertionOrderedMap<llvm::Value*, std::shared_ptr<TransparentType>> deducedTypes;
   llvm::DenseMap<llvm::Value*, CandidateSet> candidateTypes;
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
 
   std::shared_ptr<TransparentType> deducePointerType(llvm::Value* value);
   std::shared_ptr<TransparentType> deduceFunctionPointerType(llvm::Function* function);

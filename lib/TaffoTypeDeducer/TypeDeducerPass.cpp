@@ -27,17 +27,23 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
         std::shared_ptr<TransparentType> deduced = deducePointerType(&inst);
         deducedTypes.insert({&inst, deduced});
       }
+      else // If there is nothing to deduce just save the transparent type of the value
+        taffoInfo.setTransparentType(inst, TransparentTypeFactory::create(&inst));
     // Deduce function arguments' types
     for (Argument& arg : f.args())
       if (arg.getType()->isPointerTy()) {
         std::shared_ptr<TransparentType> deduced = deduceArgumentPointerType(&arg);
         deducedTypes.insert({&arg, deduced});
       }
+      else // If there is nothing to deduce just save the transparent type of the value
+        taffoInfo.setTransparentType(arg, TransparentTypeFactory::create(&arg));
     // Deduce functions' types
     if (f.getReturnType()->isPointerTy()) {
       std::shared_ptr<TransparentType> deduced = deduceFunctionPointerType(&f);
       deducedTypes.insert({&f, deduced});
     }
+    else // If there is nothing to deduce just save the transparent type of the value
+      taffoInfo.setTransparentType(f, TransparentTypeFactory::create(&f));
   }
   // Deduce global values' types
   for (GlobalValue& globalValue : m.globals())
@@ -45,6 +51,9 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
       std::shared_ptr<TransparentType> deduced = deducePointerType(&globalValue);
       deducedTypes.insert({&globalValue, deduced});
     }
+    else // If there is nothing to deduce just save the transparent type of the value
+      taffoInfo.setTransparentType(globalValue, TransparentTypeFactory::create(&globalValue));
+
   // Continue deducing types until there is no change
   unsigned int iterations = 1;
   bool deducedTypesChanged = true;
@@ -72,7 +81,7 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
   }
   LLVM_DEBUG(log().logln("[Deduction completed]", raw_ostream::Colors::BLUE));
 
-  // Save deduced types
+  // Save deduced transparent types
   for (const auto& [value, deducedType] : deducedTypes)
     if (deducedType)
       TaffoInfo::getInstance().setTransparentType(*value, deducedType);

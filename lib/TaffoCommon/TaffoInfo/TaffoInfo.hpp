@@ -7,7 +7,6 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalValue.h>
-#include <llvm/IR/Module.h>
 
 namespace taffo {
 

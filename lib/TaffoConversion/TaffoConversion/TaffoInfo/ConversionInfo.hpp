@@ -10,7 +10,7 @@
 
 namespace taffo {
 
-struct ConversionInfo : taffo::Printable {
+struct ConversionInfo : Printable {
   bool isBacktrackingNode;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
