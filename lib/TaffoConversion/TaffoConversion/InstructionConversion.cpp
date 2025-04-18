@@ -160,17 +160,18 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
   if (!newPtrOperand)
     return nullptr;
   Value* newval;
-  std::shared_ptr<TransparentType> newPtrOperandType = taffoInfo.getTransparentType(*newPtrOperand);
+  std::shared_ptr<TransparentType> newPointedOperandType =
+    taffoInfo.getTransparentType(*newPtrOperand)->getPointedType();
   if (isFloatingPointToConvert(val)) {
     /* value is converted (thus we can match it) */
     if (isConvertedFixedPoint(newPtrOperand)) {
       std::shared_ptr<FixedPointType> valtype = getFixpType(newPtrOperand);
-      if (newPtrOperandType->isPointerType()) {
+      if (newPointedOperandType->isPointerType()) {
         /* store <value ptr> into <value ptr> pointer; both are converted
          * so everything is fine and there is nothing special to do.
          * Only logging type mismatches because we trust DTA has done its job */
         newval = matchOp(val);
-        if (!(getFixpType(newval) == valtype))
+        if (*getFixpType(newval) != *valtype)
           LLVM_DEBUG(dbgs() << "unsolvable fixp type mismatch between store dest and src!\n");
       }
       else {
@@ -182,7 +183,7 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
     else {
       /* store fixp <value ptr?> into original <value ptr?> pointer
        * try to match the stored value if possible */
-      newval = fallbackMatchValue(val, newPtrOperandType, store);
+      newval = fallbackMatchValue(val, newPointedOperandType, store);
       if (!newval)
         return Unsupported;
     }
@@ -196,7 +197,7 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
        * converted type is not sufficient anymore because of destination
        * datatype can be a float too. This raises a bug when storing constants
        * (in other cases should be ok)*/
-      if (newPtrOperandType->isIntegerType() || !newPtrOperandType->isPointerType()) {
+      if (newPointedOperandType->isIntegerType() || !newPointedOperandType->isPointerType()) {
         /* value is not a pointer; we can convert it to fixed point */
         newval = genConvertFloatToFix(val, std::static_ptr_cast<FixedPointScalarType>(valtype));
       }
@@ -204,7 +205,7 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
         /* value unconverted ptr; dest is converted ptr
          * would be an error; remove this as soon as it is not needed anymore */
         LLVM_DEBUG(dbgs() << "[Store] HACK: bitcasting operands of wrong type to new type\n");
-        BitCastInst* bc = new BitCastInst(val, newPtrOperandType->toLLVMType());
+        BitCastInst* bc = new BitCastInst(val, newPointedOperandType->toLLVMType());
         copyValueInfo(bc, val);
         bc->insertBefore(store);
         newval = bc;
@@ -704,6 +705,12 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
       }
       else {
 
+        Module* module = instr->getModule();
+        IRBuilder<> builder(&*++cast<Instruction>(val2)->getIterator());
+        genPrintf(builder, *module, "val1: %x\n", val1);
+        genPrintf(builder, *module, "val2: %lx\n", val2);
+        // genPrintf(builder, *module, "mul res: %x\n", intermResult);
+
         ext1 = scalarIntype1->isSigned() ? builder.CreateSExt(val1, dbfxt) : builder.CreateZExt(val1, dbfxt);
         ext2 = scalarIntype2->isSigned() ? builder.CreateSExt(val2, dbfxt) : builder.CreateZExt(val2, dbfxt);
         intermResult = builder.CreateMul(ext1, ext2);
@@ -715,12 +722,6 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
           intermResult, intermType->isSigned(), intermType->getFractionalBits(), intermType->getBits());
         updateConstTypeMetadata(intermResult, 0U, scalarIntype1);
         updateConstTypeMetadata(intermResult, 1U, scalarIntype2);
-
-        Module* module = instr->getModule();
-        IRBuilder<> builder(&*++cast<Instruction>(intermResult)->getIterator());
-        genPrintf(builder, *module, "ext1: %x\n", ext1);
-        genPrintf(builder, *module, "ext2: %x\n", ext2);
-        genPrintf(builder, *module, "mul res: %x\n", intermResult);
 
         return genConvertFixedToFixed(intermResult, intermType, dstType, instr);
       }

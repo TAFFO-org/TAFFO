@@ -469,7 +469,7 @@ struct FloatToFixed {
       return false;
     if (llvm::ReturnInst* ret = llvm::dyn_cast<llvm::ReturnInst>(val))
       val = ret->getReturnValue();
-    llvm::Type* ty = taffo::getUnwrappedType(val);
+    llvm::Type* ty = getUnwrappedType(val);
     if (!ty->isStructTy() && !ty->isFloatTy())
       return false;
     return true;
