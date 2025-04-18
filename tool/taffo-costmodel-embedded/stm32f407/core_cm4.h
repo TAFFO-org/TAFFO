@@ -590,11 +590,12 @@ extern "C" {
 #define SCB_SHCSR_MEMFAULTACT_Msk (1UL /*<< SCB_SHCSR_MEMFAULTACT_Pos*/)   /*!< SCB SHCSR: MEMFAULTACT Mask */
 
 /* SCB Configurable Fault Status Register Definitions */
-#define SCB_CFSR_USGFAULTSR_Pos 16U /*!< SCB CFSR: Usage Fault Status Register Position */
-#define SCB_CFSR_USGFAULTSR_Msk (0xFFFFUL << SCB_CFSR_USGFAULTSR_Pos) /*!< SCB CFSR: Usage Fault Status Register Mask \
-                                                                       */
+#define SCB_CFSR_USGFAULTSR_Pos 16U     /*!< SCB CFSR: Usage Fault Status Register Position */
+#define SCB_CFSR_USGFAULTSR_Msk                                                         \
+  (0xFFFFUL << SCB_CFSR_USGFAULTSR_Pos) /*!< SCB CFSR: Usage Fault Status Register Mask \
+                                         */
 
-#define SCB_CFSR_BUSFAULTSR_Pos 8U                                  /*!< SCB CFSR: Bus Fault Status Register Position */
+#define SCB_CFSR_BUSFAULTSR_Pos 8U      /*!< SCB CFSR: Bus Fault Status Register Position */
 #define SCB_CFSR_BUSFAULTSR_Msk (0xFFUL << SCB_CFSR_BUSFAULTSR_Pos) /*!< SCB CFSR: Bus Fault Status Register Mask */
 
 #define SCB_CFSR_MEMFAULTSR_Pos 0U        /*!< SCB CFSR: Memory Manage Fault Status Register Position */
@@ -1407,8 +1408,9 @@ extern "C" {
 #define CoreDebug_DHCSR_DBGKEY_Msk (0xFFFFUL << CoreDebug_DHCSR_DBGKEY_Pos) /*!< CoreDebug DHCSR: DBGKEY Mask */
 
 #define CoreDebug_DHCSR_S_RESET_ST_Pos 25U                                  /*!< CoreDebug DHCSR: S_RESET_ST Position */
-#define CoreDebug_DHCSR_S_RESET_ST_Msk (1UL << CoreDebug_DHCSR_S_RESET_ST_Pos) /*!< CoreDebug DHCSR: S_RESET_ST Mask \
-                                                                                */
+#define CoreDebug_DHCSR_S_RESET_ST_Msk                                                                            \
+  (1UL << CoreDebug_DHCSR_S_RESET_ST_Pos)                                   /*!< CoreDebug DHCSR: S_RESET_ST Mask \
+                                                                             */
 
 #define CoreDebug_DHCSR_S_RETIRE_ST_Pos 24U                                /*!< CoreDebug DHCSR: S_RETIRE_ST Position */
 #define CoreDebug_DHCSR_S_RETIRE_ST_Msk \
@@ -1431,18 +1433,20 @@ extern "C" {
   (1UL << CoreDebug_DHCSR_C_SNAPSTALL_Pos)                                 /*!< CoreDebug DHCSR: C_SNAPSTALL Mask */
 
 #define CoreDebug_DHCSR_C_MASKINTS_Pos 3U                                  /*!< CoreDebug DHCSR: C_MASKINTS Position */
-#define CoreDebug_DHCSR_C_MASKINTS_Msk (1UL << CoreDebug_DHCSR_C_MASKINTS_Pos) /*!< CoreDebug DHCSR: C_MASKINTS Mask \
-                                                                                */
+#define CoreDebug_DHCSR_C_MASKINTS_Msk                                                                           \
+  (1UL << CoreDebug_DHCSR_C_MASKINTS_Pos)                                  /*!< CoreDebug DHCSR: C_MASKINTS Mask \
+                                                                            */
 
-#define CoreDebug_DHCSR_C_STEP_Pos 2U                                          /*!< CoreDebug DHCSR: C_STEP Position */
-#define CoreDebug_DHCSR_C_STEP_Msk (1UL << CoreDebug_DHCSR_C_STEP_Pos)         /*!< CoreDebug DHCSR: C_STEP Mask */
+#define CoreDebug_DHCSR_C_STEP_Pos 2U                                      /*!< CoreDebug DHCSR: C_STEP Position */
+#define CoreDebug_DHCSR_C_STEP_Msk (1UL << CoreDebug_DHCSR_C_STEP_Pos)     /*!< CoreDebug DHCSR: C_STEP Mask */
 
-#define CoreDebug_DHCSR_C_HALT_Pos 1U                                          /*!< CoreDebug DHCSR: C_HALT Position */
-#define CoreDebug_DHCSR_C_HALT_Msk (1UL << CoreDebug_DHCSR_C_HALT_Pos)         /*!< CoreDebug DHCSR: C_HALT Mask */
+#define CoreDebug_DHCSR_C_HALT_Pos 1U                                      /*!< CoreDebug DHCSR: C_HALT Position */
+#define CoreDebug_DHCSR_C_HALT_Msk (1UL << CoreDebug_DHCSR_C_HALT_Pos)     /*!< CoreDebug DHCSR: C_HALT Mask */
 
-#define CoreDebug_DHCSR_C_DEBUGEN_Pos 0U /*!< CoreDebug DHCSR: C_DEBUGEN Position */
-#define CoreDebug_DHCSR_C_DEBUGEN_Msk (1UL /*<< CoreDebug_DHCSR_C_DEBUGEN_Pos*/) /*!< CoreDebug DHCSR: C_DEBUGEN Mask \
-                                                                                  */
+#define CoreDebug_DHCSR_C_DEBUGEN_Pos 0U                                   /*!< CoreDebug DHCSR: C_DEBUGEN Position */
+#define CoreDebug_DHCSR_C_DEBUGEN_Msk                                                                           \
+  (1UL /*<< CoreDebug_DHCSR_C_DEBUGEN_Pos*/)                               /*!< CoreDebug DHCSR: C_DEBUGEN Mask \
+                                                                            */
 
 /* Debug Core Register Selector Register Definitions */
 #define CoreDebug_DCRSR_REGWnR_Pos 16U                                        /*!< CoreDebug DCRSR: REGWnR Position */
@@ -1468,25 +1472,28 @@ extern "C" {
 #define CoreDebug_DEMCR_MON_EN_Msk (1UL << CoreDebug_DEMCR_MON_EN_Pos)     /*!< CoreDebug DEMCR: MON_EN Mask */
 
 #define CoreDebug_DEMCR_VC_HARDERR_Pos 10U                                 /*!< CoreDebug DEMCR: VC_HARDERR Position */
-#define CoreDebug_DEMCR_VC_HARDERR_Msk (1UL << CoreDebug_DEMCR_VC_HARDERR_Pos) /*!< CoreDebug DEMCR: VC_HARDERR Mask \
-                                                                                */
+#define CoreDebug_DEMCR_VC_HARDERR_Msk                                                                           \
+  (1UL << CoreDebug_DEMCR_VC_HARDERR_Pos)                                  /*!< CoreDebug DEMCR: VC_HARDERR Mask \
+                                                                            */
 
-#define CoreDebug_DEMCR_VC_INTERR_Pos 9U                                     /*!< CoreDebug DEMCR: VC_INTERR Position */
+#define CoreDebug_DEMCR_VC_INTERR_Pos 9U                                   /*!< CoreDebug DEMCR: VC_INTERR Position */
 #define CoreDebug_DEMCR_VC_INTERR_Msk (1UL << CoreDebug_DEMCR_VC_INTERR_Pos) /*!< CoreDebug DEMCR: VC_INTERR Mask */
 
 #define CoreDebug_DEMCR_VC_BUSERR_Pos 8U                                     /*!< CoreDebug DEMCR: VC_BUSERR Position */
 #define CoreDebug_DEMCR_VC_BUSERR_Msk (1UL << CoreDebug_DEMCR_VC_BUSERR_Pos) /*!< CoreDebug DEMCR: VC_BUSERR Mask */
 
 #define CoreDebug_DEMCR_VC_STATERR_Pos 7U /*!< CoreDebug DEMCR: VC_STATERR Position */
-#define CoreDebug_DEMCR_VC_STATERR_Msk (1UL << CoreDebug_DEMCR_VC_STATERR_Pos) /*!< CoreDebug DEMCR: VC_STATERR Mask \
-                                                                                */
+#define CoreDebug_DEMCR_VC_STATERR_Msk                                          \
+  (1UL << CoreDebug_DEMCR_VC_STATERR_Pos) /*!< CoreDebug DEMCR: VC_STATERR Mask \
+                                           */
 
-#define CoreDebug_DEMCR_VC_CHKERR_Pos 6U                                     /*!< CoreDebug DEMCR: VC_CHKERR Position */
+#define CoreDebug_DEMCR_VC_CHKERR_Pos 6U  /*!< CoreDebug DEMCR: VC_CHKERR Position */
 #define CoreDebug_DEMCR_VC_CHKERR_Msk (1UL << CoreDebug_DEMCR_VC_CHKERR_Pos) /*!< CoreDebug DEMCR: VC_CHKERR Mask */
 
-#define CoreDebug_DEMCR_VC_NOCPERR_Pos 5U /*!< CoreDebug DEMCR: VC_NOCPERR Position */
-#define CoreDebug_DEMCR_VC_NOCPERR_Msk (1UL << CoreDebug_DEMCR_VC_NOCPERR_Pos) /*!< CoreDebug DEMCR: VC_NOCPERR Mask \
-                                                                                */
+#define CoreDebug_DEMCR_VC_NOCPERR_Pos 5U                                  /*!< CoreDebug DEMCR: VC_NOCPERR Position */
+#define CoreDebug_DEMCR_VC_NOCPERR_Msk                                                                           \
+  (1UL << CoreDebug_DEMCR_VC_NOCPERR_Pos)                                  /*!< CoreDebug DEMCR: VC_NOCPERR Mask \
+                                                                            */
 
 #define CoreDebug_DEMCR_VC_MMERR_Pos 4U                                    /*!< CoreDebug DEMCR: VC_MMERR Position */
 #define CoreDebug_DEMCR_VC_MMERR_Msk (1UL << CoreDebug_DEMCR_VC_MMERR_Pos) /*!< CoreDebug DEMCR: VC_MMERR Mask */

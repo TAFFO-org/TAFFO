@@ -14,8 +14,10 @@ using namespace llvm;
 using namespace taffo;
 
 PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
-  LLVM_DEBUG(Logger& logger = log(); logger.logln("[TypeDeducerPass]", raw_ostream::Colors::MAGENTA);
-             logger.logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.logln("[TypeDeducerPass]", raw_ostream::Colors::MAGENTA);
+    logger.logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE););
   for (Function& f : m) {
     if (f.isDeclaration())
       continue;

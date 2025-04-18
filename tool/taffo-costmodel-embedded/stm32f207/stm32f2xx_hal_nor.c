@@ -764,13 +764,13 @@ HAL_NOR_ProgramBuffer(NOR_HandleTypeDef* hnor, uint32_t uwAddress, uint16_t* pDa
       NOR_WRITE(NOR_ADDR_SHIFT(deviceaddress, uwNORMemoryDataWidth, NOR_CMD_ADDRESS_SECOND), NOR_CMD_DATA_SECOND);
 
       /* Write Buffer Load Command */
-      NOR_WRITE((deviceaddress + uwAddress), NOR_CMD_DATA_BUFFER_AND_PROG);
-      NOR_WRITE((deviceaddress + uwAddress), (uint16_t) (uwBufferSize - 1U));
+      NOR_WRITE(deviceaddress + uwAddress, NOR_CMD_DATA_BUFFER_AND_PROG);
+      NOR_WRITE(deviceaddress + uwAddress, (uint16_t) (uwBufferSize - 1U));
     }
     else if (hnor->CommandSet == NOR_INTEL_SHARP_EXT_COMMAND_SET) {
       /* Write Buffer Load Command */
-      NOR_WRITE((deviceaddress + uwAddress), NOR_CMD_BUFFERED_PROGRAM);
-      NOR_WRITE((deviceaddress + uwAddress), (uint16_t) (uwBufferSize - 1U));
+      NOR_WRITE(deviceaddress + uwAddress, NOR_CMD_BUFFERED_PROGRAM);
+      NOR_WRITE(deviceaddress + uwAddress, (uint16_t) (uwBufferSize - 1U));
     }
     else {
       /* Primary command set not supported by the driver */
@@ -787,9 +787,9 @@ HAL_NOR_ProgramBuffer(NOR_HandleTypeDef* hnor, uint32_t uwAddress, uint16_t* pDa
       }
 
       if (hnor->CommandSet == NOR_AMD_FUJITSU_COMMAND_SET)
-        NOR_WRITE((deviceaddress + uwAddress), NOR_CMD_DATA_BUFFER_AND_PROG_CONFIRM);
+        NOR_WRITE(deviceaddress + uwAddress, NOR_CMD_DATA_BUFFER_AND_PROG_CONFIRM);
       else /* => hnor->CommandSet == NOR_INTEL_SHARP_EXT_COMMAND_SET */
-        NOR_WRITE((deviceaddress + uwAddress), NOR_CMD_CONFIRM);
+        NOR_WRITE(deviceaddress + uwAddress, NOR_CMD_CONFIRM);
     }
 
     /* Check the NOR controller state */
@@ -851,10 +851,10 @@ HAL_StatusTypeDef HAL_NOR_Erase_Block(NOR_HandleTypeDef* hnor, uint32_t BlockAdd
       NOR_WRITE((uint32_t) (BlockAddress + Address), NOR_CMD_DATA_BLOCK_ERASE);
     }
     else if (hnor->CommandSet == NOR_INTEL_SHARP_EXT_COMMAND_SET) {
-      NOR_WRITE((BlockAddress + Address), NOR_CMD_BLOCK_UNLOCK);
-      NOR_WRITE((BlockAddress + Address), NOR_CMD_CONFIRM);
-      NOR_WRITE((BlockAddress + Address), NOR_CMD_BLOCK_ERASE);
-      NOR_WRITE((BlockAddress + Address), NOR_CMD_CONFIRM);
+      NOR_WRITE(BlockAddress + Address, NOR_CMD_BLOCK_UNLOCK);
+      NOR_WRITE(BlockAddress + Address, NOR_CMD_CONFIRM);
+      NOR_WRITE(BlockAddress + Address, NOR_CMD_BLOCK_ERASE);
+      NOR_WRITE(BlockAddress + Address, NOR_CMD_CONFIRM);
     }
     else {
       /* Primary command set not supported by the driver */

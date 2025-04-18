@@ -192,7 +192,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value* v
   model.insertObjectiveElement(
           make_pair(optimizerInfo->getDoubleSelectedVariable(), (-1) * TUNING_ENOB * ENOBdouble));*/
   if (insertENOBinMin)
-    model.insertObjectiveElement(make_pair(optimizerInfo->getRealEnobVariable(), (-1)), MODEL_OBJ_ENOB, enobMaxCost);
+    model.insertObjectiveElement(make_pair(optimizerInfo->getRealEnobVariable(), -1), MODEL_OBJ_ENOB, enobMaxCost);
 
   // Constraint for mixed precision: only one constraint active at one time:
   //_float + _double + _fixed = 1

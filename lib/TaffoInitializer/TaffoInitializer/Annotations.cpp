@@ -149,9 +149,11 @@ void InitializerPass::removeNotFloats() {
   for (auto val : make_early_inc_range(infoPropagationQueue)) {
     bool containsFloatingPoint = TaffoInfo::getInstance().getOrCreateTransparentType(*val)->containsFloatingPointType();
     if (!containsFloatingPoint) {
-      LLVM_DEBUG(Logger& logger = log(); logger.log("Removing ", llvm::raw_ostream::Colors::YELLOW);
-                 logger.log(val, llvm::raw_ostream::Colors::YELLOW);
-                 logger.logln(" from infoPropagationQueue as it is not float", raw_ostream::Colors::YELLOW););
+      LLVM_DEBUG(
+        Logger& logger = log();
+        logger.log("Removing ", llvm::raw_ostream::Colors::YELLOW);
+        logger.log(val, llvm::raw_ostream::Colors::YELLOW);
+        logger.logln(" from infoPropagationQueue as it is not float", raw_ostream::Colors::YELLOW););
       infoPropagationQueue.remove(val);
     }
   }

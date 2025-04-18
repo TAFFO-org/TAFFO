@@ -164,7 +164,7 @@ shared_ptr<OptimizerStructInfo> MetricBase::loadStructInfo(Value* glob, shared_p
   int i = 0;
   for (auto it = pInfo->begin(); it != pInfo->end(); it++) {
     if (auto structInfo = dynamic_ptr_cast<StructInfo>(*it)) {
-      optInfo->setField(i, loadStructInfo(glob, structInfo, (name + "_" + to_string(i))));
+      optInfo->setField(i, loadStructInfo(glob, structInfo, name + "_" + to_string(i)));
     }
     else if (auto ii = dyn_cast_or_null<ScalarInfo>(it->get())) {
       auto fptype = dynamic_ptr_cast<FixedPointInfo>(ii->numericType);
@@ -461,7 +461,10 @@ void MetricBase::handleCall(Instruction* instruction, shared_ptr<TunerInfo> valu
     if (instruction->getType()->isFloatingPointTy()) {
       auto fptype = dynamic_ptr_cast<FixedPointInfo>(inputInfo->numericType);
       if (fptype) {
-        LLVM_DEBUG(dbgs() << fptype->toString(); dbgs() << "\n"; dbgs() << "Info: " << inputInfo->toString() << "\n";);
+        LLVM_DEBUG(
+          dbgs() << fptype->toString();
+          dbgs() << "\n";
+          dbgs() << "Info: " << inputInfo->toString() << "\n";);
         shared_ptr<OptimizerScalarInfo> result =
           allocateNewVariableForValue(instruction, fptype, inputInfo->range, inputInfo->error);
         retInfo = result;
@@ -495,7 +498,8 @@ void MetricBase::handleCall(Instruction* instruction, shared_ptr<TunerInfo> valu
   }
   else {
     LLVM_DEBUG(
-      dbgs() << "\n\n==================================================\n"; dbgs() << "FUNCTION ALREADY VISITED!\n";
+      dbgs() << "\n\n==================================================\n";
+      dbgs() << "FUNCTION ALREADY VISITED!\n";
       dbgs() << "As we have already visited the function we can not visit it again, as it will cause errors.\n";
       dbgs() << "Probably, some precedent component of TAFFO did not clone this function, therefore this error.\n";
       dbgs() << "==================================================\n\n";);

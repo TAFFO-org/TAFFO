@@ -120,7 +120,8 @@ extern "C" {
   (EXTI_CONFIG | 0x15u) /*!< External interrupt line 21 Connected to the RTC Tamper and Time Stamp events */
 #define EXTI_LINE_22 (EXTI_CONFIG | 0x16u) /*!< External interrupt line 22 Connected to the RTC Wakeup event */
 #if defined(EXTI_IMR_IM23)
-#define EXTI_LINE_23 (EXTI_CONFIG | 0x17u) /*!< External interrupt line 23 Connected to the LPTIM1 asynchronous event \
+#define EXTI_LINE_23                                                                                                  \
+  (EXTI_CONFIG | 0x17u)                    /*!< External interrupt line 23 Connected to the LPTIM1 asynchronous event \
                                             */
 #endif                                     /* EXTI_IMR_IM23 */
 

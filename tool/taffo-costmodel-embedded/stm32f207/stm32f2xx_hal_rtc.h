@@ -82,8 +82,8 @@ extern "C" {
   typedef struct {
     uint8_t Hours;           /*!< Specifies the RTC Time Hour.
                                   This parameter must be a number between Min_Data = 0 and Max_Data = 12 if the RTC_HourFormat_12
-                                is selected.           This parameter must be a number between Min_Data = 0 and Max_Data = 23 if the
-                                RTC_HourFormat_24 is selected  */
+                                is selected.           This parameter must be a number between Min_Data = 0 and Max_Data = 23 if
+                                the           RTC_HourFormat_24 is selected  */
 
     uint8_t Minutes;         /*!< Specifies the RTC Time Minutes.
                                   This parameter must be a number between Min_Data = 0 and Max_Data = 59 */

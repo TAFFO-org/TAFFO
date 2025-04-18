@@ -128,7 +128,8 @@ void createCudaKernelTrampoline(Module& M, Function& KernF) {
   Builder.CreateRetVoid();
 
   taffo::TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
-  LLVM_DEBUG(dbgs() << "Created trampoline:\n" << *NewF);
+  LLVM_DEBUG(dbgs() << "Created trampoline:\n"
+                    << *NewF);
 }
 
 #define CUDA_KERNEL_METADATA "nvvm.annotations"

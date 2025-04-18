@@ -4,8 +4,6 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Debug.h"
 #include <llvm/ADT/APFloat.h>
 #include <llvm/Analysis/ConstantFolding.h>
 #include <llvm/IR/Constants.h>
@@ -16,6 +14,8 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/NoFolder.h>
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
@@ -131,10 +131,9 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
     res = convertInstruction(m, instr, fixpt);
     LLVM_DEBUG(
       // Check that all operands are valid
-      if (User* user = dyn_cast<User>(res)) {
+      if (User* user = dyn_cast<User>(res))
         for (auto& operand : user->operands())
-          assert(operand.get() != nullptr);
-      });
+          assert(operand.get() != nullptr););
   }
   else if (Argument* argument = dyn_cast<Argument>(val)) {
     if (getUnwrappedType(argument)->isFloatTy())
@@ -217,9 +216,10 @@ Value* FloatToFixed::translateOrMatchOperand(
 
     if (!getConversionInfo(val)->noTypeConversion) {
       /* the value has been successfully converted to fixed point in a previous step */
-      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: value has been converted in the past to \n";
-                 dbgs().indent(18) << "Value: " << *res << "\n";
-                 dbgs().indent(16) << "FixType: " << *iofixpt << "\n");
+      LLVM_DEBUG(
+        dbgs() << "translateOrMatchOperand: value has been converted in the past to \n";
+        dbgs().indent(18) << "Value: " << *res << "\n";
+        dbgs().indent(16) << "FixType: " << *iofixpt << "\n");
       iofixpt = getFixpType(res);
       return res;
     }
@@ -393,10 +393,12 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
   if (*srcFixedType == *dstFixedType)
     return fix;
 
-  LLVM_DEBUG(Logger& logger = log(); logger.log("Called fixedToFixed with src ");
-             logger.log(*srcFixedType, llvm::raw_ostream::Colors::BLUE);
-             logger.log(" to dst ");
-             logger.logln(*dstFixedType, llvm::raw_ostream::Colors::BLUE););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.log("Called fixedToFixed with src ");
+    logger.log(*srcFixedType, llvm::raw_ostream::Colors::BLUE);
+    logger.log(" to dst ");
+    logger.logln(*dstFixedType, llvm::raw_ostream::Colors::BLUE););
 
   Instruction* fixinst = dyn_cast<Instruction>(fix);
   if (!ip && fixinst)
@@ -478,8 +480,11 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
   auto& taffoInfo = TaffoInfo::getInstance();
   Type* dstLLVMType = dstType->toLLVMType();
 
-  LLVM_DEBUG(log << "******** trace: genConvertFixToFloat "; log.logValue(fixValue); log << " -> ";
-             log.logln(dstType););
+  LLVM_DEBUG(
+    log << "******** trace: genConvertFixToFloat ";
+    log.logValue(fixValue);
+    log << " -> ";
+    log.logln(dstType););
 
   auto fixValueType = taffoInfo.getTransparentType(*fixValue);
   if (fixValueType->isFloatingPointType()) {
@@ -551,7 +556,10 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
   }
 
   if (!fixValue->getType()->isIntegerTy()) {
-    LLVM_DEBUG(errs() << "can't wrap-convert to flt non integer value "; fixValue->print(errs()); errs() << "\n");
+    LLVM_DEBUG(
+      errs() << "can't wrap-convert to flt non integer value ";
+      fixValue->print(errs());
+      errs() << "\n");
     return nullptr;
   }
 

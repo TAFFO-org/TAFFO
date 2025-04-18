@@ -400,9 +400,11 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
     if (cqi == ConversionError) {
       if (!potentiallyUsesMemory(qi))
         continue;
-      LLVM_DEBUG(qi->print(errs()); if (Instruction* i = dyn_cast<Instruction>(qi)) errs()
-                                    << " in function " << i->getFunction()->getName();
-                 errs() << " not converted; invalidates roots ");
+      LLVM_DEBUG(
+        qi->print(errs());
+        if (Instruction* i = dyn_cast<Instruction>(qi))
+          errs() << " in function " << i->getFunction()->getName();
+        errs() << " not converted; invalidates roots ");
       const auto& rootsaffected = getConversionInfo(qi)->roots;
       for (Value* root : rootsaffected) {
         isrootok[root] = false;
@@ -428,7 +430,11 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
       bool allok = true;
       for (Value* root : roots) {
         if (!isrootok[root]) {
-          LLVM_DEBUG(i->print(errs()); errs() << " not deleted: involves root "; root->print(errs()); errs() << '\n');
+          LLVM_DEBUG(
+            i->print(errs());
+            errs() << " not deleted: involves root ";
+            root->print(errs());
+            errs() << '\n');
           allok = false;
           break;
         }
@@ -698,13 +704,15 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
     argsLLVMTypes,
     oldF->isVarArg());
 
-  LLVM_DEBUG(dbgs() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
-             for (auto [argIndex, fixedPointType] : argsFixedPointTypes) dbgs()
-             << "(" << argIndex << ", " << *fixedPointType << ") ";
-             dbgs() << "\n";);
+  LLVM_DEBUG(
+    dbgs() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
+    for (auto [argIndex, fixedPointType] : argsFixedPointTypes)
+      dbgs() << "(" << argIndex << ", " << *fixedPointType << ") ";
+    dbgs() << "\n";);
 
   newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
-  LLVM_DEBUG(dbgs() << "created function\n" << *newF << "\n");
+  LLVM_DEBUG(dbgs() << "created function\n"
+                    << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;
   return newF;

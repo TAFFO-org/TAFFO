@@ -932,7 +932,7 @@ extern "C" {
  * @}
  */
 #endif /* STM32F405xx || STM32F415xx || STM32F407xx || STM32F417xx || STM32F427xx || STM32F437xx || STM32F429xx || \
-          STM32F439xx || STM32F401xC || STM32F401xE || STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx ||                         \
+          STM32F439xx || STM32F401xC || STM32F401xE || STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx || \
           STM32F412Zx || STM32F412Vx || STM32F412Rx || STM32F413xx | STM32F423xx */
 
 #if defined(STM32F410Tx) || defined(STM32F410Cx) || defined(STM32F410Rx)
@@ -6248,7 +6248,7 @@ extern "C" {
 #define __HAL_RCC_PLLI2S_DISABLE() (*(__IO uint32_t*) RCC_CR_PLLI2SON_BB = DISABLE)
 
 #endif /* STM32F405xx || STM32F415xx || STM32F407xx || STM32F417xx || STM32F427xx || STM32F437xx || STM32F429xx || \
-          STM32F439xx || STM32F401xC || STM32F401xE || STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx ||                         \
+          STM32F439xx || STM32F401xC || STM32F401xE || STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx || \
           STM32F412Zx || STM32F412Vx || STM32F412Rx || STM32F412Cx */
 #if defined(STM32F446xx)
 /** @brief  Macro to configure the PLLI2S clock multiplication and division factors .
@@ -7228,7 +7228,7 @@ extern "C" {
 #define RCC_PLLI2SON_BIT_NUMBER 0x1AU
 #define RCC_CR_PLLI2SON_BB (PERIPH_BB_BASE + (RCC_CR_OFFSET * 32U) + (RCC_PLLI2SON_BIT_NUMBER * 4U))
 #endif /* STM32F405xx || STM32F415xx || STM32F407xx || STM32F417xx || STM32F427xx || STM32F437xx || STM32F429xx || \
-          STM32F439xx || STM32F401xC || STM32F401xE || STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx ||                         \
+          STM32F439xx || STM32F401xC || STM32F401xE || STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx || \
           STM32F412Zx || STM32F412Vx || STM32F412Rx || STM32F412Cx || STM32F413xx || STM32F423xx */
 
 /* --- DCKCFGR Register ---*/

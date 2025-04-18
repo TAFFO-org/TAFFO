@@ -200,7 +200,7 @@ HAL_StatusTypeDef HAL_FLASHEx_Erase(FLASH_EraseInitTypeDef* pEraseInit, uint32_t
         status = FLASH_WaitForLastOperation((uint32_t) FLASH_TIMEOUT_VALUE);
 
         /* If the erase operation is completed, disable the SER and SNB Bits */
-        CLEAR_BIT(FLASH->CR, (FLASH_CR_SER | FLASH_CR_SNB));
+        CLEAR_BIT(FLASH->CR, FLASH_CR_SER | FLASH_CR_SNB);
 
         if (status != HAL_OK) {
           /* In case of error, stop erase procedure and return the faulty sector*/

@@ -130,7 +130,7 @@ extern "C" {
 #endif                     /*STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx || STM32F469xx || STM32F479xx */
   } FLASH_AdvOBProgramInitTypeDef;
 #endif /* STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx || STM32F401xC || STM32F401xE || STM32F410xx || \
-          STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx || STM32F412Zx || STM32F412Vx || STM32F412Rx ||                                        \
+          STM32F411xE || STM32F446xx || STM32F469xx || STM32F479xx || STM32F412Zx || STM32F412Vx || STM32F412Rx || \
           STM32F412Cx || STM32F413xx || STM32F423xx */
 /**
  * @}
@@ -894,8 +894,8 @@ extern "C" {
   || defined(STM32F412Vx) || defined(STM32F412Rx) || defined(STM32F412Cx) || defined(STM32F413xx) \
   || defined(STM32F423xx)
 #define IS_FLASH_BANK(BANK) (((BANK) == FLASH_BANK_1))
-#endif /* STM32F405xx || STM32F415xx || STM32F407xx || STM32F417xx || STM32F401xC || STM32F401xE || STM32F410xx || \
-          STM32F411xE || STM32F446xx || STM32F412Zx || STM32F412Vx ||\ STM32F412Rx || STM32F412Cx || STM32F413xx ||                                                                      \
+#endif /* STM32F405xx || STM32F415xx || STM32F407xx || STM32F417xx || STM32F401xC || STM32F401xE || STM32F410xx ||  \
+          STM32F411xE || STM32F446xx || STM32F412Zx || STM32F412Vx ||\ STM32F412Rx || STM32F412Cx || STM32F413xx || \
           STM32F423xx */
 
 #if defined(STM32F427xx) || defined(STM32F437xx) || defined(STM32F429xx) || defined(STM32F439xx) \

@@ -137,5 +137,5 @@ Standard: Latest
 TabWidth: 4
 UseTab: Never
 VerilogBreakBetweenInstancePorts: true
-StatementMacros:
+Macros:
   - LLVM_DEBUG(X)=X\n

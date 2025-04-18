@@ -211,11 +211,12 @@ extern "C" {
  *           STM32F446xx devices.
  * @{
  */
-#define RCC_SYSCLKSOURCE_STATUS_HSI RCC_CFGR_SWS_HSI                                   /*!< HSI used as system clock */
-#define RCC_SYSCLKSOURCE_STATUS_HSE RCC_CFGR_SWS_HSE                                   /*!< HSE used as system clock */
-#define RCC_SYSCLKSOURCE_STATUS_PLLCLK RCC_CFGR_SWS_PLL                                /*!< PLL used as system clock */
-#define RCC_SYSCLKSOURCE_STATUS_PLLRCLK ((uint32_t) (RCC_CFGR_SWS_0 | RCC_CFGR_SWS_1)) /*!< PLLR used as system clock \
-                                                                                        */
+#define RCC_SYSCLKSOURCE_STATUS_HSI RCC_CFGR_SWS_HSI    /*!< HSI used as system clock */
+#define RCC_SYSCLKSOURCE_STATUS_HSE RCC_CFGR_SWS_HSE    /*!< HSE used as system clock */
+#define RCC_SYSCLKSOURCE_STATUS_PLLCLK RCC_CFGR_SWS_PLL /*!< PLL used as system clock */
+#define RCC_SYSCLKSOURCE_STATUS_PLLRCLK                                                \
+  ((uint32_t) (RCC_CFGR_SWS_0 | RCC_CFGR_SWS_1))        /*!< PLLR used as system clock \
+                                                         */
 /**
  * @}
  */

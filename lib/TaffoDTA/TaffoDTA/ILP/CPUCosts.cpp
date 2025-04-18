@@ -431,10 +431,11 @@ CPUCosts::CostsId CPUCosts::decodeId(const string& basicString) {
     return CostsId(index);
   }
 
-  LLVM_DEBUG({
-    for (const auto& i : CostsIdValues)
-      LLVM_DEBUG(llvm::dbgs() << i << " = " << basicString << " : " << std::to_string(basicString == i) << "\n";);
-  });
+  LLVM_DEBUG(
+    {
+      for (const auto& i : CostsIdValues)
+        LLVM_DEBUG(llvm::dbgs() << i << " = " << basicString << " : " << std::to_string(basicString == i) << "\n";);
+    });
   LLVM_DEBUG(llvm::dbgs() << "Unknown value: " << basicString << "\n";);
 
   llvm_unreachable("Unknown cost value!");

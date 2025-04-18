@@ -153,18 +153,19 @@ Type* FixedPointScalarType::scalarToLLVMType(LLVMContext& context) const {
   }
 }
 
-bool FixedPointScalarType::toTransparentTypeHelper(const std::shared_ptr<TransparentType> &newType) const {
-  if (newType->isArrayType()){
-    //Array Case
+bool FixedPointScalarType::toTransparentTypeHelper(const std::shared_ptr<TransparentType>& newType) const {
+  if (newType->isArrayType()) {
+    // Array Case
     std::shared_ptr<TransparentArrayType> arrType = std::dynamic_ptr_cast<TransparentArrayType>(newType);
-    toTransparentTypeHelper(arrType->getArrayElementType()); 
-    newType->unwrappedType = ArrayType::get(arrType->getArrayElementType()->getUnwrappedType(), newType->unwrappedType->getArrayNumElements());
-  } else {
-    //Scalar Case
+    toTransparentTypeHelper(arrType->getArrayElementType());
+    newType->unwrappedType =
+      ArrayType::get(arrType->getArrayElementType()->getUnwrappedType(), newType->unwrappedType->getArrayNumElements());
+  }
+  else {
+    // Scalar Case
     Type* unwrapped = newType->getUnwrappedType();
-    if(!unwrapped->isVoidTy()){
+    if (!unwrapped->isVoidTy())
       newType->unwrappedType = scalarToLLVMType(newType->getUnwrappedType()->getContext());
-    }
     return true;
   }
   return false;

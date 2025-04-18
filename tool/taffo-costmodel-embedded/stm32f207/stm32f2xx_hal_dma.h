@@ -296,11 +296,12 @@ extern "C" {
  * @brief    DMA FIFO level
  * @{
  */
-#define DMA_FIFO_THRESHOLD_1QUARTERFULL 0x00000000U                   /*!< FIFO threshold 1 quart full configuration  */
-#define DMA_FIFO_THRESHOLD_HALFFULL ((uint32_t) DMA_SxFCR_FTH_0)      /*!< FIFO threshold half full configuration     */
-#define DMA_FIFO_THRESHOLD_3QUARTERSFULL ((uint32_t) DMA_SxFCR_FTH_1) /*!< FIFO threshold 3 quarts full configuration \
-                                                                       */
-#define DMA_FIFO_THRESHOLD_FULL ((uint32_t) DMA_SxFCR_FTH)            /*!< FIFO threshold full configuration          */
+#define DMA_FIFO_THRESHOLD_1QUARTERFULL 0x00000000U              /*!< FIFO threshold 1 quart full configuration  */
+#define DMA_FIFO_THRESHOLD_HALFFULL ((uint32_t) DMA_SxFCR_FTH_0) /*!< FIFO threshold half full configuration     */
+#define DMA_FIFO_THRESHOLD_3QUARTERSFULL                                                                         \
+  ((uint32_t) DMA_SxFCR_FTH_1)                                   /*!< FIFO threshold 3 quarts full configuration \
+                                                                  */
+#define DMA_FIFO_THRESHOLD_FULL ((uint32_t) DMA_SxFCR_FTH)       /*!< FIFO threshold full configuration          */
 /**
  * @}
  */

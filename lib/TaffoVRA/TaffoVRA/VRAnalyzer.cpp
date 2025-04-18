@@ -46,7 +46,9 @@ void VRAnalyzer::analyzeInstruction(Instruction* I) {
     const std::shared_ptr<Range> res = handleCastInstruction(info, OpCode, i.getType());
     saveValueRange(&i, res);
 
-    LLVM_DEBUG(if (!info) Logger->logInfo("operand range is null"));
+    LLVM_DEBUG(
+      if (!info)
+        Logger->logInfo("operand range is null"));
     LLVM_DEBUG(logRangeln(&i));
   }
   else if (Instruction::isBinaryOp(OpCode)) {
@@ -58,8 +60,12 @@ void VRAnalyzer::analyzeInstruction(Instruction* I) {
     const std::shared_ptr<Range> res = handleBinaryInstruction(info1, info2, OpCode);
     saveValueRange(&i, res);
 
-    LLVM_DEBUG(if (!info1) Logger->logInfo("first range is null"));
-    LLVM_DEBUG(if (!info2) Logger->logInfo("second range is null"));
+    LLVM_DEBUG(
+      if (!info1)
+        Logger->logInfo("first range is null"));
+    LLVM_DEBUG(
+      if (!info2)
+        Logger->logInfo("second range is null"));
     LLVM_DEBUG(logRangeln(&i));
   }
   else if (OpCode == Instruction::FNeg) {
@@ -69,7 +75,9 @@ void VRAnalyzer::analyzeInstruction(Instruction* I) {
     const auto res = handleUnaryInstruction(info1, OpCode);
     saveValueRange(&i, res);
 
-    LLVM_DEBUG(if (!info1) Logger->logInfo("operand range is null"));
+    LLVM_DEBUG(
+      if (!info1)
+        Logger->logInfo("operand range is null"));
     LLVM_DEBUG(logRangeln(&i));
   }
   else {
@@ -117,29 +125,29 @@ void VRAnalyzer::analyzeInstruction(Instruction* I) {
     case Instruction::Select:
       handleSelect(&i);
       break;
-    case Instruction::UserOp1:        // TODO implement
-    case Instruction::UserOp2:        // TODO implement
+    case Instruction::UserOp1: // TODO implement
+    case Instruction::UserOp2: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of UserOp not supported yet"));
       break;
-    case Instruction::VAArg:          // TODO implement
+    case Instruction::VAArg: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of VAArg not supported yet"));
       break;
     case Instruction::ExtractElement: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of ExtractElement not supported yet"));
       break;
-    case Instruction::InsertElement:  // TODO implement
+    case Instruction::InsertElement: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of InsertElement not supported yet"));
       break;
-    case Instruction::ShuffleVector:  // TODO implement
+    case Instruction::ShuffleVector: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of ShuffleVector not supported yet"));
       break;
-    case Instruction::ExtractValue:   // TODO implement
+    case Instruction::ExtractValue: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of ExtractValue not supported yet"));
       break;
-    case Instruction::InsertValue:    // TODO implement
+    case Instruction::InsertValue: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of InsertValue not supported yet"));
       break;
-    case Instruction::LandingPad:     // TODO implement
+    case Instruction::LandingPad: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of LandingPad not supported yet"));
       break;
     default:
@@ -178,7 +186,9 @@ void VRAnalyzer::prepareForCall(Instruction* I, std::shared_ptr<AnalysisStore> F
   LLVM_DEBUG(Logger->logInstruction(I));
   LLVM_DEBUG(Logger->logInfoln("preparing for function interpretation..."));
 
-  LLVM_DEBUG(Logger->lineHead(); dbgs() << "Loading argument ranges: ");
+  LLVM_DEBUG(
+    Logger->lineHead();
+    dbgs() << "Loading argument ranges: ");
   // fetch ranges of arguments
   std::list<std::shared_ptr<ValueInfo>> ArgRanges;
   for (Value* Arg : CB->args()) {
@@ -196,7 +206,9 @@ void VRAnalyzer::returnFromCall(Instruction* I, std::shared_ptr<AnalysisStore> F
   CallBase* CB = cast<CallBase>(I);
   assert(!CB->isIndirectCall());
 
-  LLVM_DEBUG(Logger->logInstruction(I); Logger->logInfo("returning from call"));
+  LLVM_DEBUG(
+    Logger->logInstruction(I);
+    Logger->logInfo("returning from call"));
 
   std::shared_ptr<VRAFunctionStore> FStore = std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
   std::shared_ptr<ValueInfo> Ret = FStore->getRetVal();
@@ -588,6 +600,8 @@ void VRAnalyzer::setNode(const Value* V, std::shared_ptr<ValueInfo> Node) {
 }
 
 void VRAnalyzer::logRangeln(const Value* v) {
-  LLVM_DEBUG(if (getGlobalStore()->getUserInput(v)) dbgs() << "(possibly from metadata) ");
+  LLVM_DEBUG(
+    if (getGlobalStore()->getUserInput(v))
+      dbgs() << "(possibly from metadata) ");
   LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(v)));
 }

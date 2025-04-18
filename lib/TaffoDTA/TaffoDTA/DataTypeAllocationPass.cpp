@@ -39,8 +39,10 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
 
 #ifdef TAFFO_BUILD_ILP_DTA
   if (MixedMode) {
-    LLVM_DEBUG(dbgs() << "Model " << CostModelFilename << "\n");
-    LLVM_DEBUG(dbgs() << "Inst " << InstructionSet << "\n");
+    LLVM_DEBUG(
+    dbgs() << "Model " << CostModelFilename << "\n");
+    LLVM_DEBUG(
+    dbgs() << "Inst " << InstructionSet << "\n");
     buildModelAndOptimze(m, vals, valset);
   }
   else {
@@ -584,7 +586,8 @@ std::shared_ptr<NumericTypeInfo> tuner::merge(const std::shared_ptr<NumericTypeI
 }
 
 void DataTypeAllocationPass::mergeBufferIDSets() {
-  LLVM_DEBUG(dbgs() << "\n" << __PRETTY_FUNCTION__ << " BEGIN\n\n");
+  LLVM_DEBUG(dbgs() << "\n"
+                    << __PRETTY_FUNCTION__ << " BEGIN\n\n");
   BufferIDTypeMap InMap, OutMap;
   if (!BufferIDImport.empty()) {
     LLVM_DEBUG(dbgs() << "Importing Buffer ID sets from " << BufferIDImport << "\n\n");
@@ -870,20 +873,26 @@ void DataTypeAllocationPass::buildModelAndOptimze(Module& m,
   // Optimizer optimizer(m, this, new MetricPerf(),"", CPUCosts::CostType::Size);
   optimizer.initialize();
 
-  LLVM_DEBUG(dbgs() << "\n============ GLOBALS ============\n");
+  LLVM_DEBUG(
+  dbgs() << "\n============ GLOBALS ============\n");
 
   for (GlobalObject& globObj : m.globals()) {
-    LLVM_DEBUG(globObj.print(dbgs()););
-    LLVM_DEBUG(dbgs() << "     -having-     ");
+    LLVM_DEBUG(
+    globObj.print(dbgs()););
+    LLVM_DEBUG(
+    dbgs() << "     -having-     ");
     if (!hasTunerInfo(&globObj)) {
-      LLVM_DEBUG(dbgs() << "No info available, skipping.");
+      LLVM_DEBUG(
+      dbgs() << "No info available, skipping.");
     }
     else {
-      LLVM_DEBUG(dbgs() << getTunerInfo(&globObj)->metadata->toString() << "\n");
+      LLVM_DEBUG(
+      dbgs() << getTunerInfo(&globObj)->metadata->toString() << "\n");
 
       optimizer.handleGlobal(&globObj, getTunerInfo(&globObj));
     }
-    LLVM_DEBUG(dbgs() << "\n\n";);
+    LLVM_DEBUG(
+    dbgs() << "\n\n";);
   }
 
   // FIXME: this is an hack to prevent multiple visit of the same function if it will be called somewhere from the
@@ -894,7 +903,8 @@ void DataTypeAllocationPass::buildModelAndOptimze(Module& m,
       continue;
 
     if (!f.isIntrinsic() && !f.empty() && f.getName().equals("main")) {
-      LLVM_DEBUG(dbgs() << "========== GLOBAL ENTRY POINT main ==========";);
+      LLVM_DEBUG(
+      dbgs() << "========== GLOBAL ENTRY POINT main ==========";);
 
       optimizer.handleCallFromRoot(&f);
       break;
@@ -905,13 +915,15 @@ void DataTypeAllocationPass::buildModelAndOptimze(Module& m,
   for (Function& f : m.functions()) {
     // Skip compiler provided functions
     if (f.isIntrinsic()) {
-      LLVM_DEBUG(dbgs() << "Skipping intrinsic function " << f.getName() << "\n";);
+      LLVM_DEBUG(
+      dbgs() << "Skipping intrinsic function " << f.getName() << "\n";);
       continue;
     }
 
     // Skip empty functions
     if (f.empty()) {
-      LLVM_DEBUG(dbgs() << "Skipping empty function " << f.getName() << "\n";);
+      LLVM_DEBUG(
+      dbgs() << "Skipping empty function " << f.getName() << "\n";);
       continue;
     }
 
@@ -922,10 +934,12 @@ void DataTypeAllocationPass::buildModelAndOptimze(Module& m,
   assert(result && "Optimizer did not find a solution!");
 
   for (Value* v : vals) {
-    LLVM_DEBUG(dbgs() << "Processing " << *v << "...\n");
+    LLVM_DEBUG(
+    dbgs() << "Processing " << *v << "...\n");
 
     if (!valset.count(v)) {
-      LLVM_DEBUG(dbgs() << "Not in the conversion queue! Skipping!\n\n";);
+      LLVM_DEBUG(
+      dbgs() << "Not in the conversion queue! Skipping!\n\n";);
       continue;
     }
 
@@ -934,20 +948,24 @@ void DataTypeAllocationPass::buildModelAndOptimze(Module& m,
     // Read from the model, search for the data type associated with that value and convert it!
     auto fp = optimizer.getAssociatedMetadata(v);
     if (!fp) {
-      LLVM_DEBUG(dbgs() << "Invalid datatype returned!\n";);
+      LLVM_DEBUG(
+      dbgs() << "Invalid datatype returned!\n";);
       continue;
     }
-    LLVM_DEBUG(dbgs() << "Datatype: " << fp->toString() << "\n");
+    LLVM_DEBUG(
+    dbgs() << "Datatype: " << fp->toString() << "\n");
 
     // Write the datatype
     bool result = overwriteType(viu->metadata, fp);
     if (result) {
       // Some datatype has changed, restore in function call
-      LLVM_DEBUG(dbgs() << "Restoring call type because of mergeDataTypes()...\n";);
+      LLVM_DEBUG(
+      dbgs() << "Restoring call type because of mergeDataTypes()...\n";);
       restoreTypesAcrossFunctionCall(v);
     }
 
-    LLVM_DEBUG(dbgs() << "done with [" << *v << "]\n\n");
+    LLVM_DEBUG(
+    dbgs() << "done with [" << *v << "]\n\n");
     /*auto *iiv = dyn_cast<InputInfo>(viu->metadata.get());
 
     iiv->IType.reset(fp->clone());*/
@@ -968,8 +986,10 @@ bool DataTypeAllocationPass::overwriteType(shared_ptr<ValueInfo> old, shared_ptr
 
     if (!old1->numericType)
       return false;
-    LLVM_DEBUG(dbgs() << "model1: " << model1->numericType->toString() << "\n";);
-    LLVM_DEBUG(dbgs() << "old1: " << old1->numericType->toString() << "\n";);
+    LLVM_DEBUG(
+    dbgs() << "model1: " << model1->numericType->toString() << "\n";);
+    LLVM_DEBUG(
+    dbgs() << "old1: " << old1->numericType->toString() << "\n";);
     if (*old1->numericType == *model1->numericType)
       return false;
 

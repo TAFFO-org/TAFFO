@@ -643,10 +643,11 @@ typedef struct
 /** @defgroup TIM_Encoder_Input_Polarity TIM Encoder Input Polarity
  * @{
  */
-#define TIM_ENCODERINPUTPOLARITY_RISING TIM_INPUTCHANNELPOLARITY_RISING /*!< Encoder input with rising edge polarity \
-                                                                         */
+#define TIM_ENCODERINPUTPOLARITY_RISING                                         \
+  TIM_INPUTCHANNELPOLARITY_RISING  /*!< Encoder input with rising edge polarity \
+                                    */
 #define TIM_ENCODERINPUTPOLARITY_FALLING \
-  TIM_INPUTCHANNELPOLARITY_FALLING                                      /*!< Encoder input with falling edge polarity */
+  TIM_INPUTCHANNELPOLARITY_FALLING /*!< Encoder input with falling edge polarity */
 /**
  * @}
  */
@@ -973,15 +974,16 @@ typedef struct
 /** @defgroup TIM_Trigger_Polarity TIM Trigger Polarity
  * @{
  */
-#define TIM_TRIGGERPOLARITY_INVERTED TIM_ETRPOLARITY_INVERTED      /*!< Polarity for ETRx trigger sources             */
+#define TIM_TRIGGERPOLARITY_INVERTED TIM_ETRPOLARITY_INVERTED /*!< Polarity for ETRx trigger sources             */
 #define TIM_TRIGGERPOLARITY_NONINVERTED \
-  TIM_ETRPOLARITY_NONINVERTED                                      /*!< Polarity for ETRx trigger sources             */
-#define TIM_TRIGGERPOLARITY_RISING TIM_INPUTCHANNELPOLARITY_RISING /*!< Polarity for TIxFPx or TI1_ED trigger sources \
-                                                                    */
+  TIM_ETRPOLARITY_NONINVERTED                                 /*!< Polarity for ETRx trigger sources             */
+#define TIM_TRIGGERPOLARITY_RISING                                                                               \
+  TIM_INPUTCHANNELPOLARITY_RISING                             /*!< Polarity for TIxFPx or TI1_ED trigger sources \
+                                                               */
 #define TIM_TRIGGERPOLARITY_FALLING \
-  TIM_INPUTCHANNELPOLARITY_FALLING                                 /*!< Polarity for TIxFPx or TI1_ED trigger sources */
+  TIM_INPUTCHANNELPOLARITY_FALLING                            /*!< Polarity for TIxFPx or TI1_ED trigger sources */
 #define TIM_TRIGGERPOLARITY_BOTHEDGE \
-  TIM_INPUTCHANNELPOLARITY_BOTHEDGE                                /*!< Polarity for TIxFPx or TI1_ED trigger sources */
+  TIM_INPUTCHANNELPOLARITY_BOTHEDGE                           /*!< Polarity for TIxFPx or TI1_ED trigger sources */
 /**
  * @}
  */

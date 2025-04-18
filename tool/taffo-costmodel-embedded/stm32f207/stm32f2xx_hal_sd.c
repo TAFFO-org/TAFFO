@@ -925,7 +925,7 @@ HAL_SD_ReadBlocks_IT(SD_HandleTypeDef* hsd, uint8_t* pData, uint32_t BlockAdd, u
     hsd->RxXferSize = BLOCKSIZE * NumberOfBlocks;
 
     __HAL_SD_ENABLE_IT(hsd,
-                       (SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_RXOVERR | SDIO_IT_DATAEND | SDIO_FLAG_RXFIFOHF));
+                       SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_RXOVERR | SDIO_IT_DATAEND | SDIO_FLAG_RXFIFOHF);
 
     if (hsd->SdCard.CardType != CARD_SDHC_SDXC)
       add *= 512U;
@@ -1010,7 +1010,7 @@ HAL_SD_WriteBlocks_IT(SD_HandleTypeDef* hsd, uint8_t* pData, uint32_t BlockAdd, 
 
     /* Enable transfer interrupts */
     __HAL_SD_ENABLE_IT(hsd,
-                       (SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_TXUNDERR | SDIO_IT_DATAEND | SDIO_FLAG_TXFIFOHE));
+                       SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_TXUNDERR | SDIO_IT_DATAEND | SDIO_FLAG_TXFIFOHE);
 
     if (hsd->SdCard.CardType != CARD_SDHC_SDXC)
       add *= 512U;
@@ -1090,7 +1090,7 @@ HAL_SD_ReadBlocks_DMA(SD_HandleTypeDef* hsd, uint8_t* pData, uint32_t BlockAdd, 
     /* Initialize data control register */
     hsd->Instance->DCTRL = 0U;
 
-    __HAL_SD_ENABLE_IT(hsd, (SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_RXOVERR | SDIO_IT_DATAEND));
+    __HAL_SD_ENABLE_IT(hsd, SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_RXOVERR | SDIO_IT_DATAEND);
 
     /* Set the DMA transfer complete callback */
     hsd->hdmarx->XferCpltCallback = SD_DMAReceiveCplt;
@@ -1109,7 +1109,7 @@ HAL_SD_ReadBlocks_DMA(SD_HandleTypeDef* hsd, uint8_t* pData, uint32_t BlockAdd, 
     if (HAL_DMA_Start_IT(
           hsd->hdmarx, (uint32_t) &hsd->Instance->FIFO, (uint32_t) pData, (uint32_t) (BLOCKSIZE * NumberOfBlocks) / 4U)
         != HAL_OK) {
-      __HAL_SD_DISABLE_IT(hsd, (SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_RXOVERR | SDIO_IT_DATAEND));
+      __HAL_SD_DISABLE_IT(hsd, SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_RXOVERR | SDIO_IT_DATAEND);
       __HAL_SD_CLEAR_FLAG(hsd, SDIO_STATIC_FLAGS);
       hsd->ErrorCode |= HAL_SD_ERROR_DMA;
       hsd->State = HAL_SD_STATE_READY;
@@ -1199,7 +1199,7 @@ HAL_SD_WriteBlocks_DMA(SD_HandleTypeDef* hsd, uint8_t* pData, uint32_t BlockAdd,
     hsd->Instance->DCTRL = 0U;
 
     /* Enable SD Error interrupts */
-    __HAL_SD_ENABLE_IT(hsd, (SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_TXUNDERR));
+    __HAL_SD_ENABLE_IT(hsd, SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_TXUNDERR);
 
     /* Set the DMA transfer complete callback */
     hsd->hdmatx->XferCpltCallback = SD_DMATransmitCplt;
@@ -1246,7 +1246,7 @@ HAL_SD_WriteBlocks_DMA(SD_HandleTypeDef* hsd, uint8_t* pData, uint32_t BlockAdd,
     if (HAL_DMA_Start_IT(
           hsd->hdmatx, (uint32_t) pData, (uint32_t) &hsd->Instance->FIFO, (uint32_t) (BLOCKSIZE * NumberOfBlocks) / 4U)
         != HAL_OK) {
-      __HAL_SD_DISABLE_IT(hsd, (SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_TXUNDERR));
+      __HAL_SD_DISABLE_IT(hsd, SDIO_IT_DCRCFAIL | SDIO_IT_DTIMEOUT | SDIO_IT_TXUNDERR);
       __HAL_SD_CLEAR_FLAG(hsd, SDIO_STATIC_FLAGS);
       hsd->ErrorCode |= HAL_SD_ERROR_DMA;
       hsd->State = HAL_SD_STATE_READY;
@@ -2224,7 +2224,7 @@ static void SD_DMATransmitCplt(DMA_HandleTypeDef* hdma) {
   SD_HandleTypeDef* hsd = (SD_HandleTypeDef*) (hdma->Parent);
 
   /* Enable DATAEND Interrupt */
-  __HAL_SD_ENABLE_IT(hsd, (SDIO_IT_DATAEND));
+  __HAL_SD_ENABLE_IT(hsd, SDIO_IT_DATAEND);
 }
 
 /**

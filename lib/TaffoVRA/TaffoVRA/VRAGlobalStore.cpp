@@ -119,8 +119,9 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         }
         if (!root)
           continue;
-        LLVM_DEBUG(Logger->lineHead();
-                   dbgs() << " Considering input valueInfo of " << inst << " (weight=" << weight << ")\n");
+        LLVM_DEBUG(
+          Logger->lineHead();
+          dbgs() << " Considering input valueInfo of " << inst << " (weight=" << weight << ")\n");
         if (auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
           if (isValidRange(scalarInfo->range.get()))
             UserInput[&inst] = scalarInfo;

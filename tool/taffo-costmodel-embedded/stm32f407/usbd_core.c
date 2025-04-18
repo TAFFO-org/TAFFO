@@ -279,7 +279,7 @@ USBD_StatusTypeDef USBD_LL_SetupStage(USBD_HandleTypeDef* pdev, uint8_t* psetup)
     break;
 
   default:
-    ret = USBD_LL_StallEP(pdev, (pdev->request.bmRequest & 0x80U));
+    ret = USBD_LL_StallEP(pdev, pdev->request.bmRequest & 0x80U);
     break;
   }
 

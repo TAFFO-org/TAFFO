@@ -138,7 +138,8 @@ void createOpenCLKernelTrampoline(Module& M, Function& KernF) {
   Builder.CreateRetVoid();
 
   taffo::TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
-  LLVM_DEBUG(dbgs() << "Created trampoline:\n" << *NewF);
+  LLVM_DEBUG(dbgs() << "Created trampoline:\n"
+                    << *NewF);
 }
 
 void taffo::createOpenCLKernelTrampolines(Module& M) {

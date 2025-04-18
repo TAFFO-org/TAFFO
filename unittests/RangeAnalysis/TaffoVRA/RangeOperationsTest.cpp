@@ -191,7 +191,7 @@ TEST_F(RangeOperationsTest, AShrNegative) {
 }
 
 TEST_F(RangeOperationsTest, AShrMixed) {
-  op1 = make_range(-2.0, (2L << 20));
+  op1 = make_range(-2.0, 2L << 20);
   op2 = make_range(1.0, 16.0);
   result = handleAShr(op1, op2);
   EXPECT_EQ(result->min(), -1.0);

@@ -421,10 +421,10 @@ __weak HAL_StatusTypeDef HAL_RCC_OscConfig(RCC_OscInitTypeDef* RCC_OscInitStruct
 
         /* Configure the main PLL clock source, multiplication and division factors. */
         WRITE_REG(RCC->PLLCFGR,
-                  (RCC_OscInitStruct->PLL.PLLSource | RCC_OscInitStruct->PLL.PLLM
-                   | (RCC_OscInitStruct->PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)
-                   | (((RCC_OscInitStruct->PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos)
-                   | (RCC_OscInitStruct->PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos)));
+                  RCC_OscInitStruct->PLL.PLLSource | RCC_OscInitStruct->PLL.PLLM
+                    | (RCC_OscInitStruct->PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)
+                    | (((RCC_OscInitStruct->PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos)
+                    | (RCC_OscInitStruct->PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos));
         /* Enable the main PLL. */
         __HAL_RCC_PLL_ENABLE();
 
@@ -543,7 +543,7 @@ HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef* RCC_ClkInitStruct, uin
       MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE1, RCC_HCLK_DIV16);
 
     if (((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_PCLK2) == RCC_CLOCKTYPE_PCLK2)
-      MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE2, (RCC_HCLK_DIV16 << 3));
+      MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE2, RCC_HCLK_DIV16 << 3);
 
     assert_param(IS_RCC_HCLK(RCC_ClkInitStruct->AHBCLKDivider));
     MODIFY_REG(RCC->CFGR, RCC_CFGR_HPRE, RCC_ClkInitStruct->AHBCLKDivider);
@@ -603,7 +603,7 @@ HAL_StatusTypeDef HAL_RCC_ClockConfig(RCC_ClkInitTypeDef* RCC_ClkInitStruct, uin
   /*-------------------------- PCLK2 Configuration ---------------------------*/
   if (((RCC_ClkInitStruct->ClockType) & RCC_CLOCKTYPE_PCLK2) == RCC_CLOCKTYPE_PCLK2) {
     assert_param(IS_RCC_PCLK(RCC_ClkInitStruct->APB2CLKDivider));
-    MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE2, ((RCC_ClkInitStruct->APB2CLKDivider) << 3U));
+    MODIFY_REG(RCC->CFGR, RCC_CFGR_PPRE2, (RCC_ClkInitStruct->APB2CLKDivider) << 3U);
   }
 
   /* Update the SystemCoreClock global variable */
@@ -685,7 +685,7 @@ void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_M
     HAL_GPIO_Init(MCO1_GPIO_PORT, &GPIO_InitStruct);
 
     /* Mask MCO1 and MCO1PRE[2:0] bits then Select MCO1 clock source and prescaler */
-    MODIFY_REG(RCC->CFGR, (RCC_CFGR_MCO1 | RCC_CFGR_MCO1PRE), (RCC_MCOSource | RCC_MCODiv));
+    MODIFY_REG(RCC->CFGR, RCC_CFGR_MCO1 | RCC_CFGR_MCO1PRE, RCC_MCOSource | RCC_MCODiv);
 
     /* This RCC MCO1 enable feature is available only on STM32F410xx devices */
 #if defined(RCC_CFGR_MCO1EN)
@@ -708,7 +708,7 @@ void HAL_RCC_MCOConfig(uint32_t RCC_MCOx, uint32_t RCC_MCOSource, uint32_t RCC_M
     HAL_GPIO_Init(MCO2_GPIO_PORT, &GPIO_InitStruct);
 
     /* Mask MCO2 and MCO2PRE[2:0] bits then Select MCO2 clock source and prescaler */
-    MODIFY_REG(RCC->CFGR, (RCC_CFGR_MCO2 | RCC_CFGR_MCO2PRE), (RCC_MCOSource | (RCC_MCODiv << 3U)));
+    MODIFY_REG(RCC->CFGR, RCC_CFGR_MCO2 | RCC_CFGR_MCO2PRE, RCC_MCOSource | (RCC_MCODiv << 3U));
 
     /* This RCC MCO2 enable feature is available only on STM32F410Rx devices */
 #if defined(RCC_CFGR_MCO2EN)

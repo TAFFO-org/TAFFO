@@ -424,7 +424,7 @@ static void USBD_GetDescriptor(USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef* r
     default:
 #if (USBD_SUPPORT_USER_STRING_DESC == 1U)
       if (pdev->pClass->GetUsrStrDescriptor != NULL) {
-        pbuf = pdev->pClass->GetUsrStrDescriptor(pdev, (req->wValue), &len);
+        pbuf = pdev->pClass->GetUsrStrDescriptor(pdev, req->wValue, &len);
       }
       else {
         USBD_CtlError(pdev, req);
@@ -434,7 +434,7 @@ static void USBD_GetDescriptor(USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef* r
 
 #if (USBD_CLASS_USER_STRING_DESC == 1U)
       if (pdev->pDesc->GetUserStrDescriptor != NULL) {
-        pbuf = pdev->pDesc->GetUserStrDescriptor(pdev->dev_speed, (req->wValue), &len);
+        pbuf = pdev->pDesc->GetUserStrDescriptor(pdev->dev_speed, req->wValue, &len);
       }
       else {
         USBD_CtlError(pdev, req);

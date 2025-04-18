@@ -298,12 +298,16 @@ struct FloatToFixed {
     llvm::Value* fallBackValue = convertedValues.at(value);
     assert(fallBackValue != nullptr && "Value was converted to a nullptr");
 
-    LLVM_DEBUG(log.increaseIndent(); log << "[FalbackMatchingValue] "; if (fallBackValue != nullptr) {
-      log.logValue(value);
-      log << " was converted to ";
-      log.logValue(fallBackValue);
-      log << "\n";
-    } log.decreaseIndent(););
+    LLVM_DEBUG(
+      log.increaseIndent();
+      log << "[FalbackMatchingValue] ";
+      if (fallBackValue != nullptr) {
+        log.logValue(value);
+        log << " was converted to ";
+        log.logValue(fallBackValue);
+        log << "\n";
+      }
+      log.decreaseIndent(););
 
     if (fallBackValue == ConversionError) {
       LLVM_DEBUG(llvm::dbgs() << "error: bail out reverse match of " << *value << "\n");

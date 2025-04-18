@@ -1936,7 +1936,7 @@ HAL_StatusTypeDef HAL_TIMEx_RemapConfig(TIM_HandleTypeDef* htim, uint32_t Remap)
     /* Connect TIMx internal trigger to LPTIM1 output */
     __HAL_RCC_LPTIM1_CLK_ENABLE();
     MODIFY_REG(LPTIM1->OR,
-               (LPTIM_OR_TIM1_ITR2_RMP | LPTIM_OR_TIM5_ITR1_RMP | LPTIM_OR_TIM9_ITR1_RMP),
+               LPTIM_OR_TIM1_ITR2_RMP | LPTIM_OR_TIM5_ITR1_RMP | LPTIM_OR_TIM9_ITR1_RMP,
                Remap & ~(LPTIM_REMAP_MASK));
   }
   else {

@@ -338,7 +338,7 @@ void HAL_FLASH_IRQHandler(void) {
 
   if (pFlash.ProcedureOnGoing == FLASH_PROC_NONE) {
     /* Operation is completed, disable the PG, SER, SNB and MER Bits */
-    CLEAR_BIT(FLASH->CR, (FLASH_CR_PG | FLASH_CR_SER | FLASH_CR_SNB | FLASH_MER_BIT));
+    CLEAR_BIT(FLASH->CR, FLASH_CR_PG | FLASH_CR_SER | FLASH_CR_SNB | FLASH_MER_BIT);
 
     /* Disable End of FLASH Operation interrupt */
     __HAL_FLASH_DISABLE_IT(FLASH_IT_EOP);

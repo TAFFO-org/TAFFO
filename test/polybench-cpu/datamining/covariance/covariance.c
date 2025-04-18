@@ -62,14 +62,13 @@ static void kernel_covariance(int m,
   int i, j, k;
 
 #pragma scop
-  for (j = 0; j < _PB_M; j++)
-    {
-      mean[j] = SCALAR_VAL(0.0);
-      for (i = 0; i < _PB_N; i++)
-        mean[j] += data[i][j];
-      mean[j] /= float_n;
-      printf("mean: %f\n", mean[j]);
-    }
+  for (j = 0; j < _PB_M; j++) {
+    mean[j] = SCALAR_VAL(0.0);
+    for (i = 0; i < _PB_N; i++)
+      mean[j] += data[i][j];
+    mean[j] /= float_n;
+    printf("mean: %f\n", mean[j]);
+  }
 
   for (i = 0; i < _PB_N; i++)
     for (j = 0; j < _PB_M; j++)

@@ -32,14 +32,16 @@ std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value& v)
   if (iter != transparentTypes.end())
     return iter->second;
   std::shared_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
-  LLVM_DEBUG(Logger& logger = log(); logger.setContextTag(logContextTag);
-             logger.log("Missing transparent type for value: ", raw_ostream::Colors::YELLOW);
-             logger.logValueln(&v);
-             logger.log("Transparent type set to:            ", raw_ostream::Colors::YELLOW);
-             logger.logln(type, raw_ostream::Colors::CYAN);
-             if (type->isOpaquePointer())
-               logger.logln("Warning: the newly created transparent type is opaque", raw_ostream::Colors::RED);
-             logger.restorePrevContextTag(););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.setContextTag(logContextTag);
+    logger.log("Missing transparent type for value: ", raw_ostream::Colors::YELLOW);
+    logger.logValueln(&v);
+    logger.log("Transparent type set to:            ", raw_ostream::Colors::YELLOW);
+    logger.logln(type, raw_ostream::Colors::CYAN);
+    if (type->isOpaquePointer())
+      logger.logln("Warning: the newly created transparent type is opaque", raw_ostream::Colors::RED);
+    logger.restorePrevContextTag(););
   return transparentTypes[&v] = type;
 }
 
@@ -180,7 +182,10 @@ void TaffoInfo::eraseLoop(Loop& l) {
 }
 
 void TaffoInfo::dumpToFile(const std::string& filePath, Module& m) {
-  LLVM_DEBUG(Logger& logger = log(); logger.setContextTag(logContextTag); logger.logln("Dumping..."););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.setContextTag(logContextTag);
+    logger.logln("Dumping..."););
 
   generateTaffoIds();
   MetadataManager::setIdValueMapping(idValueMapping, m);
@@ -194,11 +199,17 @@ void TaffoInfo::dumpToFile(const std::string& filePath, Module& m) {
   outFile << jsonRepresentation.dump(4);
   outFile.close();
 
-  LLVM_DEBUG(Logger& logger = log(); logger.logln("Dumped to file " + filePath); logger.restorePrevContextTag(););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.logln("Dumped to file " + filePath);
+    logger.restorePrevContextTag(););
 }
 
 void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
-  LLVM_DEBUG(Logger& logger = log(); logger.setContextTag(logContextTag); logger.logln("Initializing..."););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.setContextTag(logContextTag);
+    logger.logln("Initializing..."););
 
   idValueMapping = MetadataManager::getIdValueMapping(m);
   idLoopMapping = MetadataManager::getIdLoopMapping(m);
@@ -213,8 +224,10 @@ void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
 
   deserialize(jsonRepresentation);
 
-  LLVM_DEBUG(Logger& logger = log(); logger.logln("Initialized from file " + filePath);
-             logger.restorePrevContextTag(););
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.logln("Initialized from file " + filePath);
+    logger.restorePrevContextTag(););
 }
 
 void TaffoInfo::generateTaffoIds() {

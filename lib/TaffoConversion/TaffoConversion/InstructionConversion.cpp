@@ -970,7 +970,8 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
   Value* fallval;
   Value* fixval;
   std::vector<Value*> newops;
-  LLVM_DEBUG(dbgs() << "[Fallback] attempt to wrap not supported operation:\n" << *unsupp << "\n");
+  LLVM_DEBUG(dbgs() << "[Fallback] attempt to wrap not supported operation:\n"
+                    << *unsupp << "\n");
   FallbackCount++;
   for (int i = 0, n = unsupp->getNumOperands(); i < n; i++) {
     fallval = unsupp->getOperand(i);
@@ -995,7 +996,8 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
   }
   for (int i = 0, n = tmp->getNumOperands(); i < n; i++)
     tmp->setOperand(i, newops[i]);
-  LLVM_DEBUG(dbgs() << "  mutated operands to:\n" << *tmp << "\n");
+  LLVM_DEBUG(dbgs() << "  mutated operands to:\n"
+                    << *tmp << "\n");
   if (tmp->getType()->isFloatingPointTy() && getConversionInfo(unsupp)->noTypeConversion == false) {
     Value* fallbackv =
       genConvertFloatToFix(tmp, std::static_ptr_cast<FixedPointScalarType>(fixpt), getFirstInsertionPointAfter(tmp));

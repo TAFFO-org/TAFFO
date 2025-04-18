@@ -1,5 +1,6 @@
 #include "ConversionPass.hpp"
 #include "Types/TransparentType.hpp"
+
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/NoFolder.h>
@@ -150,9 +151,11 @@ Value* FloatToFixed::convertMathIntrinsicFunction(CallBase* C, const std::shared
         scalarIntype2->setFractionalBits(new_frac2);
 
         copyValueInfo(ext1, val1);
-        updateFPTypeMetadata(ext1, scalarIntype1->isSigned(), scalarIntype1->getFractionalBits(), scalarIntype1->getBits());
+        updateFPTypeMetadata(
+          ext1, scalarIntype1->isSigned(), scalarIntype1->getFractionalBits(), scalarIntype1->getBits());
         copyValueInfo(ext2, val2);
-        updateFPTypeMetadata(ext2, scalarIntype2->isSigned(), scalarIntype2->getFractionalBits(), scalarIntype2->getBits());
+        updateFPTypeMetadata(
+          ext2, scalarIntype2->isSigned(), scalarIntype2->getFractionalBits(), scalarIntype2->getBits());
         intermtype->setBits(scalarIntype1->getBits());
         intermtype->setFractionalBits(new_frac);
         fixop = builder.CreateMul(ext1, ext2);
@@ -166,17 +169,13 @@ Value* FloatToFixed::convertMathIntrinsicFunction(CallBase* C, const std::shared
       }
 
       copyValueInfo(fixop, C, TransparentTypeFactory::create(fixop->getType()));
-      
-      Value *fixopcvt = genConvertFixedToFixed(fixop, intermtype, fixpt, C);
-      Value *res = builder.CreateAdd(fixopcvt, val3);
+
+      Value* fixopcvt = genConvertFixedToFixed(fixop, intermtype, fixpt, C);
+      Value* res = builder.CreateAdd(fixopcvt, val3);
 
       copyValueInfo(res, C);
-      updateFPTypeMetadata(fixop, intermtype->isSigned(),
-                           intermtype->getFractionalBits(),
-                           intermtype->getBits());
-      updateFPTypeMetadata(res, fixpt->isSigned(),
-                           fixpt->getFractionalBits(),
-                           fixpt->getBits());
+      updateFPTypeMetadata(fixop, intermtype->isSigned(), intermtype->getFractionalBits(), intermtype->getBits());
+      updateFPTypeMetadata(res, fixpt->isSigned(), fixpt->getFractionalBits(), fixpt->getBits());
       updateConstTypeMetadata(fixop, 0U, scalarIntype1);
       updateConstTypeMetadata(fixop, 1U, scalarIntype2);
       updateConstTypeMetadata(res, 0U, fixpt);

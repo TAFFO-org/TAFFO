@@ -659,8 +659,7 @@ void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<Tune
 
       if (valueInfo->metadata)
         LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n";);
-      else
-        LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
+      else LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
       return;
     }
 
