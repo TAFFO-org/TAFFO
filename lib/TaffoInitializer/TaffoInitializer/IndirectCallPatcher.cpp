@@ -65,7 +65,7 @@ void handleKmpcFork(const Module& m,
 
     for (auto* sharedArgument = curCall->arg_begin() + 2; sharedArgument < curCall->arg_end(); sharedArgument++)
       if (auto* sharedVarInstr = dyn_cast<Instruction>(*sharedArgument))
-        taffo::TaffoInfo::getInstance().disableConversion(*sharedVarInstr);
+        TaffoInfo::getInstance().disableConversion(*sharedVarInstr);
   };
 
   std::vector<Type*> paramsFunc;

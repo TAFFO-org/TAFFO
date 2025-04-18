@@ -293,21 +293,21 @@ struct FloatToFixed {
   llvm::Value* fallbackMatchValue(llvm::Value* value,
                                   const std::shared_ptr<TransparentType>& origType,
                                   llvm::Instruction* insertionPoint = nullptr) {
-    Logger& log = Logger::getInstance();
+    Logger& logger = log();
 
     llvm::Value* fallBackValue = convertedValues.at(value);
     assert(fallBackValue != nullptr && "Value was converted to a nullptr");
 
     LLVM_DEBUG(
-      log.increaseIndent();
-      log << "[FalbackMatchingValue] ";
+      auto indenter = logger.getIndenter();
+      indenter.increaseIndent();
+      logger << "[FallbackMatchingValue] ";
       if (fallBackValue != nullptr) {
-        log.logValue(value);
-        log << " was converted to ";
-        log.logValue(fallBackValue);
-        log << "\n";
-      }
-      log.decreaseIndent(););
+        logger.logValue(value);
+        logger << " was converted to ";
+        logger.logValue(fallBackValue);
+        logger << "\n";
+      });
 
     if (fallBackValue == ConversionError) {
       LLVM_DEBUG(llvm::dbgs() << "error: bail out reverse match of " << *value << "\n");
@@ -475,8 +475,7 @@ struct FloatToFixed {
     return true;
   }
 
-  llvm::Value*
-  copyValueInfo(llvm::Value* dst, llvm::Value* src, std::shared_ptr<taffo::TransparentType> dstType = nullptr) {
+  llvm::Value* copyValueInfo(llvm::Value* dst, llvm::Value* src, std::shared_ptr<TransparentType> dstType = nullptr) {
     using namespace llvm;
     using namespace taffo;
     auto& taffoInfo = TaffoInfo::getInstance();
@@ -487,7 +486,7 @@ struct FloatToFixed {
     if (dstType)
       taffoInfo.setTransparentType(*dst, dstType);
     else
-      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src));
+      taffoInfo.setTransparentType(*dst, TransparentTypeFactory::create(dst->getType()));
 
     // TODO check old impl because I don't know what this does
     /*if (openMPIndirectMD) {

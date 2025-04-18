@@ -1,9 +1,9 @@
 #pragma once
 
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInitializer/TaffoInitializer/TaffoInfo/TaffoInitInfo.hpp"
 
 #include <llvm/ADT/Statistic.h>
-#include <llvm/IR/AbstractCallSite.h>
 #include <llvm/IR/PassManager.h>
 
 #include <list>
@@ -23,6 +23,7 @@ public:
 
 private:
 #endif
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   TaffoInitInfo taffoInitInfo;
   std::list<llvm::Value*> infoPropagationQueue;
   llvm::SmallPtrSet<llvm::Function*, 2> annotatedFunctions;

@@ -19,8 +19,11 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
     logger.logln("[TypeDeducerPass]", raw_ostream::Colors::MAGENTA);
     logger.logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE););
   for (Function& f : m) {
-    if (f.isDeclaration())
+    if (f.isDeclaration()) {
+      // Cannot deduce the type of a declaration just save the transparent type of the value (could be opaque pointer)
+      taffoInfo.setTransparentType(f, TransparentTypeFactory::create(&f));
       continue;
+    }
     // Deduce instructions' types
     for (Instruction& inst : instructions(f))
       if (inst.getType()->isPointerTy()) {
@@ -265,14 +268,14 @@ void TypeDeducerPass::logDeduction(Value* value,
                                    const CandidateSet& candidates) {
   Logger& logger = log();
   logger.log("[Deducing type of] ", raw_ostream::Colors::BLACK).logValueln(value);
-  logger.increaseIndent();
+  auto indenter = logger.getIndenter();
+  indenter.increaseIndent();
   logger.log("current candidates: ").logln(candidates);
   logger.log("best candidate is ");
   if (bestCandidate)
     logger.logln(bestCandidate, raw_ostream::Colors::CYAN);
   else
     logger.logln("ambiguous", raw_ostream::Colors::YELLOW);
-  logger.decreaseIndent();
 }
 
 void TypeDeducerPass::logDeducedTypes() {
@@ -280,7 +283,8 @@ void TypeDeducerPass::logDeducedTypes() {
   logger.logln("[Results]", raw_ostream::Colors::GREEN);
   for (const auto& [value, deducedType] : deducedTypes) {
     logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
-    logger.increaseIndent();
+    auto indenter = logger.getIndenter();
+    indenter.increaseIndent();
     logger.log("deduced pointer type: ");
     if (deducedType) {
       auto color = deducedType->isOpaquePointer() ? raw_ostream::Colors::YELLOW : raw_ostream::Colors::GREEN;
@@ -297,6 +301,5 @@ void TypeDeducerPass::logDeducedTypes() {
       else
         logger.logln("no candidate types", raw_ostream::Colors::RED);
     }
-    logger.decreaseIndent();
   }
 }

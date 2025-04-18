@@ -36,6 +36,38 @@ concept IterableConcept = is_iterable_v<T> && !std::is_same_v<std::decay_t<T>, s
 
 class Logger {
 public:
+  class Indenter {
+    friend class Logger;
+
+  public:
+    Logger& increaseIndent(unsigned int amount = 1) {
+      logger.increaseIndent(amount);
+      indent += amount;
+      return logger;
+    }
+
+    Logger& decreaseIndent(unsigned int amount = 1) {
+      if (indent >= amount) {
+        logger.decreaseIndent(amount);
+        indent -= amount;
+      }
+      else {
+        logger.decreaseIndent(indent);
+        indent = 0;
+      }
+      return logger;
+    }
+
+    ~Indenter() { logger.decreaseIndent(indent); }
+
+  private:
+    Logger& logger;
+    unsigned int indent;
+
+    Indenter(Logger& logger)
+    : logger(logger), indent(0) {}
+  };
+
   static Logger& getInstance();
 
   Logger& logValue(const llvm::Value* value, bool logParent = true);
@@ -48,9 +80,7 @@ public:
   Logger& setColor(llvm::raw_ostream::Colors color);
   Logger& resetColor();
 
-  Logger& setIndent(unsigned indent);
-  Logger& increaseIndent(unsigned amount = 1);
-  Logger& decreaseIndent(unsigned amount = 1);
+  [[nodiscard]] Indenter getIndenter() { return Indenter(*this); }
 
   // Log for Printable objects
   template <PrintableConcept T>
@@ -151,16 +181,21 @@ private:
   llvm::raw_ostream& ostream;
   std::list<std::string> contextTagStack;
   llvm::raw_ostream::Colors currentColor;
-  unsigned indent;
+  unsigned int indent;
   bool isLineStart;
 
   Logger()
   : ostream(getOutputStream()), currentColor(llvm::raw_ostream::Colors::RESET), indent(0), isLineStart(true) {}
+
   Logger(const Logger&) = delete;
+
   Logger& operator=(const Logger&) = delete;
 
   static llvm::raw_fd_ostream& getOutputStream();
   void logIndent();
+
+  Logger& increaseIndent(unsigned amount = 1);
+  Logger& decreaseIndent(unsigned amount = 1);
 };
 
 inline Logger& log() { return Logger::getInstance(); }

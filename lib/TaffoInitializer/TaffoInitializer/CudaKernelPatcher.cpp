@@ -127,7 +127,7 @@ void createCudaKernelTrampoline(Module& M, Function& KernF) {
   Builder.CreateCall(KernF.getFunctionType(), &KernF, Loads);
   Builder.CreateRetVoid();
 
-  taffo::TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
+  TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
   LLVM_DEBUG(dbgs() << "Created trampoline:\n"
                     << *NewF);
 }

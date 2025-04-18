@@ -15,7 +15,7 @@ ValueInitInfo& TaffoInitInfo::getOrCreateValueInitInfo(Value* value) {
 
 ValueInitInfo&
 TaffoInitInfo::createValueInitInfo(Value* value, unsigned int rootDistance, unsigned int backtrackingDepth) {
-  auto& taffoInfo = TaffoInfo::getInstance();
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   assert(taffoInfo.hasValueInfo(*value) && "Creating a ValueInitInfo of a value without ValueInfo");
   ValueInfo* valueInfo = &*taffoInfo.getValueInfo(*value);
   ValueInitInfo newValueInitInfo =

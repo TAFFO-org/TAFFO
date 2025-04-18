@@ -1,4 +1,5 @@
 #include "ConversionPass.hpp"
+#include "Debug/DebugUtils.hpp"
 #include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
@@ -11,7 +12,6 @@
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instructions.h>
-#include <llvm/IR/Module.h>
 #include <llvm/IR/NoFolder.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
@@ -138,9 +138,11 @@ Value* FloatToFixed::convertLoad(LoadInst* load, std::shared_ptr<FixedPointType>
     /*if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || MetadataManager::isCudaKernel(m,
     load->getFunction())) { align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8); } else*/
     { align = load->getAlign(); }
-    LoadInst* newinst =
-      new LoadInst(PELType, newptr, Twine(), load->isVolatile(), align, load->getOrdering(), load->getSyncScopeID());
-    newinst->insertAfter(load);
+    IRBuilder builder(load);
+    LoadInst* newinst = builder.CreateLoad(PELType, newptr, load->isVolatile(), Twine());
+    newinst->setAlignment(align);
+    auto oldType = taffoInfo.getTransparentType(*load);
+    copyValueInfo(newinst, load, fixpt->toTransparentType(oldType));
     if (getConversionInfo(load)->noTypeConversion) {
       assert(newinst->getType()->isIntegerTy() && "DTA bug; improperly tagged struct/pointer!");
       return genConvertFixToFloat(newinst, getFixpType(newptr), taffoInfo.getTransparentType(*load));
@@ -219,9 +221,10 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
   /*if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m,
   store->getFunction())) { align = Align(fullyUnwrapPointerOrArrayType(peltype)->getScalarSizeInBits() / 8); } else */
   { align = store->getAlign(); }
-  StoreInst* newinst =
-    new StoreInst(newval, newPtrOperand, store->isVolatile(), align, store->getOrdering(), store->getSyncScopeID());
-  newinst->insertAfter(store);
+  IRBuilder builder(store);
+  StoreInst* newinst = builder.CreateStore(newval, newPtrOperand, store->isVolatile());
+  newinst->setAlignment(align);
+  copyValueInfo(newinst, store);
   return newinst;
 }
 
@@ -248,7 +251,10 @@ Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPoi
   if (getConversionInfo(gep)->noTypeConversion && !fixpt->isInvalid())
     return Unsupported;
   std::vector<Value*> idxlist(gep->indices().begin(), gep->indices().end());
-  return builder.CreateInBoundsGEP(getUnwrappedType(newval), newval, idxlist);
+  Value* newGep = builder.CreateInBoundsGEP(getUnwrappedType(newval), newval, idxlist);
+  auto oldType = TaffoInfo::getInstance().getTransparentType(*gep);
+  copyValueInfo(newGep, gep, fixpt->toTransparentType(oldType));
+  return newGep;
 }
 
 Value* FloatToFixed::convertExtractValue(ExtractValueInst* exv, std::shared_ptr<FixedPointType>& fixpt) {
@@ -439,17 +445,19 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
     call_arg++;
     f_arg++;
   }
+  IRBuilder builder(call);
+  auto oldType = taffoInfo.getTransparentType(*call);
   if (isa<CallInst>(call)) {
-    CallInst* newCall = CallInst::Create(newF, convArgs);
+    CallInst* newCall = builder.CreateCall(newF, convArgs);
     newCall->setCallingConv(call->getCallingConv());
-    newCall->insertBefore(call);
+    copyValueInfo(newCall, call, fixpt->toTransparentType(oldType));
     return newCall;
   }
   else if (isa<InvokeInst>(call)) {
     InvokeInst* invk = dyn_cast<InvokeInst>(call);
-    InvokeInst* newInvk = InvokeInst::Create(newF, invk->getNormalDest(), invk->getUnwindDest(), convArgs);
+    InvokeInst* newInvk = builder.CreateInvoke(newF, invk->getNormalDest(), invk->getUnwindDest(), convArgs);
     newInvk->setCallingConv(call->getCallingConv());
-    newInvk->insertBefore(invk);
+    copyValueInfo(newInvk, call, fixpt->toTransparentType(oldType));
     return newInvk;
   }
   assert(false && "Unknown CallBase type");
@@ -583,13 +591,13 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
         return nullptr;
       std::shared_ptr<FixedPointScalarType> scalarIntype1 = std::static_ptr_cast<FixedPointScalarType>(intype1);
       std::shared_ptr<FixedPointScalarType> scalarIntype2 = std::static_ptr_cast<FixedPointScalarType>(intype2);
-      std::shared_ptr<FixedPointScalarType> intermtype =
+      std::shared_ptr<FixedPointScalarType> intermType =
         std::make_shared<FixedPointScalarType>(dstType->isSigned(),
                                                scalarIntype1->getBits() + scalarIntype2->getBits(),
                                                scalarIntype1->getFractionalBits() + scalarIntype2->getFractionalBits());
-      Type* dbfxt = intermtype->scalarToLLVMType(instr->getContext());
+      Type* dbfxt = intermType->scalarToLLVMType(instr->getContext());
       IRBuilder<NoFolder> builder(instr);
-      Value* fixop = nullptr;
+      Value* intermResult = nullptr;
       Value* ext1 = nullptr;
       Value* ext2 = nullptr;
       if (dbfxt->getScalarSizeInBits() > MaxTotalBitsConv) {
@@ -678,29 +686,43 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
         copyValueInfo(ext2, val2);
         updateFPTypeMetadata(
           ext2, scalarIntype2->isSigned(), scalarIntype2->getFractionalBits(), scalarIntype2->getBits());
-        intermtype->setBits(scalarIntype1->getBits());
-        intermtype->setFractionalBits(new_frac);
-        fixop = builder.CreateMul(ext1, ext2);
-        updateConstTypeMetadata(fixop, 0U, scalarIntype1);
-        updateConstTypeMetadata(fixop, 1U, scalarIntype2);
-        copyValueInfo(fixop, instr);
-        updateFPTypeMetadata(fixop, intermtype->isSigned(), intermtype->getFractionalBits(), intermtype->getBits());
+        intermType->setBits(scalarIntype1->getBits());
+        intermType->setFractionalBits(new_frac);
+        intermResult = builder.CreateMul(ext1, ext2);
+        updateConstTypeMetadata(intermResult, 0U, scalarIntype1);
+        updateConstTypeMetadata(intermResult, 1U, scalarIntype2);
+        copyValueInfo(intermResult, instr);
+        updateFPTypeMetadata(
+          intermResult, intermType->isSigned(), intermType->getFractionalBits(), intermType->getBits());
 
-        return genConvertFixedToFixed(fixop, intermtype, dstType, instr);
+        LLVM_DEBUG(
+          Logger& logger = log();
+          logger << "Conversion result: " << intermResult << "\nFixType: ";
+          logger.logln(intermResult, raw_ostream::Colors::CYAN););
+
+        return genConvertFixedToFixed(intermResult, intermType, dstType, instr);
       }
       else {
 
         ext1 = scalarIntype1->isSigned() ? builder.CreateSExt(val1, dbfxt) : builder.CreateZExt(val1, dbfxt);
         ext2 = scalarIntype2->isSigned() ? builder.CreateSExt(val2, dbfxt) : builder.CreateZExt(val2, dbfxt);
-        fixop = builder.CreateMul(ext1, ext2);
+        intermResult = builder.CreateMul(ext1, ext2);
         copyValueInfo(ext1, val1);
         copyValueInfo(ext2, val2);
 
-        copyValueInfo(fixop, instr, TransparentTypeFactory::create(fixop->getType()));
-        updateFPTypeMetadata(fixop, intermtype->isSigned(), intermtype->getFractionalBits(), intermtype->getBits());
-        updateConstTypeMetadata(fixop, 0U, scalarIntype1);
-        updateConstTypeMetadata(fixop, 1U, scalarIntype2);
-        return genConvertFixedToFixed(fixop, intermtype, dstType, instr);
+        copyValueInfo(intermResult, instr);
+        updateFPTypeMetadata(
+          intermResult, intermType->isSigned(), intermType->getFractionalBits(), intermType->getBits());
+        updateConstTypeMetadata(intermResult, 0U, scalarIntype1);
+        updateConstTypeMetadata(intermResult, 1U, scalarIntype2);
+
+        Module* module = instr->getModule();
+        IRBuilder<> builder(&*++cast<Instruction>(intermResult)->getIterator());
+        genPrintf(builder, *module, "ext1: %x\n", ext1);
+        genPrintf(builder, *module, "ext2: %x\n", ext2);
+        genPrintf(builder, *module, "mul res: %x\n", intermResult);
+
+        return genConvertFixedToFixed(intermResult, intermType, dstType, instr);
       }
     }
     else if (dstType->isFloatingPoint()) {
@@ -774,7 +796,7 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
 
       copyValueInfo(ext1, val1);
       copyValueInfo(ext2, val2);
-      copyValueInfo(intermResult, instr, TransparentTypeFactory::create(intermResult->getType()));
+      copyValueInfo(intermResult, instr);
       updateFPTypeMetadata(
         intermResult, intermType->isSigned(), intermType->getFractionalBits(), intermType->getBits());
       updateConstTypeMetadata(intermResult, 0U, ext1type);
@@ -989,6 +1011,7 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
     tmp = unsupp->clone();
     if (!tmp->getType()->isVoidTy())
       tmp->setName(unsupp->getName() + ".flt");
+    copyValueInfo(tmp, unsupp);
     tmp->insertAfter(unsupp);
   }
   else {

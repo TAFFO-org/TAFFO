@@ -168,7 +168,7 @@ Value* FloatToFixed::convertMathIntrinsicFunction(CallBase* C, const std::shared
         copyValueInfo(ext2, val2);
       }
 
-      copyValueInfo(fixop, C, TransparentTypeFactory::create(fixop->getType()));
+      copyValueInfo(fixop, C);
 
       Value* fixopcvt = genConvertFixedToFixed(fixop, intermtype, fixpt, C);
       Value* res = builder.CreateAdd(fixopcvt, val3);

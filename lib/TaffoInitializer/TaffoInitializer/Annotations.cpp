@@ -48,7 +48,7 @@ Function* InitializerPass::findStartingPointFunctionGlobal(Module& m) {
     report_fatal_error("__taffo_vra_starting_function initialized incorrectly!");
 
   startFunGlob->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*startFunGlob);
+  taffoInfo.eraseValue(*startFunGlob);
 
   return startingPointFun;
 }
@@ -69,7 +69,7 @@ void InitializerPass::readAndRemoveGlobalAnnotations(Module& m) {
               parseAnnotation(cast<ConstantExpr>(annotation->getOperand(1)), expr->getOperand(0));
         }
     annotationsGlobalVar->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*annotationsGlobalVar);
+    taffoInfo.eraseValue(*annotationsGlobalVar);
   }
 }
 
@@ -86,12 +86,12 @@ void InitializerPass::readAndRemoveLocalAnnotations(Function& f) {
         parseAnnotation(annotatedValue, annotationValue, &isStartingPoint);
         foundStartingPoint |= isStartingPoint;
         call->eraseFromParent();
-        TaffoInfo::getInstance().eraseValue(*call);
+        taffoInfo.eraseValue(*call);
       }
     }
   }
   if (foundStartingPoint)
-    TaffoInfo::getInstance().addStartingPoint(f);
+    taffoInfo.addStartingPoint(f);
 }
 
 void InitializerPass::readAndRemoveLocalAnnotations(Module& m) {
@@ -100,12 +100,12 @@ void InitializerPass::readAndRemoveLocalAnnotations(Module& m) {
     /* Otherwise dce pass ignores the function (removed also where it's not required).
      * Don't remove for OCL trampolines because we want to keep the useless code there
      * deliberately. These trampolines will be removed by conversion later anyway. */
-    if (!TaffoInfo::getInstance().isOpenCLTrampoline(f))
+    if (!taffoInfo.isOpenCLTrampoline(f))
       f.removeFnAttr(Attribute::OptimizeNone);
   }
 
-  if (!TaffoInfo::getInstance().hasStartingPoint(m))
-    TaffoInfo::getInstance().addDefaultStartingPoint(m);
+  if (!taffoInfo.hasStartingPoint(m))
+    taffoInfo.addDefaultStartingPoint(m);
 }
 
 void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationValue, bool* isStartingPoint) {
@@ -117,13 +117,13 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
   if (!parser.parseAnnotationAndGenValueInfo(annotationStr, annotatedValue)) {
     Logger& logger = log();
     logger.logln("TAFFO Annotation parser error:", raw_ostream::Colors::RED);
-    logger.increaseIndent();
+    auto indenter = logger.getIndenter();
+    indenter.increaseIndent();
     logger.log("In annotation: \"", raw_ostream::Colors::RED);
     logger.log(annotationStr, raw_ostream::Colors::RED);
     logger.log("\" of value ", raw_ostream::Colors::RED);
     logger.logln(annotatedValue, raw_ostream::Colors::RED);
     logger.logln(parser.getLastError(), raw_ostream::Colors::RED);
-    logger.decreaseIndent();
     llvm_unreachable("Error parsing annotation!");
   }
 
@@ -149,7 +149,7 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
 
 void InitializerPass::removeNotFloats() {
   for (auto val : make_early_inc_range(infoPropagationQueue)) {
-    bool containsFloatingPoint = TaffoInfo::getInstance().getOrCreateTransparentType(*val)->containsFloatingPointType();
+    bool containsFloatingPoint = taffoInfo.getOrCreateTransparentType(*val)->containsFloatingPointType();
     if (!containsFloatingPoint) {
       LLVM_DEBUG(
         Logger& logger = log();

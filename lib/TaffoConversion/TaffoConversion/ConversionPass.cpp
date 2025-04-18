@@ -647,12 +647,14 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
 
 Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
   LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+
   Function* oldF = call->getCalledFunction();
   assert(oldF && "bitcasted function pointers and such not handled atm");
   if (isSpecialFunction(oldF))
     return nullptr;
 
-  if (!TaffoInfo::getInstance().isTaffoCloneFunction(*oldF)) {
+  if (!taffoInfo.isTaffoCloneFunction(*oldF)) {
     LLVM_DEBUG(dbgs() << "createFixFun: function " << oldF->getName() << " not a clone; ignoring\n");
     return nullptr;
   }
@@ -694,15 +696,13 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
   if (old)
     *old = false;
 
-  Type* retType = oldF->getReturnType();
+  auto oldRetType = taffoInfo.getTransparentType(*oldF);
+  auto newRetType = oldRetType;
   if (hasConversionInfo(call))
     if (!getConversionInfo(call)->noTypeConversion)
-      retType = getLLVMFixedPointTypeForFloatValue(call);
+      newRetType = getFixpType(call)->toTransparentType(taffoInfo.getTransparentType(*call));
 
-  FunctionType* newFunTy = FunctionType::get(
-    TaffoInfo::getInstance().getOrCreateTransparentType(*oldF)->isFloatingPointType() ? retType : oldF->getReturnType(),
-    argsLLVMTypes,
-    oldF->isVarArg());
+  FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argsLLVMTypes, oldF->isVarArg());
 
   LLVM_DEBUG(
     dbgs() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
@@ -710,7 +710,8 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
       dbgs() << "(" << argIndex << ", " << *fixedPointType << ") ";
     dbgs() << "\n";);
 
-  newF = Function::Create(newFunTy, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
+  newF = Function::Create(newFunType, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
+  taffoInfo.setTransparentType(*newF, newRetType);
   LLVM_DEBUG(dbgs() << "created function\n"
                     << *newF << "\n");
   functionPool[oldF] = newF; // add to pool

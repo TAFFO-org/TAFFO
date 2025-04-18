@@ -12,7 +12,7 @@ using namespace llvm;
 using namespace taffo;
 
 bool containsPtrType(Type* type) {
-  if (type->isSingleValueType())
+  if (type->isSingleValueType() || type->isVoidTy())
     return type->isPointerTy();
   if (type->isArrayTy())
     return containsPtrType(type->getArrayElementType());
@@ -26,7 +26,7 @@ bool containsPtrType(Type* type) {
 }
 
 std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type* type) {
-  assert(!containsPtrType(type) && "Long life transparent pointer");
+  assert(!containsPtrType(type) && "Long life to transparent pointers!");
   return create(type, 0);
 }
 
@@ -90,7 +90,7 @@ int TransparentType::compareTransparency(const TransparentType& other) const {
 Type* TransparentType::toLLVMType() const {
   Type* type = unwrappedType;
   for (unsigned i = 0; i < indirections; ++i)
-    type = type->getPointerTo();
+    type = PointerType::get(type, type->getPointerAddressSpace());
   return type;
 }
 

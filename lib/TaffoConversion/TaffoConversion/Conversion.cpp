@@ -32,39 +32,30 @@ Value* ConversionError = (Value*) (&ConversionError);
 Value* Unsupported = (Value*) (&Unsupported);
 
 void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
+  Logger& logger = log();
+
   for (auto iter = q.begin(); iter != q.end();) {
     Value* v = *iter;
-
-    // Removes all taffo-related annotations from ll file
-    if (CallInst* anno = dyn_cast<CallInst>(v)) {
-      if (anno->getCalledFunction()) {
-        if (anno->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
-          anno->eraseFromParent();
-          TaffoInfo::getInstance().eraseValue(*anno);
-          iter = q.erase(iter);
-          continue;
-        }
-      }
-    }
-
-    LLVM_DEBUG(
-      dbgs() << "\n-------------------------------------* performConversion *-------------------------------------\n");
-    LLVM_DEBUG(dbgs() << "  [no conv ] " << getConversionInfo(v)->noTypeConversion << "\n");
-    LLVM_DEBUG(dbgs() << "  [value   ] " << *v << "\n");
-    if (Instruction* i = dyn_cast<Instruction>(v))
-      LLVM_DEBUG(dbgs() << "  [function] " << i->getFunction()->getName() << "\n");
-
     std::shared_ptr<FixedPointType> newType = getFixpType(v);
-    LLVM_DEBUG(dbgs() << "  [req. ty.] " << *newType << "\n");
+
+    auto indenter = logger.getIndenter();
+    LLVM_DEBUG(
+      logger << raw_ostream::Colors::BLUE << repeatString("▀▄▀▄", 10) << "[Perform conversion]"
+             << repeatString("▄▀▄▀", 10) << raw_ostream::Colors::RESET << "\n";
+      indenter.increaseIndent();
+      logger.log("Value: ").logValueln(v);
+      logger << "To convert: " << getConversionInfo(v)->noTypeConversion << "\n";
+      logger << "Requested type: " << *newType << "\n";);
+
     Value* newv = convertSingleValue(m, v, newType);
     getConversionInfo(v)->fixpType = newType;
     if (newv) {
       convertedValues[v] = newv;
-      LLVM_DEBUG(dbgs() << "  [out  ty.] " << *newType << "\n");
+      LLVM_DEBUG(logger.log("Result type: ").logln(*newType, raw_ostream::Colors::CYAN));
     }
 
     if (newv && newv != ConversionError) {
-      LLVM_DEBUG(dbgs() << "  [output  ] " << *newv << "\n");
+      LLVM_DEBUG(log().log("Result:      ").logln(*newv, raw_ostream::Colors::CYAN));
 
       if (newv != v && isa<Instruction>(newv) && isa<Instruction>(v)) {
         Instruction* newinst = dyn_cast<Instruction>(newv);
@@ -81,10 +72,10 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
         copyValueInfo(newv, v, newTransparentType);
 
         if (hasConversionInfo(newv)) {
-          LLVM_DEBUG(dbgs() << "warning: output has valueInfo already from a previous conversion (type "
-                            << *getFixpType(newv) << ")\n");
+          LLVM_DEBUG(
+            logger.log("warning: output has valueInfo already from a previous conversion", raw_ostream::Colors::YELLOW)
+            << " (type " << *getFixpType(newv) << ")\n");
           if (*getFixpType(newv) != *getFixpType(v)) {
-            Logger& logger = log();
             logger.logln("FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!", raw_ostream::Colors::RED);
             logger.log("New type: ", raw_ostream::Colors::RED);
             logger.log(getFixpType(newv), raw_ostream::Colors::RED);
@@ -97,9 +88,9 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
           *newConversionInfo(newv) = *getConversionInfo(v);
       }
     }
-    else {
-      LLVM_DEBUG(dbgs() << "  [output  ] CONVERSION ERROR\n");
-    }
+    else
+      LLVM_DEBUG(logger.log("Result:      ").logln("CONVERSION ERROR", raw_ostream::Colors::RED));
+    LLVM_DEBUG(logger << "\n");
     iter++;
   }
 }
@@ -133,7 +124,13 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
       // Check that all operands are valid
       if (User* user = dyn_cast<User>(res))
         for (auto& operand : user->operands())
-          assert(operand.get() != nullptr););
+          assert(operand.get() != nullptr);
+      // Check that the transparent type of res is coherent
+      if (!res->getType()->isPointerTy()) {
+        auto type = taffoInfo.getTransparentType(*res);
+        auto expectedType = TransparentTypeFactory::create(res->getType());
+        assert(*type == *expectedType);
+      });
   }
   else if (Argument* argument = dyn_cast<Argument>(val)) {
     if (getUnwrappedType(argument)->isFloatTy())
@@ -150,20 +147,26 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
 Value* FloatToFixed::translateOrMatchOperand(
   Value* val, std::shared_ptr<FixedPointType>& iofixpt, Instruction* ip, TypeMatchPolicy typepol, bool wasHintForced) {
   auto& taffoInfo = TaffoInfo::getInstance();
-  LLVM_DEBUG(dbgs() << "translateOrMatchOperand of " << *val << "\n");
+
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+
+  LLVM_DEBUG(
+    logger.log("[TranslateOrMatchOperand of]", raw_ostream::Colors::BLACK) << *val << "\n";
+    indenter.increaseIndent(););
 
   // FIXME: handle all the cases, we need more info about destination!
   if (typepol == TypeMatchPolicy::ForceHint) {
-    LLVM_DEBUG(dbgs() << "translateOrMatchOperand: forcing hint as requested!\n");
     std::shared_ptr<FixedPointType> origfixpt = iofixpt->clone();
     Value* tmp = translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::RangeOverHintMaxFrac, true);
+    LLVM_DEBUG(log() << "forcing hint as requested!\n");
     return genConvertFixedToFixed(tmp,
                                   std::static_ptr_cast<FixedPointScalarType>(iofixpt),
                                   std::static_ptr_cast<FixedPointScalarType>(origfixpt),
                                   ip);
   }
 
-  assert(val->getType()->getNumContainedTypes() == 0 && "translateOrMatchOperand val is not a scalar value");
+  assert(val->getType()->getNumContainedTypes() == 0 && "val is not scalar");
   Value* res = convertedValues[val];
   if (res) { // this means it has been converted, but can also be a floating point!
     if (res == ConversionError)
@@ -172,7 +175,7 @@ Value* FloatToFixed::translateOrMatchOperand(
 
     // The value has to be converted into a floating point value, convert it, full stop.
     if (iofixpt->isFloatingPoint()) {
-      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: converting converted value to floating point\n");
+      LLVM_DEBUG(log() << "converting converted value to floating point\n");
       return genConvertFixedToFixed(res,
                                     std::static_ptr_cast<FixedPointScalarType>(getFixpType(res)),
                                     std::static_ptr_cast<FixedPointScalarType>(iofixpt),
@@ -181,11 +184,12 @@ Value* FloatToFixed::translateOrMatchOperand(
 
     // Converting Floating point to whatever
     if (getFixpType(res)->isFloatingPoint()) {
-      LLVM_DEBUG(dbgs() << "translateOrMatchOperand: Converting floating point to whatever.\n";);
-      LLVM_DEBUG(dbgs() << "Is floating, calling subroutine, " << *getFixpType(res) << " --> " << *iofixpt << "\n";);
-      LLVM_DEBUG(dbgs() << "This value will be converted to fixpoint: ";);
-      LLVM_DEBUG(val->print(dbgs()););
-      LLVM_DEBUG(dbgs() << "\n";);
+      LLVM_DEBUG(
+        Logger& logger = log();
+        logger << "converting floating point to whatever\n";
+        logger << "Is floating, calling subroutine, " << *getFixpType(res) << " --> " << *iofixpt << "\n";
+        logger << "This value will be converted to fixpoint: ";
+        logger.logln(val););
       // The conversion is not forced to a specific type, so let's choose the best type that contains our value
       // Which might NOT be the destination type
       // In fact, if we use the destination type, we risk screwing everything up causing overflows
@@ -195,16 +199,15 @@ Value* FloatToFixed::translateOrMatchOperand(
           std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*val);
           std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(valueInfo);
           if (!scalarInfo || !scalarInfo->range) {
-            LLVM_DEBUG(dbgs() << "No metadata found, rolling with the suggested type and hoping for the best!\n");
+            LLVM_DEBUG(log() << "no metadata found, rolling with the suggested type and hoping for the best!\n");
           }
           else {
             associateFixFormat(scalarInfo, iofixpt);
-            LLVM_DEBUG(dbgs() << "We have a new fixed point suggested type: " << *iofixpt << "\n";);
+            LLVM_DEBUG(log() << "we have a new fixed point suggested type: " << *iofixpt << "\n";);
           }
         }
         else {
-          LLVM_DEBUG(
-            dbgs() << "Not associating better fixed point data type as the datatype was originally forced!\n";);
+          LLVM_DEBUG(log() << "not associating better fixed point data type as the datatype was originally forced!\n";);
         }
       }
 
@@ -216,11 +219,13 @@ Value* FloatToFixed::translateOrMatchOperand(
 
     if (!getConversionInfo(val)->noTypeConversion) {
       /* the value has been successfully converted to fixed point in a previous step */
-      LLVM_DEBUG(
-        dbgs() << "translateOrMatchOperand: value has been converted in the past to \n";
-        dbgs().indent(18) << "Value: " << *res << "\n";
-        dbgs().indent(16) << "FixType: " << *iofixpt << "\n");
       iofixpt = getFixpType(res);
+      LLVM_DEBUG(
+        logger << "value has been converted in the past to: \n";
+        indenter.increaseIndent();
+        logger << "Value: " << *res << "\n";
+        logger << "FixType: " << *iofixpt << "\n";
+        indenter.decreaseIndent(););
       return res;
     }
 
@@ -234,7 +239,7 @@ Value* FloatToFixed::translateOrMatchOperand(
 
   assert(val->getType()->isFloatingPointTy());
 
-  LLVM_DEBUG(dbgs() << "translateOrMatchOperand: non-converted value, converting now\n");
+  LLVM_DEBUG(log() << "translateOrMatchOperand: non-converted value, converting now\n");
 
   /* try the easy cases first
    *   this is essentially duplicated from genConvertFloatToFix because once we
@@ -298,7 +303,11 @@ Value*
 FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointScalarType>& fixpt, Instruction* ip) {
   auto& taffoInfo = TaffoInfo::getInstance();
   assert(flt->getType()->isFloatingPointTy() && "genConvertFloatToFixed called on a non-float scalar");
-  LLVM_DEBUG(dbgs() << "Called floatToFixed\n";);
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger << "Called floatToFixed with src ";
+    logger.log(flt->getType(), raw_ostream::Colors::CYAN);
+    logger.log(" to ").logln(*fixpt, raw_ostream::Colors::CYAN););
 
   if (Constant* c = dyn_cast<Constant>(flt)) {
     std::shared_ptr<FixedPointType> fixptcopy = fixpt->clone();
@@ -347,7 +356,7 @@ FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointS
       double MaxDest = pow(2.0, fixpt->getBits());
       Value* SanitizedFloat = flt;
       if (MaxSrc < MaxDest || MaxSrc < twoebits) {
-        LLVM_DEBUG(dbgs() << "floatToFixed: Extending " << *SrcTy << " to float because dest integer is too large\n");
+        LLVM_DEBUG(log() << "floatToFixed: Extending " << *SrcTy << " to float because dest integer is too large\n");
         SanitizedFloat = builder.CreateFPCast(flt, Type::getFloatTy(flt->getContext()));
         copyValueInfo(SanitizedFloat, flt);
       }
@@ -362,14 +371,14 @@ FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointS
     }
   }
   else {
-    LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
+    LLVM_DEBUG(log() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
     int startingBit = flt->getType()->getPrimitiveSizeInBits();
     int destinationBit = destt->getPrimitiveSizeInBits();
     if (startingBit == destinationBit) {
       // No casting is actually needed
       LLVM_DEBUG(assert((flt->dump(), destt->dump(), 1) && flt->getType() == destt
                         && "Floating types having same bits but differents types"));
-      LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] no casting needed.\n");
+      LLVM_DEBUG(log() << "[genConvertFloatToFix] no casting needed.\n");
       assert(flt->getType() == destt && "Floating types having same bits but differents types");
       return flt;
     }
@@ -396,13 +405,13 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
   LLVM_DEBUG(
     Logger& logger = log();
     logger.log("Called fixedToFixed with src ");
-    logger.log(*srcFixedType, llvm::raw_ostream::Colors::BLUE);
+    logger.log(*srcFixedType, llvm::raw_ostream::Colors::CYAN);
     logger.log(" to dst ");
-    logger.logln(*dstFixedType, llvm::raw_ostream::Colors::BLUE););
+    logger.logln(*dstFixedType, llvm::raw_ostream::Colors::CYAN););
 
-  Instruction* fixinst = dyn_cast<Instruction>(fix);
-  if (!ip && fixinst)
-    ip = getFirstInsertionPointAfter(fixinst);
+  Instruction* fixInst = dyn_cast<Instruction>(fix);
+  if (!ip && fixInst)
+    ip = getFirstInsertionPointAfter(fixInst);
   assert(ip && "ip required when converted value not an instruction");
 
   std::shared_ptr<TransparentType> srcType = taffoInfo.getTransparentType(*fix);
@@ -414,14 +423,14 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
   if (srcType->isFloatingPointType() && dstType->isFloatingPointType()) {
     IRBuilder<NoFolder> builder(ip);
 
-    LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
+    LLVM_DEBUG(log() << "[genConvertFloatToFix] converting a floating point to a floating point\n");
     int startingBit = srcLLVMType->getPrimitiveSizeInBits();
     int destinationBit = dstLLVMType->getPrimitiveSizeInBits();
 
     if (startingBit == destinationBit) {
       // No casting is actually needed
       assert(*srcType == *dstType && "Floating types having same bits but differents types");
-      LLVM_DEBUG(dbgs() << "[genConvertFloatToFix] no casting needed.\n");
+      LLVM_DEBUG(log() << "[genConvertFloatToFix] no casting needed.\n");
       return fix;
     }
     else if (startingBit < destinationBit) {
@@ -454,15 +463,16 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
   };
 
   auto genPointMovement = [&](Value* fix) -> Value* {
-    int deltab = dstFixedType->getFractionalBits() - srcFixedType->getFractionalBits();
-    if (deltab > 0) {
-      return copyValueInfo(builder.CreateShl(fix, deltab), fix);
+    assert(srcFixedType->getIntegerBits() <= dstFixedType->getBits());
+    int deltaBits = dstFixedType->getFractionalBits() - srcFixedType->getFractionalBits();
+    if (deltaBits > 0) {
+      return copyValueInfo(builder.CreateShl(fix, deltaBits), fix);
     }
-    else if (deltab < 0) {
+    else if (deltaBits < 0) {
       if (srcFixedType->isSigned())
-        return copyValueInfo(builder.CreateAShr(fix, -deltab), fix);
+        return copyValueInfo(builder.CreateAShr(fix, -deltaBits), fix);
       else
-        return copyValueInfo(builder.CreateLShr(fix, -deltab), fix);
+        return copyValueInfo(builder.CreateLShr(fix, -deltaBits), fix);
     }
     return fix;
   };
@@ -476,15 +486,15 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
 Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
                                           const std::shared_ptr<FixedPointType>& fixpt,
                                           const std::shared_ptr<TransparentType>& dstType) {
-  Logger& log = Logger::getInstance();
+  Logger& logger = log();
   auto& taffoInfo = TaffoInfo::getInstance();
   Type* dstLLVMType = dstType->toLLVMType();
 
   LLVM_DEBUG(
-    log << "******** trace: genConvertFixToFloat ";
-    log.logValue(fixValue);
-    log << " -> ";
-    log.logln(dstType););
+    logger << "******** trace: genConvertFixToFloat ";
+    logger.logValue(fixValue);
+    logger << " -> ";
+    logger.logln(dstType););
 
   auto fixValueType = taffoInfo.getTransparentType(*fixValue);
   if (fixValueType->isFloatingPointType()) {
@@ -496,7 +506,7 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
         ip = &(*(arg->getParent()->getEntryBlock().getFirstInsertionPt()));
       IRBuilder<NoFolder> builder(ip);
 
-      LLVM_DEBUG(log << "[genConvertFixToFloat] converting a floating point to a floating point\n");
+      LLVM_DEBUG(logger << "[genConvertFixToFloat] converting a floating point to a floating point\n");
       int startingBit = fixValueType->toLLVMType()->getPrimitiveSizeInBits();
       int destinationBit = dstLLVMType->getPrimitiveSizeInBits();
       assert(!fixValueType->isPointerType() && !dstType->isPointerType()
@@ -505,7 +515,7 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
       if (startingBit == destinationBit) {
         // No casting is actually needed
         assert(*fixValueType == *dstType && "Floating types having same bits but differents types");
-        LLVM_DEBUG(log << "[genConvertFixToFloat] no casting needed.\n");
+        LLVM_DEBUG(logger << "[genConvertFixToFloat] no casting needed.\n");
         return fixValue;
       }
       else if (startingBit < destinationBit) {
@@ -525,7 +535,7 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
       if (startingBit == destinationBit) {
         // No casting is actually needed
         assert(*fixValueType == *dstType && "Floating types having same bits but differents types");
-        LLVM_DEBUG(log << "[genConvertFixToFloat] no casting needed.\n");
+        LLVM_DEBUG(logger << "[genConvertFixToFloat] no casting needed.\n");
         return fixValue;
       }
       else if (startingBit < destinationBit) {
@@ -547,10 +557,10 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
       Constant* DblRes =
         ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
       assert(DblRes && "Constant folding failed...");
-      LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
+      LLVM_DEBUG(log() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
       Constant* Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *ModuleDL);
       assert(Res && "Constant folding failed...");
-      LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
+      LLVM_DEBUG(log() << "ConstantFoldCastInstruction returned " << *Res << "\n");
       return Res;
     }
   }
@@ -578,7 +588,7 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
 
     double twoebits = pow(2.0, scalarFixpt->getFractionalBits());
     if (twoebits == 1.0) {
-      LLVM_DEBUG(dbgs() << "Optimizing conversion removing division by one!\n");
+      LLVM_DEBUG(log() << "Optimizing conversion removing division by one!\n");
       Value* floattmp = scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, dstLLVMType)
                                                 : builder.CreateUIToFP(fixValue, dstLLVMType);
       return floattmp;
@@ -588,7 +598,7 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
     double MaxDest = APFloat::getLargest(FltSema).convertToDouble();
     double MaxSrc = pow(2.0, scalarFixpt->getBits());
     if (MaxDest < MaxSrc || MaxDest < twoebits) {
-      LLVM_DEBUG(dbgs() << "fixToFloat: Extending " << *dstType << " to float because source integer is too small\n");
+      LLVM_DEBUG(log() << "fixToFloat: Extending " << *dstType << " to float because source integer is too small\n");
       Type* TmpTy = Type::getFloatTy(fixValue->getContext());
       Value* floattmp =
         scalarFixpt->isSigned() ? builder.CreateSIToFP(fixValue, TmpTy) : builder.CreateUIToFP(fixValue, TmpTy);
@@ -617,10 +627,10 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
     Constant* DblRes =
       ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
     assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
-    LLVM_DEBUG(dbgs() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
+    LLVM_DEBUG(log() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
     Constant* Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *ModuleDL);
     assert(Res && "Constant folding failed...");
-    LLVM_DEBUG(dbgs() << "ConstantFoldCastInstruction returned " << *Res << "\n");
+    LLVM_DEBUG(log() << "ConstantFoldCastInstruction returned " << *Res << "\n");
     return Res;
   }
 
