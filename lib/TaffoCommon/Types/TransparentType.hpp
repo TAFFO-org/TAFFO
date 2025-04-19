@@ -134,7 +134,7 @@ class TransparentStructType : public TransparentType {
 public:
   friend class TransparentTypeFactory;
   friend class TypeDeducerPass;
-  friend class taffo::FixedPointStructType;
+  friend class FixedPointStructType;
 
   static bool classof(const TransparentType* type) { return type->getKind() == K_Struct; }
 

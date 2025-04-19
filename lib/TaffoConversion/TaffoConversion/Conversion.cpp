@@ -463,7 +463,6 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
   };
 
   auto genPointMovement = [&](Value* fix) -> Value* {
-    assert(srcFixedType->getIntegerBits() <= dstFixedType->getBits());
     int deltaBits = dstFixedType->getFractionalBits() - srcFixedType->getFractionalBits();
     if (deltaBits > 0) {
       return copyValueInfo(builder.CreateShl(fix, deltaBits), fix);

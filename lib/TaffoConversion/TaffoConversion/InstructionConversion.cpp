@@ -704,13 +704,6 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
         return genConvertFixedToFixed(intermResult, intermType, dstType, instr);
       }
       else {
-
-        Module* module = instr->getModule();
-        IRBuilder<> builder(&*++cast<Instruction>(val2)->getIterator());
-        genPrintf(builder, *module, "val1: %x\n", val1);
-        genPrintf(builder, *module, "val2: %lx\n", val2);
-        // genPrintf(builder, *module, "mul res: %x\n", intermResult);
-
         ext1 = scalarIntype1->isSigned() ? builder.CreateSExt(val1, dbfxt) : builder.CreateZExt(val1, dbfxt);
         ext2 = scalarIntype2->isSigned() ? builder.CreateSExt(val2, dbfxt) : builder.CreateZExt(val2, dbfxt);
         intermResult = builder.CreateMul(ext1, ext2);
@@ -1012,7 +1005,7 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
     tmp = unsupp->clone();
     if (!tmp->getType()->isVoidTy())
       tmp->setName(unsupp->getName() + ".flt");
-    copyValueInfo(tmp, unsupp);
+    copyValueInfo(tmp, unsupp, taffoInfo.getTransparentType(*unsupp));
     tmp->insertAfter(unsupp);
   }
   else {
