@@ -359,11 +359,11 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   CloneFunctionInto(newF, oldF, valueMap, CloneFunctionChangeType::GlobalChanges, returns);
 
   // Lambda to copy TransparentType and ValueInitInfo from src value to dst value
-  auto copyInfo = [this](Value* src, Value* dst) {
+  auto copyInfo = [this](const Value* src, Value* dst) {
     if (taffoInfo.hasTransparentType(*src))
-      taffoInfo.setTransparentType(*dst, taffoInfo.getOrCreateTransparentType(*src));
-    if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*src))
-      taffoInfo.setValueInfo(*dst, valueInfo->clone());
+      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src));
+    if (taffoInfo.hasValueInfo(*src))
+      taffoInfo.setValueInfo(*dst, taffoInfo.getValueInfo(*src)->clone());
     if (taffoInitInfo.hasValueInitInfo(src)) {
       ValueInitInfo& oldValueInitInfo = taffoInitInfo.getValueInitInfo(src);
       ValueInitInfo& newValueInitInfo = taffoInitInfo.createValueInitInfo(dst);
@@ -374,7 +374,7 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   };
 
   for (auto&& [oldValue, newValue] : valueMap)
-    copyInfo(const_cast<Value*>(oldValue), newValue);
+    copyInfo(oldValue, newValue);
   copyInfo(oldF, newF);
 
   if (!openCLKernelMode && !cudaKernelMode)

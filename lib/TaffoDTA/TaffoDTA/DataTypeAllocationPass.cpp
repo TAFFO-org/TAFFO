@@ -84,8 +84,7 @@ void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
 
   LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
   for (GlobalObject& globObj : m.globals()) {
-    std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(globObj);
-    if (processMetadataOfValue(&globObj, valueInfo)) {
+    if (processMetadataOfValue(&globObj)) {
       vals.push_back(&globObj);
       retrieveBufferID(&globObj);
     }
@@ -98,17 +97,16 @@ void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
     LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand()
                       << "  <<<<===============\n");
 
+    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
     for (Argument& arg : f.args()) {
-      std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg);
-      if (processMetadataOfValue(&arg, argInfo)) {
+      if (processMetadataOfValue(&arg)) {
         vals.push_back(&arg);
         retrieveBufferID(&arg);
       }
     }
 
     for (Instruction& inst : instructions(f)) {
-      std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst);
-      if (processMetadataOfValue(&inst, valueInfo)) {
+      if (processMetadataOfValue(&inst)) {
         vals.push_back(&inst);
         retrieveBufferID(&inst);
       }
@@ -144,7 +142,11 @@ void DataTypeAllocationPass::retrieveBufferID(Value* V) {
   }
 }
 
-bool DataTypeAllocationPass::processMetadataOfValue(Value* v, const std::shared_ptr<ValueInfo>& valueInfo) {
+bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  std::shared_ptr<ValueInfo> valueInfo;
+  if (taffoInfo.hasValueInfo(*v))
+    valueInfo = taffoInfo.getValueInfo(*v);
   LLVM_DEBUG(dbgs() << "\n"
                     << __FUNCTION__ << " v=" << *v << " valueInfo=" << (valueInfo ? valueInfo->toString() : "(null)")
                     << "\n");
@@ -858,7 +860,7 @@ void DataTypeAllocationPass::attachFunctionMetaData(Module& m) {
       continue;
 
     for (Argument& arg : f.args())
-      if (TaffoInfo::getInstance().getValueInfo(arg) && hasTunerInfo(&arg))
+      if (TaffoInfo::getInstance().hasValueInfo(arg) && hasTunerInfo(&arg))
         TaffoInfo::getInstance().setValueInfo(arg, getTunerInfo(&arg)->metadata);
   }
 }

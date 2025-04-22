@@ -23,7 +23,7 @@ public:
 
   void setTransparentType(llvm::Value& v, const std::shared_ptr<TransparentType>& t);
   std::shared_ptr<TransparentType> getOrCreateTransparentType(llvm::Value& v);
-  std::shared_ptr<TransparentType> getTransparentType(llvm::Value& v) const;
+  std::shared_ptr<TransparentType> getTransparentType(const llvm::Value& v) const;
   bool hasTransparentType(const llvm::Value& v);
 
   void addStartingPoint(llvm::Function& f);

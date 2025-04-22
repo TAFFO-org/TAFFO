@@ -1,80 +1,64 @@
-//===- Mem2Reg.cpp - The -mem2reg pass, a wrapper around the Utils lib ----===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This pass is a simple pass wrapper around the PromoteMemToReg function call
-// exposed by the Utils library.
-//
-//===----------------------------------------------------------------------===//
-
 #include "MemToRegPass.hpp"
 #include "PromoteMemToReg.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/ADT/Statistic.h>
-#include <llvm/Analysis/AssumptionCache.h>
 #include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/Dominators.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/Support/Casting.h>
-
-#include <vector>
 
 using namespace llvm;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-mem2reg"
 
-STATISTIC(NumPromoted, "Number of alloca's promoted");
+STATISTIC(numPromoted, "Number of alloca's promoted");
 
-static bool promoteMemoryToRegister(Function& F, DominatorTree& DT, AssumptionCache& AC) {
-  std::vector<AllocaInst*> Allocas;
-  BasicBlock& BB = F.getEntryBlock(); // Get the entry node for the function
-  bool Changed = false;
+bool MemToRegPass::promoteMemoryToRegister(Function& f,
+                                           DominatorTree& dominatorTree,
+                                           AssumptionCache& assumptionCache) {
+  SmallVector<AllocaInst*> allocas;
+  BasicBlock& bb = f.getEntryBlock(); // Get the entry node for the function
+  bool changed = false;
 
   while (true) {
-    Allocas.clear();
+    allocas.clear();
 
-    // Find allocas that are safe to promote, by looking at all instructions in
-    // the entry node
-    for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-      if (AllocaInst* AI = dyn_cast<AllocaInst>(I)) // Is it an alloca?
-        if (isAllocaPromotable(AI))
-          Allocas.push_back(AI);
+    // Find allocas that are safe to promote, by looking at all instructions in the entry node
+    for (Instruction& inst : bb)
+      if (AllocaInst* allocaInst = dyn_cast<AllocaInst>(&inst))
+        if (isAllocaPromotable(allocaInst))
+          allocas.push_back(allocaInst);
 
-    if (Allocas.empty())
+    if (allocas.empty())
       break;
 
-    PromoteMemToReg(Allocas, DT, &AC);
-    NumPromoted += Allocas.size();
-    Changed = true;
+    promoteMemToReg(allocas, dominatorTree, &assumptionCache);
+    numPromoted += allocas.size();
+    changed = true;
   }
-  return Changed;
+  return changed;
 }
 
-PreservedAnalyses MemToRegPass::run(Function& F, FunctionAnalysisManager& AM) {
+PreservedAnalyses MemToRegPass::run(Function& f, FunctionAnalysisManager& analysisManager) {
   static bool initializedTaffoInfo = false;
 
-  Module& M = *F.getParent();
+  Module& m = *f.getParent();
   if (!initializedTaffoInfo) {
-    TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", M);
+    TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", m);
     initializedTaffoInfo = true;
   }
 
-  auto& DT = AM.getResult<DominatorTreeAnalysis>(F);
-  auto& AC = AM.getResult<AssumptionAnalysis>(F);
-  if (!promoteMemoryToRegister(F, DT, AC))
+  auto& dominatorTree = analysisManager.getResult<DominatorTreeAnalysis>(f);
+  auto& assumptionCache = analysisManager.getResult<AssumptionAnalysis>(f);
+  if (!promoteMemoryToRegister(f, dominatorTree, assumptionCache))
     return PreservedAnalyses::all();
 
-  TaffoInfo::getInstance().dumpToFile("taffo_info_memToReg.json", M);
+  TaffoInfo::getInstance().dumpToFile("taffo_info_memToReg.json", m);
 
-  PreservedAnalyses PA;
-  PA.preserveSet<CFGAnalyses>();
-  return PA;
+  PreservedAnalyses preservedAnalyses;
+  preservedAnalyses.preserveSet<CFGAnalyses>();
+  return preservedAnalyses;
 }

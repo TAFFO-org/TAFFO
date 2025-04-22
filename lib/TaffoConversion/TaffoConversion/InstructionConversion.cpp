@@ -141,8 +141,6 @@ Value* FloatToFixed::convertLoad(LoadInst* load, std::shared_ptr<FixedPointType>
     IRBuilder builder(load);
     LoadInst* newinst = builder.CreateLoad(PELType, newptr, load->isVolatile(), Twine());
     newinst->setAlignment(align);
-    auto oldType = taffoInfo.getTransparentType(*load);
-    copyValueInfo(newinst, load, fixpt->toTransparentType(oldType));
     if (getConversionInfo(load)->noTypeConversion) {
       assert(newinst->getType()->isIntegerTy() && "DTA bug; improperly tagged struct/pointer!");
       return genConvertFixToFloat(newinst, getFixpType(newptr), taffoInfo.getTransparentType(*load));
@@ -253,8 +251,6 @@ Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPoi
     return Unsupported;
   std::vector<Value*> idxlist(gep->indices().begin(), gep->indices().end());
   Value* newGep = builder.CreateInBoundsGEP(getUnwrappedType(newval), newval, idxlist);
-  auto oldType = TaffoInfo::getInstance().getTransparentType(*gep);
-  copyValueInfo(newGep, gep, fixpt->toTransparentType(oldType));
   return newGep;
 }
 
@@ -310,10 +306,12 @@ Value* FloatToFixed::convertPhi(PHINode* phi, std::shared_ptr<FixedPointType>& f
      * the phi is converted as well; otherwise it is not. */
     bool donesomething = false;
     for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
-      Value* thisval = phi->getIncomingValue(i);
-      Value* newval = fallbackMatchValue(thisval, taffoInfo.getTransparentType(*thisval), phi);
-      if (newval && newval != ConversionError) {
-        phi->setIncomingValue(i, newval);
+      Value* value = phi->getIncomingValue(i);
+      if (!hasConvertedValue(value))
+        continue;
+      Value* newValue = fallbackMatchValue(value, taffoInfo.getTransparentType(*value), phi);
+      if (newValue != ConversionError) {
+        phi->setIncomingValue(i, newValue);
         donesomething = true;
       }
     }
@@ -333,9 +331,8 @@ Value* FloatToFixed::convertPhi(PHINode* phi, std::shared_ptr<FixedPointType>& f
       delete newphi;
       return nullptr;
     }
-    Instruction* inst2 = dyn_cast<Instruction>(newval);
-    if (inst2)
-      LLVM_DEBUG(dbgs() << "warning: new phi value " << *inst2 << " not coming from the obviously correct BB\n");
+    if (Instruction* inst2 = dyn_cast<Instruction>(newval))
+      LLVM_DEBUG(log() << "warning: new phi value " << *inst2 << " not coming from the obviously correct BB\n");
     newphi->addIncoming(newval, thisbb);
   }
   newphi->insertAfter(phi);
@@ -447,18 +444,15 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
     f_arg++;
   }
   IRBuilder builder(call);
-  auto oldType = taffoInfo.getTransparentType(*call);
   if (isa<CallInst>(call)) {
     CallInst* newCall = builder.CreateCall(newF, convArgs);
     newCall->setCallingConv(call->getCallingConv());
-    copyValueInfo(newCall, call, fixpt->toTransparentType(oldType));
     return newCall;
   }
   else if (isa<InvokeInst>(call)) {
     InvokeInst* invk = dyn_cast<InvokeInst>(call);
     InvokeInst* newInvk = builder.CreateInvoke(newF, invk->getNormalDest(), invk->getUnwindDest(), convArgs);
     newInvk->setCallingConv(call->getCallingConv());
-    copyValueInfo(newInvk, call, fixpt->toTransparentType(oldType));
     return newInvk;
   }
   assert(false && "Unknown CallBase type");
@@ -1005,7 +999,6 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
     tmp = unsupp->clone();
     if (!tmp->getType()->isVoidTy())
       tmp->setName(unsupp->getName() + ".flt");
-    copyValueInfo(tmp, unsupp, taffoInfo.getTransparentType(*unsupp));
     tmp->insertAfter(unsupp);
   }
   else {

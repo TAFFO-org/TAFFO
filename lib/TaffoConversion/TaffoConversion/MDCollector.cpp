@@ -27,11 +27,12 @@ void FloatToFixed::readGlobalMetadata(Module& m, SmallVectorImpl<Value*>& variab
 }
 
 void FloatToFixed::readLocalMetadata(Function& f, SmallVectorImpl<Value*>& variables, bool argumentsOnly) {
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   for (Argument& arg : f.args()) {
-    if (std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(arg)) {
+    if (taffoInfo.hasValueInfo(arg)) {
       /* Don't enqueue function arguments because they will be handled by
        * the function cloning step */
-      parseMetaData(nullptr, argInfo, &arg);
+      parseMetaData(nullptr, taffoInfo.getValueInfo(arg), &arg);
     }
   }
 
@@ -39,8 +40,8 @@ void FloatToFixed::readLocalMetadata(Function& f, SmallVectorImpl<Value*>& varia
     return;
 
   for (Instruction& inst : instructions(f))
-    if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(inst))
-      parseMetaData(&variables, valueInfo, &inst);
+    if (taffoInfo.hasValueInfo(inst))
+      parseMetaData(&variables, taffoInfo.getValueInfo(inst), &inst);
 }
 
 void FloatToFixed::readAllLocalMetadata(Module& m, SmallVectorImpl<Value*>& res) {

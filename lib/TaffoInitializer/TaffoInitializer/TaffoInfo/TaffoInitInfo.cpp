@@ -4,7 +4,7 @@
 using namespace llvm;
 using namespace taffo;
 
-ValueInitInfo& TaffoInitInfo::getValueInitInfo(Value* value) {
+ValueInitInfo& TaffoInitInfo::getValueInitInfo(const Value* value) {
   assert(valueInitInfo.contains(value));
   return valueInitInfo.find(value)->second;
 }

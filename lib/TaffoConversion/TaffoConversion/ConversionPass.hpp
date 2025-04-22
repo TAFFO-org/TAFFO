@@ -290,6 +290,8 @@ struct FloatToFixed {
     return translateOrMatchAnyOperand(val, iofixpt, ip, TypeMatchPolicy::ForceHint);
   }
 
+  bool hasConvertedValue(llvm::Value* value) { return convertedValues.contains(value); }
+
   llvm::Value* fallbackMatchValue(llvm::Value* value,
                                   const std::shared_ptr<TransparentType>& origType,
                                   llvm::Instruction* insertionPoint = nullptr) {
@@ -479,8 +481,8 @@ struct FloatToFixed {
     using namespace llvm;
     using namespace taffo;
     auto& taffoInfo = TaffoInfo::getInstance();
-    if (std::shared_ptr<ValueInfo> srcInfo = TaffoInfo::getInstance().getValueInfo(*src)) {
-      std::shared_ptr<ValueInfo> dstInfo = srcInfo->clone();
+    if (taffoInfo.hasValueInfo(*src)) {
+      std::shared_ptr<ValueInfo> dstInfo = taffoInfo.getValueInfo(*src)->clone();
       taffoInfo.setValueInfo(*dst, dstInfo);
     }
     if (dstType)
@@ -519,9 +521,10 @@ struct FloatToFixed {
     Value* op = i->getOperand(opIdx);
     if (!isa<Constant>(op))
       return;
-    std::shared_ptr<ValueInfo> opInfo = TaffoInfo::getInstance().getValueInfo(*op);
-    std::shared_ptr<ScalarInfo> opScalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(opInfo);
-    if (opScalarInfo) {
+    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+    if (!taffoInfo.hasValueInfo(*op))
+      return;
+    if (std::shared_ptr<ScalarInfo> opScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*op))) {
       std::shared_ptr<FixedPointScalarType> scalarType = std::static_ptr_cast<FixedPointScalarType>(type);
       opScalarInfo->numericType = std::make_shared<FixedPointInfo>(
         scalarType->isSigned(), scalarType->getBits(), scalarType->getFractionalBits());

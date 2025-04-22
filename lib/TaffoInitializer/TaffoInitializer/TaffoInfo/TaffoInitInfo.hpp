@@ -12,7 +12,7 @@ private:
 
   llvm::DenseMap<llvm::Value*, ValueInitInfo> valueInitInfo;
 
-  ValueInitInfo& getValueInitInfo(llvm::Value* value);
+  ValueInitInfo& getValueInitInfo(const llvm::Value* value);
   ValueInitInfo& getOrCreateValueInitInfo(llvm::Value* value);
   ValueInitInfo&
   createValueInitInfo(llvm::Value* value, unsigned int rootDistance = UINT_MAX, unsigned int backtrackingDepth = 0);

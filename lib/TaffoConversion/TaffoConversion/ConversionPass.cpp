@@ -230,16 +230,17 @@ void FloatToFixed::openPhiLoop(PHINode* phi) {
     return;
   }
 
+  auto type = TaffoInfo::getInstance().getTransparentType(*phi);
+
   info.placeh_noconv = createPlaceholder(phi->getType(), phi->getParent(), "phi_noconv");
   *(newConversionInfo(info.placeh_noconv)) = *(getConversionInfo(phi));
   phi->replaceAllUsesWith(info.placeh_noconv);
-  copyValueInfo(info.placeh_noconv, phi);
+  copyValueInfo(info.placeh_noconv, phi, type);
   if (isFloatingPointToConvert(phi)) {
-    Type* convt =
-      getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*phi), getFixpType(phi));
-    info.placeh_conv = createPlaceholder(convt, phi->getParent(), "phi_conv");
-    *(newConversionInfo(info.placeh_conv)) = *(getConversionInfo(phi));
-    copyValueInfo(info.placeh_conv, phi);
+    auto newType = getFixpType(phi)->toTransparentType(type);
+    info.placeh_conv = createPlaceholder(newType->toLLVMType(), phi->getParent(), "phi_conv");
+    *newConversionInfo(info.placeh_conv) = *getConversionInfo(phi);
+    copyValueInfo(info.placeh_conv, phi, newType);
   }
   else {
     info.placeh_conv = info.placeh_noconv;
@@ -511,9 +512,12 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
     /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
 
     TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-    for (const auto& [oldValue, newValue] : origValToCloned)
-      if (std::shared_ptr<ValueInfo> oldValueInfo = taffoInfo.getValueInfo(*oldValue))
-        taffoInfo.setValueInfo(*newValue, oldValueInfo);
+    for (const auto& [oldValue, newValue] : origValToCloned) {
+      if (taffoInfo.hasValueInfo(*oldValue))
+        taffoInfo.setValueInfo(*newValue, taffoInfo.getValueInfo(*oldValue));
+      if (taffoInfo.hasTransparentType(*oldValue))
+        taffoInfo.setTransparentType(*newValue, taffoInfo.getTransparentType(*oldValue));
+    }
 
     /* CloneFunctionInto also fixes the attributes of the arguments.
      * This is not exactly what we want for OpenCL kernels because the alignment
@@ -616,7 +620,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
     /* Put the instructions from the new function in */
     for (Value* val : newVals) {
       if (Instruction* inst = dyn_cast<Instruction>(val)) {
-        if (inst->getFunction() == newF)
+        if (inst->getFunction() == newF && !is_contained(vals, inst))
           vals.push_back(val);
       }
     }

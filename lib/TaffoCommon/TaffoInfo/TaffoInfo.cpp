@@ -21,9 +21,9 @@ TaffoInfo& TaffoInfo::getInstance() {
 
 void TaffoInfo::setTransparentType(Value& v, const std::shared_ptr<TransparentType>& t) { transparentTypes[&v] = t; }
 
-std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(Value& v) const {
+std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(const Value& v) const {
   auto iter = transparentTypes.find(&v);
-  assert(iter->second && "Transparent type not present");
+  assert(iter != transparentTypes.end() && "Transparent type not present");
   return iter->second;
 }
 
@@ -97,7 +97,8 @@ void TaffoInfo::setValueInfo(Value& v, std::shared_ptr<ValueInfo>&& vi) { valueI
 
 std::shared_ptr<ValueInfo> TaffoInfo::getValueInfo(const Value& v) const {
   auto iter = valueInfo.find(&v);
-  return iter != valueInfo.end() ? iter->second : nullptr;
+  assert(iter != valueInfo.end() && "ValueInfo not present");
+  return iter->second;
 }
 
 bool TaffoInfo::hasValueInfo(const Value& v) const { return valueInfo.contains(&v); }
@@ -120,11 +121,11 @@ bool TaffoInfo::isOriginalFunction(const Function& originalF) const {
 
 bool TaffoInfo::isTaffoCloneFunction(Function& f) const { return taffoCloneToOriginalFunction.contains(&f); }
 
-void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, llvm::GlobalValue::LinkageTypes linkage) {
+void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, GlobalValue::LinkageTypes linkage) {
   originalFunctionLinkage[&originalF] = linkage;
 }
 
-llvm::GlobalValue::LinkageTypes TaffoInfo::getOriginalFunctionLinkage(const llvm::Function& originalF) const {
+GlobalValue::LinkageTypes TaffoInfo::getOriginalFunctionLinkage(const Function& originalF) const {
   assert(originalFunctionLinkage.contains(&originalF) && "Original Function Linkage not inserted");
   return originalFunctionLinkage.at(&originalF);
 }
@@ -270,7 +271,6 @@ void TaffoInfo::generateTaffoIds() {
       continue;
     generateTaffoId(value);
 
-    std::shared_ptr<ValueInfo> valInfo = this->valueInfo[value];
     SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedTypes();
     for (Type* type : types)
       idTypeMapping[toString(type)] = type;
@@ -682,7 +682,7 @@ void TaffoInfo::deserialize(const json& j) {
     if (funIt != idValueMapping.end()) {
       Value* funVal = funIt->second;
       if (auto* funF = dyn_cast<Function>(funVal))
-        originalFunctionLinkage[funF] = static_cast<llvm::GlobalValue::LinkageTypes>(linkageEnum);
+        originalFunctionLinkage[funF] = static_cast<GlobalValue::LinkageTypes>(linkageEnum);
     }
   }
 

@@ -88,10 +88,9 @@ int TransparentType::compareTransparency(const TransparentType& other) const {
 }
 
 Type* TransparentType::toLLVMType() const {
-  Type* type = unwrappedType;
-  for (unsigned i = 0; i < indirections; ++i)
-    type = PointerType::get(type, type->getPointerAddressSpace());
-  return type;
+  if (indirections > 0)
+    return PointerType::get(unwrappedType->getContext(), 0);
+  return unwrappedType;
 }
 
 bool TransparentType::operator==(const TransparentType& other) const {

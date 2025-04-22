@@ -51,7 +51,7 @@ public:
 
   void retrieveBufferID(llvm::Value* V);
 
-  bool processMetadataOfValue(llvm::Value* v, const std::shared_ptr<taffo::ValueInfo>& valueInfo);
+  bool processMetadataOfValue(llvm::Value* v);
 
   bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value);
 

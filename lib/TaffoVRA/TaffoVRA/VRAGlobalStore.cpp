@@ -42,8 +42,8 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   for (GlobalVariable& v : m.globals()) {
     // retrieve info about global var v, if any
-    std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(v);
-    if (valueInfo) {
+    if (taffoInfo.hasValueInfo(v)) {
+      std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(v);
       auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
       if (scalarInfo && isValidRange(scalarInfo->range.get())) {
         UserInput[&v] = scalarInfo;
@@ -88,9 +88,9 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
     for (BasicBlock& bb : f) {
       for (Instruction& inst : bb) {
         // fetch info about Instruction i
-        std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(inst);
-        if (!valueInfo)
+        if (!taffoInfo.hasValueInfo(inst))
           continue;
+        std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(inst);
         // only retain info of instruction i if its weight is lesser than
         // the weight of all of its parents
         int weight = taffoInfo.getValueWeight(inst);
@@ -108,6 +108,8 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
             else
               continue;
             // only consider parameters with the same metadata
+            if (!taffoInfo.hasValueInfo(*v))
+              continue;
             std::shared_ptr<ValueInfo> parentInfo = taffoInfo.getValueInfo(*v);
             if (parentInfo != valueInfo)
               continue;
@@ -142,8 +144,8 @@ void VRAGlobalStore::saveResults(Module& m) {
   for (GlobalVariable& v : m.globals()) {
     if (const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange = fetchRangeNode(&v)) {
       // retrieve existing info about global var v, if any
-      if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(v)) {
-        std::shared_ptr<ValueInfo> copiedValueInfo = valueInfo->clone();
+      if (taffoInfo.hasValueInfo(v)) {
+        std::shared_ptr<ValueInfo> copiedValueInfo = taffoInfo.getValueInfo(v)->clone();
         updateValueInfo(copiedValueInfo, valueInfoWithRange);
         taffoInfo.setValueInfo(v, copiedValueInfo);
       }
@@ -170,8 +172,8 @@ void VRAGlobalStore::saveResults(Module& m) {
         if (inst.getOpcode() == Instruction::Store)
           continue;
         if (const std::shared_ptr<ValueInfoWithRange> valueInfoWithRange = fetchRangeNode(&inst)) {
-          if (std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(inst)) {
-            std::shared_ptr<ValueInfo> copiedValueInfo = valueInfo->clone();
+          if (taffoInfo.hasValueInfo(inst)) {
+            std::shared_ptr<ValueInfo> copiedValueInfo = taffoInfo.getValueInfo(inst)->clone();
             updateValueInfo(copiedValueInfo, valueInfoWithRange);
             taffoInfo.setValueInfo(inst, copiedValueInfo);
           }

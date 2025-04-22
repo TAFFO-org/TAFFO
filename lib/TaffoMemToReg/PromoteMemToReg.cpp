@@ -1,19 +1,4 @@
-//===- PromoteMemToReg.cpp - Convert allocas to registers -----------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file promotes memory references to be register references.  It promotes
-// alloca instructions which only have loads and stores as uses.  An alloca is
-// transformed by using iterated dominator frontiers to place PHI nodes, then
-// traversing the function in depth-first order to rewrite loads and stores as
-// appropriate.
-//
-//===----------------------------------------------------------------------===//
-
+#include "Debug/Logger.hpp"
 #include "PromoteMemToReg.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 
@@ -62,39 +47,40 @@ STATISTIC(NumSingleStore, "Number of alloca's promoted with a single store");
 STATISTIC(NumDeadAlloca, "Number of dead alloca's removed");
 STATISTIC(NumPHIInsert, "Number of PHI nodes inserted");
 
-bool taffo::isAllocaPromotable(const AllocaInst* AI) {
+bool taffo::isAllocaPromotable(const AllocaInst* allocaInst) {
   // Only allow direct and non-volatile loads and stores...
-  for (const User* U : AI->users()) {
-    if (const LoadInst* LI = dyn_cast<LoadInst>(U)) {
+  for (const User* user : allocaInst->users()) {
+    if (const LoadInst* loadInst = dyn_cast<LoadInst>(user)) {
       // Note that atomic loads can be transformed; atomic semantics do
       // not have any meaning for a local alloca.
-      if (LI->isVolatile())
+      if (loadInst->isVolatile())
         return false;
     }
-    else if (const StoreInst* SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getValueOperand() == AI || SI->getValueOperand()->getType() != AI->getAllocatedType())
+    else if (const StoreInst* storeInst = dyn_cast<StoreInst>(user)) {
+      if (storeInst->getValueOperand() == allocaInst
+          || storeInst->getValueOperand()->getType() != allocaInst->getAllocatedType())
         return false; // Don't allow a store OF the AI, only INTO the AI.
       // Note that atomic stores can be transformed; atomic semantics do
       // not have any meaning for a local alloca.
-      if (SI->isVolatile())
+      if (storeInst->isVolatile())
         return false;
     }
-    else if (const IntrinsicInst* II = dyn_cast<IntrinsicInst>(U)) {
-      if (!II->isLifetimeStartOrEnd() && !II->isDroppable())
+    else if (const IntrinsicInst* intrinsicInst = dyn_cast<IntrinsicInst>(user)) {
+      if (!intrinsicInst->isLifetimeStartOrEnd() && !intrinsicInst->isDroppable())
         return false;
     }
-    else if (const BitCastInst* BCI = dyn_cast<BitCastInst>(U)) {
-      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(BCI))
+    else if (const BitCastInst* bitCastInst = dyn_cast<BitCastInst>(user)) {
+      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(bitCastInst))
         return false;
     }
-    else if (const GetElementPtrInst* GEPI = dyn_cast<GetElementPtrInst>(U)) {
-      if (!GEPI->hasAllZeroIndices())
+    else if (const GetElementPtrInst* gepInst = dyn_cast<GetElementPtrInst>(user)) {
+      if (!gepInst->hasAllZeroIndices())
         return false;
-      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(GEPI))
+      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(gepInst))
         return false;
     }
-    else if (const AddrSpaceCastInst* ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
-      if (!onlyUsedByLifetimeMarkers(ASCI))
+    else if (const AddrSpaceCastInst* addrSpaceCastInst = dyn_cast<AddrSpaceCastInst>(user)) {
+      if (!onlyUsedByLifetimeMarkers(addrSpaceCastInst))
         return false;
     }
     else {
@@ -225,7 +211,7 @@ public:
   void clear() { InstNumbers.clear(); }
 };
 
-struct PromoteMem2Reg {
+struct PromoteMemToReg {
   /// The alloca instructions being promoted.
   std::vector<AllocaInst*> Allocas;
 
@@ -268,7 +254,7 @@ struct PromoteMem2Reg {
   DenseMap<const BasicBlock*, unsigned> BBNumPreds;
 
 public:
-  PromoteMem2Reg(ArrayRef<AllocaInst*> Allocas, DominatorTree& DT, AssumptionCache* AC)
+  PromoteMemToReg(ArrayRef<AllocaInst*> Allocas, DominatorTree& DT, AssumptionCache* AC)
   : Allocas(Allocas.begin(), Allocas.end()),
     DT(DT),
     DIB(*DT.getRoot()->getParent()->getParent(), /*AllowUnresolved*/ false),
@@ -319,7 +305,7 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
   // Knowing that this alloca is promotable, we know that it's safe to kill all
   // instructions except for load and store.
 
-  for (Use& U : llvm::make_early_inc_range(AI->uses())) {
+  for (Use& U : make_early_inc_range(AI->uses())) {
     Instruction* I = cast<Instruction>(U.getUser());
     if (isa<LoadInst>(I) || isa<StoreInst>(I))
       continue;
@@ -334,7 +320,7 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
       // The only users of this bitcast/GEP instruction are lifetime intrinsics.
       // Follow the use/def chain to erase them now instead of leaving it for
       // dead code elimination later.
-      for (Use& UU : llvm::make_early_inc_range(I->uses())) {
+      for (Use& UU : make_early_inc_range(I->uses())) {
         Instruction* Inst = cast<Instruction>(UU.getUser());
 
         // Drop the use of I in droppable instructions.
@@ -486,7 +472,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
 
   // Sort the stores by their index, making it efficient to do a lookup with a
   // binary search.
-  llvm::sort(StoresByIndex, less_first());
+  sort(StoresByIndex, less_first());
 
   // Walk all of the loads from this alloca, replacing them with the nearest
   // store above them, if any.
@@ -499,7 +485,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
 
     // Find the nearest store that has a lower index than this load.
     StoresByIndexTy::iterator I =
-      llvm::lower_bound(StoresByIndex, std::make_pair(LoadIdx, static_cast<StoreInst*>(nullptr)), less_first());
+      lower_bound(StoresByIndex, std::make_pair(LoadIdx, static_cast<StoreInst*>(nullptr)), less_first());
     if (I == StoresByIndex.begin()) {
       if (StoresByIndex.empty())
         // If there are no stores, the load takes the undef value.
@@ -559,7 +545,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
   return true;
 }
 
-void PromoteMem2Reg::run() {
+void PromoteMemToReg::run() {
   Function& F = *DT.getRoot()->getParent();
 
   AllocaDbgUsers.resize(Allocas.size());
@@ -641,8 +627,8 @@ void PromoteMem2Reg::run() {
     IDF.setDefiningBlocks(DefBlocks);
     SmallVector<BasicBlock*, 32> PHIBlocks;
     IDF.calculate(PHIBlocks);
-    llvm::sort(PHIBlocks,
-               [this](BasicBlock* A, BasicBlock* B) { return BBNumbers.find(A)->second < BBNumbers.find(B)->second; });
+    sort(PHIBlocks,
+         [this](BasicBlock* A, BasicBlock* B) { return BBNumbers.find(A)->second < BBNumbers.find(B)->second; });
 
     unsigned CurrentVersion = 0;
     for (BasicBlock* BB : PHIBlocks)
@@ -764,14 +750,13 @@ void PromoteMem2Reg::run() {
     auto CompareBBNumbers = [this](BasicBlock* A, BasicBlock* B) {
       return BBNumbers.find(A)->second < BBNumbers.find(B)->second;
     };
-    llvm::sort(Preds, CompareBBNumbers);
+    sort(Preds, CompareBBNumbers);
 
     // Now we loop through all BB's which have entries in SomePHI and remove
     // them from the Preds list.
     for (unsigned i = 0, e = SomePHI->getNumIncomingValues(); i != e; ++i) {
       // Do a log(n) search of the Preds list for the entry we want.
-      SmallVectorImpl<BasicBlock*>::iterator EntIt =
-        llvm::lower_bound(Preds, SomePHI->getIncomingBlock(i), CompareBBNumbers);
+      SmallVectorImpl<BasicBlock*>::iterator EntIt = lower_bound(Preds, SomePHI->getIncomingBlock(i), CompareBBNumbers);
       assert(EntIt != Preds.end() && *EntIt == SomePHI->getIncomingBlock(i)
              && "PHI node has entry for a block which is not a predecessor!");
 
@@ -800,10 +785,10 @@ void PromoteMem2Reg::run() {
 /// These are blocks which lead to uses.  Knowing this allows us to avoid
 /// inserting PHI nodes into blocks which don't lead to uses (thus, the
 /// inserted phi nodes would be dead).
-void PromoteMem2Reg::ComputeLiveInBlocks(AllocaInst* AI,
-                                         AllocaInfo& Info,
-                                         const SmallPtrSetImpl<BasicBlock*>& DefBlocks,
-                                         SmallPtrSetImpl<BasicBlock*>& LiveInBlocks) {
+void PromoteMemToReg::ComputeLiveInBlocks(AllocaInst* AI,
+                                          AllocaInfo& Info,
+                                          const SmallPtrSetImpl<BasicBlock*>& DefBlocks,
+                                          SmallPtrSetImpl<BasicBlock*>& LiveInBlocks) {
   // To determine liveness, we must iterate through the predecessors of blocks
   // where the def is live.  Blocks are added to the worklist if we need to
   // check their predecessors.  Start with all the using blocks.
@@ -868,7 +853,7 @@ void PromoteMem2Reg::ComputeLiveInBlocks(AllocaInst* AI,
 /// Queue a phi-node to be added to a basic-block for a specific Alloca.
 ///
 /// Returns true if there wasn't already a phi-node for that variable
-bool PromoteMem2Reg::QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& Version) {
+bool PromoteMemToReg::QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& Version) {
   // Look up the basic-block and alloca in question.
   PHINode*& PN = NewPhiNodes[std::make_pair(BBNumbers[BB], AllocaNo)];
   AllocaInst* A = Allocas[AllocaNo];
@@ -883,11 +868,28 @@ bool PromoteMem2Reg::QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& V
   ++NumPHIInsert;
   PhiToAllocaMap[PN] = AllocaNo;
 
-  // TAFFO-SPECIFIC: Transfer metadata from the alloca to the phi node
-  std::shared_ptr<ValueInfo> II = TaffoInfo::getInstance().getValueInfo(*A);
-  if (II)
-    TaffoInfo::getInstance().setValueInfo(*PN, II);
-  LLVM_DEBUG(dbgs() << "TaffoMem2Reg: Copied TAFFO metadata from '" << *A << "' to new phi '" << *PN << "'\n");
+  // TAFFO-SPECIFIC: Transfer info from the alloca to the phi node
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  if (taffoInfo.hasValueInfo(*A)) {
+    taffoInfo.setValueInfo(*PN, taffoInfo.getValueInfo(*A)->clone());
+    LLVM_DEBUG(
+      Logger& logger = log();
+      auto indenter = logger.getIndenter();
+      logger.logln("[Copied valueInfo]", raw_ostream::Colors::BLACK);
+      indenter.increaseIndent();
+      logger << "from alloca: " << *A << "\n";
+      logger << "to new phi:  " << *PN << "\n";);
+  }
+  if (taffoInfo.hasTransparentType(*A)) {
+    taffoInfo.setTransparentType(*PN, taffoInfo.getTransparentType(*A)->getPointedType());
+    LLVM_DEBUG(
+      Logger& logger = log();
+      auto indenter = logger.getIndenter();
+      logger.logln("[Copied transparentType]", raw_ostream::Colors::BLACK);
+      indenter.increaseIndent();
+      logger << "from alloca: " << *A << "\n";
+      logger << "to new phi:  " << *PN << "\n";);
+  }
 
   return true;
 }
@@ -906,11 +908,11 @@ static void updateForIncomingValueLocation(PHINode* PN, DebugLoc DL, bool ApplyM
 ///
 /// IncomingVals indicates what value each Alloca contains on exit from the
 /// predecessor block Pred.
-void PromoteMem2Reg::RenamePass(BasicBlock* BB,
-                                BasicBlock* Pred,
-                                RenamePassData::ValVector& IncomingVals,
-                                RenamePassData::LocationVector& IncomingLocs,
-                                std::vector<RenamePassData>& Worklist) {
+void PromoteMemToReg::RenamePass(BasicBlock* BB,
+                                 BasicBlock* Pred,
+                                 RenamePassData::ValVector& IncomingVals,
+                                 RenamePassData::LocationVector& IncomingLocs,
+                                 std::vector<RenamePassData>& Worklist) {
 NextIteration:
   // If we are inserting any phi nodes into this BB, they will already be in the
   // block.
@@ -926,7 +928,7 @@ NextIteration:
       // operands so far.  Remember this count.
       unsigned NewPHINumOperands = APN->getNumOperands();
 
-      unsigned NumEdges = llvm::count(successors(Pred), BB);
+      unsigned NumEdges = count(successors(Pred), BB);
       assert(NumEdges && "Must be at least one edge from Pred to BB!");
 
       // Add entries for all the phis.
@@ -1035,10 +1037,11 @@ NextIteration:
   goto NextIteration;
 }
 
-void taffo::PromoteMemToReg(ArrayRef<AllocaInst*> Allocas, DominatorTree& DT, AssumptionCache* AC) {
+void taffo::promoteMemToReg(ArrayRef<AllocaInst*> allocas,
+                            DominatorTree& dominatorTree,
+                            AssumptionCache* assumptionCache) {
   // If there is nothing to do, bail out...
-  if (Allocas.empty())
+  if (allocas.empty())
     return;
-
-  PromoteMem2Reg(Allocas, DT, AC).run();
+  PromoteMemToReg(allocas, dominatorTree, assumptionCache).run();
 }

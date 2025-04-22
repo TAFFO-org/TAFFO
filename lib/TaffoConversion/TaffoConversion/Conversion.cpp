@@ -32,6 +32,7 @@ Value* ConversionError = (Value*) (&ConversionError);
 Value* Unsupported = (Value*) (&Unsupported);
 
 void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   Logger& logger = log();
 
   for (auto iter = q.begin(); iter != q.end();) {
@@ -63,13 +64,21 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
         newinst->setDebugLoc(oldinst->getDebugLoc());
       }
       if (newv != v) {
-        std::shared_ptr<TransparentType> oldTransparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*v);
+        std::shared_ptr<TransparentType> oldTransparentType = taffoInfo.getTransparentType(*v);
         std::shared_ptr<TransparentType> newTransparentType;
-        if (!newType->isInvalid())
+        if (!newType->isInvalid() && !isa<CmpInst>(newv))
           newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
         else
           newTransparentType = oldTransparentType;
         copyValueInfo(newv, v, newTransparentType);
+
+        LLVM_DEBUG(
+          // Check that the transparent type of newv is coherent
+          if (!newv->getType()->isPointerTy()) {
+            auto type = taffoInfo.getTransparentType(*newv);
+            auto expectedType = TransparentTypeFactory::create(newv->getType());
+            assert(*type == *expectedType);
+          });
 
         if (hasConversionInfo(newv)) {
           LLVM_DEBUG(
@@ -124,13 +133,7 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
       // Check that all operands are valid
       if (User* user = dyn_cast<User>(res))
         for (auto& operand : user->operands())
-          assert(operand.get() != nullptr);
-      // Check that the transparent type of res is coherent
-      if (!res->getType()->isPointerTy()) {
-        auto type = taffoInfo.getTransparentType(*res);
-        auto expectedType = TransparentTypeFactory::create(res->getType());
-        assert(*type == *expectedType);
-      });
+          assert(operand.get() != nullptr););
   }
   else if (Argument* argument = dyn_cast<Argument>(val)) {
     if (getUnwrappedType(argument)->isFloatTy())
@@ -268,9 +271,9 @@ Value* FloatToFixed::translateOrMatchOperand(
   /* not an easy case; check if the value has a range metadata
    * from VRA before giving up and using the suggested type */
   // Do this hack only if the final wanted type is a fixed point, otherwise we can go ahead
-  if (iofixpt->isFixedPoint()) {
-    std::shared_ptr<ValueInfo> mdi = TaffoInfo::getInstance().getValueInfo(*val);
-    if (std::shared_ptr<ScalarInfo> ii = std::dynamic_ptr_cast_or_null<ScalarInfo>(mdi)) {
+  if (iofixpt->isFixedPoint() && taffoInfo.hasValueInfo(*val)) {
+    std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*val);
+    if (std::shared_ptr<ScalarInfo> ii = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
       if (ii->range) {
         FixedPointTypeGenError err;
         FixedPointInfo fpt =
