@@ -74,8 +74,8 @@ public:
 
   llvm::Type* getType(const std::string& typeId) const;
 
-  void eraseValue(llvm::Value& v);
-  void eraseLoop(llvm::Loop& l);
+  void eraseValue(llvm::Value* v);
+  void eraseLoop(llvm::Loop* l);
 
   void dumpToFile(const std::string& filePath, llvm::Module& m);
   void initializeFromFile(const std::string& filePath, llvm::Module& m);
@@ -120,6 +120,7 @@ private:
   std::string generateValueId(const llvm::Value* v);
   std::string generateLoopId(const llvm::Loop* l);
   void updateIdDigits();
+  void deleteErasedValues();
 
   json serialize() const override;
   void deserialize(const json& j) override;

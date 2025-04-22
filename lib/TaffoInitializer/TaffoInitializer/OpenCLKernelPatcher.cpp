@@ -76,8 +76,7 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, std::opt
     return;
   }
 
-  CallI->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*CallI);
+  TaffoInfo::getInstance().eraseValue(CallI);
 }
 
 void createOpenCLKernelTrampoline(Module& M, Function& KernF) {

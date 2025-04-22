@@ -47,8 +47,7 @@ Function* InitializerPass::findStartingPointFunctionGlobal(Module& m) {
   if (!ValCExpr || !startingPointFun)
     report_fatal_error("__taffo_vra_starting_function initialized incorrectly!");
 
-  startFunGlob->eraseFromParent();
-  taffoInfo.eraseValue(*startFunGlob);
+  taffoInfo.eraseValue(startFunGlob);
 
   return startingPointFun;
 }
@@ -68,8 +67,7 @@ void InitializerPass::readAndRemoveGlobalAnnotations(Module& m) {
             if (expr->getOpcode() == Instruction::BitCast)
               parseAnnotation(cast<ConstantExpr>(annotation->getOperand(1)), expr->getOperand(0));
         }
-    annotationsGlobalVar->eraseFromParent();
-    taffoInfo.eraseValue(*annotationsGlobalVar);
+    taffoInfo.eraseValue(annotationsGlobalVar);
   }
 }
 
@@ -85,8 +83,7 @@ void InitializerPass::readAndRemoveLocalAnnotations(Function& f) {
         Value* annotationValue = inst.getOperand(1);
         parseAnnotation(annotatedValue, annotationValue, &isStartingPoint);
         foundStartingPoint |= isStartingPoint;
-        call->eraseFromParent();
-        taffoInfo.eraseValue(*call);
+        taffoInfo.eraseValue(call);
       }
     }
   }

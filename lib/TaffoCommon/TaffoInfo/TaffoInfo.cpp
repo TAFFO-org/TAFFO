@@ -1,12 +1,20 @@
 #include "Debug/Logger.hpp"
 #include "MetadataManager.hpp"
 #include "TaffoInfo.hpp"
+#include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/User.h"
+#include "llvm/Support/Casting.h"
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/Type.h>
 
+#include <algorithm>
 #include <fstream>
 
 #define DEBUG_TYPE "taffo-util"
@@ -172,14 +180,86 @@ Type* TaffoInfo::getType(const std::string& typeId) const {
   return iter != idTypeMapping.end() ? iter->second : nullptr;
 }
 
-void TaffoInfo::eraseValue(Value& v) {
-  erasedValues.insert(&v);
-  idValueMapping.eraseByValue(&v);
+void TaffoInfo::eraseValue(Value* v) {
+  if (Instruction* i = dyn_cast<Instruction>(v))
+    i->removeFromParent();
+  if (BasicBlock* bb = dyn_cast<BasicBlock>(v))
+    bb->removeFromParent();
+  if (GlobalValue* gv = dyn_cast<GlobalValue>(v))
+    gv->removeFromParent();
+  if (User* u = dyn_cast<User>(v))
+    u->dropAllReferences();
+  auto eraseByKey = [](auto& map, auto* v) {
+    if (!v)
+      return;
+    map.erase(v);
+  };
+  auto eraseByValue = [](auto& map, auto* v) {
+    if (!v)
+      return;
+    auto iter = map.end();
+    do {
+      iter = std::ranges::find_if(map, [v](auto pair) { return pair.second == v; });
+      if (iter != map.end())
+        map.erase(iter);
+    }
+    while (iter != map.end());
+  };
+  auto eraseByKeyAndValue = [&eraseByKey, &eraseByValue](auto& map, auto* v) {
+    if (!v)
+      return;
+    eraseByKey(map, v);
+    eraseByValue(map, v);
+  };
+  auto eraseFromVector = [](auto& vector, auto* v) {
+    if (!v)
+      return;
+    auto iter = vector.end();
+    do {
+      iter = std::ranges::find_if(vector, [v](auto elem) { return elem == v; });
+      if (iter != vector.end())
+        vector.erase(iter);
+    }
+    while (iter != vector.end());
+  };
+
+  auto* vCallInst = dyn_cast<CallInst>(v);
+  auto* vFunction = dyn_cast<Function>(v);
+  auto* vInst = dyn_cast<Instruction>(v);
+
+  eraseByKey(transparentTypes, v);
+  eraseFromVector(startingPoints, v);
+  eraseByKey(indirectFunctions, vCallInst);
+  eraseByValue(indirectFunctions, vFunction);
+  eraseByKeyAndValue(oclTrampolines, vFunction);
+  eraseFromVector(disabledConversion, vInst);
+  eraseByKeyAndValue(taffoCloneToOriginalFunction, vFunction);
+  eraseByKey(originalToTaffoCloneFunctions, vFunction);
+
+  for (auto& [original, clones] : originalToTaffoCloneFunctions)
+    clones.erase(vFunction);
+
+  eraseByKey(originalFunctionLinkage, vFunction);
+  eraseByKey(valueInfo, v);
+  eraseByKey(valueWeights, v);
+  eraseByKey(maxRecursionCount, vFunction);
+  eraseByKey(error, vInst);
+  eraseByKey(cmpError, vInst);
+  eraseByValue(idValueMapping, v);
+
+  erasedValues.insert(v);
+  idValueMapping.eraseByValue(v);
 }
 
-void TaffoInfo::eraseLoop(Loop& l) {
-  erasedLoops.insert(&l);
-  idLoopMapping.eraseByValue(&l);
+void TaffoInfo::eraseLoop(Loop* l) {
+  erasedLoops.insert(l);
+  idLoopMapping.eraseByValue(l);
+}
+
+void TaffoInfo::deleteErasedValues() {
+  for (Value* val : erasedValues)
+    val->deleteValue();
+  erasedValues.clear();
 }
 
 void TaffoInfo::dumpToFile(const std::string& filePath, Module& m) {
@@ -189,6 +269,7 @@ void TaffoInfo::dumpToFile(const std::string& filePath, Module& m) {
     logger.logln("Dumping..."););
 
   generateTaffoIds();
+  deleteErasedValues();
   MetadataManager::setIdValueMapping(idValueMapping, m);
   MetadataManager::setIdLoopMapping(idLoopMapping, m);
   MetadataManager::setIdTypeMapping(idTypeMapping, m);

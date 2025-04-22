@@ -83,6 +83,5 @@ void FloatToFixed::handleKmpcFork(CallInst* patchedDirectCall, Function* indirec
   copyValueInfo(indirectCall, patchedDirectCall);
 
   // Remove the patched direct call
-  patchedDirectCall->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*patchedDirectCall);
+  TaffoInfo::getInstance().eraseValue(patchedDirectCall);
 }

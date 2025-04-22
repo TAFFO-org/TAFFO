@@ -328,12 +328,10 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
           Inst->dropDroppableUse(UU);
           continue;
         }
-        Inst->eraseFromParent();
-        TaffoInfo::getInstance().eraseValue(*Inst);
+        TaffoInfo::getInstance().eraseValue(Inst);
       }
     }
-    I->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*I);
+    TaffoInfo::getInstance().eraseValue(I);
   }
 }
 
@@ -402,8 +400,7 @@ static bool rewriteSingleStoreAlloca(
       addAssumeNonNull(AC, LI);
 
     LI->replaceAllUsesWith(ReplVal);
-    LI->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*LI);
+    TaffoInfo::getInstance().eraseValue(LI);
     LBI.deleteValue(LI);
   }
 
@@ -417,21 +414,17 @@ static bool rewriteSingleStoreAlloca(
     if (DII->isAddressOfVariable()) {
       DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
       ConvertDebugDeclareToDebugValue(DII, Info.OnlyStore, DIB);
-      DII->eraseFromParent();
-      TaffoInfo::getInstance().eraseValue(*DII);
+      TaffoInfo::getInstance().eraseValue(DII);
     }
     else if (DII->getExpression()->startsWithDeref()) {
-      DII->eraseFromParent();
-      TaffoInfo::getInstance().eraseValue(*DII);
+      TaffoInfo::getInstance().eraseValue(DII);
     }
   }
   // Remove the (now dead) store and alloca.
-  Info.OnlyStore->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*Info.OnlyStore);
+  TaffoInfo::getInstance().eraseValue(Info.OnlyStore);
   LBI.deleteValue(Info.OnlyStore);
 
-  AI->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*AI);
+  TaffoInfo::getInstance().eraseValue(AI);
   return true;
 }
 
@@ -511,8 +504,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
       LI->replaceAllUsesWith(ReplVal);
     }
 
-    LI->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*LI);
+    TaffoInfo::getInstance().eraseValue(LI);
     LBI.deleteValue(LI);
   }
 
@@ -526,20 +518,16 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
         ConvertDebugDeclareToDebugValue(DII, SI, DIB);
       }
     }
-    SI->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*SI);
+    TaffoInfo::getInstance().eraseValue(SI);
     LBI.deleteValue(SI);
   }
 
-  AI->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*AI);
+  TaffoInfo::getInstance().eraseValue(AI);
 
   // The alloca's debuginfo can be removed as well.
   for (DbgVariableIntrinsic* DII : Info.DbgUsers)
-    if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref()) {
-      DII->eraseFromParent();
-      TaffoInfo::getInstance().eraseValue(*DII);
-    }
+    if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+      TaffoInfo::getInstance().eraseValue(DII);
 
   ++NumLocalPromoted;
   return true;
@@ -564,8 +552,7 @@ void PromoteMemToReg::run() {
 
     if (AI->use_empty()) {
       // If there are no uses of the alloca, just delete it now.
-      AI->eraseFromParent();
-      TaffoInfo::getInstance().eraseValue(*AI);
+      TaffoInfo::getInstance().eraseValue(AI);
 
       // Remove the alloca from the Allocas list, since it has been processed
       RemoveFromAllocasList(AllocaNum);
@@ -673,17 +660,14 @@ void PromoteMemToReg::run() {
     // tree. Just delete the users now.
     if (!A->use_empty())
       A->replaceAllUsesWith(PoisonValue::get(A->getType()));
-    A->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*A);
+    TaffoInfo::getInstance().eraseValue(A);
   }
 
   // Remove alloca's dbg.declare instrinsics from the function.
   for (auto& DbgUsers : AllocaDbgUsers) {
     for (auto* DII : DbgUsers)
-      if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref()) {
-        DII->eraseFromParent();
-        TaffoInfo::getInstance().eraseValue(*DII);
-      }
+      if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+        TaffoInfo::getInstance().eraseValue(DII);
   }
 
   // Loop over all of the PHI nodes and see if there are any that we can get
@@ -710,8 +694,7 @@ void PromoteMemToReg::run() {
 #endif
       if (V) {
         PN->replaceAllUsesWith(V);
-        PN->eraseFromParent();
-        TaffoInfo::getInstance().eraseValue(*PN);
+        TaffoInfo::getInstance().eraseValue(PN);
         NewPhiNodes.erase(I++);
         EliminatedAPHI = true;
         continue;
@@ -988,8 +971,7 @@ NextIteration:
 
       // Anything using the load now uses the current value.
       LI->replaceAllUsesWith(V);
-      LI->eraseFromParent();
-      TaffoInfo::getInstance().eraseValue(*LI);
+      TaffoInfo::getInstance().eraseValue(LI);
     }
     else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
       // Delete this instruction and mark the name as the current holder of the
@@ -1011,8 +993,7 @@ NextIteration:
       for (DbgVariableIntrinsic* DII : AllocaDbgUsers[ai->second])
         if (DII->isAddressOfVariable())
           ConvertDebugDeclareToDebugValue(DII, SI, DIB);
-      SI->eraseFromParent();
-      TaffoInfo::getInstance().eraseValue(*SI);
+      TaffoInfo::getInstance().eraseValue(SI);
     }
   }
 

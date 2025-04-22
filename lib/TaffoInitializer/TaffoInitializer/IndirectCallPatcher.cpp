@@ -164,8 +164,6 @@ void taffo::manageIndirectCalls(Module& m) {
           handleIndirectCall(m, toDelete, callInst, dyn_cast<CallBase>(callInst), curCallFunction);
 
   // Delete the saved instructions in a separate loop to avoid conflicts in the iterator
-  for (auto inst : toDelete) {
-    inst->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*inst);
-  }
+  for (auto inst : toDelete)
+    TaffoInfo::getInstance().eraseValue(inst);
 }

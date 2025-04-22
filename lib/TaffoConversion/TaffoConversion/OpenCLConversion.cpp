@@ -117,9 +117,7 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
     }
   }
 
-  for (Function* f : FuncsToDelete) {
-    f->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*f);
-  }
+  for (Function* f : FuncsToDelete)
+    TaffoInfo::getInstance().eraseValue(f);
   LLVM_DEBUG(dbgs() << "Finished!\n");
 }

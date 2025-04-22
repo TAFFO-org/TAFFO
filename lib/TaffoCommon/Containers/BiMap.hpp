@@ -77,6 +77,22 @@ public:
     return 1;
   }
 
+  // /**
+  //  * @brief Erases an element by key.
+  //  *
+  //  * @param key The key of the element to erase.
+  //  * @return The following iterator or end().
+  //  */
+  iterator erase(iterator iter) {
+    auto nextIter = iter;
+    nextIter++;
+    if (iter == keyValueMap.end())
+      return iter;
+    valueKeyMap.erase(&(iter->second));
+    keyValueMap.erase(iter);
+    return nextIter;
+  }
+
   /**
    * @brief Erases an element by value.
    *

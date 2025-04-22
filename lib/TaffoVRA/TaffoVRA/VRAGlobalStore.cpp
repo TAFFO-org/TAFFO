@@ -159,8 +159,8 @@ void VRAGlobalStore::saveResults(Module& m) {
   for (Function& f : m.functions()) {
     for (Argument& arg : f.args())
       if (const std::shared_ptr<ValueInfoWithRange> argInfoWithRange = fetchRangeNode(&arg)) {
-        if (std::shared_ptr<ValueInfo> argInfo = taffoInfo.getValueInfo(arg))
-          updateValueInfo(argInfo, argInfoWithRange);
+        if (taffoInfo.hasValueInfo(arg))
+          updateValueInfo(taffoInfo.getValueInfo(arg), argInfoWithRange);
         else
           taffoInfo.setValueInfo(arg, argInfoWithRange);
       }

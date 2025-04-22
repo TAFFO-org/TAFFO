@@ -230,7 +230,11 @@ def validate(path :Path):
     files= retriveFiles(path)
     compile_breakdown = retriveCompilationTime(path)
     times = getTime(files)
-    datas = getData(files)
+    try:
+        datas = getData(files)
+    except:
+        print(path)
+        raise 
     speedup = (times[0] /times[1])
     compile_time = compile_breakdown.iloc[0]['taffo_end'] - compile_breakdown.iloc[0]['taffo_start']
     ret = {"name" : bench_name, "speedup" : speedup, "compile_time": compile_time}

@@ -66,8 +66,7 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std:
     return;
   }
 
-  CallI->eraseFromParent();
-  TaffoInfo::getInstance().eraseValue(*CallI);
+  TaffoInfo::getInstance().eraseValue(CallI);
 }
 
 void createCudaKernelTrampoline(Module& M, Function& KernF) {

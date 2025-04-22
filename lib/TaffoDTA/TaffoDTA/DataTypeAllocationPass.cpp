@@ -61,10 +61,8 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
   attachFPMetaData(vals);
   attachFunctionMetaData(m);
 
-  for (Function* f : toDel) {
-    f->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*f);
-  }
+  for (Function* f : toDel)
+    TaffoInfo::getInstance().eraseValue(f);
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_dta.json", m);
   LLVM_DEBUG(log().logln("[End of DataTypeAllocationPass]", raw_ostream::Colors::MAGENTA));
@@ -91,13 +89,17 @@ void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
   }
   LLVM_DEBUG(dbgs() << "\n");
 
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   for (Function& f : m.functions()) {
     if (f.isIntrinsic())
       continue;
+    if (!taffoInfo.isTaffoCloneFunction(f) && !taffoInfo.isStartingPoint(f)) {
+      LLVM_DEBUG(log() << " Skip function " << f.getName() << " as it is not a cloned function\n";);
+      continue;
+    }
     LLVM_DEBUG(dbgs() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand()
                       << "  <<<<===============\n");
 
-    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
     for (Argument& arg : f.args()) {
       if (processMetadataOfValue(&arg)) {
         vals.push_back(&arg);

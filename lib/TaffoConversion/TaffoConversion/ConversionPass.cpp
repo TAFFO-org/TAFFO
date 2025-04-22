@@ -1,8 +1,11 @@
 #include "ConversionPass.hpp"
 #include "Debug/Logger.hpp"
+#include "TaffoConversion/TaffoConversion/FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
+#include "llvm/IR/Argument.h"
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Constants.h>
@@ -333,7 +336,7 @@ void FloatToFixed::sortQueue(std::vector<Value*>& vals) {
         auto& taffoInfo = TaffoInfo::getInstance();
         LLVM_DEBUG(dbgs() << "[WARNING] Value " << *u << " will not be converted because it has no metadata\n");
         newConversionInfo(u)->noTypeConversion = true;
-        getConversionInfo(u)->origType = taffoInfo.getOrCreateTransparentType(*u);
+        getConversionInfo(u)->origType = taffoInfo.getOrCreateTransparentType(*u)->clone();
       }
 
       LLVM_DEBUG(dbgs() << "[U] " << *u << "\n");
@@ -462,10 +465,8 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
   phiReplacementData.clear();
   clear(isa<PHINode>);
 
-  for (Instruction* v : toErase) {
-    v->eraseFromParent();
-    TaffoInfo::getInstance().eraseValue(*v);
-  }
+  for (Instruction* v : toErase)
+    TaffoInfo::getInstance().eraseValue(v);
 }
 
 void FloatToFixed::cleanUpOriginalFunctions(Module& m) {
@@ -518,7 +519,6 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
       if (taffoInfo.hasTransparentType(*oldValue))
         taffoInfo.setTransparentType(*newValue, taffoInfo.getTransparentType(*oldValue));
     }
-
     /* CloneFunctionInto also fixes the attributes of the arguments.
      * This is not exactly what we want for OpenCL kernels because the alignment
      * after the conversion is not defined by us but by the OpenCL runtime.
@@ -597,10 +597,14 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
     /* Make sure that the new arguments have correct ConversionInfo */
     oldIt = oldF->arg_begin();
     newIt = newF->arg_begin();
-    for (; oldIt != oldF->arg_end(); oldIt++, newIt++)
+    for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
       if (oldIt->getType() != newIt->getType())
         *getConversionInfo(newIt) = *getConversionInfo(oldIt);
-
+      if (hasConversionInfo(newIt)) {
+        auto fixpType = getFixpType(newIt);
+        taffoInfo.setTransparentType(*newIt, fixpType->toTransparentType(taffoInfo.getTransparentType(*newIt)));
+      }
+    }
     /* Copy the return type on the call instruction to all the return
      * instructions */
     for (ReturnInst* v : returns) {
@@ -608,7 +612,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
         continue;
       newVals.push_back(v);
       demandConversionInfo(v)->fixpType = getFixpType(call);
-      getConversionInfo(v)->origType = taffoInfo.getOrCreateTransparentType(*v);
+      getConversionInfo(v)->origType = taffoInfo.getOrCreateTransparentType(*v)->clone();
       getConversionInfo(v)->fixpTypeRootDistance = 0;
     }
 
@@ -682,6 +686,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
     Type* newTy;
     if (hasConversionInfo(v)) {
       argsFixedPointTypes.push_back(std::pair(i, getFixpType(v)));
+
       newTy = getLLVMFixedPointTypeForFloatValue(v);
     }
     else

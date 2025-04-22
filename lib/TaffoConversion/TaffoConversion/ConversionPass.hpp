@@ -8,6 +8,7 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
+#include "llvm/Support/Casting.h"
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/Statistic.h>
@@ -438,7 +439,7 @@ struct FloatToFixed {
     return vi->getSecond()->fixpType->clone();
   }
 
-  bool hasConversionInfo(llvm::Value* val) { return conversionInfo.find(val) != conversionInfo.end(); }
+  bool hasConversionInfo(const llvm::Value* val) const { return conversionInfo.find(val) != conversionInfo.end(); }
 
   bool isConvertedFixedPoint(llvm::Value* val) {
     auto& taffoInfo = TaffoInfo::getInstance();

@@ -1,5 +1,6 @@
 #include "ConversionPass.hpp"
 #include "PtrCasts.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Constants.h>
@@ -18,9 +19,10 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-conversion"
 
 void FloatToFixed::readGlobalMetadata(Module& m, SmallVectorImpl<Value*>& variables, bool functionAnnotation) {
+  auto& taffoInfo = TaffoInfo::getInstance();
   for (GlobalVariable& gv : m.globals())
-    if (std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(gv))
-      parseMetaData(&variables, valueInfo, &gv);
+    if (taffoInfo.hasValueInfo(gv))
+      parseMetaData(&variables, taffoInfo.getValueInfo(gv), &gv);
 
   if (functionAnnotation)
     removeNoFloatTy(variables);
@@ -77,7 +79,7 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
   auto& taffoInfo = TaffoInfo::getInstance();
   vi.isBacktrackingNode = false;
   vi.fixpTypeRootDistance = 0;
-  vi.origType = taffoInfo.getOrCreateTransparentType(*instr);
+  vi.origType = taffoInfo.getOrCreateTransparentType(*instr)->clone();
 
   if (std::shared_ptr<ScalarInfo> fpInfo = std::dynamic_ptr_cast<ScalarInfo>(raw)) {
     if (!fpInfo->isConversionEnabled())
