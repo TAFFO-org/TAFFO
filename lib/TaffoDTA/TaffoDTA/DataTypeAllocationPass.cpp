@@ -803,7 +803,7 @@ Function* DataTypeAllocationPass::findEqFunction(Function* fun, Function* origin
 
   LLVM_DEBUG(dbgs() << "\t\t Search eq function for " << fun->getName() << " in " << origin->getName() << " pool\n";);
 
-  if (getUnwrappedType(fun)->isFloatTy() && hasTunerInfo(*fun->user_begin())) {
+  if (getUnwrappedType(fun)->isFloatingPointTy() && hasTunerInfo(*fun->user_begin())) {
     std::shared_ptr<ValueInfo> retval = getTunerInfo(*fun->user_begin())->metadata;
     if (retval) {
       fixSign.push_back(std::pair(-1, retval)); // ret value in signature

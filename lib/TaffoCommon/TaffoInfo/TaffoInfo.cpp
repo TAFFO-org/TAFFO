@@ -7,7 +7,9 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/User.h"
 #include "llvm/Support/Casting.h"
 #include <llvm/ADT/SmallPtrSet.h>
@@ -257,8 +259,13 @@ void TaffoInfo::eraseLoop(Loop* l) {
 }
 
 void TaffoInfo::deleteErasedValues() {
+
   for (Value* val : erasedValues)
-    val->deleteValue();
+    if (GlobalVariable* gv = dyn_cast<GlobalVariable>(val))
+      delete gv; // For some unexplained reason GlobalVariable can only be deleted via direct destructor
+                 // NB Only the direct destructor of GlobalVariable is public all the others destructors are private
+    else
+      val->deleteValue();
   erasedValues.clear();
 }
 

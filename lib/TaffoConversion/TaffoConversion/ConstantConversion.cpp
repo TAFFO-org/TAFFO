@@ -109,7 +109,7 @@ Constant* FloatToFixed::convertConstantAggregate(ConstantAggregate* cag,
   for (unsigned int i = 0; i < cag->getNumOperands(); i++) {
     Constant* oldconst = cag->getOperand(i);
     Constant* newconst = nullptr;
-    if (getUnwrappedType(oldconst)->isFloatTy()) {
+    if (getUnwrappedType(oldconst)->isFloatingPointTy()) {
       newconst = convertConstant(cag->getOperand(i), fixpt, TypeMatchPolicy::ForceHint);
       if (!newconst)
         return nullptr;
@@ -178,7 +178,7 @@ Constant* FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential* c
 
 Constant* FloatToFixed::convertConstantDataSequential(ConstantDataSequential* cds,
                                                       const std::shared_ptr<FixedPointScalarType>& fixpt) {
-  if (!getUnwrappedType(cds)->isFloatTy())
+  if (!getUnwrappedType(cds)->isFloatingPointTy())
     return cds;
 
   if (fixpt->isFixedPoint()) {

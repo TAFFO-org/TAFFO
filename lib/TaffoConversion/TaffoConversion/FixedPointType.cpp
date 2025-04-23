@@ -63,7 +63,7 @@ FixedPointScalarType::FixedPointScalarType(bool isSigned, int bits, int fraction
 
 FixedPointScalarType::FixedPointScalarType(Type* type, bool isSigned)
 : sign(isSigned) {
-  if (type->isFloatTy()) {
+  if (type->isFloatingPointTy()) {
     bits = 0;
     fractionalBits = 0;
     if (type->getTypeID() == Type::HalfTyID)

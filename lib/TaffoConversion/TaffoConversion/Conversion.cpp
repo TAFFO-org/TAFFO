@@ -136,7 +136,7 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
           assert(operand.get() != nullptr););
   }
   else if (Argument* argument = dyn_cast<Argument>(val)) {
-    if (getUnwrappedType(argument)->isFloatTy())
+    if (getUnwrappedType(argument)->isFloatingPointTy())
       res = translateOrMatchOperand(val, fixpt, nullptr);
     else
       res = val;

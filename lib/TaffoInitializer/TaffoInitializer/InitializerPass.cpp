@@ -206,7 +206,7 @@ void InitializerPass::propagateInfo() {
           LLVM_DEBUG(log().logln("is a constant: ignoring"));
           continue;
         }
-        if (!getUnwrappedType(operand)->isFloatTy()) {
+        if (!getUnwrappedType(operand)->isFloatingPointTy()) {
           LLVM_DEBUG(log().logln("not a float: ignoring"));
           continue;
         }

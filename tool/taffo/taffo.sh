@@ -455,6 +455,11 @@ append_time_string "taffo_start"
 ###
 ###  Produce base .ll
 ###
+
+if [[ ! -d $temporary_dir ]]; then
+  mkdir $temporary_dir
+fi
+
 if [[ ${#input_files[@]} -eq 1 ]]; then
   # one input file
   ${CLANG} \

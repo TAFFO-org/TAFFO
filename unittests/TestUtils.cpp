@@ -70,7 +70,7 @@ llvm::GlobalVariable* taffo_test::genGlobalVariable(llvm::Module& M, llvm::Type*
 }
 
 llvm::GlobalVariable* taffo_test::genGlobalVariable(llvm::Module& M, llvm::Type* T, double init, bool isConstant) {
-  if (T->isFloatTy() || T->isDoubleTy())
+  if (T->isFloatingPointTy() || T->isDoubleTy())
     return genGlobalVariable(M, T, llvm::ConstantFP::get(T, init), isConstant);
   llvm::dbgs() << "Type and initial value not compatible\n";
   return nullptr;

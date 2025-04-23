@@ -73,7 +73,7 @@ Value* FloatToFixed::convertInstruction(Module& m, Instruction* val, std::shared
   if (res == Unsupported)
     res = fallback(dyn_cast<Instruction>(val), fixpt);
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
-    if (getUnwrappedType(val)->isFloatTy() && !getConversionInfo(val)->noTypeConversion) {
+    if (getUnwrappedType(val)->isFloatingPointTy() && !getConversionInfo(val)->noTypeConversion) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
       if (res->hasName())
@@ -384,7 +384,7 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
   std::vector<Value*> convArgs;
   std::vector<Type*> typeArgs;
   std::vector<std::pair<int, std::shared_ptr<FixedPointType>>> fixArgs; // for match right function
-  if (getUnwrappedType(oldF)->isFloatTy())
+  if (getUnwrappedType(oldF)->isFloatingPointTy())
     fixArgs.push_back({-1, fixpt});                                     // ret value in signature
   int i = 0;
   Use* call_arg = call->arg_begin();

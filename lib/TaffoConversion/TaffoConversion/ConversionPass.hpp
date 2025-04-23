@@ -3,12 +3,14 @@
 #include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
 #include "PtrCasts.hpp"
+#include "SerializationUtils.hpp"
 #include "TaffoInfo/ConversionInfo.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/Statistic.h>
@@ -23,6 +25,7 @@
 #include <llvm/Support/Debug.h>
 
 #include <memory>
+#include <sstream>
 
 #define DEBUG_TYPE "taffo-conversion"
 extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
@@ -53,9 +56,19 @@ extern llvm::Value* Unsupported;
 
 namespace taffo {
 
-struct PHIInfo {
+struct PHIInfo : Printable {
   llvm::Value* placeh_noconv;
   llvm::Value* placeh_conv;
+
+  std::string toString() const override {
+    std::string buff;
+    llvm::raw_string_ostream os(buff);
+    os << "Place Holder NO Conversion ";
+    os << *placeh_noconv;
+    os << "\n Place Holder Conversion ";
+    os << *placeh_conv;
+    return buff;
+  }
 };
 
 class Conversion : public llvm::PassInfoMixin<Conversion> {
@@ -473,7 +486,7 @@ struct FloatToFixed {
     if (llvm::ReturnInst* ret = llvm::dyn_cast<llvm::ReturnInst>(val))
       val = ret->getReturnValue();
     llvm::Type* ty = getUnwrappedType(val);
-    if (!ty->isStructTy() && !ty->isFloatTy())
+    if (!ty->isStructTy() && !ty->isFloatingPointTy())
       return false;
     return true;
   }

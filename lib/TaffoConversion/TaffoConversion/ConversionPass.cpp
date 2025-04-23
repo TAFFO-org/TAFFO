@@ -669,10 +669,10 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
 
   std::vector<Type*> argsLLVMTypes;
   std::vector<std::pair<int, std::shared_ptr<FixedPointType>>>
-    argsFixedPointTypes;                     // for match already converted function
+    argsFixedPointTypes;                             // for match already converted function
 
   std::string suffix;
-  if (getUnwrappedType(oldF)->isFloatTy()) { // ret value in signature
+  if (getUnwrappedType(oldF)->isFloatingPointTy()) { // ret value in signature
     std::shared_ptr<FixedPointType> retValType = getFixpType(call);
     suffix = retValType->toString();
     argsFixedPointTypes.push_back(std::pair(-1, retValType));

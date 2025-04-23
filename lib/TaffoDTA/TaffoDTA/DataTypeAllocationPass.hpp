@@ -111,7 +111,7 @@ public:
 
   bool incomingValuesDisabled(llvm::Value* v) {
     using namespace llvm;
-    if (!taffo::getUnwrappedType(v)->isFloatTy())
+    if (!taffo::getUnwrappedType(v)->isFloatingPointTy())
       return true;
 
     if (auto* phi = dyn_cast<PHINode>(v)) {

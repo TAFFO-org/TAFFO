@@ -706,7 +706,7 @@ void MetricBase::handleUnknownFunction(Instruction* instruction, shared_ptr<Tune
       getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Type constraint for return value"*/);
       LLVM_DEBUG(dbgs() << "Forced return cast to double.\n";);
     }
-    else if (instruction->getType()->isFloatTy()) {
+    else if (instruction->getType()->isFloatingPointTy()) {
       auto constraint = vector<pair<string, double>>();
       constraint.clear();
       constraint.push_back(make_pair(retInfo->getFloatSelectedVariable(), 1.0));
@@ -745,7 +745,7 @@ void MetricBase::handleUnknownFunction(Instruction* instruction, shared_ptr<Tune
     auto arg_info_scalar = dynamic_ptr_cast<OptimizerScalarInfo>(info);
     if (arg_info_scalar) {
       // Ok, we have info and it is a scalar, let's hope that it's not a pointer
-      if ((*arg_it)->getType()->isFloatTy()) {
+      if ((*arg_it)->getType()->isFloatingPointTy()) {
         auto info2 = allocateNewVariableWithCastCost(arg_it->get(), instruction);
         auto constraint = vector<pair<string, double>>();
         constraint.clear();
