@@ -17,11 +17,11 @@ Logger& Logger::logValue(const Value* value, bool logParent) {
     log(value);
     if (logParent) {
       if (auto* inst = dyn_cast<Instruction>(value)) {
-        log(" [in fun] ", raw_ostream::Colors::BLACK);
+        log(" [in fun] ", raw_ostream::Colors::RESET);
         log(inst->getFunction()->getName());
       }
       else if (auto* arg = dyn_cast<Argument>(value)) {
-        log(" [arg of fun] ", raw_ostream::Colors::BLACK);
+        log(" [arg of fun] ", raw_ostream::Colors::RESET);
         log(arg->getParent()->getName());
       }
     }
@@ -84,5 +84,5 @@ void Logger::logIndent() {
   isLineStart = false;
   ostream << std::string(indent, ' ');
   if (!contextTagStack.empty())
-    log(contextTagStack.front(), raw_ostream::Colors::BLACK);
+    log(contextTagStack.front(), raw_ostream::Colors::RESET);
 }

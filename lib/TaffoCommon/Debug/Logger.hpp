@@ -109,16 +109,16 @@ public:
   // Log for iterable objects
   template <IterableConcept T>
   Logger& log(const T& container, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
-    log("[", llvm::raw_ostream::Colors::BLACK);
+    log("[");
     bool first = true;
     for (const auto& el : container) {
       if (!first)
-        log(", ", llvm::raw_ostream::Colors::BLACK);
+        log(", ");
       else
         first = false;
       log(el, color);
     }
-    log("]", llvm::raw_ostream::Colors::BLACK);
+    log("]");
     return *this;
   }
 
@@ -132,7 +132,8 @@ public:
     std::string messageString = oss.str();
 
     llvm::raw_ostream::Colors resColor = (color == llvm::raw_ostream::Colors::RESET) ? currentColor : color;
-    bool useColors = ostream.is_displayed() && resColor != llvm::raw_ostream::Colors::RESET;
+    //TODO add conditional ostream.is_displayed()
+    bool useColors = ostream.is_displayed() &&  resColor != llvm::raw_ostream::Colors::RESET;
     // Log the string splitting by '\n'.
     size_t start = 0;
     while (start < messageString.size()) {

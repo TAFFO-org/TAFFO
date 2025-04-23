@@ -155,7 +155,7 @@ Value* FloatToFixed::translateOrMatchOperand(
   auto indenter = logger.getIndenter();
 
   LLVM_DEBUG(
-    logger.log("[TranslateOrMatchOperand of]", raw_ostream::Colors::BLACK) << *val << "\n";
+    logger.log("[TranslateOrMatchOperand of]", raw_ostream::Colors::RESET) << *val << "\n";
     indenter.increaseIndent(););
 
   // FIXME: handle all the cases, we need more info about destination!

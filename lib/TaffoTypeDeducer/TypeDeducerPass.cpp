@@ -267,7 +267,7 @@ void TypeDeducerPass::logDeduction(Value* value,
                                    const std::shared_ptr<TransparentType>& bestCandidate,
                                    const CandidateSet& candidates) {
   Logger& logger = log();
-  logger.log("[Deducing type of] ", raw_ostream::Colors::BLACK).logValueln(value);
+  logger.log("[Deducing type of] ", raw_ostream::Colors::RESET).logValueln(value);
   auto indenter = logger.getIndenter();
   indenter.increaseIndent();
   logger.log("current candidates: ").logln(candidates);
@@ -282,7 +282,7 @@ void TypeDeducerPass::logDeducedTypes() {
   Logger& logger = log();
   logger.logln("[Results]", raw_ostream::Colors::GREEN);
   for (const auto& [value, deducedType] : deducedTypes) {
-    logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
+    logger.log("[Value] ", raw_ostream::Colors::RESET).logValueln(value);
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
     logger.log("deduced pointer type: ");

@@ -858,7 +858,7 @@ bool PromoteMemToReg::QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& 
     LLVM_DEBUG(
       Logger& logger = log();
       auto indenter = logger.getIndenter();
-      logger.logln("[Copied valueInfo]", raw_ostream::Colors::BLACK);
+      logger.logln("[Copied valueInfo]", raw_ostream::Colors::RESET);
       indenter.increaseIndent();
       logger << "from alloca: " << *A << "\n";
       logger << "to new phi:  " << *PN << "\n";);
@@ -868,7 +868,7 @@ bool PromoteMemToReg::QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& 
     LLVM_DEBUG(
       Logger& logger = log();
       auto indenter = logger.getIndenter();
-      logger.logln("[Copied transparentType]", raw_ostream::Colors::BLACK);
+      logger.logln("[Copied transparentType]", raw_ostream::Colors::RESET);
       indenter.increaseIndent();
       logger << "from alloca: " << *A << "\n";
       logger << "to new phi:  " << *PN << "\n";);

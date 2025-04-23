@@ -93,7 +93,7 @@ void InitializerPass::saveValueWeights() {
 void InitializerPass::propagateInfo() {
   Logger& logger = log();
   LLVM_DEBUG(
-    logger.logln("[Initial propagation queue]", raw_ostream::Colors::BLACK);
+    logger.logln("[Initial propagation queue]", raw_ostream::Colors::RESET);
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
     logInfoPropagationQueue(););
@@ -117,7 +117,7 @@ void InitializerPass::propagateInfo() {
 
       auto indenter = logger.getIndenter();
       LLVM_DEBUG(
-        logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
+        logger.log("[Value] ", raw_ostream::Colors::RESET).logValueln(value);
         indenter.increaseIndent();
         logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";
         if (value->user_empty())
@@ -132,7 +132,7 @@ void InitializerPass::propagateInfo() {
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
           Logger& logger = log();
-          logger.log("[User] ", raw_ostream::Colors::BLACK).logValueln(user);
+          logger.log("[User] ", raw_ostream::Colors::RESET).logValueln(user);
           indenter.increaseIndent(););
 
         // Update valueInitInfo of the user based on the parent's valueInitInfo
@@ -180,7 +180,7 @@ void InitializerPass::propagateInfo() {
       auto indenter = logger.getIndenter();
       LLVM_DEBUG(
         Logger& logger = log();
-        logger.log("[Backtracking] ", raw_ostream::Colors::BLACK).logValueln(value);
+        logger.log("[Backtracking] ", raw_ostream::Colors::RESET).logValueln(value);
         indenter.increaseIndent();
         logger << "depth left = " << backtrackingDepth << "\n";);
 
@@ -189,7 +189,7 @@ void InitializerPass::propagateInfo() {
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
           Logger& logger = log();
-          logger.log("[Operand] ", raw_ostream::Colors::BLACK).logValueln(operand);
+          logger.log("[Operand] ", raw_ostream::Colors::RESET).logValueln(operand);
           indenter.increaseIndent(););
         // Skip operands that are not a User or an Argument
         if (!isa<User>(operand) && !isa<Argument>(operand)) {
@@ -385,11 +385,11 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   Logger& logger = log();
   auto indenter = logger.getIndenter();
   LLVM_DEBUG(
-    logger.log("[Cloning of] ", raw_ostream::Colors::BLACK).logValueln(oldF);
+    logger.log("[Cloning of] ", raw_ostream::Colors::RESET).logValueln(oldF);
     indenter.increaseIndent();
     logger.log("new function: ").logValueln(newF);
     logger.log("for call: ").logValueln(call);
-    logger.logln("[Propagating info from call arguments to clone function arguments]", raw_ostream::Colors::BLACK);
+    logger.logln("[Propagating info from call arguments to clone function arguments]", raw_ostream::Colors::RESET);
     indenter.increaseIndent();
     if (newF->arg_empty())
       logger.logln("function has no arguments: continuing"););
@@ -398,7 +398,7 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   for (Argument& arg : newF->args()) {
     auto indenter = logger.getIndenter();
     LLVM_DEBUG(
-      logger << raw_ostream::Colors::BLACK << "[Arg " << arg.getArgNo() << "] " << raw_ostream::Colors::RESET << arg
+      logger << raw_ostream::Colors::RESET << "[Arg " << arg.getArgNo() << "] " << raw_ostream::Colors::RESET << arg
              << "\n";
       indenter.increaseIndent(););
     if (arg.user_empty()) {
@@ -449,7 +449,7 @@ void InitializerPass::logInfoPropagationQueue() {
   Logger& logger = log();
   if (infoPropagationQueue.size() < 1000) {
     for (Value* value : infoPropagationQueue) {
-      logger.log("[Value] ", raw_ostream::Colors::BLACK).logValueln(value);
+      logger.log("[Value] ", raw_ostream::Colors::RESET).logValueln(value);
       auto indenter = logger.getIndenter();
       indenter.increaseIndent();
       logger << "valueInitInfo: " << taffoInitInfo.getValueInitInfo(value) << "\n";
