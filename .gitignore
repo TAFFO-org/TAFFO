@@ -1,3 +1,9 @@
+test/fpbench/**/*
+!test/fpbench/**/
+!test/fpbench/**/*.*
+test/fpbench/**/*.json
+test/fpbench/**/*.csv
+test/fpbench/**/*.s
 build*
 .idea
 cmake-build-*/
@@ -23,8 +29,8 @@ tool/taffo-costmodel-embedded/obj*
 compile.sh
 test/axbench/jmeint/log_*
 lcov*
-*.json
 test/**/*.json
-test/fpbench/azimuth/taffo_info_conv.json
-test/fpbench/azimuth/taffo_info_dta.json
-test/fpbench/azimuth/taffo_info_memToReg.json
+test/**/*.ll
+test/axbench/**/data/output/*
+test/axbench/**/taffo_logs/*
+test/polybench-cpu/results-out/*
