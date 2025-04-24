@@ -243,8 +243,8 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
 
   ValueInitInfo& srcInitInfo = taffoInitInfo.getValueInitInfo(src);
   ValueInitInfo& dstInitInfo = taffoInitInfo.getOrCreateValueInitInfo(dst);
-  ValueInfo* srcInfo = srcInitInfo.getValueInfo();
-  ValueInfo* dstInfo = dstInitInfo.getValueInfo();
+  ValueInfo* srcInfo = &*taffoInfo.getValueInfo(*src);
+  ValueInfo* dstInfo = &*taffoInfo.getValueInfo(*dst);
 
   unsigned int dstRootDistance = dstInitInfo.getRootDistance();
   unsigned int newDstRootDistance = srcInitInfo.getUserRootDistance();

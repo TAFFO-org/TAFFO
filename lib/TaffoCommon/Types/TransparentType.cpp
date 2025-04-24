@@ -1,4 +1,5 @@
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "Types/TransparentType.hpp"
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -137,8 +138,9 @@ bool TransparentArrayType::isOpaquePointer() const {
 }
 
 int TransparentArrayType::compareTransparency(const TransparentType& other) const {
+  assert(!isa<TransparentStructType>(other) && "Array and struct cannot be compared");
   if (!isa<TransparentArrayType>(other)) {
-    assert(other.isOpaquePointer());
+    // If a Array is compared to a scalar or a ptr return myself because at least we know that we are an array
     return 1;
   }
   const auto& otherArray = cast<TransparentArrayType>(other);

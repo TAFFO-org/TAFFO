@@ -3,6 +3,7 @@
 #include "PtrCasts.hpp"
 #include "SerializationUtils.hpp"
 
+#include "llvm/IR/Type.h"
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/DerivedTypes.h>
 
@@ -190,7 +191,6 @@ struct hash<shared_ptr<taffo::TransparentType>> {
 
     size_t combined = 0;
     auto combine = [](size_t seed, size_t value) { return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2)); };
-
     combined = combine(combined, hash<llvm::Type*>()(ptr->getUnwrappedType()));
     combined = combine(combined, hash<unsigned int>()(ptr->getIndirections()));
 
