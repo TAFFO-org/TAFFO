@@ -183,7 +183,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
         scalarInfo->conversionEnabled = true;
 
       // FIXME: hack to propagate itofp metadata
-      if (MixedMode && (isa<UIToFPInst>(v) || isa<SIToFPInst>(v))) {
+      if (/*MixedMode && */(isa<UIToFPInst>(v) || isa<SIToFPInst>(v))) {
         LLVM_DEBUG(dbgs() << "FORCING CONVERSION OF A ITOFP!\n";);
         scalarInfo->conversionEnabled = true;
       }
@@ -740,7 +740,7 @@ void DataTypeAllocationPass::setTypesOnCallArgumentFromFunctionArgument(Argument
 std::vector<Function*> DataTypeAllocationPass::collapseFunction(Module& m) {
   std::vector<Function*> toDel;
   for (Function& f : m.functions()) {
-    if (ranges::find(toDel, &f) != toDel.end())
+    if (std::ranges::find(toDel, &f) != toDel.end())
       continue;
     LLVM_DEBUG(dbgs() << "Analyzing original function " << f.getName() << "\n");
 

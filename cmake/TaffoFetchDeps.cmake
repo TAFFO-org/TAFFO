@@ -13,7 +13,7 @@ if (TAFFO_BUILD_ILP_DTA)
     FetchContent_Declare(
       or-tools
       GIT_REPOSITORY "https://github.com/google/or-tools.git"
-      GIT_TAG "v9.4"
+      GIT_TAG "v9.12"
       GIT_SHALLOW ON
       GIT_PROGRESS ON)
     # TODO: disable some of this stuff, not sure we need it all
@@ -28,13 +28,12 @@ if (TAFFO_BUILD_ILP_DTA)
     set(BUILD_Eigen3 ON)
     set(BUILD_re2 ON)
     set(USE_XPRESS OFF)
+    set(USE_HIGHS OFF)
+    set(BUILD_TESTING OFF)
     set(BUILD_CXX_SAMPLES OFF)
     set(BUILD_CXX_EXAMPLES OFF)
-    FetchContent_GetProperties(or-tools)
-    if(NOT cmark_POPULATED)
-      FetchContent_Populate(or-tools)
-      add_subdirectory(${or-tools_SOURCE_DIR} ${or-tools_BINARY_DIR} EXCLUDE_FROM_ALL)
-    endif()
+
+    FetchContent_MakeAvailable(or-tools)
 
     list(POP_BACK CMAKE_MESSAGE_INDENT)
     message("-- ORTools fetched")
