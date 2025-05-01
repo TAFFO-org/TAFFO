@@ -23,7 +23,7 @@ public:
   virtual bool isFixedPoint() const { return false; }
   virtual bool isFloatingPoint() const { return false; }
   std::shared_ptr<TransparentType> toTransparentType(const std::shared_ptr<TransparentType>& srcType,
-                                                            bool* hasFloats = nullptr) const;
+                                                     bool* hasFloats = nullptr) const;
   std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<TransparentType>& srcType,
                                                   llvm::ArrayRef<unsigned int> indices);
   std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<TransparentType>& srcType,

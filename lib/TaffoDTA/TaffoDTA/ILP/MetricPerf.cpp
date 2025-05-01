@@ -46,7 +46,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value* v
     varName, 0, fpInfo->getFractionalBits(), fpInfo->getBits(), fpInfo->isSigned(), *rangeInfo, "");
 
   LLVM_DEBUG(log() << "Allocating variable " << varName << " with limits [" << optimizerInfo->minBits << ", "
-                          << optimizerInfo->maxBits << "];\n";);
+                   << optimizerInfo->maxBits << "];\n";);
 
   string out;
   raw_string_ostream stream(out);
@@ -165,8 +165,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableForValue(Value* v
 
     double errorEnob = getENOBFromError(*suggestedMinError);
 
-    LLVM_DEBUG(log() << "We have a suggested min error, limiting the enob in the model to " << errorEnob
-                            << "\n";);
+    LLVM_DEBUG(log() << "We have a suggested min error, limiting the enob in the model to " << errorEnob << "\n";);
 
     constraint.clear();
     constraint.push_back(make_pair(optimizerInfo->getRealEnobVariable(), 1.0));
@@ -261,7 +260,7 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
     varName, minBits, maxBits, info->totalBits, info->isSigned, *info->getRange(), info->getOverridedEnob());
 
   LLVM_DEBUG(log() << "Allocating variable " << varName << " with limits [" << minBits << ", " << maxBits
-                    << "] with casting cost from " << info->getBaseName() << "\n";);
+                   << "] with casting cost from " << info->getBaseName() << "\n";);
 
   string out;
   raw_string_ostream stream(out);
@@ -513,10 +512,10 @@ shared_ptr<OptimizerScalarInfo> MetricPerf::allocateNewVariableWithCastCost(Valu
 
       model.createVariable(CX, 0, 1);
 
-      LLVM_DEBUG(log() << "Inserting constraint " << CX << " " << CostsString << " first " << first_c
-                              << " second " << second_c << " cost \n"
-                              << cpuCosts.getCost(cpuCosts.decodeId(CostsString)) << " wtih desc "
-                              << std::string(first_c) + " to " + std::string(second_c) << "\n");
+      LLVM_DEBUG(log() << "Inserting constraint " << CX << " " << CostsString << " first " << first_c << " second "
+                       << second_c << " cost \n"
+                       << cpuCosts.getCost(cpuCosts.decodeId(CostsString)) << " wtih desc "
+                       << std::string(first_c) + " to " + std::string(second_c) << "\n");
 
       costcrosslambda(
         CX, cpuCosts.decodeId(CostsString), first_f, second_f, std::string(first_c) + " to " + std::string(second_c));

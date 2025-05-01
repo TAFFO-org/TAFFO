@@ -5,9 +5,9 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include <llvm/IR/Argument.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Analysis/LoopInfo.h>
+#include <llvm/IR/Argument.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
@@ -65,7 +65,7 @@ MLHVec collectMallocLikeHandler(Module& m) {
     auto fun = m.getFunction(mangledName);
     if (fun == nullptr) {
       LLVM_DEBUG(log() << "Not Found\n"
-                        << "\n");
+                       << "\n");
       continue;
     }
 
@@ -117,7 +117,7 @@ Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instru
   Type* RootOldTy = OldTy;
   Type* RootNewTy = NewTy;
   LLVM_DEBUG(log() << "Adjusting buffer size " << OrigSize->getNameOrAsOperand() << ", type change from " << *OldTy
-                    << " to " << *NewTy << "\n");
+                   << " to " << *NewTy << "\n");
 
   if (!Tight && RootOldTy->getScalarSizeInBits() >= RootNewTy->getScalarSizeInBits()) {
     LLVM_DEBUG(log() << "Old type is larger or same size than new type, doing nothing\n");
@@ -251,7 +251,7 @@ void FloatToFixed::openPhiLoop(PHINode* phi) {
   convertedValues[info.placeh_noconv] = info.placeh_conv;
 
   LLVM_DEBUG(log() << "created placeholder (non-converted=[" << *info.placeh_noconv << "], converted=["
-                    << *info.placeh_conv << "]) for phi " << *phi << "\n");
+                   << *info.placeh_conv << "]) for phi " << *phi << "\n");
 
   phiReplacementData[phi] = info;
 }
@@ -499,7 +499,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
     }
 
     LLVM_DEBUG(log() << "Converting function " << oldF->getName() << " : " << *oldF->getType() << " into "
-                      << newF->getName() << " : " << *newF->getType() << "\n");
+                     << newF->getName() << " : " << *newF->getType() << "\n");
 
     ValueToValueMapTy origValToCloned; // Create Val2Val mapping and clone function
     Function::arg_iterator newIt = newF->arg_begin();
@@ -546,7 +546,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
       LLVM_DEBUG(log() << "Set new attributes, hopefully without breaking anything\n");
     }
     LLVM_DEBUG(log() << "After CloneFunctionInto, the function now looks like this:\n"
-                      << *newF->getFunctionType() << "\n");
+                     << *newF->getFunctionType() << "\n");
 
     std::vector<Value*> newVals; // propagate fixp conversion
     oldIt = oldF->arg_begin();
@@ -669,7 +669,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
 
   std::vector<Type*> argsLLVMTypes;
   std::vector<std::pair<int, std::shared_ptr<FixedPointType>>>
-    argsFixedPointTypes;                             // for match already converted function
+    argsFixedPointTypes;                                  // for match already converted function
 
   std::string suffix;
   if (getFullyUnwrappedType(oldF)->isFloatingPointTy()) { // ret value in signature
@@ -697,7 +697,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
   Function* newF = functionPool[oldF]; // check if is previously converted
   if (newF) {
     LLVM_DEBUG(log() << *call << " use already converted function : " << newF->getName() << " " << *newF->getType()
-                      << "\n");
+                     << "\n");
     if (old)
       *old = true;
     return newF;
@@ -722,7 +722,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
   newF = Function::Create(newFunType, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
   taffoInfo.setTransparentType(*newF, newRetType);
   LLVM_DEBUG(log() << "created function\n"
-                    << *newF << "\n");
+                   << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;
   return newF;

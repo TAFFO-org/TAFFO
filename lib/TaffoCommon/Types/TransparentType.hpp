@@ -3,9 +3,9 @@
 #include "PtrCasts.hpp"
 #include "SerializationUtils.hpp"
 
-#include <llvm/IR/Type.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Type.h>
 
 #include <memory>
 

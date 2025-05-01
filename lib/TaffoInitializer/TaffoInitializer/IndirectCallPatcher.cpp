@@ -60,8 +60,8 @@ void handleKmpcFork(const Module& m,
 
   if (containsUnsupportedFunctions(microTaskFunction, {})) {
     LLVM_DEBUG(log() << "Blocking conversion for shared variables in "
-                         "unsupported parallel region"
-                      << *curCallInstruction << "\n");
+                        "unsupported parallel region"
+                     << *curCallInstruction << "\n");
 
     for (auto* sharedArgument = curCall->arg_begin() + 2; sharedArgument < curCall->arg_end(); sharedArgument++)
       if (auto* sharedVarInstr = dyn_cast<Instruction>(*sharedArgument))

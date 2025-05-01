@@ -250,11 +250,11 @@ std::shared_ptr<TransparentType> TypeDeducerPass::getBestCandidateType(const Can
   for (const std::shared_ptr<TransparentType>& candidate : candidates) {
     if (!candidate)
       continue;
-    if (!bestCandidate){
+    if (!bestCandidate) {
       bestCandidate = candidate;
     }
     else if (candidate->compareTransparency(*bestCandidate) == 1) {
-      //TODO implement strict aliasing rule and most information detain
+      // TODO implement strict aliasing rule and most information detain
 
       bestCandidate = candidate;
     }

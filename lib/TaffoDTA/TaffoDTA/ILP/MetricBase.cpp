@@ -80,7 +80,7 @@ shared_ptr<OptimizerInfo> MetricBase::processConstant(Constant* constant) {
       FixedPointInfo fpInfo = fixedPointTypeFromRange(rangeInfo, &fpgerr, TotalBits, FracThreshold, 64, TotalBits);
       if (fpgerr != FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(log() << "Error generating infos for constant propagation!"
-                          << "\n";);
+                         << "\n";);
         return nullptr;
       }
 
@@ -216,7 +216,7 @@ void MetricBase::handleGEPInstr(Instruction* gep, shared_ptr<TunerInfo> valueInf
     auto optInfo_t = dynamic_ptr_cast<OptimizerPointerInfo>(baseinfo);
     if (!optInfo_t) {
       LLVM_DEBUG(log() << "Operand pointer info has the wrong type!! Probably trying to access a non float element, "
-                           "bailing out.\n";);
+                          "bailing out.\n";);
       LLVM_DEBUG(log() << "wrong info: " << baseinfo->toString() << "\n");
       return;
     }
@@ -273,7 +273,7 @@ bool MetricBase::extractGEPOffset(const Type* source_element_type,
       /*source_element_type =
               cast<StructType>(source_element_type)->getTypeAtIndex(n);*/
       LLVM_DEBUG(log() << "contained type " << n << ": " << *source_element_type
-                        << " (ID=" << source_element_type->getTypeID() << ")\n");
+                       << " (ID=" << source_element_type->getTypeID() << ")\n");
     }
     else {
       // We can skip only if is a sequential i.e. we are accessing an index of an array
@@ -649,14 +649,14 @@ void MetricBase::saveInfoForPointer(Value* value, shared_ptr<OptimizerPointerInf
 
   if (info_old_pointee->getKind() != info_new_pointee->getKind()) {
     LLVM_DEBUG(log() << "[WARNING] This pointer will in a point refer to two different variable that may have "
-                         "different data types.\n"
-                         "The results may be unpredictable, you have been warned!\n";);
+                        "different data types.\n"
+                        "The results may be unpredictable, you have been warned!\n";);
   }
 
   if (!info_old_pointee->operator==(*info_new_pointee)) {
     LLVM_DEBUG(log() << "[WARNING] This pointer will in a point refer to two different variable that may have "
-                         "different data types.\n"
-                         "The results may be unpredictable, you have been warned!\n";);
+                        "different data types.\n"
+                        "The results may be unpredictable, you have been warned!\n";);
   }
 
   getValueToVariableName()[value] = pointerInfo;
@@ -770,7 +770,7 @@ void MetricBase::handleUnknownFunction(Instruction* instruction, shared_ptr<Tune
     }
     else {
       LLVM_DEBUG(log() << "This is a struct passed to an external function but has been optimized by TAFFO. Is this "
-                           "even possible???\n";);
+                          "even possible???\n";);
     }
 
     LLVM_DEBUG(log() << "\n\n";);

@@ -98,7 +98,7 @@ void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
       continue;
     }
     LLVM_DEBUG(log() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand()
-                      << "  <<<<===============\n");
+                     << "  <<<<===============\n");
 
     for (Argument& arg : f.args()) {
       if (processMetadataOfValue(&arg)) {
@@ -150,8 +150,8 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
   if (taffoInfo.hasValueInfo(*v))
     valueInfo = taffoInfo.getValueInfo(*v);
   LLVM_DEBUG(log() << "\n"
-                    << __FUNCTION__ << " v=" << *v << " valueInfo=" << (valueInfo ? valueInfo->toString() : "(null)")
-                    << "\n");
+                   << __FUNCTION__ << " v=" << *v << " valueInfo=" << (valueInfo ? valueInfo->toString() : "(null)")
+                   << "\n");
   if (!valueInfo) {
     LLVM_DEBUG(log() << "no metadata... bailing out!\n");
     return false;
@@ -183,7 +183,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
         scalarInfo->conversionEnabled = true;
 
       // FIXME: hack to propagate itofp metadata
-      if (/*MixedMode && */(isa<UIToFPInst>(v) || isa<SIToFPInst>(v))) {
+      if (/*MixedMode && */ isa<UIToFPInst>(v) || isa<SIToFPInst>(v)) {
         LLVM_DEBUG(log() << "FORCING CONVERSION OF A ITOFP!\n";);
         scalarInfo->conversionEnabled = true;
       }
@@ -200,7 +200,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
     else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo)) {
       if (!transparentType->isStructType()) {
         LLVM_DEBUG(log() << "[ERROR] found non conforming structinfo " << structInfo->toString() << " on value " << *v
-                          << "\n");
+                         << "\n");
         LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
         LLVM_DEBUG(log() << "The top-level MDInfo was " << valueInfo->toString() << "\n");
         llvm_unreachable("Non-conforming StructInfo.");
@@ -290,7 +290,7 @@ bool DataTypeAllocationPass::associateFixFormat(std::shared_ptr<ScalarInfo>& sca
 
     if (greatest >= maxRep) {
       LLVM_DEBUG(log() << "[Info] CANNOT force conversion to float " << res->toString()
-                        << " because max value is not representable\n");
+                       << " because max value is not representable\n");
     }
     else {
       LLVM_DEBUG(log() << "[Info] Forcing conversion to float " << res->toString() << "\n");
@@ -329,7 +329,7 @@ bool DataTypeAllocationPass::associateFixFormat(std::shared_ptr<ScalarInfo>& sca
     }
     else {
       LLVM_DEBUG(log() << "[Info] The operands of " << *value
-                        << " are not representable as fixed point with specified constraints\n");
+                       << " are not representable as fixed point with specified constraints\n");
     }
   }
 
@@ -399,7 +399,7 @@ void DataTypeAllocationPass::sortQueue(std::vector<Value*>& vals, SmallPtrSetImp
               else
                 getTunerInfo(u)->metadata = std::make_shared<ScalarInfo>();
               LLVM_DEBUG(log() << "not copying metadata of " << *c << " to " << *u
-                                << " because one value has struct typing and the other has not.\n");
+                               << " because one value has struct typing and the other has not.\n");
             }
           }
         }
@@ -423,7 +423,7 @@ void DataTypeAllocationPass::sortQueue(std::vector<Value*>& vals, SmallPtrSetImp
     valset.insert(*i);
     if (Argument* Arg = dyn_cast<Argument>(*i)) {
       LLVM_DEBUG(log() << "Restoring consistency of argument " << *Arg << " of function "
-                        << Arg->getParent()->getNameOrAsOperand() << "\n");
+                       << Arg->getParent()->getNameOrAsOperand() << "\n");
       restoreTypesAcrossFunctionCall(Arg);
     }
   }
@@ -463,7 +463,7 @@ bool DataTypeAllocationPass::mergeFixFormat(Value* v, Value* u) {
   if (!valueInfo->numericType || !valueTunerInfo->initialType || !userInfo->numericType
       || !userTunerInfo->initialType) {
     LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u
-                      << " because at least one does not change to a fixed point type\n");
+                     << " because at least one does not change to a fixed point type\n");
     return false;
   }
   if (v->getType()->isPointerTy() || u->getType()->isPointerTy()) {
@@ -484,9 +484,9 @@ bool DataTypeAllocationPass::mergeFixFormat(Value* v, Value* u) {
         return false;
       }
       LLVM_DEBUG(log() << "Merged fixp : \n"
-                        << "\t" << *v << " fix type " << valueFixpType->toString() << "\n"
-                        << "\t" << *u << " fix type " << userFixpType->toString() << "\n"
-                        << "Final format " << fp->toString() << "\n";);
+                       << "\t" << *v << " fix type " << valueFixpType->toString() << "\n"
+                       << "\t" << *u << " fix type " << userFixpType->toString() << "\n"
+                       << "Final format " << fp->toString() << "\n";);
 
       valueInfo->numericType = fp->clone();
       userInfo->numericType = fp->clone();
@@ -510,7 +510,7 @@ bool DataTypeAllocationPass::mergeFixFormatIterative(Value* v, Value* u) {
   }
   if (!iiv->numericType || !iiu->numericType) {
     LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u
-                      << " because at least one does not change to a fixed point type\n");
+                     << " because at least one does not change to a fixed point type\n");
     return false;
   }
   if (v->getType()->isPointerTy() || u->getType()->isPointerTy()) {
@@ -528,13 +528,13 @@ bool DataTypeAllocationPass::mergeFixFormatIterative(Value* v, Value* u) {
       std::shared_ptr<FixedPointInfo> fp = merge(fpv, fpu);
       if (!fp) {
         LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because resulting type "
-                          << fp->toString() << " is invalid\n");
+                         << fp->toString() << " is invalid\n");
         return false;
       }
       LLVM_DEBUG(log() << "Merged fixp : \n"
-                        << "\t" << *v << " fix type " << fpv->toString() << "\n"
-                        << "\t" << *u << " fix type " << fpu->toString() << "\n"
-                        << "Final format " << fp->toString() << "\n";);
+                       << "\t" << *v << " fix type " << fpv->toString() << "\n"
+                       << "\t" << *u << " fix type " << fpu->toString() << "\n"
+                       << "Final format " << fp->toString() << "\n";);
 
       iiv->numericType = fp->clone();
       iiu->numericType = fp->clone();
@@ -591,7 +591,7 @@ std::shared_ptr<NumericTypeInfo> tuner::merge(const std::shared_ptr<NumericTypeI
 
 void DataTypeAllocationPass::mergeBufferIDSets() {
   LLVM_DEBUG(log() << "\n"
-                    << __PRETTY_FUNCTION__ << " BEGIN\n\n");
+                   << __PRETTY_FUNCTION__ << " BEGIN\n\n");
   BufferIDTypeMap InMap, OutMap;
   if (!BufferIDImport.empty()) {
     LLVM_DEBUG(log() << "Importing Buffer ID sets from " << BufferIDImport << "\n\n");
@@ -683,7 +683,7 @@ void DataTypeAllocationPass::setTypesOnFunctionArgumentFromCallArgument(Value* v
     auto* fun = dyn_cast<Function>(call->getCalledFunction());
     if (fun == nullptr) {
       LLVM_DEBUG(log() << " --> skipping restoring types from call site " << *user
-                        << " because function reference cannot be resolved\n");
+                       << " because function reference cannot be resolved\n");
       continue;
     }
     if (fun->isVarArg()) {
@@ -696,13 +696,12 @@ void DataTypeAllocationPass::setTypesOnFunctionArgumentFromCallArgument(Value* v
     if (hasTunerInfo(arg)) {
       getTunerInfo(arg)->metadata = finalMd->clone();
       setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
-      LLVM_DEBUG(
-        log() << " --> set new metadata, now checking uses of the argument... (hope there's no recursion!)\n");
+      LLVM_DEBUG(log() << " --> set new metadata, now checking uses of the argument... (hope there's no recursion!)\n");
       setTypesOnFunctionArgumentFromCallArgument(arg, finalMd);
     }
     else {
       LLVM_DEBUG(log() << "Not looking good, formal arg #" << use.getOperandNo() << " (" << *arg
-                        << ") has no valueInfo, but actual argument does...\n");
+                       << ") has no valueInfo, but actual argument does...\n");
     }
   }
 }
@@ -712,7 +711,7 @@ void DataTypeAllocationPass::setTypesOnCallArgumentFromFunctionArgument(Argument
   Function* fun = arg->getParent();
   int n = arg->getArgNo();
   LLVM_DEBUG(log() << " --> setting types to " << finalMd->toString() << " on call arguments from function "
-                    << fun->getName() << " argument " << n << "\n");
+                   << fun->getName() << " argument " << n << "\n");
   for (auto it = fun->user_begin(); it != fun->user_end(); it++) {
     if (isa<CallInst>(*it) || isa<InvokeInst>(*it)) {
       Value* callarg = it->getOperand(n);

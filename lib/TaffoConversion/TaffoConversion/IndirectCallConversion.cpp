@@ -42,8 +42,8 @@ void FloatToFixed::convertIndirectCalls(Module& m) {
 
     if (indirectFunction == nullptr) {
       LLVM_DEBUG(log() << "Blocking the following conversion for failed "
-                           "dyn_cast on the indirect function: "
-                        << *trampolineCall << "\n");
+                          "dyn_cast on the indirect function: "
+                       << *trampolineCall << "\n");
       continue;
     }
 

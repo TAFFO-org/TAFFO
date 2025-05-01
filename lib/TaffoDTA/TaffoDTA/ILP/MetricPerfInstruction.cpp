@@ -1124,7 +1124,7 @@ void MetricPerf::handleLoad(Instruction* instruction, const shared_ptr<TunerInfo
     auto info = pinfos->getOptInfo();
     if (info->getKind() != OptimizerInfo::K_Pointer) {
       LLVM_DEBUG(log() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, "
-                           "wrapping it...";);
+                          "wrapping it...";);
       // FIXME: hack to prevent problem when using global pointer as arrays
       LLVM_DEBUG(log() << "Unfortunately got " << info->toString() << "\n";);
 

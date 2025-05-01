@@ -68,7 +68,7 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
     auto existing = getConversionInfo(instr);
     if (existing->isArgumentPlaceholder) {
       LLVM_DEBUG(log() << "Skipping MD collection for " << *instr
-                        << " because it's a placeholder and has fake valueInfo anyway\n");
+                       << " because it's a placeholder and has fake valueInfo anyway\n");
       return false;
     }
   }

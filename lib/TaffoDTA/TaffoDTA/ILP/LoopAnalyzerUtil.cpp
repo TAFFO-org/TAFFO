@@ -49,7 +49,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
     else {
       LocalTrip = 2;
       LLVM_DEBUG(log() << "Found loop unroll count in metadata but it's zero, forcing default of " << LocalTrip
-                        << "\n");
+                       << "\n");
       TripCountDetectionFailCount++;
     }
   }

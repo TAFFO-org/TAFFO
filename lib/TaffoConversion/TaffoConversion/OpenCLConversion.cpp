@@ -96,7 +96,7 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
     assert(NewFixpKernF && "OpenCL kernel function cloned but not converted????");
 
     LLVM_DEBUG(log() << "Processing trampoline " << F.getName() << ", KernF=" << KernF->getName()
-                      << ", NewKernF=" << NewKernF->getName() << ", NewFixpKernF=" << NewFixpKernF->getName() << "\n");
+                     << ", NewKernF=" << NewKernF->getName() << ", NewFixpKernF=" << NewFixpKernF->getName() << "\n");
 
     FuncsToDelete.append({&F, KernF, NewKernF});
     std::string KernFunName = std::string(KernF->getName());

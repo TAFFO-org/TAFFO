@@ -108,7 +108,7 @@ public:
 
   // Log for iterable objects
   template <IterableConcept T>
-  requires (!PrintableConcept<T> && !LLVMPrintableConcept<T>)
+    requires(!PrintableConcept<T> && !LLVMPrintableConcept<T>)
   Logger& log(const T& container, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log("[");
     bool first = true;
@@ -125,7 +125,7 @@ public:
 
   // Generic fallback log (for types that are not printable in any special way)
   template <typename T>
-  requires (!PrintableConcept<T> && !LLVMPrintableConcept<T> && !IterableConcept<T>)
+    requires(!PrintableConcept<T> && !LLVMPrintableConcept<T> && !IterableConcept<T>)
   Logger& log(const T& message, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     // Convert message to string.
     std::string s;
@@ -134,8 +134,8 @@ public:
     std::string messageString = oss.str();
 
     llvm::raw_ostream::Colors resColor = (color == llvm::raw_ostream::Colors::RESET) ? currentColor : color;
-    //TODO add conditional ostream.is_displayed()
-    bool useColors = ostream.is_displayed() &&  resColor != llvm::raw_ostream::Colors::RESET;
+    // TODO add conditional ostream.is_displayed()
+    bool useColors = ostream.is_displayed() && resColor != llvm::raw_ostream::Colors::RESET;
     // Log the string splitting by '\n'.
     size_t start = 0;
     while (start < messageString.size()) {

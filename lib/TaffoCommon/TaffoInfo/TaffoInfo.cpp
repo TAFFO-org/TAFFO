@@ -4,17 +4,17 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/User.h"
-#include "llvm/Support/Casting.h"
 #include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Dominators.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
+#include <llvm/IR/User.h>
+#include <llvm/Support/Casting.h>
 
 #include <algorithm>
 #include <fstream>

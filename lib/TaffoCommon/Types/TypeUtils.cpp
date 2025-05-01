@@ -1,6 +1,6 @@
 #include "../TaffoInfo/TaffoInfo.hpp"
-#include "TypeUtils.hpp"
 #include "Debug/Logger.hpp"
+#include "TypeUtils.hpp"
 
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
@@ -35,7 +35,7 @@ FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
 
   if (std::isinf(rng.min) || std::isinf(rng.max)) {
     LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
-                      << " contains +/-inf. Overflow may occur!\n");
+                     << " contains +/-inf. Overflow may occur!\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::UnboundedRange;
     return FixedPointInfo(isSigned, totalBits, 0);
@@ -85,7 +85,7 @@ FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
   // Check dimension
   if (fractionalBits < fracThreshold) {
     LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
-                      << " Fractional part is too small!\n");
+                     << " Fractional part is too small!\n");
     fractionalBits = 0;
     if (intBit > bits) {
       LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Overflow may occur!\n");

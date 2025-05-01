@@ -277,7 +277,8 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
     if (!srcType->isStructType() && !dstType->isStructType()) {
       // If dst is a call, create empty valueInfo without range
       if (isa<CallBase>(dst)) {
-        // TODO Probably better to always enable conversion and fix the return type of non float calls not to change randomly in the dta
+        // TODO Probably better to always enable conversion and fix the return type of non float calls not to change
+        // randomly in the dta
         if (dstType->containsFloatingPointType() || dstType->getFullyUnwrappedType()->isVoidTy())
           if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
             dstScalarInfo->conversionEnabled = srcInfo->isConversionEnabled();

@@ -1,6 +1,6 @@
+#include "Debug/Logger.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Debug/Logger.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>
@@ -64,7 +64,7 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, std::opt
         continue;
 
       LLVM_DEBUG(log() << "Found annotation \"" << AnnoStr->getAsString() << "\" on function arg " << ArgId << " ("
-                        << Arg->getName() << ") of function " << KernF.getName() << "\n");
+                       << Arg->getName() << ") of function " << KernF.getName() << "\n");
       Res = AnnoStringCExp;
       break;
     }
@@ -73,7 +73,7 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, std::opt
   }
   if (!Res.has_value()) {
     LLVM_DEBUG(log() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function "
-                      << KernF.getName() << "\n");
+                     << KernF.getName() << "\n");
     return;
   }
 
@@ -139,7 +139,7 @@ void createOpenCLKernelTrampoline(Module& M, Function& KernF) {
 
   TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
   LLVM_DEBUG(log() << "Created trampoline:\n"
-                    << *NewF);
+                   << *NewF);
 }
 
 void taffo::createOpenCLKernelTrampolines(Module& M) {

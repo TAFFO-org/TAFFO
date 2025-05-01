@@ -89,8 +89,7 @@ Model::Model(ProblemType type)
 bool Model::finalizeAndSolve() {
   writeOutObjectiveFunction();
 
-  LLVM_DEBUG(
-    log() << "****************************************************************************************\n");
+  LLVM_DEBUG(log() << "****************************************************************************************\n");
 #ifndef NDEBUG
   dumpModel();
 #endif
@@ -126,16 +125,12 @@ bool Model::finalizeAndSolve() {
   }
   LLVM_DEBUG(log() << "\n");
 
-  if (result_status == operations_research::MPSolver::FEASIBLE) {
-    LLVM_DEBUG(
-      log() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
-  }
+  if (result_status == operations_research::MPSolver::FEASIBLE)
+    LLVM_DEBUG(log() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
 
-  LLVM_DEBUG(
-    log() << "****************************************************************************************\n");
+  LLVM_DEBUG(log() << "****************************************************************************************\n");
   LLVM_DEBUG(log() << "                                HOUSTON WE HAVE A SOLUTION\n");
-  LLVM_DEBUG(
-    log() << "****************************************************************************************\n");
+  LLVM_DEBUG(log() << "****************************************************************************************\n");
 
   for (auto& v : variablesPool)
     variableValues.insert(make_pair(v.first, v.second->solution_value()));
@@ -149,8 +144,7 @@ bool Model::finalizeAndSolve() {
     return false;
   }
 
-  LLVM_DEBUG(
-    log() << "****************************************************************************************\n");
+  LLVM_DEBUG(log() << "****************************************************************************************\n");
   return true;
 }
 
@@ -372,8 +366,7 @@ void Model::dumpSolution() {
       LLVM_DEBUG(log() << " done.\n");
     }
     else {
-      LLVM_DEBUG(log() << " failed. An error occurred while trying to dump the solution: " << EC.message()
-                              << '\n');
+      LLVM_DEBUG(log() << " failed. An error occurred while trying to dump the solution: " << EC.message() << '\n');
     }
   }
   else {

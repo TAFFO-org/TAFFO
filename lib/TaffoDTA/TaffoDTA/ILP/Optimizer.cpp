@@ -26,7 +26,7 @@ Optimizer::Optimizer(
   }
 
   LLVM_DEBUG(log() << "\n\n\n[WARNING] Mixed precision mode enabled. This is an experimental feature. Use it at your "
-                       "own risk!\n\n\n";);
+                      "own risk!\n\n\n";);
   cpuCosts.dump();
   LLVM_DEBUG(log() << "ENOB tuning knob: " << to_string(TUNING_ENOB) << "\n";);
   LLVM_DEBUG(log() << "Time tuning knob: " << to_string(TUNING_MATH) << "\n";);
@@ -858,10 +858,10 @@ void Optimizer::printStatInfos() {
   int total = StatSelectedFixed + StatSelectedFloat + StatSelectedDouble + StatSelectedHalf;
 
   LLVM_DEBUG(log() << "Conversion entropy as equally distributed variables: "
-                    << -(((double) StatSelectedDouble / total) * log2(((double) StatSelectedDouble) / total)
-                         + ((double) StatSelectedFloat / total) * log2(((double) StatSelectedFloat) / total)
-                         + ((double) StatSelectedDouble / total) * log2(((double) StatSelectedDouble) / total))
-                    << "\n";);
+                   << -(((double) StatSelectedDouble / total) * log2(((double) StatSelectedDouble) / total)
+                        + ((double) StatSelectedFloat / total) * log2(((double) StatSelectedFloat) / total)
+                        + ((double) StatSelectedDouble / total) * log2(((double) StatSelectedDouble) / total))
+                   << "\n";);
 
   /*
       ofstream statFile;

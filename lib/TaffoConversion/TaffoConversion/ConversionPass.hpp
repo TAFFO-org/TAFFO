@@ -9,8 +9,6 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include <llvm/Support/Casting.h>
-#include <llvm/Support/raw_ostream.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/Statistic.h>
@@ -21,8 +19,10 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/ValueMap.h>
+#include <llvm/Support/Casting.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include <memory>
 #include <sstream>
@@ -200,9 +200,8 @@ struct FloatToFixed {
    *    or the original value itself if it does not require conversion. */
   llvm::Value* matchOp(llvm::Value* val) {
     auto iter = convertedValues.find(val);
-    if (iter != convertedValues.end()) {
+    if (iter != convertedValues.end())
       return iter->second;
-    }
     return val;
   }
 

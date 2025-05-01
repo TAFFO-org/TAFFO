@@ -1,8 +1,8 @@
 #pragma once
 
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
-#include "Debug/Logger.hpp"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallPtrSet.h>

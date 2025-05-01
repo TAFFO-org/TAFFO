@@ -1,6 +1,6 @@
 #include "CudaKernelPatcher.hpp"
-#include "TaffoInfo/TaffoInfo.hpp"
 #include "Debug/Logger.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>
@@ -54,7 +54,7 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std:
         continue;
 
       LLVM_DEBUG(log() << "Found annotation \"" << AnnoStr->getAsString() << "\" on function arg " << ArgId << " ("
-                        << Arg->getName() << ") of function " << KernF.getName() << "\n");
+                       << Arg->getName() << ") of function " << KernF.getName() << "\n");
       Res = AnnoStringCExp;
       break;
     }
@@ -63,7 +63,7 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std:
   }
   if (!Res.has_value()) {
     LLVM_DEBUG(log() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function "
-                      << KernF.getName() << "\n");
+                     << KernF.getName() << "\n");
     return;
   }
 
@@ -129,7 +129,7 @@ void createCudaKernelTrampoline(Module& M, Function& KernF) {
 
   TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
   LLVM_DEBUG(log() << "Created trampoline:\n"
-                    << *NewF);
+                   << *NewF);
 }
 
 #define CUDA_KERNEL_METADATA "nvvm.annotations"

@@ -72,8 +72,8 @@ void CPUCosts::InizializeDisabledList() {
     disableMap[decodeId(tmp)] = false;
     if (tmp.find("ADD_") == 0) {
       disableNum[trim(tmp.substr(N, std::string::npos))] = 0;
-      LLVM_DEBUG(log() << tmp.substr(N, std::string::npos) << ": "
-                              << disableNum[tmp.substr(N, std::string::npos)] << "\n");
+      LLVM_DEBUG(log() << tmp.substr(N, std::string::npos) << ": " << disableNum[tmp.substr(N, std::string::npos)]
+                       << "\n");
     }
     if (tmp.find("HALF") != string::npos)
       n_types++;
@@ -308,7 +308,7 @@ void CPUCosts::loadInstructionSet() {
   fin.open(InstructionSet, ios::in);
   if (!fin.is_open()) {
     LLVM_DEBUG(log() << "Instruction Set not provided"
-                            << "\n");
+                     << "\n");
     return;
   }
 
