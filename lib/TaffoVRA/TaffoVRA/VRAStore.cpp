@@ -191,7 +191,7 @@ void VRAStore::storeNode(const std::shared_ptr<ValueInfo>& dst,
     break;
   }
   default:
-    LLVM_DEBUG(dbgs() << "WARNING: trying to store into a non-pointer node, aborted.\n");
+    LLVM_DEBUG(log() << "WARNING: trying to store into a non-pointer node, aborted.\n");
   }
 }
 
@@ -237,7 +237,7 @@ bool VRAStore::extractGEPOffset(const Type* sourceElementType,
                                 const iterator_range<User::const_op_iterator> indices,
                                 SmallVectorImpl<unsigned>& offset) const {
   assert(sourceElementType != nullptr);
-  LLVM_DEBUG(dbgs() << "indices: ");
+  LLVM_DEBUG(log() << "indices: ");
   for (auto indicesIter = indices.begin() + 1; // skip first index
        indicesIter != indices.end();
        indicesIter++) {
@@ -247,13 +247,13 @@ bool VRAStore::extractGEPOffset(const Type* sourceElementType,
       int val = static_cast<int>(intConstant->getSExtValue());
       offset.push_back(val);
       sourceElementType = cast<StructType>(sourceElementType)->getTypeAtIndex(val);
-      LLVM_DEBUG(dbgs() << val << " ");
+      LLVM_DEBUG(log() << val << " ");
     }
     else {
       LLVM_DEBUG(Logger->logErrorln("Index of GEP not constant"));
       return false;
     }
   }
-  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(log() << "\n");
   return true;
 }

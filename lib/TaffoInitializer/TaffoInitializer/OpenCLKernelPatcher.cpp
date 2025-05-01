@@ -1,5 +1,6 @@
 #include "OpenCLKernelPatcher.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "Debug/Logger.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>
@@ -16,7 +17,7 @@ using namespace taffo;
 void findOpenCLKernels(Module& M, SmallVectorImpl<Function*>& Fs) {
   for (auto& F : M.functions()) {
     if (F.getCallingConv() == CallingConv::SPIR_KERNEL && !F.isVarArg()) {
-      LLVM_DEBUG(dbgs() << "Found OpenCL kernel function " << F.getName() << "\n");
+      LLVM_DEBUG(log() << "Found OpenCL kernel function " << F.getName() << "\n");
       Fs.append({&F});
     }
   }
@@ -62,7 +63,7 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, std::opt
       if (!AnnoStr || !(AnnoStr->isString()))
         continue;
 
-      LLVM_DEBUG(dbgs() << "Found annotation \"" << AnnoStr->getAsString() << "\" on function arg " << ArgId << " ("
+      LLVM_DEBUG(log() << "Found annotation \"" << AnnoStr->getAsString() << "\" on function arg " << ArgId << " ("
                         << Arg->getName() << ") of function " << KernF.getName() << "\n");
       Res = AnnoStringCExp;
       break;
@@ -71,7 +72,7 @@ void getAndDeleteAnnotationsOfArgument(Function& KernF, unsigned ArgId, std::opt
       break;
   }
   if (!Res.has_value()) {
-    LLVM_DEBUG(dbgs() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function "
+    LLVM_DEBUG(log() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function "
                       << KernF.getName() << "\n");
     return;
   }
@@ -92,7 +93,7 @@ void createOpenCLKernelTrampoline(Module& M, Function& KernF) {
     ArgTypes.append({KernF.getArg(ArgId)->getType()});
   }
   if (NumAnnos == 0) {
-    LLVM_DEBUG(dbgs() << "No annotations, no trampoline. Skipping.\n");
+    LLVM_DEBUG(log() << "No annotations, no trampoline. Skipping.\n");
     return;
   }
 
@@ -137,15 +138,15 @@ void createOpenCLKernelTrampoline(Module& M, Function& KernF) {
   Builder.CreateRetVoid();
 
   TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
-  LLVM_DEBUG(dbgs() << "Created trampoline:\n"
+  LLVM_DEBUG(log() << "Created trampoline:\n"
                     << *NewF);
 }
 
 void taffo::createOpenCLKernelTrampolines(Module& M) {
-  LLVM_DEBUG(dbgs() << "Creating OpenCL trampolines...\n");
+  LLVM_DEBUG(log() << "Creating OpenCL trampolines...\n");
   SmallVector<Function*, 2> KernFs;
   findOpenCLKernels(M, KernFs);
   for (Function* F : KernFs)
     createOpenCLKernelTrampoline(M, *F);
-  LLVM_DEBUG(dbgs() << "Finished creating OpenCL trampolines.\n\n");
+  LLVM_DEBUG(log() << "Finished creating OpenCL trampolines.\n\n");
 }

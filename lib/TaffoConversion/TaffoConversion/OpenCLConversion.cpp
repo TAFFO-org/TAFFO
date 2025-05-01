@@ -26,7 +26,7 @@ Value* FloatToFixed::convertOpenCLCall(CallBase* C) {
 
   unsigned BufferArgId;
   unsigned BufferSizeArgId;
-  LLVM_DEBUG(dbgs() << F->getName() << " detected, attempting to convert\n");
+  LLVM_DEBUG(log() << F->getName() << " detected, attempting to convert\n");
   if (F->getName() == "clCreateBuffer") {
     BufferArgId = 3;
     BufferSizeArgId = 2;
@@ -49,11 +49,11 @@ Value* FloatToFixed::convertOpenCLCall(CallBase* C) {
     TheBuffer = BC->getOperand(0);
   Value* NewBuffer = matchOp(TheBuffer);
   if (!NewBuffer || !hasConversionInfo(NewBuffer)) {
-    LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
+    LLVM_DEBUG(log() << "Buffer argument not converted; trying fallback.");
     return Unsupported;
   }
-  LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
+  LLVM_DEBUG(log() << "Found converted buffer: " << *NewBuffer << "\n");
+  LLVM_DEBUG(log() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
   Type* VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value* NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy)
@@ -62,24 +62,24 @@ Value* FloatToFixed::convertOpenCLCall(CallBase* C) {
     NewBufferArg = NewBuffer;
   C->setArgOperand(BufferArgId, NewBufferArg);
 
-  LLVM_DEBUG(dbgs() << "Attempting to adjust buffer size\n");
+  LLVM_DEBUG(log() << "Attempting to adjust buffer size\n");
   Type* OldTy = TheBuffer->getType();
   Type* NewTy = NewBuffer->getType();
   Value* OldBufSz = C->getArgOperand(BufferSizeArgId);
   Value* NewBufSz = adjustBufferSize(OldBufSz, OldTy, NewTy, C, true);
   if (OldBufSz != NewBufSz) {
     C->setArgOperand(BufferSizeArgId, NewBufSz);
-    LLVM_DEBUG(dbgs() << "Buffer size was adjusted\n");
+    LLVM_DEBUG(log() << "Buffer size was adjusted\n");
   }
   else {
-    LLVM_DEBUG(dbgs() << "Buffer size did not need any adjustment\n");
+    LLVM_DEBUG(log() << "Buffer size did not need any adjustment\n");
   }
 
   return C;
 }
 
 void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
-  LLVM_DEBUG(dbgs() << "Cleaning up OpenCL trampolines inserted by Initializer...\n");
+  LLVM_DEBUG(log() << "Cleaning up OpenCL trampolines inserted by Initializer...\n");
   SmallVector<Function*, 4> FuncsToDelete;
 
   for (Function& F : M->functions()) {
@@ -95,7 +95,7 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
     Function* NewFixpKernF = functionPool[NewKernF];
     assert(NewFixpKernF && "OpenCL kernel function cloned but not converted????");
 
-    LLVM_DEBUG(dbgs() << "Processing trampoline " << F.getName() << ", KernF=" << KernF->getName()
+    LLVM_DEBUG(log() << "Processing trampoline " << F.getName() << ", KernF=" << KernF->getName()
                       << ", NewKernF=" << NewKernF->getName() << ", NewFixpKernF=" << NewFixpKernF->getName() << "\n");
 
     FuncsToDelete.append({&F, KernF, NewKernF});
@@ -108,7 +108,7 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
     for (MDNode* NVVMNode : NVVMM->operands()) {
       ValueAsMetadata* MDKF = dyn_cast<ValueAsMetadata>(NVVMNode->getOperand(0U));
       if (MDKF->getValue() == KernF) {
-        LLVM_DEBUG(dbgs() << "Found NVVM annotation " << *NVVMNode << "\n");
+        LLVM_DEBUG(log() << "Found NVVM annotation " << *NVVMNode << "\n");
         MDNode* NewNVVMNode = MDNode::get(
           M->getContext(), {ValueAsMetadata::get(NewFixpKernF), NVVMNode->getOperand(1U), NVVMNode->getOperand(2U)});
         NVVMM->setOperand(I, NewNVVMNode);
@@ -119,5 +119,5 @@ void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
 
   for (Function* f : FuncsToDelete)
     TaffoInfo::getInstance().eraseValue(f);
-  LLVM_DEBUG(dbgs() << "Finished!\n");
+  LLVM_DEBUG(log() << "Finished!\n");
 }

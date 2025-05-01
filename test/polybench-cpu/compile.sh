@@ -46,7 +46,7 @@ compile_one()
     $MIXIMI  \
     -debug \
     -lm \
-    2> build/${benchname}.log || return $?
+    &> build/${benchname}.log || return $?
     
   if [[ $RUN_METRICS -ne 0 ]]; then
     mkdir -p results-out

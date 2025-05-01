@@ -25,20 +25,20 @@ Optimizer::Optimizer(
     cpuCosts = CPUCosts(mm, TTI);
   }
 
-  LLVM_DEBUG(dbgs() << "\n\n\n[WARNING] Mixed precision mode enabled. This is an experimental feature. Use it at your "
+  LLVM_DEBUG(log() << "\n\n\n[WARNING] Mixed precision mode enabled. This is an experimental feature. Use it at your "
                        "own risk!\n\n\n";);
   cpuCosts.dump();
-  LLVM_DEBUG(dbgs() << "ENOB tuning knob: " << to_string(TUNING_ENOB) << "\n";);
-  LLVM_DEBUG(dbgs() << "Time tuning knob: " << to_string(TUNING_MATH) << "\n";);
-  LLVM_DEBUG(dbgs() << "Time tuning CAST knob: " << to_string(TUNING_CASTING) << "\n";);
+  LLVM_DEBUG(log() << "ENOB tuning knob: " << to_string(TUNING_ENOB) << "\n";);
+  LLVM_DEBUG(log() << "Time tuning knob: " << to_string(TUNING_MATH) << "\n";);
+  LLVM_DEBUG(log() << "Time tuning CAST knob: " << to_string(TUNING_CASTING) << "\n";);
   metric->setOpt(this);
 
-  LLVM_DEBUG(dbgs() << "has double: " << to_string(hasDouble) << "\n";);
-  LLVM_DEBUG(dbgs() << "has half: " << to_string(hasHalf) << "\n";);
-  LLVM_DEBUG(dbgs() << "has Quad: " << to_string(hasQuad) << "\n";);
-  LLVM_DEBUG(dbgs() << "has PPC128: " << to_string(hasPPC128) << "\n";);
-  LLVM_DEBUG(dbgs() << "has FP80: " << to_string(hasFP80) << "\n";);
-  LLVM_DEBUG(dbgs() << "has BF16: " << to_string(hasBF16) << "\n";);
+  LLVM_DEBUG(log() << "has double: " << to_string(hasDouble) << "\n";);
+  LLVM_DEBUG(log() << "has half: " << to_string(hasHalf) << "\n";);
+  LLVM_DEBUG(log() << "has Quad: " << to_string(hasQuad) << "\n";);
+  LLVM_DEBUG(log() << "has PPC128: " << to_string(hasPPC128) << "\n";);
+  LLVM_DEBUG(log() << "has FP80: " << to_string(hasFP80) << "\n";);
+  LLVM_DEBUG(log() << "has BF16: " << to_string(hasBF16) << "\n";);
 }
 
 Optimizer::~Optimizer() = default;
@@ -46,7 +46,7 @@ Optimizer::~Optimizer() = default;
 void Optimizer::initialize() {
 
   for (Function& f : module.functions()) {
-    LLVM_DEBUG(dbgs() << "\nGetting info of " << f.getName() << ":\n");
+    LLVM_DEBUG(log() << "\nGetting info of " << f.getName() << ":\n");
     if (f.empty())
       continue;
     const std::string name = f.getName().str();
@@ -56,38 +56,38 @@ void Optimizer::initialize() {
 }
 
 void Optimizer::handleGlobal(GlobalObject* glob, shared_ptr<TunerInfo> tunerInfo) {
-  LLVM_DEBUG(dbgs() << "handleGlobal called.\n");
+  LLVM_DEBUG(log() << "handleGlobal called.\n");
 
   auto* globalVar = dyn_cast_or_null<GlobalVariable>(glob);
   assert(globalVar && "glob is not a global variable!");
 
   if (!glob->getValueType()->isPointerTy()) {
     if (!tunerInfo->metadata->isConversionEnabled()) {
-      LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!");
+      LLVM_DEBUG(log() << "Skipping as conversion is disabled!");
       return;
     }
     if (tunerInfo->metadata->getKind() == ValueInfo::K_Scalar) {
-      LLVM_DEBUG(dbgs() << " ^ This is a real field\n");
+      LLVM_DEBUG(log() << " ^ This is a real field\n");
       auto fieldInfo = std::dynamic_ptr_cast<ScalarInfo>(tunerInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n");
+        LLVM_DEBUG(log() << "Not enough information. Bailing out.\n\n");
         return;
       }
 
       auto fptype = std::dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
-        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
+        LLVM_DEBUG(log() << "No fixed point info associated. Bailing out.\n");
         return;
       }
       auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->range, fieldInfo->error, false);
       metric->saveInfoForValue(glob, make_shared<OptimizerPointerInfo>(optInfo));
     }
     else if (tunerInfo->metadata->getKind() == ValueInfo::K_Struct) {
-      LLVM_DEBUG(dbgs() << " ^ This is a real structure\n");
+      LLVM_DEBUG(log() << " ^ This is a real structure\n");
 
       auto fieldInfo = std::dynamic_ptr_cast<StructInfo>(tunerInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "No struct info. Bailing out.\n");
+        LLVM_DEBUG(log() << "No struct info. Bailing out.\n");
         return;
       }
 
@@ -100,22 +100,22 @@ void Optimizer::handleGlobal(GlobalObject* glob, shared_ptr<TunerInfo> tunerInfo
   }
   else {
     if (!tunerInfo->metadata->isConversionEnabled()) {
-      LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!");
+      LLVM_DEBUG(log() << "Skipping as conversion is disabled!");
       return;
     }
-    LLVM_DEBUG(dbgs() << " ^ this is a pointer.\n");
+    LLVM_DEBUG(log() << " ^ this is a pointer.\n");
 
     if (tunerInfo->metadata->getKind() == ValueInfo::K_Scalar) {
-      LLVM_DEBUG(dbgs() << " ^ This is a real field ptr\n");
+      LLVM_DEBUG(log() << " ^ This is a real field ptr\n");
       auto fieldInfo = std::dynamic_ptr_cast<ScalarInfo>(tunerInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n");
+        LLVM_DEBUG(log() << "Not enough information. Bailing out.\n\n");
         return;
       }
 
       auto fptype = std::dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
-        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n");
+        LLVM_DEBUG(log() << "No fixed point info associated. Bailing out.\n");
         return;
       }
       // FIXME: hack, this is done to respect the fact that a pointer (yes, even a simple pointer) may be used by ugly
@@ -123,21 +123,21 @@ void Optimizer::handleGlobal(GlobalObject* glob, shared_ptr<TunerInfo> tunerInfo
       // allocate a new value even if it may be overwritten at some time...
 
       if (globalVar->hasInitializer() && !globalVar->getInitializer()->isNullValue()) {
-        LLVM_DEBUG(dbgs() << "Has initializer and it is not a null value! Need more processing!\n");
+        LLVM_DEBUG(log() << "Has initializer and it is not a null value! Need more processing!\n");
       }
       else {
-        LLVM_DEBUG(dbgs() << "No initializer, or null value!\n");
+        LLVM_DEBUG(log() << "No initializer, or null value!\n");
         auto optInfo = metric->allocateNewVariableForValue(glob, fptype, fieldInfo->range, fieldInfo->error, false);
         // This is a pointer, so the reference to it is a pointer to a pointer yay
         metric->saveInfoForValue(glob, make_shared<OptimizerPointerInfo>(make_shared<OptimizerPointerInfo>(optInfo)));
       }
     }
     else if (tunerInfo->metadata->getKind() == ValueInfo::K_Struct) {
-      LLVM_DEBUG(dbgs() << " ^ This is a real structure ptr\n");
+      LLVM_DEBUG(log() << " ^ This is a real structure ptr\n");
 
       auto fieldInfo = std::dynamic_ptr_cast<StructInfo>(tunerInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "No struct info. Bailing out.\n");
+        LLVM_DEBUG(log() << "No struct info. Bailing out.\n");
         return;
       }
 
@@ -154,13 +154,13 @@ void Optimizer::handleGlobal(GlobalObject* glob, shared_ptr<TunerInfo> tunerInfo
 void Optimizer::handleCallFromRoot(Function* f) {
   // Therefore this should be added as a cost, not simply ignored
 
-  LLVM_DEBUG(dbgs() << "\n============ FUNCTION FROM ROOT: " << f->getName() << " ============\n";);
+  LLVM_DEBUG(log() << "\n============ FUNCTION FROM ROOT: " << f->getName() << " ============\n";);
   const std::string calledFunctionName = f->getName().str();
-  LLVM_DEBUG(dbgs() << ("We are calling " + calledFunctionName + " from root\n"););
+  LLVM_DEBUG(log() << ("We are calling " + calledFunctionName + " from root\n"););
 
   auto function = known_functions.find(calledFunctionName);
   if (function == known_functions.end()) {
-    LLVM_DEBUG(dbgs() << "Calling an external function, UNSUPPORTED at the moment.\n";);
+    LLVM_DEBUG(log() << "Calling an external function, UNSUPPORTED at the moment.\n";);
     return;
   }
 
@@ -171,19 +171,19 @@ void Optimizer::handleCallFromRoot(Function* f) {
   // fetch ranges of arguments
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
   std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors;
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  LLVM_DEBUG(log() << ("Arguments:\n"););
   for (auto arg = f->arg_begin(); arg != f->arg_end(); arg++) {
-      LLVM_DEBUG(dbgs() << "info for ";);
-      (arg)->print(LLVM_DEBUG(dbgs()););
-      LLVM_DEBUG(dbgs() << " --> ";);
+      LLVM_DEBUG(log() << "info for ";);
+      (arg)->print(LLVM_DEBUG(log()););
+      LLVM_DEBUG(log() << " --> ";);
 
       //if a variable was declared for type
       auto info = getInfoOfValue(arg);
       if (!info) {
           //This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-          LLVM_DEBUG(dbgs() << "No error for the argument!\n";);
+          LLVM_DEBUG(log() << "No error for the argument!\n";);
       } else {
-          LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
+          LLVM_DEBUG(log() << "Got this error: " << info->toString() << "\n";);
       }
 
       //Even if is a null value, we push it!
@@ -195,19 +195,19 @@ void Optimizer::handleCallFromRoot(Function* f) {
           arg_scalar_errors.push_back(arg_info_scalar);
       }
       //}
-      LLVM_DEBUG(dbgs() << "\n\n";);
+      LLVM_DEBUG(log() << "\n\n";);
   }
-  LLVM_DEBUG(dbgs() << ("Arguments end.");*/
+  LLVM_DEBUG(log() << ("Arguments end.");*/
 
   auto it = functions_still_to_visit.find(calledFunctionName);
   if (it != functions_still_to_visit.end()) {
     // We mark the called function as visited from the global queue, so we will not visit it starting from root.
     functions_still_to_visit.erase(calledFunctionName);
-    LLVM_DEBUG(dbgs() << "Function " << calledFunctionName << " marked as visited in global queue.\n";);
+    LLVM_DEBUG(log() << "Function " << calledFunctionName << " marked as visited in global queue.\n";);
   }
   else {
     LLVM_DEBUG(
-      dbgs()
+      log()
         << "[WARNING] We already visited this function, for example when called from another function. Ignoring.\n";);
 
     return;
@@ -219,18 +219,18 @@ void Optimizer::handleCallFromRoot(Function* f) {
   if (auto inputInfo = std::dynamic_ptr_cast<InputInfo>(valueInfo->metadata)) {
       auto fptype = std::dynamic_ptr_cast<FixpType>(inputInfo->IType);
       if (fptype) {
-          LLVM_DEBUG(dbgs() << fptype->toString(););
+          LLVM_DEBUG(log() << fptype->toString(););
           shared_ptr<OptimizerScalarInfo> result = allocateNewVariableForValue(instruction, fptype, inputInfo->IRange);
           retInfo = result;
       } else {
-          LLVM_DEBUG(dbgs() << "There was an input info but no fix point associated.\n";);
+          LLVM_DEBUG(log() << "There was an input info but no fix point associated.\n";);
       }
   } else if (auto pInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo->metadata)) {
       auto info = loadStructInfo(instruction, pInfo, "");
       saveInfoForValue(instruction, info);
       retInfo = info;
   } else {
-      LLVM_DEBUG(dbgs() << "No info available on return value, maybe it is not a floating point call.\n";);
+      LLVM_DEBUG(log() << "No info available on return value, maybe it is not a floating point call.\n";);
   }*/
 
   // in retInfo we now have a variable for the return value of the function. Every return should be casted against it!
@@ -240,7 +240,7 @@ void Optimizer::handleCallFromRoot(Function* f) {
   // In this case we have no known math function.
   // We will have, when enabled, math functions. In this case these will be handled here!
 
-  LLVM_DEBUG(dbgs() << ("The function belongs to the current module.\n"););
+  LLVM_DEBUG(log() << ("The function belongs to the current module.\n"););
   // got the Function
 
   // check for recursion
@@ -253,13 +253,13 @@ void Optimizer::handleCallFromRoot(Function* f) {
   }*/
 
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  LLVM_DEBUG(log() << ("Arguments:\n"););
   for (auto arg_i = f->arg_begin(); arg_i != f->arg_end(); arg_i++) {
     Value* value = &(*arg_i);
-    LLVM_DEBUG(dbgs() << "**** ARG " << *value << "\n");
+    LLVM_DEBUG(log() << "**** ARG " << *value << "\n");
 
     if (!tuner->hasTunerInfo(value)) {
-      LLVM_DEBUG(dbgs() << "Arg " << *value << " has no TUNER INFO, not creating variable\n");
+      LLVM_DEBUG(log() << "Arg " << *value << " has no TUNER INFO, not creating variable\n");
       // Even if is a null value, we push it!
       arg_errors.push_back(nullptr);
       continue;
@@ -270,26 +270,26 @@ void Optimizer::handleCallFromRoot(Function* f) {
 
     /* FIXME: this is basically a copy-paste from handleAlloca. Similar instances should be de-duplicated */
     if (valueInfo->metadata->getKind() == ValueInfo::K_Scalar) {
-      LLVM_DEBUG(dbgs() << "Arg " << *value << " This is a real field\n";);
+      LLVM_DEBUG(log() << "Arg " << *value << " This is a real field\n";);
       auto fieldInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+        LLVM_DEBUG(log() << "Not enough information. Bailing out.\n\n";);
         return;
       }
 
       auto fptype = std::dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
       if (!fptype) {
-        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+        LLVM_DEBUG(log() << "No fixed point info associated. Bailing out.\n";);
         return;
       }
       optScalInfo = metric->allocateNewVariableForValue(value, fptype, fieldInfo->range, fieldInfo->error, false);
     }
     else if (valueInfo->metadata->getKind() == ValueInfo::K_Struct) {
-      LLVM_DEBUG(dbgs() << "Arg " << *value << " This is a real structure\n";);
+      LLVM_DEBUG(log() << "Arg " << *value << " This is a real structure\n";);
 
       auto fieldInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "No struct info. Bailing out.\n";);
+        LLVM_DEBUG(log() << "No struct info. Bailing out.\n";);
         return;
       }
 
@@ -309,7 +309,7 @@ void Optimizer::handleCallFromRoot(Function* f) {
     }
   }
 
-  LLVM_DEBUG(dbgs() << ("Processing function...\n"););
+  LLVM_DEBUG(log() << ("Processing function...\n"););
 
   // Initialize trip count
   currentInstruction = nullptr;
@@ -324,20 +324,20 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
   // fetch ranges of arguments
   std::list<shared_ptr<OptimizerInfo>> arg_errors;
   // std::list<shared_ptr<OptimizerScalarInfo>> arg_scalar_errors; // UNUSED
-  LLVM_DEBUG(dbgs() << ("Arguments:\n"););
+  LLVM_DEBUG(log() << ("Arguments:\n"););
   for (auto arg_it = call_i->arg_begin(); arg_it != call_i->arg_end(); ++arg_it) {
-    LLVM_DEBUG(dbgs() << "info for ";);
-    LLVM_DEBUG((*arg_it)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << " --> ";);
+    LLVM_DEBUG(log() << "info for ";);
+    LLVM_DEBUG((*arg_it)->print(log()););
+    LLVM_DEBUG(log() << " --> ";);
 
     // if a variable was declared for type
     auto info = getInfoOfValue(*arg_it);
     if (!info) {
       // This is needed to resolve eventual constants in function call (I'm looking at you, LLVM)
-      LLVM_DEBUG(dbgs() << "No tuner information for the argument!\n";);
+      LLVM_DEBUG(log() << "No tuner information for the argument!\n";);
     }
     else {
-      LLVM_DEBUG(dbgs() << "Got this error: " << info->toString() << "\n";);
+      LLVM_DEBUG(log() << "Got this error: " << info->toString() << "\n";);
     }
 
     // Even if is a null value, we push it!
@@ -350,9 +350,9 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
     //  arg_scalar_errors.push_back(arg_info_scalar);
     //}
     //}
-    LLVM_DEBUG(dbgs() << "\n\n";);
+    LLVM_DEBUG(log() << "\n\n";);
   }
-  LLVM_DEBUG(dbgs() << ("Arguments end.\n"););
+  LLVM_DEBUG(log() << ("Arguments end.\n"););
 
   return arg_errors;
 }
@@ -360,23 +360,23 @@ list<shared_ptr<OptimizerInfo>> Optimizer::fetchFunctionCallArgumentInfo(const C
 void Optimizer::processFunction(Function& f,
                                 list<shared_ptr<OptimizerInfo>> argInfo,
                                 shared_ptr<OptimizerInfo> retInfo) {
-  LLVM_DEBUG(dbgs() << "\n============ FUNCTION " << f.getName() << " ============\n";);
+  LLVM_DEBUG(log() << "\n============ FUNCTION " << f.getName() << " ============\n";);
 
   if (f.arg_size() != argInfo.size())
     llvm_unreachable("Sizes should be equal!");
 
-  LLVM_DEBUG(dbgs() << "Processing arguments...\n");
+  LLVM_DEBUG(log() << "Processing arguments...\n");
   auto argInfoIt = argInfo.begin();
   for (auto arg = f.arg_begin(); arg != f.arg_end(); arg++, argInfoIt++) {
     if (*argInfoIt) {
-      LLVM_DEBUG(dbgs() << "Copying info of argument " << *arg << ", coming from caller\n");
+      LLVM_DEBUG(log() << "Copying info of argument " << *arg << ", coming from caller\n");
       metric->saveInfoForValue(&(*arg), *argInfoIt);
     }
     else {
-      LLVM_DEBUG(dbgs() << "Argument " << *arg << " has no info, ignoring\n");
+      LLVM_DEBUG(log() << "Argument " << *arg << " has no info, ignoring\n");
     }
   }
-  LLVM_DEBUG(dbgs() << "Finished processing arguments.\n\n");
+  LLVM_DEBUG(log() << "Finished processing arguments.\n\n");
 
   // Even if null, we push this on the stack. The return will handle it hopefully
   retStack.push(retInfo);
@@ -385,15 +385,15 @@ void Optimizer::processFunction(Function& f,
   for (inst_iterator iIt = inst_begin(&f), iItEnd = inst_end(&f); iIt != iItEnd; iIt++) {
     // C++ is horrible
     Instruction* I = &(*iIt);
-    LLVM_DEBUG(dbgs() << *I << "     -having-     ");
+    LLVM_DEBUG(log() << *I << "     -having-     ");
     if (!tuner->hasTunerInfo(I) || !tuner->getTunerInfo(I)->metadata) {
-      LLVM_DEBUG(dbgs() << "No TUNER INFO available.\n";);
+      LLVM_DEBUG(log() << "No TUNER INFO available.\n";);
     }
     else {
-      LLVM_DEBUG(dbgs() << tuner->getTunerInfo(I)->metadata->toString() << "\n";);
+      LLVM_DEBUG(log() << tuner->getTunerInfo(I)->metadata->toString() << "\n";);
 
       if (!tuner->getTunerInfo(I)->metadata->isConversionEnabled()) {
-        LLVM_DEBUG(dbgs() << "Skipping as conversion is disabled!\n";);
+        LLVM_DEBUG(log() << "Skipping as conversion is disabled!\n";);
         DisabledSkipped++;
         continue;
       }
@@ -405,14 +405,14 @@ void Optimizer::processFunction(Function& f,
         std::shared_ptr<ValueInfo> MDI = VI->metadata;
         std::shared_ptr<ScalarInfo> II = std::dynamic_ptr_cast<ScalarInfo>(MDI);
         if (II && II->range == nullptr && I->getType()->isFloatingPointTy()) {
-          LLVM_DEBUG(dbgs() << "Skipping because there is no range!\n";);
+          LLVM_DEBUG(log() << "Skipping because there is no range!\n";);
           continue;
         }
       }
     }
 
     handleInstruction(I, tuner->getTunerInfo(I));
-    LLVM_DEBUG(dbgs() << "\n\n";);
+    LLVM_DEBUG(log() << "\n\n";);
   }
 
   // When the analysis is completed, we remove the info from the stack, as it is no more necessary.
@@ -430,9 +430,9 @@ shared_ptr<OptimizerInfo> Optimizer::getInfoOfValue(Value* value) {
   if (auto constant = dyn_cast_or_null<Constant>(value))
     return metric->processConstant(constant);
 
-  LLVM_DEBUG(dbgs() << "Could not find any OPTIMIZER INFO for ");
-  LLVM_DEBUG(value->print(dbgs()););
-  LLVM_DEBUG(dbgs() << "     :( \n");
+  LLVM_DEBUG(log() << "Could not find any OPTIMIZER INFO for ");
+  LLVM_DEBUG(value->print(log()););
+  LLVM_DEBUG(log() << "     :( \n");
 
   return nullptr;
 }
@@ -474,7 +474,7 @@ void Optimizer::handleBinaryInstruction(Instruction* instr,
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor:
-    LLVM_DEBUG(dbgs() << "Skipping operation between integers...\n";);
+    LLVM_DEBUG(log() << "Skipping operation between integers...\n";);
     break;
   default:
     emitError("Unhandled binary operator " + to_string(OpCode)); // unsupported operation
@@ -484,14 +484,14 @@ void Optimizer::handleBinaryInstruction(Instruction* instr,
 
 void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
   // This will be a mess. God bless you.
-  LLVM_DEBUG(dbgs() << "Handling instruction " << (instruction->dump(), "\n"));
+  LLVM_DEBUG(log() << "Handling instruction " << (instruction->dump(), "\n"));
   currentInstruction = instruction;
   Module& M = *(instruction->getFunction()->getParent());
   unsigned int info = computeFullTripCount(tuner->getFAM(M), instruction);
-  LLVM_DEBUG(dbgs() << "Optimizer: got trip count " << info << "\n");
+  LLVM_DEBUG(log() << "Optimizer: got trip count " << info << "\n");
   unsigned int prevInstrTripCount = currentInstructionTripCount;
   currentInstructionTripCount *= info;
-  LLVM_DEBUG(dbgs() << "Current cumulative trip count: " << currentInstructionTripCount << "\n");
+  LLVM_DEBUG(log() << "Current cumulative trip count: " << currentInstructionTripCount << "\n");
 
   const unsigned opCode = instruction->getOpcode();
   if (opCode == Instruction::Call) {
@@ -543,7 +543,7 @@ void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo
 
       // other operations
     case Instruction::ICmp: {
-      LLVM_DEBUG(dbgs() << "Comparing two integers, skipping...\n");
+      LLVM_DEBUG(log() << "Comparing two integers, skipping...\n");
       break;
     }
     case Instruction::FCmp: {
@@ -593,14 +593,14 @@ void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo
 
 int Optimizer::getCurrentInstructionCost() {
   if (MixedTripCount == false) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": option -mixedtripcount off, returning 1.\n");
+    LLVM_DEBUG(log() << __FUNCTION__ << ": option -mixedtripcount off, returning 1.\n");
     return 1;
   }
   if (currentInstruction == nullptr) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": wait, we are not processing any instruction right now... Returning 1.\n");
+    LLVM_DEBUG(log() << __FUNCTION__ << ": wait, we are not processing any instruction right now... Returning 1.\n");
     return 1;
   }
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": cost appears to be trip count of " << *currentInstruction << "\n");
+  LLVM_DEBUG(log() << __FUNCTION__ << ": cost appears to be trip count of " << *currentInstruction << "\n");
   return currentInstructionTripCount;
 }
 
@@ -645,18 +645,18 @@ void Optimizer::handleTerminators(Instruction* term, shared_ptr<TunerInfo> value
   return;
 }
 
-void Optimizer::emitError(const string& stringhina) { LLVM_DEBUG(dbgs() << "[ERROR] " << stringhina << "\n"); }
+void Optimizer::emitError(const string& stringhina) { LLVM_DEBUG(log() << "[ERROR] " << stringhina << "\n"); }
 
 bool Optimizer::finish() {
-  LLVM_DEBUG(dbgs() << "[Phi] Phi node state:\n");
+  LLVM_DEBUG(log() << "[Phi] Phi node state:\n");
   phiWatcher.dumpState();
 
-  LLVM_DEBUG(dbgs() << "[Mem] MemPhi node state:\n");
+  LLVM_DEBUG(log() << "[Mem] MemPhi node state:\n");
   memWatcher.dumpState();
 
   bool result = model.finalizeAndSolve();
 
-  LLVM_DEBUG(dbgs() << "Skipped conversions due to disabled flag: " << DisabledSkipped << "\n");
+  LLVM_DEBUG(log() << "Skipped conversions due to disabled flag: " << DisabledSkipped << "\n");
 
   return result;
 }
@@ -713,7 +713,7 @@ bool Optimizer::valueHasInfo(Value* value) { return valueToVariableName.find(val
 shared_ptr<ValueInfo> Optimizer::getAssociatedMetadata(Value* pValue) {
   auto res = getInfoOfValue(pValue);
   if (res == nullptr) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << " failed because getInfoOfValue returned nullptr.\n");
+    LLVM_DEBUG(log() << __FUNCTION__ << " failed because getInfoOfValue returned nullptr.\n");
     return nullptr;
   }
 
@@ -729,7 +729,7 @@ shared_ptr<ValueInfo> Optimizer::getAssociatedMetadata(Value* pValue) {
 
 shared_ptr<ValueInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> info) {
   if (!info) {
-    LLVM_DEBUG(dbgs() << "OptimizerInfo null, returning null\n");
+    LLVM_DEBUG(log() << "OptimizerInfo null, returning null\n");
     return nullptr;
   }
 
@@ -749,24 +749,24 @@ shared_ptr<ValueInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> in
   }
   else if (info->getKind() == OptimizerInfo::K_Pointer) {
     auto apr = std::dynamic_ptr_cast<OptimizerPointerInfo>(info);
-    LLVM_DEBUG(dbgs() << "Unwrapping pointer...\n");
+    LLVM_DEBUG(log() << "Unwrapping pointer...\n");
     return buildDataHierarchy(apr->getOptInfo());
   }
 
-  LLVM_DEBUG(dbgs() << "Unknown OptimizerInfo: " << info->toString() << "\n");
+  LLVM_DEBUG(log() << "Unknown OptimizerInfo: " << info->toString() << "\n");
   llvm_unreachable("Unknown data type");
 }
 
 shared_ptr<NumericTypeInfo> Optimizer::modelvarToTType(shared_ptr<OptimizerScalarInfo> scalarInfo) {
   if (!scalarInfo) {
-    LLVM_DEBUG(dbgs() << "Nullptr scalar info!");
+    LLVM_DEBUG(log() << "Nullptr scalar info!");
     return nullptr;
   }
-  LLVM_DEBUG(dbgs() << "model var values\n");
+  LLVM_DEBUG(log() << "model var values\n");
   double selectedFixed = model.getVariableValue(scalarInfo->getFixedSelectedVariable());
-  LLVM_DEBUG(dbgs() << scalarInfo->getFixedSelectedVariable() << " " << selectedFixed << "\n");
+  LLVM_DEBUG(log() << scalarInfo->getFixedSelectedVariable() << " " << selectedFixed << "\n");
   double selectedFloat = model.getVariableValue(scalarInfo->getFloatSelectedVariable());
-  LLVM_DEBUG(dbgs() << scalarInfo->getFloatSelectedVariable() << " " << selectedFloat << "\n");
+  LLVM_DEBUG(log() << scalarInfo->getFloatSelectedVariable() << " " << selectedFloat << "\n");
   double selectedDouble = 0;
   double selectedHalf = 0;
   double selectedFP80 = 0;
@@ -776,27 +776,27 @@ shared_ptr<NumericTypeInfo> Optimizer::modelvarToTType(shared_ptr<OptimizerScala
 
   if (hasDouble) {
     selectedDouble = model.getVariableValue(scalarInfo->getDoubleSelectedVariable());
-    LLVM_DEBUG(dbgs() << scalarInfo->getDoubleSelectedVariable() << " " << selectedDouble << "\n");
+    LLVM_DEBUG(log() << scalarInfo->getDoubleSelectedVariable() << " " << selectedDouble << "\n");
   }
   if (hasHalf) {
     selectedHalf = model.getVariableValue(scalarInfo->getHalfSelectedVariable());
-    LLVM_DEBUG(dbgs() << scalarInfo->getHalfSelectedVariable() << " " << selectedHalf << "\n");
+    LLVM_DEBUG(log() << scalarInfo->getHalfSelectedVariable() << " " << selectedHalf << "\n");
   }
   if (hasQuad) {
     selectedQuad = model.getVariableValue(scalarInfo->getQuadSelectedVariable());
-    LLVM_DEBUG(dbgs() << scalarInfo->getQuadSelectedVariable() << " " << selectedQuad << "\n");
+    LLVM_DEBUG(log() << scalarInfo->getQuadSelectedVariable() << " " << selectedQuad << "\n");
   }
   if (hasPPC128) {
     selectedPPC128 = model.getVariableValue(scalarInfo->getPPC128SelectedVariable());
-    LLVM_DEBUG(dbgs() << scalarInfo->getPPC128SelectedVariable() << " " << selectedPPC128 << "\n");
+    LLVM_DEBUG(log() << scalarInfo->getPPC128SelectedVariable() << " " << selectedPPC128 << "\n");
   }
   if (hasFP80) {
     selectedFP80 = model.getVariableValue(scalarInfo->getFP80SelectedVariable());
-    LLVM_DEBUG(dbgs() << scalarInfo->getFP80SelectedVariable() << " " << selectedFP80 << "\n");
+    LLVM_DEBUG(log() << scalarInfo->getFP80SelectedVariable() << " " << selectedFP80 << "\n");
   }
   if (hasBF16) {
     selectedBF16 = model.getVariableValue(scalarInfo->getBF16SelectedVariable());
-    LLVM_DEBUG(dbgs() << scalarInfo->getBF16SelectedVariable() << " " << selectedBF16 << "\n");
+    LLVM_DEBUG(log() << scalarInfo->getBF16SelectedVariable() << " " << selectedBF16 << "\n");
   }
 
   double fracbits = model.getVariableValue(scalarInfo->getFractBitsVariable());
@@ -850,14 +850,14 @@ shared_ptr<NumericTypeInfo> Optimizer::modelvarToTType(shared_ptr<OptimizerScala
 }
 
 void Optimizer::printStatInfos() {
-  LLVM_DEBUG(dbgs() << "Converted to fix: " << StatSelectedFixed << "\n");
-  LLVM_DEBUG(dbgs() << "Converted to float: " << StatSelectedFloat << "\n");
-  LLVM_DEBUG(dbgs() << "Converted to double: " << StatSelectedDouble << "\n");
-  LLVM_DEBUG(dbgs() << "Converted to half: " << StatSelectedHalf << "\n");
+  LLVM_DEBUG(log() << "Converted to fix: " << StatSelectedFixed << "\n");
+  LLVM_DEBUG(log() << "Converted to float: " << StatSelectedFloat << "\n");
+  LLVM_DEBUG(log() << "Converted to double: " << StatSelectedDouble << "\n");
+  LLVM_DEBUG(log() << "Converted to half: " << StatSelectedHalf << "\n");
 
   int total = StatSelectedFixed + StatSelectedFloat + StatSelectedDouble + StatSelectedHalf;
 
-  LLVM_DEBUG(dbgs() << "Conversion entropy as equally distributed variables: "
+  LLVM_DEBUG(log() << "Conversion entropy as equally distributed variables: "
                     << -(((double) StatSelectedDouble / total) * log2(((double) StatSelectedDouble) / total)
                          + ((double) StatSelectedFloat / total) * log2(((double) StatSelectedFloat) / total)
                          + ((double) StatSelectedDouble / total) * log2(((double) StatSelectedDouble) / total))

@@ -3,6 +3,7 @@
 #include "CodeInterpreter.hpp"
 #include "PtrCasts.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
+#include "Debug/Logger.hpp"
 
 #include <llvm/Support/Debug.h>
 
@@ -23,21 +24,21 @@ public:
   void logBasicBlock(const llvm::BasicBlock* BB) const override {
     assert(BB);
     lineHead();
-    llvm::dbgs() << BB->getName() << "\n";
+    log() << BB->getName() << "\n";
   }
 
   void logStartFunction(const llvm::Function* F) override {
     assert(F);
     ++IndentLevel;
-    llvm::dbgs() << "\n";
+    log() << "\n";
     lineHead();
-    llvm::dbgs() << "Interpreting function " << F->getName() << "\n";
+    log() << "Interpreting function " << F->getName() << "\n";
   }
 
   void logEndFunction(const llvm::Function* F) override {
     assert(F);
     lineHead();
-    llvm::dbgs() << "Finished interpreting function " << F->getName() << "\n\n";
+    log() << "Finished interpreting function " << F->getName() << "\n\n";
     if (IndentLevel > 0)
       --IndentLevel;
   }
@@ -45,27 +46,27 @@ public:
   void logInstruction(const llvm::Value* V) {
     assert(V);
     lineHead();
-    llvm::dbgs() << *V << ": ";
+    log() << *V << ": ";
   }
 
-  void logRange(const std::shared_ptr<ValueInfo> Range) { llvm::dbgs() << toString(Range); }
+  void logRange(const std::shared_ptr<ValueInfo> Range) { log() << toString(Range); }
 
-  void logRangeln(const std::shared_ptr<ValueInfo> Range) { llvm::dbgs() << toString(Range) << "\n"; }
+  void logRangeln(const std::shared_ptr<ValueInfo> Range) { log() << toString(Range) << "\n"; }
 
-  void logRange(const std::shared_ptr<Range> Range) { llvm::dbgs() << toString(Range); }
+  void logRange(const std::shared_ptr<Range> Range) { log() << toString(Range); }
 
-  void logRangeln(const std::shared_ptr<Range> Range) { llvm::dbgs() << toString(Range) << "\n"; }
+  void logRangeln(const std::shared_ptr<Range> Range) { log() << toString(Range) << "\n"; }
 
-  void logInfo(const llvm::StringRef Info) { llvm::dbgs() << "(" << Info << ") "; }
+  void logInfo(const llvm::StringRef Info) { log() << "(" << Info << ") "; }
 
-  void logInfoln(const llvm::StringRef Info) { llvm::dbgs() << Info << "\n"; }
+  void logInfoln(const llvm::StringRef Info) { log() << Info << "\n"; }
 
   void logErrorln(const llvm::StringRef Error) {
     lineHead();
-    llvm::dbgs() << Error << "\n";
+    log() << Error << "\n";
   }
 
-  void lineHead() const { llvm::dbgs() << DEBUG_HEAD << std::string(IndentLevel * 2U, ' '); }
+  void lineHead() const { log() << DEBUG_HEAD << std::string(IndentLevel * 2U, ' '); }
 
   static std::string toString(const std::shared_ptr<ValueInfo> Range) {
     if (Range) {

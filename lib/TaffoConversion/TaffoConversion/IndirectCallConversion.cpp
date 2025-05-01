@@ -41,7 +41,7 @@ void FloatToFixed::convertIndirectCalls(Module& m) {
     auto* indirectFunction = TaffoInfo::getInstance().getIndirectFunction(*trampolineCall);
 
     if (indirectFunction == nullptr) {
-      LLVM_DEBUG(dbgs() << "Blocking the following conversion for failed "
+      LLVM_DEBUG(log() << "Blocking the following conversion for failed "
                            "dyn_cast on the indirect function: "
                         << *trampolineCall << "\n");
       continue;

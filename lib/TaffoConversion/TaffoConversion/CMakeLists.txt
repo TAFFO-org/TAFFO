@@ -3,7 +3,7 @@ set(SELF TaffoConversion)
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   ConversionPass.hpp
   ConversionPass.cpp
-  MDCollector.cpp
+  ValueInfoCollector.cpp
   Conversion.cpp
   ConstantConversion.cpp
   IndirectCallConversion.cpp

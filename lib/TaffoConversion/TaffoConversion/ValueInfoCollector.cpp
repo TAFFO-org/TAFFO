@@ -50,7 +50,7 @@ void FloatToFixed::readAllLocalMetadata(Module& m, SmallVectorImpl<Value*>& res)
   for (Function& f : m.functions()) {
     bool argsOnly = false;
     if (TaffoInfo::getInstance().isTaffoCloneFunction(f)) {
-      LLVM_DEBUG(dbgs() << __FUNCTION__ << " skipping function body of " << f.getName() << " because it is cloned\n");
+      LLVM_DEBUG(log() << __FUNCTION__ << " skipping function body of " << f.getName() << " because it is cloned\n");
       functionPool[&f] = nullptr;
       argsOnly = true;
     }
@@ -67,13 +67,13 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
   if (hasConversionInfo(instr)) {
     auto existing = getConversionInfo(instr);
     if (existing->isArgumentPlaceholder) {
-      LLVM_DEBUG(dbgs() << "Skipping MD collection for " << *instr
-                        << " because it's a placeholder and has fake metadata anyway\n");
+      LLVM_DEBUG(log() << "Skipping MD collection for " << *instr
+                        << " because it's a placeholder and has fake valueInfo anyway\n");
       return false;
     }
   }
 
-  LLVM_DEBUG(dbgs() << "Collecting metadata for: " << *instr << "\n");
+  LLVM_DEBUG(log().log("Collecting valueInfo for: ").logValueln(instr));
 
   ConversionInfo vi;
   auto& taffoInfo = TaffoInfo::getInstance();
@@ -87,18 +87,18 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
     if (!instr->getType()->isVoidTy()) {
       NumericTypeInfo* fpt = dyn_cast_or_null<NumericTypeInfo>(fpInfo->numericType.get());
       if (!fpt) {
-        LLVM_DEBUG(dbgs() << "Type in metadata is null! ");
+        LLVM_DEBUG(log() << "Type in valueInfo is null! ");
         if (isKnownConvertibleWithIncompleteMetadata(instr)) {
-          LLVM_DEBUG(dbgs() << "Since I like this instruction I'm going to give it the benefit of the doubt.\n");
+          LLVM_DEBUG(log() << "Since I like this instruction I'm going to give it the benefit of the doubt.\n");
           vi.fixpType = std::make_shared<FixedPointScalarType>();
         }
         else {
-          LLVM_DEBUG(dbgs() << "Ignoring metadata for this instruction.\n");
+          LLVM_DEBUG(log() << "Ignoring valueInfo for this instruction.\n");
           return false;
         }
       }
       else {
-        assert(!(getUnwrappedType(instr)->isStructTy()) && "input info / actual type mismatch");
+        assert(!(getFullyUnwrappedType(instr)->isStructTy()) && "input info / actual type mismatch");
         vi.fixpType = std::make_shared<FixedPointScalarType>(fpt);
       }
     }
@@ -108,11 +108,11 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
   }
   else if (std::shared_ptr<StructInfo> fpInfo = std::dynamic_ptr_cast<StructInfo>(raw)) {
     if (!instr->getType()->isVoidTy()) {
-      assert(getUnwrappedType(instr)->isStructTy() && "input info / actual type mismatch");
+      assert(getFullyUnwrappedType(instr)->isStructTy() && "input info / actual type mismatch");
       int enableConversion = 0;
       vi.fixpType = std::make_shared<FixedPointStructType>(fpInfo, &enableConversion);
       if (enableConversion == 0) {
-        LLVM_DEBUG(dbgs() << "Conversion not enabled.\n");
+        LLVM_DEBUG(log() << "Conversion not enabled.\n");
         return false;
       }
     }
@@ -128,7 +128,7 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
     variables->push_back(instr);
   *newConversionInfo(instr) = vi;
 
-  LLVM_DEBUG(dbgs() << "Type deducted: " << *vi.fixpType << "\n");
+  LLVM_DEBUG(log() << "Type deducted: " << *vi.fixpType << "\n");
 
   return true;
 }
@@ -146,7 +146,7 @@ void FloatToFixed::removeNoFloatTy(SmallVectorImpl<Value*>& res) {
       ty = global->getType();
     }
     else {
-      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " not an alloca or a global, ignored\n");
+      LLVM_DEBUG(log() << "annotated instruction " << *it << " not an alloca or a global, ignored\n");
       it = res.erase(it);
       continue;
     }
@@ -159,7 +159,7 @@ void FloatToFixed::removeNoFloatTy(SmallVectorImpl<Value*>& res) {
       ty = ty->getArrayElementType();
     }
     if (!ty->isFloatingPointTy()) {
-      LLVM_DEBUG(dbgs() << "annotated instruction " << *it << " does not allocate a kind of float; ignored\n");
+      LLVM_DEBUG(log() << "annotated instruction " << *it << " does not allocate a kind of float; ignored\n");
       it = res.erase(it);
     }
     else

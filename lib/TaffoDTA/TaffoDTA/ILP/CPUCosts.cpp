@@ -67,12 +67,12 @@ std::string trim(std::string&& tmp) {
 }
 
 void CPUCosts::InizializeDisabledList() {
-  LLVM_DEBUG(llvm::dbgs() << "### Disabled List ###\n");
+  LLVM_DEBUG(log() << "### Disabled List ###\n");
   for (const auto& tmp : CostsIdValues) {
     disableMap[decodeId(tmp)] = false;
     if (tmp.find("ADD_") == 0) {
       disableNum[trim(tmp.substr(N, std::string::npos))] = 0;
-      LLVM_DEBUG(llvm::dbgs() << tmp.substr(N, std::string::npos) << ": "
+      LLVM_DEBUG(log() << tmp.substr(N, std::string::npos) << ": "
                               << disableNum[tmp.substr(N, std::string::npos)] << "\n");
     }
     if (tmp.find("HALF") != string::npos)
@@ -128,7 +128,7 @@ std::pair<double, double> CPUCosts::MaxMinCosts(const string& ref) {
 
 llvm::Type*
 CPUCosts::getType(unsigned int n, const string& tmpString, llvm::LLVMContext& context, llvm::Module& module) {
-  LLVM_DEBUG(llvm::dbgs() << tmpString << " with n " << n << " to " << tmpString.substr(n) << "\n");
+  LLVM_DEBUG(log() << tmpString << " with n " << n << " to " << tmpString.substr(n) << "\n");
   if (tmpString.find("FIX", n) == n)
     return llvm::Type::getIntNTy(context, module.getDataLayout().getPointerSizeInBits());
   if (tmpString.find("FLOAT", n) == n)
@@ -152,7 +152,7 @@ CPUCosts::getType(unsigned int n, const string& tmpString, llvm::LLVMContext& co
 bool CPUCosts::isDisabled(CostsId id) const { return disableMap.at(id); }
 
 void CPUCosts::SizeInizializer(llvm::Module& module, llvm::TargetTransformInfo& TTI) {
-  LLVM_DEBUG(llvm::dbgs() << "\n########### Cpu Size ###########\n");
+  LLVM_DEBUG(log() << "\n########### Cpu Size ###########\n");
   CPUCosts::LLVMInizializer(module, TTI, llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput);
   auto& context = module.getContext();
   double cost_inst = 0;
@@ -160,14 +160,14 @@ void CPUCosts::SizeInizializer(llvm::Module& module, llvm::TargetTransformInfo& 
     if (tmpString.find("CAST") != 0) {
       llvm::Type* type = nullptr;
       type = getType(N, tmpString, context, module);
-      LLVM_DEBUG(llvm::dbgs() << "Size of " << tmpString << " " << type->getPrimitiveSizeInBits() << "\n");
+      LLVM_DEBUG(log() << "Size of " << tmpString << " " << type->getPrimitiveSizeInBits() << "\n");
       cost_inst = (double) type->getPrimitiveSizeInBits();
     }
     else {
       int first_start = 5;
       int second_start = tmpString.find("_", first_start) + 1;
       llvm::Type* second_type = getType(second_start, tmpString, context, module);
-      LLVM_DEBUG(llvm::dbgs() << "Size of " << tmpString << " " << second_type->getPrimitiveSizeInBits() << "\n");
+      LLVM_DEBUG(log() << "Size of " << tmpString << " " << second_type->getPrimitiveSizeInBits() << "\n");
       cost_inst = second_type->getPrimitiveSizeInBits();
     }
     if (auto finded = costsMap.find(decodeId(tmpString)); finded == costsMap.end())
@@ -181,7 +181,7 @@ void CPUCosts::LLVMInizializer(llvm::Module& module,
                                llvm::TargetTransformInfo& TTI,
                                llvm::TargetTransformInfo::TargetCostKind costKind) {
 
-  LLVM_DEBUG(llvm::dbgs() << "\n########### Cpu LLVM ###########\n");
+  LLVM_DEBUG(log() << "\n########### Cpu LLVM ###########\n");
   auto& context = module.getContext();
   llvm::BasicBlock* TestBlock = llvm::BasicBlock::Create(context, "TO_REMOVE", &(*(module.begin())));
   llvm::IRBuilder<> builder(TestBlock);
@@ -225,7 +225,7 @@ void CPUCosts::LLVMInizializer(llvm::Module& module,
           inst = llvm::cast<llvm::Instruction>(builder.CreateFRem(first_load, second_load));
       }
       cost_inst = TTI.getInstructionCost(inst, costKind).getValue().getValueOr(DefaultInstrCost);
-      LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
+      LLVM_DEBUG(log() << tmpString << ": " << cost_inst << "\n");
       inst->eraseFromParent();
       second_load->eraseFromParent();
       first_load->eraseFromParent();
@@ -251,7 +251,7 @@ void CPUCosts::LLVMInizializer(llvm::Module& module,
       }
       cost_inst = TTI.getInstructionCost(inst,
       llvm::TargetTransformInfo::TargetCostKind::TCK_RecipThroughput).getValue().getValueOr(DefaultInstrCost);
-      LLVM_DEBUG(llvm::dbgs() << tmpString << ": " << cost_inst << "\n");
+      LLVM_DEBUG(log() << tmpString << ": " << cost_inst << "\n");
       if (inst != first_load)
         inst->eraseFromParent();
       if (first_load != nullptr)
@@ -291,7 +291,7 @@ void CPUCosts::ApplyAttribute(string& attr) {
           auto dec = decodeId(tmp);
           disableMap[dec] = true;
           costsMap.at(dec) = MODEL_HUGE;
-          LLVM_DEBUG(llvm::dbgs() << attr << ": " << disableNum.at(attr) << " cost " << costsMap.at(dec) << "\n");
+          LLVM_DEBUG(log() << attr << ": " << disableNum.at(attr) << " cost " << costsMap.at(dec) << "\n");
         }
       }
     }
@@ -302,12 +302,12 @@ void CPUCosts::ApplyAttribute(string& attr) {
 }
 
 void CPUCosts::loadInstructionSet() {
-  LLVM_DEBUG(llvm::dbgs() << "\n### Load Instruction Set ###\n");
+  LLVM_DEBUG(log() << "\n### Load Instruction Set ###\n");
   fstream fin;
 
   fin.open(InstructionSet, ios::in);
   if (!fin.is_open()) {
-    LLVM_DEBUG(llvm::dbgs() << "Instruction Set not provided"
+    LLVM_DEBUG(log() << "Instruction Set not provided"
                             << "\n");
     return;
   }
@@ -319,12 +319,12 @@ void CPUCosts::loadInstructionSet() {
       continue;
     unsigned long start = 0;
     unsigned long end = line.find(',');
-    LLVM_DEBUG(llvm::dbgs() << "line: " << line << "\n");
+    LLVM_DEBUG(log() << "line: " << line << "\n");
     while (end != std::string::npos) {
       string attr = line.substr(start, end - start);
-      LLVM_DEBUG(llvm::dbgs() << "Before trim " << attr << " start: " << start << " end: " << end << "\n");
+      LLVM_DEBUG(log() << "Before trim " << attr << " start: " << start << " end: " << end << "\n");
       trim(attr);
-      LLVM_DEBUG(llvm::dbgs() << "Attribute trimmed " << attr << "\n");
+      LLVM_DEBUG(log() << "Attribute trimmed " << attr << "\n");
       ApplyAttribute(attr);
       end = end + 1;
       start = end;
@@ -332,37 +332,37 @@ void CPUCosts::loadInstructionSet() {
     }
     string attr = line.substr(start, line.length() - start);
     trim(attr);
-    LLVM_DEBUG(llvm::dbgs() << "Attribute trimmed " << attr << "\n");
+    LLVM_DEBUG(log() << "Attribute trimmed " << attr << "\n");
     ApplyAttribute(attr);
   }
   fin.close();
 
-  LLVM_DEBUG(llvm::dbgs() << "ntype : " << n_types << "\n");
+  LLVM_DEBUG(log() << "ntype : " << n_types << "\n");
   for (const auto& values : disableNum) {
-    LLVM_DEBUG(llvm::dbgs() << "Values : ntype  -> " << values.first << " : " << values.second << "\n");
+    LLVM_DEBUG(log() << "Values : ntype  -> " << values.first << " : " << values.second << "\n");
     if (values.second == n_types) {
       if (values.first.find("HALF") == 0) {
-        LLVM_DEBUG(llvm::dbgs() << "No half\n");
+        LLVM_DEBUG(log() << "No half\n");
         hasHalf = false;
       }
       else if (values.first.find("QUAD") == 0) {
-        LLVM_DEBUG(llvm::dbgs() << "No quad\n");
+        LLVM_DEBUG(log() << "No quad\n");
         hasQuad = false;
       }
       else if (values.first.find("FP80") == 0) {
-        LLVM_DEBUG(llvm::dbgs() << "No fp80\n");
+        LLVM_DEBUG(log() << "No fp80\n");
         hasFP80 = false;
       }
       else if (values.first.find("PPC128") == 0) {
-        LLVM_DEBUG(llvm::dbgs() << "No ppc128\n");
+        LLVM_DEBUG(log() << "No ppc128\n");
         hasPPC128 = false;
       }
       else if (values.first.find("BF16") == 0) {
-        LLVM_DEBUG(llvm::dbgs() << "No bf16\n");
+        LLVM_DEBUG(log() << "No bf16\n");
         hasBF16 = false;
       }
       else if (values.first.find("DOUBLE") == 0) {
-        LLVM_DEBUG(llvm::dbgs() << "No double\n");
+        LLVM_DEBUG(log() << "No double\n");
         hasDouble = false;
       }
       else {
@@ -373,7 +373,7 @@ void CPUCosts::loadInstructionSet() {
 }
 
 void CPUCosts::loadModelFile(string& modelFile) {
-  LLVM_DEBUG(llvm::dbgs() << "### Load Model ###\n");
+  LLVM_DEBUG(log() << "### Load Model ###\n");
   fstream fin;
 
   fin.open(modelFile, ios::in);
@@ -394,13 +394,13 @@ void CPUCosts::loadModelFile(string& modelFile) {
 
     // Generate a stream in order to be used by getLine
     stringstream lineStream(line);
-    // llvm::dbgs() << "Line: " << line << "\n";
+    // log() << "Line: " << line << "\n";
 
     while (getline(lineStream, field, ','))
       row.push_back(field);
 
     if (row.size() != 2) {
-      LLVM_DEBUG(llvm::dbgs() << "Malformed line found: [" << line << "] on line" << nline << ", skipping...\n";);
+      LLVM_DEBUG(log() << "Malformed line found: [" << line << "] on line" << nline << ", skipping...\n";);
       continue;
     }
 
@@ -408,7 +408,7 @@ void CPUCosts::loadModelFile(string& modelFile) {
     value = stod(row[1]);
 
     if (costsMap.find(id) != costsMap.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "Found duplicated info: [" << line << "], skipping...\n";);
+      LLVM_DEBUG(log() << "Found duplicated info: [" << line << "], skipping...\n";);
       continue;
     }
 
@@ -427,16 +427,16 @@ CPUCosts::CostsId CPUCosts::decodeId(const string& basicString) {
 
   if (it != CostsIdValues.cend()) {
     int index = it - CostsIdValues.cbegin();
-    // LLVM_DEBUG(llvm::dbgs() <<  " found [" << *it <<"]\n" );
+    // LLVM_DEBUG(log() <<  " found [" << *it <<"]\n" );
     return CostsId(index);
   }
 
   LLVM_DEBUG(
     {
       for (const auto& i : CostsIdValues)
-        LLVM_DEBUG(llvm::dbgs() << i << " = " << basicString << " : " << std::to_string(basicString == i) << "\n";);
+        LLVM_DEBUG(log() << i << " = " << basicString << " : " << std::to_string(basicString == i) << "\n";);
     });
-  LLVM_DEBUG(llvm::dbgs() << "Unknown value: " << basicString << "\n";);
+  LLVM_DEBUG(log() << "Unknown value: " << basicString << "\n";);
 
   llvm_unreachable("Unknown cost value!");
 }
@@ -444,9 +444,9 @@ CPUCosts::CostsId CPUCosts::decodeId(const string& basicString) {
 string CPUCosts::CostsIdToString(CostsId id) { return CostsIdValues[id]; }
 
 void CPUCosts::dump() {
-  LLVM_DEBUG(llvm::dbgs() << "Available model costs:\n";);
+  LLVM_DEBUG(log() << "Available model costs:\n";);
   for (auto pair : costsMap)
-    LLVM_DEBUG(llvm::dbgs() << "[" << CostsIdToString(pair.first) << ", " << pair.second << "]\n";);
+    LLVM_DEBUG(log() << "[" << CostsIdToString(pair.first) << ", " << pair.second << "]\n";);
 }
 
 bool CPUCosts::cast_with_fix(CPUCosts::CostsId& cast) { return CostsIdToString(cast).find("FIX") != string::npos; }

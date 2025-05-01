@@ -73,7 +73,7 @@ Value* FloatToFixed::convertInstruction(Module& m, Instruction* val, std::shared
   if (res == Unsupported)
     res = fallback(dyn_cast<Instruction>(val), fixpt);
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
-    if (getUnwrappedType(val)->isFloatingPointTy() && !getConversionInfo(val)->noTypeConversion) {
+    if (getFullyUnwrappedType(val)->isFloatingPointTy() && !getConversionInfo(val)->noTypeConversion) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
       if (res->hasName())
@@ -97,7 +97,7 @@ Value* FloatToFixed::convertInstruction(Module& m, Instruction* val, std::shared
 
   if (res) {
     if (!isa<Instruction>(res))
-      LLVM_DEBUG(dbgs() << "Conversion produced something that is not an instruction from an instruction...\n");
+      LLVM_DEBUG(log() << "Conversion produced something that is not an instruction from an instruction...\n");
     return res;
   }
   else {
@@ -126,14 +126,12 @@ Value* FloatToFixed::convertAlloca(AllocaInst* alloca, const std::shared_ptr<Fix
 Value* FloatToFixed::convertLoad(LoadInst* load, std::shared_ptr<FixedPointType>& fixpt, Module& m) {
   auto& taffoInfo = TaffoInfo::getInstance();
   Value* ptr = load->getPointerOperand();
-  Value* newptr = convertedValues[ptr];
+  Value* newptr = matchOp(ptr);
   if (newptr == ConversionError)
     return nullptr;
-  if (!newptr)
-    return Unsupported;
   if (isConvertedFixedPoint(newptr)) {
     fixpt = getFixpType(newptr);
-    Type* PELType = getUnwrappedType(newptr);
+    Type* PELType = getFullyUnwrappedType(newptr);
     Align align;
     /*if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || MetadataManager::isCudaKernel(m,
     load->getFunction())) { align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8); } else*/
@@ -170,7 +168,7 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
          * Only logging type mismatches because we trust DTA has done its job */
         newval = matchOp(val);
         if (*getFixpType(newval) != *valtype)
-          LLVM_DEBUG(dbgs() << "unsolvable fixp type mismatch between store dest and src!\n");
+          LLVM_DEBUG(log() << "unsolvable fixp type mismatch between store dest and src!\n");
       }
       else {
         /* best case: store <value> into <value> pointer */
@@ -202,7 +200,7 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
       else {
         /* value unconverted ptr; dest is converted ptr
          * would be an error; remove this as soon as it is not needed anymore */
-        LLVM_DEBUG(dbgs() << "[Store] HACK: bitcasting operands of wrong type to new type\n");
+        LLVM_DEBUG(log() << "[Store] HACK: bitcasting operands of wrong type to new type\n");
         BitCastInst* bc = new BitCastInst(val, newPointedOperandType->toLLVMType());
         copyValueInfo(bc, val);
         bc->insertBefore(store);
@@ -228,11 +226,11 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
 }
 
 Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPointType>& fixpt) {
-  LLVM_DEBUG(llvm::dbgs() << "### Convert GEP ###\n");
+  LLVM_DEBUG(log() << "### Convert GEP ###\n");
   IRBuilder<NoFolder> builder(gep);
   Value* newval = matchOp(gep->getPointerOperand());
 
-  LLVM_DEBUG(llvm::dbgs() << *gep << "\nhas operand \n"
+  LLVM_DEBUG(log() << *gep << "\nhas operand \n"
                           << *(gep->getPointerOperand()) << "\nmatchOp return \n"
                           << *newval << "\n");
   if (!newval)
@@ -250,7 +248,7 @@ Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPoi
   if (getConversionInfo(gep)->noTypeConversion && !fixpt->isInvalid())
     return Unsupported;
   std::vector<Value*> idxlist(gep->indices().begin(), gep->indices().end());
-  Value* newGep = builder.CreateInBoundsGEP(getUnwrappedType(newval), newval, idxlist);
+  Value* newGep = builder.CreateInBoundsGEP(fixpt->toTransparentType(type)->getPointedType()->toLLVMType(), newval, idxlist);
   return newGep;
 }
 
@@ -376,15 +374,15 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
     return Unsupported;
   Function* newF = functionPool[oldF];
   if (!newF) {
-    LLVM_DEBUG(dbgs() << "[Info] no function clone for instruction" << *(call) << ", engaging fallback\n");
+    LLVM_DEBUG(log() << "[Info] no function clone for instruction" << *(call) << ", engaging fallback\n");
     return Unsupported;
   }
-  LLVM_DEBUG(dbgs() << *(call) << " will use converted function " << newF->getName() << " " << *newF->getFunctionType()
+  LLVM_DEBUG(log() << *(call) << " will use converted function " << newF->getName() << " " << *newF->getFunctionType()
                     << "\n";);
   std::vector<Value*> convArgs;
   std::vector<Type*> typeArgs;
   std::vector<std::pair<int, std::shared_ptr<FixedPointType>>> fixArgs; // for match right function
-  if (getUnwrappedType(oldF)->isFloatingPointTy())
+  if (getFullyUnwrappedType(oldF)->isFloatingPointTy())
     fixArgs.push_back({-1, fixpt});                                     // ret value in signature
   int i = 0;
   Use* call_arg = call->arg_begin();
@@ -402,10 +400,10 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
       callOperandFixpType = getFixpType(*call_arg);
       argFixpType = getFixpType(f_arg);
       if (*callOperandFixpType != *argFixpType) {
-        LLVM_DEBUG(dbgs() << "CALL: fixed point type mismatch in actual argument " << i << " (" << *f_arg
+        LLVM_DEBUG(log() << "CALL: fixed point type mismatch in actual argument " << i << " (" << *f_arg
                           << ") vs. formal argument\n");
-        LLVM_DEBUG(dbgs() << "      (actual " << *callOperandFixpType << ", vs. formal " << *argFixpType << ")\n");
-        LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
+        LLVM_DEBUG(log() << "      (actual " << *callOperandFixpType << ", vs. formal " << *argFixpType << ")\n");
+        LLVM_DEBUG(log() << "      making an attempt to ignore the issue "
                              "because mem2reg can interfere\n");
       }
       thisArgument = translateOrMatchAnyOperandAndType(*call_arg, argFixpType, call);
@@ -413,11 +411,11 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
     }
     else {
       std::shared_ptr<FixedPointType> argFixpType = getFixpType(f_arg);
-      LLVM_DEBUG(dbgs() << "CALL: formal argument " << i << " (" << *f_arg << ") converted but not actual argument\n");
-      LLVM_DEBUG(dbgs() << "      making an attempt to ignore the issue "
+      LLVM_DEBUG(log() << "CALL: formal argument " << i << " (" << *f_arg << ") converted but not actual argument\n");
+      LLVM_DEBUG(log() << "      making an attempt to ignore the issue "
                            "because mem2reg can interfere\n");
       if (call_arg->get()->getType()->isPointerTy()) {
-        LLVM_DEBUG(dbgs() << "DANGER!! To make things worse, the problematic argument is a POINTER. Introducing a "
+        LLVM_DEBUG(log() << "DANGER!! To make things worse, the problematic argument is a POINTER. Introducing a "
                              "bitcast to try to salvage the mess.\n");
         Type* BCType =
           argFixpType->toTransparentType(TaffoInfo::getInstance().getOrCreateTransparentType(*call_arg->get()), nullptr)
@@ -429,13 +427,13 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
       }
     }
     if (!thisArgument) {
-      LLVM_DEBUG(dbgs() << "CALL: match of argument " << i << " (" << *f_arg << ") failed\n");
+      LLVM_DEBUG(log() << "CALL: match of argument " << i << " (" << *f_arg << ") failed\n");
       return Unsupported;
     }
     convArgs.push_back(thisArgument);
     typeArgs.push_back(thisArgument->getType());
     if (convArgs[i]->getType() != f_arg->getType()) {
-      LLVM_DEBUG(dbgs() << "CALL: type mismatch in actual argument " << i << " (" << *f_arg
+      LLVM_DEBUG(log() << "CALL: type mismatch in actual argument " << i << " (" << *f_arg
                         << ") vs. formal argument\n");
       return nullptr;
     }
@@ -483,8 +481,7 @@ Value* FloatToFixed::convertUnaryOp(Instruction* instr, const std::shared_ptr<Fi
   unsigned int opc = instr->getOpcode();
 
   if (opc == Instruction::FNeg) {
-    LLVM_DEBUG(instr->getOperand(0)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << "\n";);
+    LLVM_DEBUG(log() << instr->getOperand(0) << "\n";);
     Value* val1 = translateOrMatchOperandAndType(instr->getOperand(0), fixpt, instr);
     if (!val1)
       return nullptr;
@@ -516,10 +513,8 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
 
   int opc = instr->getOpcode();
   if (opc == Instruction::FAdd || opc == Instruction::FSub || opc == Instruction::FRem) {
-    LLVM_DEBUG(instr->getOperand(0)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << "\n";);
-    LLVM_DEBUG(instr->getOperand(0)->print(dbgs()););
-    LLVM_DEBUG(dbgs() << "\n";);
+    LLVM_DEBUG(log() << instr->getOperand(0) << "\n";);
+    LLVM_DEBUG(log() << instr->getOperand(0) << "\n";);
     Value* val1 = translateOrMatchOperandAndType(instr->getOperand(0), dstType, instr);
     Value* val2 = translateOrMatchOperandAndType(instr->getOperand(1), dstType, instr);
     if (!val1 || !val2)
@@ -540,15 +535,12 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
     }
     else if (opc == Instruction::FSub) {
       // TODO: improve overflow resistance by shifting late
-      LLVM_DEBUG(dbgs() << *dstType << "\n";);
+      LLVM_DEBUG(log() << *dstType << "\n";);
       if (dstType->isFixedPoint()) {
         fixop = builder.CreateBinOp(Instruction::Sub, val1, val2);
-        LLVM_DEBUG(val1->print(dbgs()););
-        LLVM_DEBUG(dbgs() << "\n";);
-        LLVM_DEBUG(val2->print(dbgs()););
-        LLVM_DEBUG(dbgs() << "\n";);
-        LLVM_DEBUG(fixop->print(dbgs()););
-        LLVM_DEBUG(dbgs() << "\n";);
+        LLVM_DEBUG(log() << val1 << "\n";);
+        LLVM_DEBUG(log() << val2 << "\n";);
+        LLVM_DEBUG(log() << fixop << "\n";);
       }
       else if (dstType->isFloatingPoint()) {
         fixop = builder.CreateBinOp(Instruction::FSub, val1, val2);
@@ -778,9 +770,9 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
       IRBuilder<NoFolder> builder(instr);
       Value* intermResult = dstType->isSigned() ? builder.CreateSDiv(ext1, ext2) : builder.CreateUDiv(ext1, ext2);
 
-      LLVM_DEBUG(dbgs() << "fdiv ext1 = " << *ext1 << " type = " << *ext1type << "\n");
-      LLVM_DEBUG(dbgs() << "fdiv ext2 = " << *ext2 << " type = " << *ext2type << "\n");
-      LLVM_DEBUG(dbgs() << "fdiv fixop = " << *intermResult << "type = " << *intermType << "\n");
+      LLVM_DEBUG(log() << "fdiv ext1 = " << *ext1 << " type = " << *ext1type << "\n");
+      LLVM_DEBUG(log() << "fdiv ext2 = " << *ext2 << " type = " << *ext2type << "\n");
+      LLVM_DEBUG(log() << "fdiv fixop = " << *intermResult << "type = " << *intermType << "\n");
 
       copyValueInfo(ext1, val1);
       copyValueInfo(ext2, val2);
@@ -935,7 +927,7 @@ Value* FloatToFixed::convertCast(CastInst* cast, const std::shared_ptr<FixedPoin
   if (getConversionInfo(cast)->noTypeConversion)
     return Unsupported;
   if (BitCastInst* bc = dyn_cast<BitCastInst>(cast)) {
-    Value* newOperand = convertedValues[operand];
+    Value* newOperand = convertedValues.at(operand);
     Type* newType = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*bc), fixpt);
     if (newOperand && newOperand != ConversionError)
       return builder.CreateBitCast(newOperand, newType);
@@ -980,13 +972,13 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
   Value* fallval;
   Value* fixval;
   std::vector<Value*> newops;
-  LLVM_DEBUG(dbgs() << "[Fallback] attempt to wrap not supported operation:\n"
+  LLVM_DEBUG(log() << "[Fallback] attempt to wrap not supported operation:\n"
                     << *unsupp << "\n");
   FallbackCount++;
   for (int i = 0, n = unsupp->getNumOperands(); i < n; i++) {
     fallval = unsupp->getOperand(i);
     if (hasConversionInfo(fallval)) {
-      LLVM_DEBUG(dbgs() << "  Substituted operand number : " << i + 1 << " of " << n << "\n");
+      LLVM_DEBUG(log() << "  Substituted operand number : " << i + 1 << " of " << n << "\n");
       fixval = fallbackMatchValue(fallval, taffoInfo.getTransparentType(*fallval), unsupp);
       newops.push_back(fixval);
     }
@@ -1006,7 +998,7 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
   }
   for (int i = 0, n = tmp->getNumOperands(); i < n; i++)
     tmp->setOperand(i, newops[i]);
-  LLVM_DEBUG(dbgs() << "  mutated operands to:\n"
+  LLVM_DEBUG(log() << "  mutated operands to:\n"
                     << *tmp << "\n");
   if (tmp->getType()->isFloatingPointTy() && getConversionInfo(unsupp)->noTypeConversion == false) {
     Value* fallbackv =
@@ -1015,7 +1007,5 @@ Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointTyp
       fallbackv->setName(tmp->getName() + ".fallback");
     return fallbackv;
   }
-
-  fixpt = std::make_shared<FixedPointScalarType>();
   return tmp;
 }

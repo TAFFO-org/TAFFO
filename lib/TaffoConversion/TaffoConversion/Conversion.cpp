@@ -66,7 +66,7 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
       if (newv != v) {
         std::shared_ptr<TransparentType> oldTransparentType = taffoInfo.getTransparentType(*v);
         std::shared_ptr<TransparentType> newTransparentType;
-        if (!newType->isInvalid() && !isa<CmpInst>(newv))
+        if (!newType->isInvalid() && newType->isFixedPoint() && !isa<CmpInst>(newv))
           newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
         else
           newTransparentType = oldTransparentType;
@@ -136,7 +136,7 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
           assert(operand.get() != nullptr););
   }
   else if (Argument* argument = dyn_cast<Argument>(val)) {
-    if (getUnwrappedType(argument)->isFloatingPointTy())
+    if (getFullyUnwrappedType(argument)->isFloatingPointTy())
       res = translateOrMatchOperand(val, fixpt, nullptr);
     else
       res = val;
@@ -170,8 +170,8 @@ Value* FloatToFixed::translateOrMatchOperand(
   }
 
   assert(val->getType()->getNumContainedTypes() == 0 && "val is not scalar");
-  Value* res = convertedValues[val];
-  if (res) { // this means it has been converted, but can also be a floating point!
+  Value* res = matchOp(val);
+  if (res != val) { // this means it has been converted, but can also be a floating point!
     if (res == ConversionError)
       /* the value should have been converted but it hasn't; bail out */
       return nullptr;

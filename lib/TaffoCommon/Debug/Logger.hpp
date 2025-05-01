@@ -108,6 +108,7 @@ public:
 
   // Log for iterable objects
   template <IterableConcept T>
+  requires (!PrintableConcept<T> && !LLVMPrintableConcept<T>)
   Logger& log(const T& container, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     log("[");
     bool first = true;
@@ -124,6 +125,7 @@ public:
 
   // Generic fallback log (for types that are not printable in any special way)
   template <typename T>
+  requires (!PrintableConcept<T> && !LLVMPrintableConcept<T> && !IterableConcept<T>)
   Logger& log(const T& message, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
     // Convert message to string.
     std::string s;

@@ -52,16 +52,16 @@ void Model::insertLinearConstraint(const vector<pair<string, double>>& variables
   // TODO what to do about comment
 
   IF_TAFFO_DEBUG {
-    dbgs() << "constraint: ";
+    log() << "constraint: ";
     bool first = true;
     for (auto v : variables) {
       if (first)
         first = false;
       else
-        dbgs() << " + ";
-      dbgs() << v.first << "*" << constraint->GetCoefficient(variablesPool.at(v.first));
+        log() << " + ";
+      log() << v.first << "*" << constraint->GetCoefficient(variablesPool.at(v.first));
     }
-    dbgs() << " in [" << constraint->lb() << ", " << constraint->ub() << "]\n";
+    log() << " in [" << constraint->lb() << ", " << constraint->ub() << "]\n";
   }
 }
 
@@ -74,7 +74,7 @@ void Model::insertLinearConstraint(const vector<pair<string, double>>& variables
 // }
 
 void Model::createVariable(const string& varName, double min, double max) {
-  llvm::dbgs() << "Creating variable: " << varName << "\n";
+  log() << "Creating variable: " << varName << "\n";
   assert(!isVariableDeclared(varName) && "Variable already declared!");
   variablesPool.insert({varName, solver->MakeIntVar(min, max, varName)});
 }
@@ -90,52 +90,52 @@ bool Model::finalizeAndSolve() {
   writeOutObjectiveFunction();
 
   LLVM_DEBUG(
-    llvm::dbgs() << "****************************************************************************************\n");
+    log() << "****************************************************************************************\n");
 #ifndef NDEBUG
   dumpModel();
 #endif
 
-  LLVM_DEBUG(llvm::dbgs() << "Solving model...\n");
+  LLVM_DEBUG(log() << "Solving model...\n");
   LLVM_DEBUG(solver->EnableOutput());
   const operations_research::MPSolver::ResultStatus result_status = solver->Solve();
 
   // Check that the problem has an optimal solution.
   if (result_status != operations_research::MPSolver::OPTIMAL
       && result_status != operations_research::MPSolver::FEASIBLE) {
-    LLVM_DEBUG(llvm::dbgs() << "[ERROR] There was an error while solving the model!\n");
+    LLVM_DEBUG(log() << "[ERROR] There was an error while solving the model!\n");
     switch (result_status) {
     case operations_research::MPSolver::INFEASIBLE:
-      LLVM_DEBUG(llvm::dbgs() << "status = INFEASIBLE\n");
+      LLVM_DEBUG(log() << "status = INFEASIBLE\n");
       break;
     case operations_research::MPSolver::UNBOUNDED:
-      LLVM_DEBUG(llvm::dbgs() << "status = UNBOUNDED\n");
+      LLVM_DEBUG(log() << "status = UNBOUNDED\n");
       break;
     case operations_research::MPSolver::ABNORMAL:
-      LLVM_DEBUG(llvm::dbgs() << "status = ABNORMAL\n");
+      LLVM_DEBUG(log() << "status = ABNORMAL\n");
       break;
     case operations_research::MPSolver::MODEL_INVALID:
-      LLVM_DEBUG(llvm::dbgs() << "status = MODEL_INVALID\n");
+      LLVM_DEBUG(log() << "status = MODEL_INVALID\n");
       break;
     case operations_research::MPSolver::NOT_SOLVED:
-      LLVM_DEBUG(llvm::dbgs() << "status = NOT_SOLVED????\n");
+      LLVM_DEBUG(log() << "status = NOT_SOLVED????\n");
       break;
     default:
-      LLVM_DEBUG(llvm::dbgs() << "status = " << result_status << "\n");
+      LLVM_DEBUG(log() << "status = " << result_status << "\n");
     }
     return false;
   }
-  LLVM_DEBUG(llvm::dbgs() << "\n");
+  LLVM_DEBUG(log() << "\n");
 
   if (result_status == operations_research::MPSolver::FEASIBLE) {
     LLVM_DEBUG(
-      llvm::dbgs() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
+      log() << "[WARNING] Model is feasible but solver was stopped by limit, solution is not optimal\n");
   }
 
   LLVM_DEBUG(
-    llvm::dbgs() << "****************************************************************************************\n");
-  LLVM_DEBUG(llvm::dbgs() << "                                HOUSTON WE HAVE A SOLUTION\n");
+    log() << "****************************************************************************************\n");
+  LLVM_DEBUG(log() << "                                HOUSTON WE HAVE A SOLUTION\n");
   LLVM_DEBUG(
-    llvm::dbgs() << "****************************************************************************************\n");
+    log() << "****************************************************************************************\n");
 
   for (auto& v : variablesPool)
     variableValues.insert(make_pair(v.first, v.second->solution_value()));
@@ -145,12 +145,12 @@ bool Model::finalizeAndSolve() {
 #endif
 
   if (variableValues.size() != variablesPool.size()) {
-    LLVM_DEBUG(dbgs() << "[ERROR] The numbers of variables in the program and in the model do not match!\n");
+    LLVM_DEBUG(log() << "[ERROR] The numbers of variables in the program and in the model do not match!\n");
     return false;
   }
 
   LLVM_DEBUG(
-    llvm::dbgs() << "****************************************************************************************\n");
+    log() << "****************************************************************************************\n");
   return true;
 }
 
@@ -175,14 +175,14 @@ bool Model::finalizeAndSolve() {
 
 // //Generate a stream in order to be used by getLine
 // stringstream lineStream(line);
-// //llvm::dbgs() << "Line: " << line << "\n";
+// //log() << "Line: " << line << "\n";
 
 // while (getline(lineStream, field, ',')) {
 //     row.push_back(field);
 // }
 
 // if (row.size() != 2) {
-//     LLVM_DEBUG(llvm::dbgs() << "Malformed line found: [" << line << "] on line"<< nline << ", skipping...\n";);
+//     LLVM_DEBUG(log() << "Malformed line found: [" << line << "] on line"<< nline << ", skipping...\n";);
 //     continue;
 // }
 
@@ -191,9 +191,9 @@ bool Model::finalizeAndSolve() {
 
 // if(varName == "__ERROR__"){
 //     if(value==0){
-//         LLVM_DEBUG(dbgs() << "The model was solved correctly!\n";);
+//         LLVM_DEBUG(log() << "The model was solved correctly!\n";);
 //     }else{
-//         LLVM_DEBUG(dbgs() << "[ERROR] The Python solver signalled an
+//         LLVM_DEBUG(log() << "[ERROR] The Python solver signalled an
 // error!\n\n";);
 //         return false;
 //     }
@@ -217,12 +217,12 @@ bool Model::finalizeAndSolve() {
 // }
 
 // if(!isVariableDeclared(varName)){
-//     LLVM_DEBUG(dbgs() << "Trying to load results for an unknown variable!\nThis may be signal of a more problematic
+//     LLVM_DEBUG(log() << "Trying to load results for an unknown variable!\nThis may be signal of a more problematic
 //     error!\n\n";); VARIABLE_NOT_DECLARED(varName);
 // }
 
 // if(variableValues.find(varName) != variableValues.end()){
-//     LLVM_DEBUG(dbgs() << "Found duplicated result: [" << line << "], skipping...\n";);
+//     LLVM_DEBUG(log() << "Found duplicated result: [" << line << "], skipping...\n";);
 //     continue;
 // }
 
@@ -231,7 +231,7 @@ bool Model::finalizeAndSolve() {
 // }
 
 // if(variableValues.size() != variablesPool.size()){
-//     LLVM_DEBUG(dbgs() << "[ERROR] The number of variables in the file and in the model does not match!\n";);
+//     LLVM_DEBUG(log() << "[ERROR] The number of variables in the file and in the model does not match!\n";);
 //     return false;
 // }
 // return true;
@@ -290,11 +290,11 @@ double Model::getMultiplier(string var) {
 }
 
 bool Model::VARIABLE_NOT_DECLARED(string var) {
-  LLVM_DEBUG(dbgs() << "THIS VARIABLE WAS NOT DECLARED >>" << var << "<<\n";);
-  LLVM_DEBUG(dbgs() << "Here is a list of declared vars:\n";);
+  LLVM_DEBUG(log() << "THIS VARIABLE WAS NOT DECLARED >>" << var << "<<\n";);
+  LLVM_DEBUG(log() << "Here is a list of declared vars:\n";);
 
   for (auto& a : variablesPool)
-    LLVM_DEBUG(dbgs() << ">>" << a.first << "<<\n";);
+    LLVM_DEBUG(log() << ">>" << a.first << "<<\n";);
 
   assert(false);
 }
@@ -314,21 +314,21 @@ void Model::dumpModel() {
   std::string tmp;
   solver->ExportModelAsLpFormat(false, &tmp);
   if (DumpModelFile != "") {
-    LLVM_DEBUG(llvm::dbgs() << "Dumping model to " << DumpModelFile << "...");
+    LLVM_DEBUG(log() << "Dumping model to " << DumpModelFile << "...");
     std::error_code EC;
     llvm::raw_fd_ostream model_file(DumpModelFile, EC);
     if (!EC) {
       model_file << tmp;
       model_file.close();
-      LLVM_DEBUG(llvm::dbgs() << " done.\n");
+      LLVM_DEBUG(log() << " done.\n");
     }
     else {
-      LLVM_DEBUG(llvm::dbgs() << " failed. An error occurred while trying to dump the model: " << EC.message() << '\n');
+      LLVM_DEBUG(log() << " failed. An error occurred while trying to dump the model: " << EC.message() << '\n');
     }
   }
   else {
-    LLVM_DEBUG(llvm::dbgs() << "Dumping model to log:");
-    LLVM_DEBUG(llvm::dbgs() << tmp << "\n");
+    LLVM_DEBUG(log() << "Dumping model to log:");
+    LLVM_DEBUG(log() << tmp << "\n");
   }
 }
 
@@ -363,22 +363,22 @@ void Model::dumpSolution() {
 
   if (DumpModelFile != "") {
     std::string solution_file_name = DumpModelFile + ".sol";
-    LLVM_DEBUG(llvm::dbgs() << "Dumping solution to " << solution_file_name << "...");
+    LLVM_DEBUG(log() << "Dumping solution to " << solution_file_name << "...");
     std::error_code EC;
     llvm::raw_fd_ostream solution_file(solution_file_name, EC);
     if (!EC) {
       solution_file << tmp;
       solution_file.close();
-      LLVM_DEBUG(llvm::dbgs() << " done.\n");
+      LLVM_DEBUG(log() << " done.\n");
     }
     else {
-      LLVM_DEBUG(llvm::dbgs() << " failed. An error occurred while trying to dump the solution: " << EC.message()
+      LLVM_DEBUG(log() << " failed. An error occurred while trying to dump the solution: " << EC.message()
                               << '\n');
     }
   }
   else {
-    LLVM_DEBUG(llvm::dbgs() << "Dumping solution to log:\n");
-    LLVM_DEBUG(llvm::dbgs() << tmp << "\n");
+    LLVM_DEBUG(log() << "Dumping solution to log:\n");
+    LLVM_DEBUG(log() << tmp << "\n");
   }
 }
 #endif

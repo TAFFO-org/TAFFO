@@ -1,5 +1,6 @@
 #include "../TaffoInfo/TaffoInfo.hpp"
 #include "TypeUtils.hpp"
+#include "Debug/Logger.hpp"
 
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
@@ -9,9 +10,9 @@
 using namespace taffo;
 using namespace llvm;
 
-Type* taffo::getUnwrappedType(Value* value) {
+Type* taffo::getFullyUnwrappedType(Value* value) {
   std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
-  return transparentType->getUnwrappedType();
+  return transparentType->getFullyUnwrappedType();
 }
 
 FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
@@ -24,7 +25,7 @@ FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
     *outerr = FixedPointTypeGenError::NoError;
 
   if (std::isnan(rng.min) || std::isnan(rng.max)) {
-    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains NaN\n");
+    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains NaN\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::InvalidRange;
     return FixedPointInfo(true, totalBits, 0);
@@ -33,7 +34,7 @@ FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
   bool isSigned = rng.min < 0;
 
   if (std::isinf(rng.min) || std::isinf(rng.max)) {
-    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
+    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
                       << " contains +/-inf. Overflow may occur!\n");
     if (outerr)
       *outerr = FixedPointTypeGenError::UnboundedRange;
@@ -83,11 +84,11 @@ FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
 
   // Check dimension
   if (fractionalBits < fracThreshold) {
-    LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
+    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
                       << " Fractional part is too small!\n");
     fractionalBits = 0;
     if (intBit > bits) {
-      LLVM_DEBUG(dbgs() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Overflow may occur!\n");
+      LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Overflow may occur!\n");
       if (outerr)
         *outerr = FixedPointTypeGenError::NotEnoughIntAndFracBits;
     }

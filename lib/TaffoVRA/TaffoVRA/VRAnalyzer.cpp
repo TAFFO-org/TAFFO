@@ -188,15 +188,15 @@ void VRAnalyzer::prepareForCall(Instruction* I, std::shared_ptr<AnalysisStore> F
 
   LLVM_DEBUG(
     Logger->lineHead();
-    dbgs() << "Loading argument ranges: ");
+    log() << "Loading argument ranges: ");
   // fetch ranges of arguments
   std::list<std::shared_ptr<ValueInfo>> ArgRanges;
   for (Value* Arg : CB->args()) {
     ArgRanges.push_back(getNode(Arg));
 
-    LLVM_DEBUG(dbgs() << VRALogger::toString(fetchRangeNode(Arg)) << ", ");
+    LLVM_DEBUG(log() << VRALogger::toString(fetchRangeNode(Arg)) << ", ");
   }
-  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(log() << "\n");
 
   std::shared_ptr<VRAFunctionStore> FStore = std::static_ptr_cast<VRAFunctionStore>(FunctionStore);
   FStore->setArgumentRanges(*CB->getCalledFunction(), ArgRanges);
@@ -427,10 +427,10 @@ void VRAnalyzer::handleLoadInstr(Instruction* I) {
     MemSSAUtils memssa_utils(memssa);
     SmallVectorImpl<Value*>& def_vals = memssa_utils.getDefiningValues(Load);
 
-    Type* load_ty = getUnwrappedType(Load);
+    Type* load_ty = getFullyUnwrappedType(Load);
     std::shared_ptr<Range> res = Scalar->range;
     for (Value* dval : def_vals)
-      if (dval && load_ty->canLosslesslyBitCastTo(getUnwrappedType(dval)))
+      if (dval && load_ty->canLosslesslyBitCastTo(getFullyUnwrappedType(dval)))
         res = getUnionRange(res, fetchRange(dval));
     saveValueRange(I, res);
     LLVM_DEBUG(Logger->logRangeln(res));
@@ -465,8 +465,8 @@ void VRAnalyzer::handleGEPInstr(const Instruction* I) {
 void VRAnalyzer::handleBitCastInstr(Instruction* I) {
   LLVM_DEBUG(Logger->logInstruction(I));
   if (std::shared_ptr<ValueInfo> Node = getNode(I->getOperand(0U))) {
-    bool InputIsStruct = getUnwrappedType(I->getOperand(0U))->isStructTy();
-    bool OutputIsStruct = getUnwrappedType(I)->isStructTy();
+    bool InputIsStruct = getFullyUnwrappedType(I->getOperand(0U))->isStructTy();
+    bool OutputIsStruct = getFullyUnwrappedType(I)->isStructTy();
     if (!InputIsStruct && !OutputIsStruct) {
       setNode(I, Node);
       LLVM_DEBUG(Logger->logRangeln(Node));
@@ -474,7 +474,7 @@ void VRAnalyzer::handleBitCastInstr(Instruction* I) {
     else {
       LLVM_DEBUG(Logger->logInfoln("oh shit -> no node"));
       LLVM_DEBUG(
-        dbgs()
+        log()
         << "This instruction is converting to/from a struct type. Ignoring to avoid generating invalid metadata\n");
     }
   }
@@ -602,6 +602,6 @@ void VRAnalyzer::setNode(const Value* V, std::shared_ptr<ValueInfo> Node) {
 void VRAnalyzer::logRangeln(const Value* v) {
   LLVM_DEBUG(
     if (getGlobalStore()->getUserInput(v))
-      dbgs() << "(possibly from metadata) ");
+      log() << "(possibly from metadata) ");
   LLVM_DEBUG(Logger->logRangeln(fetchRangeNode(v)));
 }

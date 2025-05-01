@@ -28,11 +28,11 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
   taffoInfo.initializeFromFile("taffo_typededucer.json", m);
 
   if (openCLKernelMode) {
-    LLVM_DEBUG(dbgs() << "OpenCLKernelMode == true!\n");
+    LLVM_DEBUG(log() << "OpenCLKernelMode == true!\n");
     createOpenCLKernelTrampolines(m);
   }
   else if (cudaKernelMode) {
-    LLVM_DEBUG(dbgs() << "CudaKernelMode == true!\n");
+    LLVM_DEBUG(log() << "CudaKernelMode == true!\n");
     createCudaKernelTrampolines(m);
   }
 
@@ -143,7 +143,7 @@ void InitializerPass::propagateInfo() {
         if (auto* storeUser = dyn_cast<StoreInst>(user))
           if (newUserBtDepth <= 1) {
             Value* storedValue = storeUser->getValueOperand();
-            if (getUnwrappedType(storedValue)->isFloatingPointTy()) {
+            if (getFullyUnwrappedType(storedValue)->isFloatingPointTy()) {
               LLVM_DEBUG(
                 Logger& logger = log();
                 logger.log("will backtrack to stored value: ", raw_ostream::Colors::CYAN);
@@ -206,7 +206,7 @@ void InitializerPass::propagateInfo() {
           LLVM_DEBUG(log().logln("is a constant: ignoring"));
           continue;
         }
-        if (!getUnwrappedType(operand)->isFloatingPointTy()) {
+        if (!getFullyUnwrappedType(operand)->isFloatingPointTy()) {
           LLVM_DEBUG(log().logln("not a float: ignoring"));
           continue;
         }
@@ -248,8 +248,13 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
 
   unsigned int dstRootDistance = dstInitInfo.getRootDistance();
   unsigned int newDstRootDistance = srcInitInfo.getUserRootDistance();
+
+  // If dst is a gep and src is not its pointer operand, skip propagation completely
+  if (isa<GetElementPtrInst>(dst) && src != cast<GetElementPtrInst>(dst)->getPointerOperand()) {
+    LLVM_DEBUG(log().logln("dst is a gep, but src is not its pointer operand: continuing"));
+  }
   /* Propagate info only if the path to a root is shorter than the current */
-  if (newDstRootDistance < dstRootDistance) {
+  else if (newDstRootDistance < dstRootDistance) {
     dstInitInfo.setRootDistance(newDstRootDistance);
     std::shared_ptr<TransparentType> srcType = taffoInfo.getOrCreateTransparentType(*src);
     std::shared_ptr<TransparentType> dstType = taffoInfo.getOrCreateTransparentType(*dst);
@@ -267,14 +272,15 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
       logger << ", ";);
 
     // TODO Manage structs
-    // TODO Manage geps
     bool copied = false;
     bool wasEnabled = dstInfo->isConversionEnabled();
     if (!srcType->isStructType() && !dstType->isStructType()) {
-      // If dst is a call create empty valueinfo without range
+      // If dst is a call, create empty valueInfo without range
       if (isa<CallBase>(dst)) {
-        if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
-          dstScalarInfo->conversionEnabled = srcInfo->isConversionEnabled();
+        // TODO Probably better to always enable conversion and fix the return type of non float calls not to change randomly in the dta
+        if (dstType->containsFloatingPointType() || dstType->getFullyUnwrappedType()->isVoidTy())
+          if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
+            dstScalarInfo->conversionEnabled = srcInfo->isConversionEnabled();
       }
       else {
         dstInfo->copyFrom(*srcInfo);
@@ -285,7 +291,6 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
         if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
           dstScalarInfo->conversionEnabled = true;
     }
-
     else if (srcInfo->isConversionEnabled()) {
       if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
         dstScalarInfo->conversionEnabled = true;

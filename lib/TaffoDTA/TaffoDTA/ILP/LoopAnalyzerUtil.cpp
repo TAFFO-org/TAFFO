@@ -26,7 +26,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction* 
   unsigned info;
   info = computeFullTripCount(FAM, loop);
 
-  LLVM_DEBUG(dbgs() << "Total trip count: " << info << "\n";);
+  LLVM_DEBUG(log() << "Total trip count: " << info << "\n";);
   return info;
 }
 
@@ -34,7 +34,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
   unsigned int LocalTrip;
 
   if (!loop) {
-    LLVM_DEBUG(dbgs() << "Loop Info: loop is null! Not part of a loop, finishing search!\n";);
+    LLVM_DEBUG(log() << "Loop Info: loop is null! Not part of a loop, finishing search!\n";);
     return 1;
   }
 
@@ -43,12 +43,12 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
   if (OUC.has_value()) {
     LocalTrip = OUC.value();
     if (LocalTrip > 0) {
-      LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata = " << LocalTrip << "\n");
+      LLVM_DEBUG(log() << "Found loop unroll count in metadata = " << LocalTrip << "\n");
       TripCountDetectionSuccessCount++;
     }
     else {
       LocalTrip = 2;
-      LLVM_DEBUG(dbgs() << "Found loop unroll count in metadata but it's zero, forcing default of " << LocalTrip
+      LLVM_DEBUG(log() << "Found loop unroll count in metadata but it's zero, forcing default of " << LocalTrip
                         << "\n");
       TripCountDetectionFailCount++;
     }
@@ -56,15 +56,15 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
   else {
     LocalTrip = FAM.getResult<ScalarEvolutionAnalysis>(*loop->getHeader()->getParent()).getSmallConstantTripCount(loop);
     if (LocalTrip > 0) {
-      LLVM_DEBUG(dbgs() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n";);
+      LLVM_DEBUG(log() << "SCEV told us the trip count is " << LocalTrip << ", which is OK AFAICT.\n";);
       TripCountDetectionSuccessCount++;
     }
     else {
       LocalTrip = 2;
-      LLVM_DEBUG(dbgs() << "SCEV told us the trip count is zero; forcing the default of " << LocalTrip << "!\n");
+      LLVM_DEBUG(log() << "SCEV told us the trip count is zero; forcing the default of " << LocalTrip << "!\n");
       TripCountDetectionFailCount++;
     }
   }
-  LLVM_DEBUG(dbgs() << "Checking for nested loops...\n");
+  LLVM_DEBUG(log() << "Checking for nested loops...\n");
   return LocalTrip * computeFullTripCount(FAM, loop->getParentLoop());
 }

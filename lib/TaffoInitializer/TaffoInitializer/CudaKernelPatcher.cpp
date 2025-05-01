@@ -1,5 +1,6 @@
 #include "CudaKernelPatcher.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "Debug/Logger.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>
@@ -52,7 +53,7 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std:
       if (!AnnoStr || !(AnnoStr->isString()))
         continue;
 
-      LLVM_DEBUG(dbgs() << "Found annotation \"" << AnnoStr->getAsString() << "\" on function arg " << ArgId << " ("
+      LLVM_DEBUG(log() << "Found annotation \"" << AnnoStr->getAsString() << "\" on function arg " << ArgId << " ("
                         << Arg->getName() << ") of function " << KernF.getName() << "\n");
       Res = AnnoStringCExp;
       break;
@@ -61,7 +62,7 @@ void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std:
       break;
   }
   if (!Res.has_value()) {
-    LLVM_DEBUG(dbgs() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function "
+    LLVM_DEBUG(log() << "Found no annotation on function arg " << ArgId << " (" << Arg->getName() << ") of function "
                       << KernF.getName() << "\n");
     return;
   }
@@ -82,7 +83,7 @@ void createCudaKernelTrampoline(Module& M, Function& KernF) {
     ArgTypes.append({KernF.getArg(ArgId)->getType()});
   }
   if (NumAnnos == 0) {
-    LLVM_DEBUG(dbgs() << "No annotations, no trampoline. Skipping.\n");
+    LLVM_DEBUG(log() << "No annotations, no trampoline. Skipping.\n");
     return;
   }
 
@@ -127,7 +128,7 @@ void createCudaKernelTrampoline(Module& M, Function& KernF) {
   Builder.CreateRetVoid();
 
   TaffoInfo::getInstance().setOpenCLTrampoline(*NewF, KernF);
-  LLVM_DEBUG(dbgs() << "Created trampoline:\n"
+  LLVM_DEBUG(log() << "Created trampoline:\n"
                     << *NewF);
 }
 
@@ -156,12 +157,12 @@ static void getCudaKernels(llvm::Module& M, llvm::SmallVectorImpl<llvm::Function
 }
 
 void taffo::createCudaKernelTrampolines(Module& M) {
-  LLVM_DEBUG(dbgs() << "Creating Cuda trampolines...\n");
+  LLVM_DEBUG(log() << "Creating Cuda trampolines...\n");
   SmallVector<Function*, 2> KernFs;
   getCudaKernels(M, KernFs);
   for (Function* F : KernFs) {
-    LLVM_DEBUG(dbgs() << "Found Cuda kernel function " << F->getName() << "\n");
+    LLVM_DEBUG(log() << "Found Cuda kernel function " << F->getName() << "\n");
     createCudaKernelTrampoline(M, *F);
   }
-  LLVM_DEBUG(dbgs() << "Finished creating Cuda trampolines.\n\n");
+  LLVM_DEBUG(log() << "Finished creating Cuda trampolines.\n\n");
 }

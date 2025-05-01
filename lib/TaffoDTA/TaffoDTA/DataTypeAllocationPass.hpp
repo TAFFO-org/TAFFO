@@ -2,6 +2,7 @@
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
+#include "Debug/Logger.hpp"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallPtrSet.h>
@@ -86,7 +87,7 @@ public:
   std::shared_ptr<TunerInfo> getTunerInfo(llvm::Value* val) {
     auto vi = info.find(val);
     if (vi == info.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
+      LLVM_DEBUG(taffo::log() << "new valueinfo for " << *val << "\n");
       info[val] = std::make_shared<TunerInfo>(TunerInfo());
       return info[val];
     }
@@ -111,7 +112,7 @@ public:
 
   bool incomingValuesDisabled(llvm::Value* v) {
     using namespace llvm;
-    if (!taffo::getUnwrappedType(v)->isFloatingPointTy())
+    if (!taffo::getFullyUnwrappedType(v)->isFloatingPointTy())
       return true;
 
     if (auto* phi = dyn_cast<PHINode>(v)) {

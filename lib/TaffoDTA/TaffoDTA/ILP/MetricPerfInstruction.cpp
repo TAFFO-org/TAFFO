@@ -11,7 +11,7 @@ using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-static void emitError(const string& stringhina) { LLVM_DEBUG(dbgs() << "[ERROR] " << stringhina << "\n"); }
+static void emitError(const string& stringhina) { LLVM_DEBUG(log() << "[ERROR] " << stringhina << "\n"); }
 
 void MetricPerf::handleDisabled(std::shared_ptr<OptimizerScalarInfo> res, const CPUCosts& cpuCosts, const char* start) {
   auto constraint = vector<pair<string, double>>();
@@ -597,7 +597,7 @@ void MetricPerf::handleFRem(BinaryOperator* instr, const unsigned OpCode, const 
 }
 
 void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
-  LLVM_DEBUG(dbgs() << "Handling casting instruction...\n";);
+  LLVM_DEBUG(log() << "Handling casting instruction...\n";);
 
   if (isa<BitCastInst>(instruction)) {
     // FIXME: hack for jmeint to give info after the malloc
@@ -609,19 +609,19 @@ void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<Tune
       // When bitcasting to a floating point and having info, maybe we are dealing with a floating point array!
       auto fieldInfo = dynamic_ptr_cast<InputInfo>(valueInfo->metadata);
       if (!fieldInfo) {
-        LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+        LLVM_DEBUG(log() << "Not enough information. Bailing out.\n\n";);
 
         if (valueInfo->metadata) {
-          LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n";);
+          LLVM_DEBUG(log() << "WTF metadata has a value but it is not an input info...\n\n";);
         } else {
-          LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
+          LLVM_DEBUG(log() << "Metadata is really null.\n";);
         }
         return;
       }
 
       auto fptype = dynamic_ptr_cast<FixpType>(fieldInfo->IType);
       if (!fptype) {
-        LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+        LLVM_DEBUG(log() << "No fixed point info associated. Bailing out.\n";);
         return;
       }
 
@@ -633,11 +633,11 @@ void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<Tune
 
       saveInfoForValue(instruction, met);
 
-      LLVM_DEBUG(dbgs() << "Associated metadata " << met->toString() << " to the bitcast!\n";);
+      LLVM_DEBUG(log() << "Associated metadata " << met->toString() << " to the bitcast!\n";);
       return;
     }*/
 
-    LLVM_DEBUG(dbgs() << "[Warning] Bitcasting not supported for model generation.";);
+    LLVM_DEBUG(log() << "[Warning] Bitcasting not supported for model generation.";);
     return;
   }
 
@@ -647,7 +647,7 @@ void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<Tune
   }
 
   if (isa<TruncInst>(instruction) || isa<ZExtInst>(instruction) || isa<SExtInst>(instruction)) {
-    LLVM_DEBUG(dbgs() << "Cast between integers, skipping...\n";);
+    LLVM_DEBUG(log() << "Cast between integers, skipping...\n";);
     return;
   }
 
@@ -655,17 +655,17 @@ void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<Tune
 
     auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
     if (!fieldInfo) {
-      LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+      LLVM_DEBUG(log() << "Not enough information. Bailing out.\n\n";);
 
       if (valueInfo->metadata)
-        LLVM_DEBUG(dbgs() << "WTF metadata has a value but it is not an input info...\n\n";);
-      else LLVM_DEBUG(dbgs() << "Metadata is really null.\n";);
+        LLVM_DEBUG(log() << "WTF metadata has a value but it is not an input info...\n\n";);
+      else LLVM_DEBUG(log() << "Metadata is really null.\n";);
       return;
     }
 
     auto fptype = dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
     if (!fptype) {
-      LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+      LLVM_DEBUG(log() << "No fixed point info associated. Bailing out.\n";);
       return;
     }
 
@@ -682,12 +682,12 @@ void MetricPerf::handleCastInstruction(Instruction* instruction, shared_ptr<Tune
   }
 
   if (isa<FPToSIInst>(instruction) || isa<FPToUIInst>(instruction)) {
-    LLVM_DEBUG(dbgs() << "Casting Floating point to integer, no costs introduced.\n";);
+    LLVM_DEBUG(log() << "Casting Floating point to integer, no costs introduced.\n";);
     return;
   }
 
   if (isa<IntToPtrInst>(instruction) || isa<PtrToIntInst>(instruction)) {
-    LLVM_DEBUG(dbgs() << "Black magic with pointers is happening. We do not want to awake the dragon, rigth?\n";);
+    LLVM_DEBUG(log() << "Black magic with pointers is happening. We do not want to awake the dragon, rigth?\n";);
     return;
   }
 
@@ -707,7 +707,7 @@ void MetricPerf::handleStore(Instruction* instruction, const shared_ptr<TunerInf
   if (opRegister->getType()->isFloatingPointTy()) {
     auto info1 = getInfoOfValue(opWhereToStore);
     if (!info1 || !info2) {
-      LLVM_DEBUG(dbgs() << "One of the two values does not have info, ignoring...\n";);
+      LLVM_DEBUG(log() << "One of the two values does not have info, ignoring...\n";);
       return;
     }
 
@@ -723,7 +723,7 @@ void MetricPerf::handleStore(Instruction* instruction, const shared_ptr<TunerInf
       return;
     }
 
-    LLVM_DEBUG(dbgs() << "Storing " << info2->toString() << " into " << info1->toString() << "\n";);
+    LLVM_DEBUG(log() << "Storing " << info2->toString() << " into " << info1->toString() << "\n";);
 
     auto info_pointer = dynamic_ptr_cast<OptimizerScalarInfo>(info_pointer_t->getOptInfo());
 
@@ -800,7 +800,7 @@ void MetricPerf::handleStore(Instruction* instruction, const shared_ptr<TunerInf
         constraint, Model::LE, 0 /*, "Enob constraint ENOB propagation in load/store"*/);
     }
     else {
-      LLVM_DEBUG(dbgs() << "[INFO] The value to store is a constant, not inserting it as may cause problems...\n";);
+      LLVM_DEBUG(log() << "[INFO] The value to store is a constant, not inserting it as may cause problems...\n";);
       // getModel().insertComment("Storing constant, no new enob.", 1);
       isConstant = true;
     }
@@ -821,12 +821,12 @@ void MetricPerf::handleStore(Instruction* instruction, const shared_ptr<TunerInf
   else if (opRegister->getType()->isPointerTy()) {
     // Storing a pointer. In the value there should be a pointer already, and the value where to store is, in fact,
     // a pointer to a pointer
-    LLVM_DEBUG(dbgs() << "The register is: ";);
-    LLVM_DEBUG(opRegister->print(dbgs()););
-    LLVM_DEBUG(dbgs() << "\n";);
-    LLVM_DEBUG(dbgs() << "Storing a pointer...\n";);
+    LLVM_DEBUG(log() << "The register is: ";);
+    LLVM_DEBUG(opRegister->print(log()););
+    LLVM_DEBUG(log() << "\n";);
+    LLVM_DEBUG(log() << "Storing a pointer...\n";);
     if (!info2) {
-      LLVM_DEBUG(dbgs() << "Skipping, as the value to save does not have any info...\n";);
+      LLVM_DEBUG(log() << "Skipping, as the value to save does not have any info...\n";);
       return;
     }
 
@@ -840,7 +840,7 @@ void MetricPerf::handleStore(Instruction* instruction, const shared_ptr<TunerInf
     saveInfoForPointer(opWhereToStore, make_shared<OptimizerPointerInfo>(info2));
   }
   else {
-    LLVM_DEBUG(dbgs() << "Storing a non-floating point, skipping...\n";);
+    LLVM_DEBUG(log() << "Storing a non-floating point, skipping...\n";);
     return;
   }
 }
@@ -852,7 +852,7 @@ void MetricPerf::handleFPPrecisionShift(Instruction* instruction, shared_ptr<Tun
   auto info = getInfoOfValue(operand);
   auto sinfos = dynamic_ptr_cast<OptimizerScalarInfo>(info);
   if (!sinfos) {
-    LLVM_DEBUG(dbgs() << "No info for the operand, ignoring...\n";);
+    LLVM_DEBUG(log() << "No info for the operand, ignoring...\n";);
     return;
   }
 
@@ -866,14 +866,14 @@ void MetricPerf::handleFPPrecisionShift(Instruction* instruction, shared_ptr<Tun
                                                     *sinfos->getRange(),
                                                     sinfos->getOverridedEnob()));
 
-  LLVM_DEBUG(dbgs() << "For this fpext/fptrunc, reusing variable" << sinfos->getBaseName() << "\n";);
+  LLVM_DEBUG(log() << "For this fpext/fptrunc, reusing variable" << sinfos->getBaseName() << "\n";);
 }
 
 void MetricPerf::handlePhi(Instruction* instruction, shared_ptr<TunerInfo> valueInfo) {
   auto* phi = dyn_cast<PHINode>(instruction);
 
   if (!phi->getType()->isFloatingPointTy()) {
-    LLVM_DEBUG(dbgs() << "Phi node with non float value, skipping...\n";);
+    LLVM_DEBUG(log() << "Phi node with non float value, skipping...\n";);
     return;
   }
 
@@ -896,18 +896,18 @@ void MetricPerf::handlePhi(Instruction* instruction, shared_ptr<TunerInfo> value
 
   auto fieldInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo->metadata);
   if (!fieldInfo) {
-    LLVM_DEBUG(dbgs() << "Not enough information. Bailing out.\n\n";);
+    LLVM_DEBUG(log() << "Not enough information. Bailing out.\n\n";);
     return;
   }
 
   if (!fieldInfo->range) {
-    LLVM_DEBUG(dbgs() << "Not Range information. Bailing out.\n\n";);
+    LLVM_DEBUG(log() << "Not Range information. Bailing out.\n\n";);
     return;
   }
 
   auto fptype = dynamic_ptr_cast<FixedPointInfo>(fieldInfo->numericType);
   if (!fptype) {
-    LLVM_DEBUG(dbgs() << "No fixed point info associated. Bailing out.\n";);
+    LLVM_DEBUG(log() << "No fixed point info associated. Bailing out.\n";);
     return;
   }
 
@@ -922,9 +922,9 @@ void MetricPerf::handlePhi(Instruction* instruction, shared_ptr<TunerInfo> value
     if (auto info = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op))) {
       if (info->doesReferToConstant()) {
         // We skip the variable if it is a constant
-        LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-        LLVM_DEBUG(op->print(dbgs()););
-        LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+        LLVM_DEBUG(log() << "[INFO] Skipping ";);
+        LLVM_DEBUG(op->print(log()););
+        LLVM_DEBUG(log() << " as it is a constant!\n";);
         continue;
       }
     }
@@ -938,48 +938,48 @@ void MetricPerf::handlePhi(Instruction* instruction, shared_ptr<TunerInfo> value
     getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
   }
   else {
-    LLVM_DEBUG(dbgs() << "[INFO] All constants phi node, nothing to do!!!\n";);
+    LLVM_DEBUG(log() << "[INFO] All constants phi node, nothing to do!!!\n";);
     return;
   }
 
   int missing = 0;
 
   for (unsigned index = 0; index < phi_n->getNumIncomingValues(); index++) {
-    LLVM_DEBUG(dbgs() << "[Phi] Handlign operator " << index << "...\n";);
+    LLVM_DEBUG(log() << "[Phi] Handlign operator " << index << "...\n";);
     Value* op = phi_n->getIncomingValue(index);
 
     if (auto info = getInfoOfValue(op)) {
       if (auto info2 = dynamic_ptr_cast<OptimizerScalarInfo>(info)) {
         if (info2->doesReferToConstant()) {
           // We skip the variable if it is a constant
-          LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-          LLVM_DEBUG(op->print(dbgs()););
-          LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+          LLVM_DEBUG(log() << "[INFO] Skipping ";);
+          LLVM_DEBUG(op->print(log()););
+          LLVM_DEBUG(log() << " as it is a constant!\n";);
           continue;
         }
       }
 
-      LLVM_DEBUG(dbgs() << "[Phi] We have infos, treating as usual.\n";);
+      LLVM_DEBUG(log() << "[Phi] We have infos, treating as usual.\n";);
       // because yes, integrity checks....
       openPhiLoop(phi_n, op);
       closePhiLoop(phi_n, op);
     }
     else {
-      LLVM_DEBUG(dbgs() << "[Phi] No value available, inserting in delayed set.\n";);
+      LLVM_DEBUG(log() << "[Phi] No value available, inserting in delayed set.\n";);
       openPhiLoop(phi_n, op);
       missing++;
     }
   }
 
-  LLVM_DEBUG(dbgs() << "[Phi] Elaboration concluded. Missing " << missing << " values.\n";);
+  LLVM_DEBUG(log() << "[Phi] Elaboration concluded. Missing " << missing << " values.\n";);
 
   getPhiWatcher().dumpState();
 }
 
 void MetricPerf::handleLoad(Instruction* instruction, const shared_ptr<TunerInfo>& valueInfo) {
-  LLVM_DEBUG(dbgs() << "Handle Load\n");
+  LLVM_DEBUG(log() << "Handle Load\n");
   if (!valueInfo) {
-    LLVM_DEBUG(dbgs() << "No value info, skipping...\n";);
+    LLVM_DEBUG(log() << "No value info, skipping...\n";);
     return;
   }
 
@@ -1008,7 +1008,7 @@ void MetricPerf::handleLoad(Instruction* instruction, const shared_ptr<TunerInfo
     newEnobVariable.append("_");
     newEnobVariable.append(uniqueIDForValue(load));
     std::replace(newEnobVariable.begin(), newEnobVariable.end(), '.', '_');
-    LLVM_DEBUG(dbgs() << "New enob for load: " << newEnobVariable << "\n";);
+    LLVM_DEBUG(log() << "New enob for load: " << newEnobVariable << "\n";);
     getModel().createVariable(newEnobVariable, -BIG_NUMBER, BIG_NUMBER);
 
     auto constraint = vector<pair<string, double>>();
@@ -1053,30 +1053,30 @@ void MetricPerf::handleLoad(Instruction* instruction, const shared_ptr<TunerInfo
       toSkip[index] = true;
       Value* op = def_vals[index];
       if (!op) {
-        LLVM_DEBUG(dbgs() << "Skipping null value!\n";);
+        LLVM_DEBUG(log() << "Skipping null value!\n";);
         continue;
       }
 
       auto store = dyn_cast_or_null<StoreInst>(op);
       if (!store) {
         // We skip the variable if it is not a store
-        LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-        LLVM_DEBUG(op->print(dbgs()););
-        LLVM_DEBUG(dbgs() << " as it is NOT a store!\n";);
+        LLVM_DEBUG(log() << "[INFO] Skipping ";);
+        LLVM_DEBUG(op->print(log()););
+        LLVM_DEBUG(log() << " as it is NOT a store!\n";);
         continue;
       }
       if (auto info = dynamic_ptr_cast<OptimizerScalarInfo>(getInfoOfValue(op))) {
         if (info->doesReferToConstant()) {
           // We skip the variable if it is a constant
-          LLVM_DEBUG(dbgs() << "[INFO] Skipping ";);
-          LLVM_DEBUG(op->print(dbgs()););
-          LLVM_DEBUG(dbgs() << " as it is a constant!\n";);
+          LLVM_DEBUG(log() << "[INFO] Skipping ";);
+          LLVM_DEBUG(op->print(log()););
+          LLVM_DEBUG(log() << " as it is a constant!\n";);
           continue;
         }
       }
 
       string enob_selection = getEnobActivationVariable(instruction, index);
-      LLVM_DEBUG(dbgs() << "Declaring " << enob_selection << " for enob...\n";);
+      LLVM_DEBUG(log() << "Declaring " << enob_selection << " for enob...\n";);
       if (!getModel().isVariableDeclared(enob_selection))
         getModel().createVariable(enob_selection, 0, 1);
       constraint.push_back(make_pair(enob_selection, 1.0));
@@ -1087,54 +1087,54 @@ void MetricPerf::handleLoad(Instruction* instruction, const shared_ptr<TunerInfo
       getModel().insertLinearConstraint(constraint, Model::EQ, 1 /*, "Enob: one selected constraint"*/);
     }
     else {
-      LLVM_DEBUG(dbgs() << "[INFO] All constants memPhi node, nothing to do!!!\n";);
+      LLVM_DEBUG(log() << "[INFO] All constants memPhi node, nothing to do!!!\n";);
       // return;
     }
 
     int missing = 0;
 
     for (unsigned index = 0; index < def_vals.size(); index++) {
-      LLVM_DEBUG(dbgs() << "[memPhi] Handling operator " << index << "...\n";);
+      LLVM_DEBUG(log() << "[memPhi] Handling operator " << index << "...\n";);
       Value* op = def_vals[index];
 
       if (toSkip[index]) {
-        LLVM_DEBUG(dbgs() << "Need to skip this...\n";);
+        LLVM_DEBUG(log() << "Need to skip this...\n";);
         continue;
       }
 
       if (auto info = getInfoOfValue(op)) {
-        LLVM_DEBUG(dbgs() << "[memPhi] We have infos, treating as usual.\n";);
+        LLVM_DEBUG(log() << "[memPhi] We have infos, treating as usual.\n";);
         // because yes, integrity checks....
         openMemLoop(load, op);
         closeMemLoop(load, op);
       }
       else {
-        LLVM_DEBUG(dbgs() << "[memPhi] No value available, inserting in delayed set.\n";);
+        LLVM_DEBUG(log() << "[memPhi] No value available, inserting in delayed set.\n";);
         openMemLoop(load, op);
         missing++;
       }
     }
 
-    LLVM_DEBUG(dbgs() << "missing no. = " << missing << "\n");
-    LLVM_DEBUG(dbgs() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n");
+    LLVM_DEBUG(log() << "missing no. = " << missing << "\n");
+    LLVM_DEBUG(log() << "For this load, reusing variable [" << sinfos->getBaseName() << "]\n");
   }
   else if (load->getType()->isPointerTy()) {
-    LLVM_DEBUG(dbgs() << "Handling load of a pointer...\n";);
+    LLVM_DEBUG(log() << "Handling load of a pointer...\n";);
     // Unwrap the pointer, hoping that it is pointing to something
     auto info = pinfos->getOptInfo();
     if (info->getKind() != OptimizerInfo::K_Pointer) {
-      LLVM_DEBUG(dbgs() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, "
+      LLVM_DEBUG(log() << "Warning, returning a pointer but the unwrapped thing is not a pointer! To prevent error, "
                            "wrapping it...";);
       // FIXME: hack to prevent problem when using global pointer as arrays
-      LLVM_DEBUG(dbgs() << "Unfortunately got " << info->toString() << "\n";);
+      LLVM_DEBUG(log() << "Unfortunately got " << info->toString() << "\n";);
 
       info = make_shared<OptimizerPointerInfo>(info);
     }
-    LLVM_DEBUG(dbgs() << "The final register will have as info: " << info->toString() << "\n";);
+    LLVM_DEBUG(log() << "The final register will have as info: " << info->toString() << "\n";);
     saveInfoForValue(instruction, info);
   }
   else {
-    LLVM_DEBUG(dbgs() << "Loading a non floating point value, ingoring.\n";);
+    LLVM_DEBUG(log() << "Loading a non floating point value, ingoring.\n";);
     return;
   }
 }

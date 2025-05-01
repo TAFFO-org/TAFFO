@@ -21,7 +21,7 @@ Value* FloatToFixed::convertCudaCall(CallBase* C) {
 
   unsigned BufferArgId;
   unsigned BufferSizeArgId;
-  LLVM_DEBUG(dbgs() << F->getName() << " detected, attempting to convert\n");
+  LLVM_DEBUG(log() << F->getName() << " detected, attempting to convert\n");
   if (F->getName() == "cuMemcpyHtoD_v2") {
     BufferArgId = 1;
     BufferSizeArgId = 2;
@@ -40,11 +40,11 @@ Value* FloatToFixed::convertCudaCall(CallBase* C) {
     TheBuffer = BC->getOperand(0);
   Value* NewBuffer = matchOp(TheBuffer);
   if (!NewBuffer || !hasConversionInfo(NewBuffer)) {
-    LLVM_DEBUG(dbgs() << "Buffer argument not converted; trying fallback.");
+    LLVM_DEBUG(log() << "Buffer argument not converted; trying fallback.");
     return Unsupported;
   }
-  LLVM_DEBUG(dbgs() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(dbgs() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
+  LLVM_DEBUG(log() << "Found converted buffer: " << *NewBuffer << "\n");
+  LLVM_DEBUG(log() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
   Type* VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value* NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy)
@@ -53,17 +53,17 @@ Value* FloatToFixed::convertCudaCall(CallBase* C) {
     NewBufferArg = NewBuffer;
   C->setArgOperand(BufferArgId, NewBufferArg);
 
-  LLVM_DEBUG(dbgs() << "Attempting to adjust buffer size\n");
+  LLVM_DEBUG(log() << "Attempting to adjust buffer size\n");
   Type* OldTy = TheBuffer->getType();
   Type* NewTy = NewBuffer->getType();
   Value* OldBufSz = C->getArgOperand(BufferSizeArgId);
   Value* NewBufSz = adjustBufferSize(OldBufSz, OldTy, NewTy, C, true);
   if (OldBufSz != NewBufSz) {
     C->setArgOperand(BufferSizeArgId, NewBufSz);
-    LLVM_DEBUG(dbgs() << "Buffer size was adjusted\n");
+    LLVM_DEBUG(log() << "Buffer size was adjusted\n");
   }
   else {
-    LLVM_DEBUG(dbgs() << "Buffer size did not need any adjustment\n");
+    LLVM_DEBUG(log() << "Buffer size did not need any adjustment\n");
   }
 
   return C;

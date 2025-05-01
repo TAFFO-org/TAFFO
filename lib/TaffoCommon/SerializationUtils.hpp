@@ -48,11 +48,6 @@ public:
    */
   virtual std::string toString() const = 0;
 
-  /**
-   * @brief Dumps the string representation of the object to dbgs.
-   */
-  void dump() const { llvm::dbgs() << toString(); }
-
   virtual ~Printable() = default;
 };
 

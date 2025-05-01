@@ -38,13 +38,13 @@ void PhiWatcher::closePhiLoop(PHINode* phiNode, Value* requestedValue) {
 
 void PhiWatcher::dumpState() {
   if (pairsToClose.empty())
-    LLVM_DEBUG(dbgs() << "All Phi loops closed!\n";);
+    LLVM_DEBUG(log() << "All Phi loops closed!\n";);
   for (auto pair : pairsToClose) {
-    LLVM_DEBUG(pair.first->print(dbgs()););
-    LLVM_DEBUG(dbgs() << " STILL MISSING; will close:\n";);
+    LLVM_DEBUG(pair.first->print(log()););
+    LLVM_DEBUG(log() << " STILL MISSING; will close:\n";);
     for (auto a : pair.second) {
-      LLVM_DEBUG(a->print(dbgs()););
-      LLVM_DEBUG(dbgs() << "\n";);
+      LLVM_DEBUG(a->print(log()););
+      LLVM_DEBUG(log() << "\n";);
     }
   }
 }

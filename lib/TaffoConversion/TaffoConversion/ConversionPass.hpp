@@ -9,8 +9,8 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_ostream.h"
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/raw_ostream.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/Statistic.h>
@@ -195,12 +195,15 @@ struct FloatToFixed {
 
   /** Returns the converted Value matching a non-converted Value.
    *  @param val The non-converted value to match.
-   *  @returns nullptr if the value has not been converted properly,
+   *  @returns ConversionError if the value has not been converted properly,
    *    the converted value if the original value was converted,
    *    or the original value itself if it does not require conversion. */
   llvm::Value* matchOp(llvm::Value* val) {
-    llvm::Value* res = convertedValues[val];
-    return res == ConversionError ? nullptr : (res ? res : val);
+    auto iter = convertedValues.find(val);
+    if (iter != convertedValues.end()) {
+      return iter->second;
+    }
+    return val;
   }
 
   /** Returns a fixed point Value from any Value, whether it should be
@@ -311,8 +314,8 @@ struct FloatToFixed {
                                   llvm::Instruction* insertionPoint = nullptr) {
     Logger& logger = log();
 
-    llvm::Value* fallBackValue = convertedValues.at(value);
-    assert(fallBackValue != nullptr && "Value was converted to a nullptr");
+    llvm::Value* fallBackValue = matchOp(value);
+    assert(fallBackValue != ConversionError);
 
     LLVM_DEBUG(
       auto indenter = logger.getIndenter();
@@ -326,14 +329,14 @@ struct FloatToFixed {
       });
 
     if (fallBackValue == ConversionError) {
-      LLVM_DEBUG(llvm::dbgs() << "error: bail out reverse match of " << *value << "\n");
+      LLVM_DEBUG(log() << "error: bail out reverse match of " << *value << "\n");
       return nullptr;
     }
 
-    LLVM_DEBUG(llvm::dbgs() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
+    LLVM_DEBUG(log() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
     if (!hasConversionInfo(fallBackValue))
       return fallBackValue;
-    LLVM_DEBUG(llvm::dbgs() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->noTypeConversion << "\n";);
+    LLVM_DEBUG(log() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->noTypeConversion << "\n";);
     if (getConversionInfo(fallBackValue)->noTypeConversion)
       return fallBackValue;
 
@@ -399,7 +402,7 @@ struct FloatToFixed {
   llvm::Instruction* getFirstInsertionPointAfter(llvm::Instruction* i) {
     llvm::Instruction* ip = i->getNextNode();
     if (!ip) {
-      LLVM_DEBUG(llvm::dbgs() << "warning: getFirstInsertionPointAfter on a BB-terminating inst\n");
+      LLVM_DEBUG(log() << "warning: getFirstInsertionPointAfter on a BB-terminating inst\n");
       return nullptr;
     }
     if (llvm::isa<llvm::PHINode>(ip))
@@ -410,7 +413,7 @@ struct FloatToFixed {
   llvm::Type* getLLVMFixedPointTypeForFloatValue(llvm::Value* val);
 
   std::shared_ptr<ConversionInfo> newConversionInfo(llvm::Value* val) {
-    LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
+    LLVM_DEBUG(log() << "new valueinfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
       conversionInfo[val] = std::make_shared<ConversionInfo>();
@@ -422,7 +425,7 @@ struct FloatToFixed {
   }
 
   std::shared_ptr<ConversionInfo> demandConversionInfo(llvm::Value* val, bool* isNew = nullptr) {
-    LLVM_DEBUG(llvm::dbgs() << "new valueinfo for " << *val << "\n");
+    LLVM_DEBUG(log() << "new valueinfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
       if (isNew)
@@ -440,7 +443,7 @@ struct FloatToFixed {
   std::shared_ptr<ConversionInfo> getConversionInfo(llvm::Value* val) {
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
-      LLVM_DEBUG(llvm::dbgs() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
+      LLVM_DEBUG(log() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
       llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
     }
     return vi->getSecond();
@@ -485,7 +488,7 @@ struct FloatToFixed {
       return false;
     if (llvm::ReturnInst* ret = llvm::dyn_cast<llvm::ReturnInst>(val))
       val = ret->getReturnValue();
-    llvm::Type* ty = getUnwrappedType(val);
+    llvm::Type* ty = getFullyUnwrappedType(val);
     if (!ty->isStructTy() && !ty->isFloatingPointTy())
       return false;
     return true;

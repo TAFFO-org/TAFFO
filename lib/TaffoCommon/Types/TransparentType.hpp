@@ -3,7 +3,7 @@
 #include "PtrCasts.hpp"
 #include "SerializationUtils.hpp"
 
-#include "llvm/IR/Type.h"
+#include <llvm/IR/Type.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/DerivedTypes.h>
 
@@ -41,7 +41,7 @@ class TransparentType : public Serializable,
 public:
   friend class TransparentTypeFactory;
   friend class TypeDeducerPass;
-  friend class taffo::FixedPointScalarType;
+  friend class FixedPointScalarType;
 
   enum TransparentTypeKind {
     K_Scalar,
@@ -53,6 +53,7 @@ public:
 
   bool isValid() const { return unwrappedType; }
   llvm::Type* getUnwrappedType() const { return unwrappedType; }
+  virtual llvm::Type* getFullyUnwrappedType() const { return unwrappedType; }
   unsigned int getIndirections() const { return indirections; }
   std::shared_ptr<TransparentType> getPointedType() const;
   virtual llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const { return {unwrappedType}; }
@@ -99,6 +100,7 @@ public:
   bool containsFloatingPointType() const override { return getArrayElementType()->containsFloatingPointType(); }
   int compareTransparency(const TransparentType& other) const override;
   std::shared_ptr<TransparentType> getArrayElementType() const { return elementType; }
+  llvm::Type* getFullyUnwrappedType() const override { return getArrayElementType()->getFullyUnwrappedType(); }
   llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const override;
   std::shared_ptr<TransparentType> setArrayElementType(const std::shared_ptr<TransparentType>& elementType) {
     return this->elementType = elementType;

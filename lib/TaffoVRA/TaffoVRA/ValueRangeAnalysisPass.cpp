@@ -41,7 +41,7 @@ PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& 
   CodeInterpreter CodeInt(AM, GlobalStore, Unroll, MaxUnroll);
   processModule(CodeInt, M);
 
-  LLVM_DEBUG(dbgs() << "saving results...\n");
+  LLVM_DEBUG(log() << "saving results...\n");
   GlobalStore->saveResults(M);
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_vra.json", M);
@@ -59,5 +59,5 @@ void ValueRangeAnalysisPass::processModule(CodeInterpreter& CodeInt, Module& M) 
   }
 
   if (!FoundVisitableFunction)
-    LLVM_DEBUG(dbgs() << DEBUG_HEAD << " No visitable functions found.\n");
+    LLVM_DEBUG(log() << DEBUG_HEAD << " No visitable functions found.\n");
 }

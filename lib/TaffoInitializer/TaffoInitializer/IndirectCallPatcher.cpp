@@ -59,7 +59,7 @@ void handleKmpcFork(const Module& m,
             "third argument");
 
   if (containsUnsupportedFunctions(microTaskFunction, {})) {
-    LLVM_DEBUG(dbgs() << "Blocking conversion for shared variables in "
+    LLVM_DEBUG(log() << "Blocking conversion for shared variables in "
                          "unsupported parallel region"
                       << *curCallInstruction << "\n");
 
@@ -127,7 +127,7 @@ void handleKmpcFork(const Module& m,
 
   // Save the old instruction to delete it later
   toDelete.push_back(curCallInstruction);
-  LLVM_DEBUG(dbgs() << "Newly created instruction: " << *trampolineCallInstruction << "\n");
+  LLVM_DEBUG(log() << "Newly created instruction: " << *trampolineCallInstruction << "\n");
 }
 
 /// Check if the given call is indirect and handle it with the dedicated handler.

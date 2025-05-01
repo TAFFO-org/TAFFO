@@ -20,7 +20,7 @@ void AnnotationParser::reset() {
 }
 
 bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value* annotatedValue) {
-  Type* type = getUnwrappedType(annotatedValue);
+  Type* type = getFullyUnwrappedType(annotatedValue);
   reset();
   stringStream = std::istringstream(annotationStr.str());
 

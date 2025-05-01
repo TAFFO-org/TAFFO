@@ -123,7 +123,7 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
           continue;
         LLVM_DEBUG(
           Logger->lineHead();
-          dbgs() << " Considering input valueInfo of " << inst << " (weight=" << weight << ")\n");
+          log() << " Considering input valueInfo of " << inst << " (weight=" << weight << ")\n");
         if (auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
           if (isValidRange(scalarInfo->range.get()))
             UserInput[&inst] = scalarInfo;
@@ -178,7 +178,7 @@ void VRAGlobalStore::saveResults(Module& m) {
             taffoInfo.setValueInfo(inst, copiedValueInfo);
           }
           else if (std::shared_ptr<ValueInfo> newValueInfo = valueInfoWithRange) {
-            if (std::isa_ptr<ScalarInfo>(newValueInfo) || getUnwrappedType(&inst)->isStructTy())
+            if (std::isa_ptr<ScalarInfo>(newValueInfo) || getFullyUnwrappedType(&inst)->isStructTy())
               taffoInfo.setValueInfo(inst, newValueInfo);
           }
         }
@@ -197,7 +197,7 @@ void VRAGlobalStore::updateValueInfo(const std::shared_ptr<ValueInfo>& valueInfo
       if (std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo))
         scalarInfo->range = std::make_shared<Range>(*range);
       else
-        LLVM_DEBUG(dbgs() << "WARNING: mismatch between computed range type and metadata.\n");
+        LLVM_DEBUG(log() << "WARNING: mismatch between computed range type and metadata.\n");
     }
   }
   else if (const std::shared_ptr<StructInfo> newStructInfo = std::dynamic_ptr_cast<StructInfo>(valueInfoWithRange)) {

@@ -150,9 +150,9 @@ int TransparentArrayType::compareTransparency(const TransparentType& other) cons
   return elementType->compareTransparency(*otherArray.elementType);
 }
 
-llvm::SmallPtrSet<llvm::Type*, 4> TransparentArrayType::getContainedTypes() const {
-  llvm::SmallPtrSet<llvm::Type*, 4> containedTypes = TransparentType::getContainedTypes();
-  llvm::SmallPtrSet<llvm::Type*, 4> elementContaineTypes = getArrayElementType()->getContainedTypes();
+SmallPtrSet<Type*, 4> TransparentArrayType::getContainedTypes() const {
+  SmallPtrSet<Type*, 4> containedTypes = TransparentType::getContainedTypes();
+  SmallPtrSet<Type*, 4> elementContaineTypes = getArrayElementType()->getContainedTypes();
   containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());
   return containedTypes;
 }
@@ -240,10 +240,10 @@ int TransparentStructType::compareTransparency(const TransparentType& other) con
   return overallResult;
 }
 
-llvm::SmallPtrSet<llvm::Type*, 4> TransparentStructType::getContainedTypes() const {
-  llvm::SmallPtrSet<llvm::Type*, 4> containedTypes = TransparentType::getContainedTypes();
+SmallPtrSet<Type*, 4> TransparentStructType::getContainedTypes() const {
+  SmallPtrSet<Type*, 4> containedTypes = TransparentType::getContainedTypes();
   for (auto& field : *this) {
-    llvm::SmallPtrSet<llvm::Type*, 4> elementContaineTypes = field->getContainedTypes();
+    SmallPtrSet<Type*, 4> elementContaineTypes = field->getContainedTypes();
     containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());
   }
   return containedTypes;

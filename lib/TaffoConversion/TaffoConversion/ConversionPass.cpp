@@ -5,7 +5,7 @@
 #include "Types/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
-#include "llvm/IR/Argument.h"
+#include <llvm/IR/Argument.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Constants.h>
@@ -48,23 +48,23 @@ PreservedAnalyses Conversion::run(Module& M, ModuleAnalysisManager& AM) {
 using MLHVec = std::vector<std::pair<User*, Type*>>;
 
 MLHVec collectMallocLikeHandler(Module& m) {
-  LLVM_DEBUG(dbgs() << "#### " << __func__ << " BEGIN ####\n");
+  LLVM_DEBUG(log() << "#### " << __func__ << " BEGIN ####\n");
   std::vector<std::string> names {"malloc"};
   MLHVec tmp;
 
   for (const auto& name : names) {
-    LLVM_DEBUG(dbgs() << "Searching " << name << " as ");
+    LLVM_DEBUG(log() << "Searching " << name << " as ");
     // Mangle name to find the function
     std::string mangledName;
     raw_string_ostream mangledNameStream(mangledName);
     Mangler::getNameWithPrefix(mangledNameStream, name, m.getDataLayout());
     mangledNameStream.flush();
-    LLVM_DEBUG(dbgs() << mangledName << "\n");
+    LLVM_DEBUG(log() << mangledName << "\n");
 
     // Search function
     auto fun = m.getFunction(mangledName);
     if (fun == nullptr) {
-      LLVM_DEBUG(dbgs() << "Not Found\n"
+      LLVM_DEBUG(log() << "Not Found\n"
                         << "\n");
       continue;
     }
@@ -75,18 +75,18 @@ MLHVec collectMallocLikeHandler(Module& m) {
       Type* type = nullptr;
       for (auto UC : UF->users()) {
         if (auto bitcast = dyn_cast<BitCastInst>(UC)) {
-          LLVM_DEBUG(dbgs() << "Found bitcast from ");
+          LLVM_DEBUG(log() << "Found bitcast from ");
           LLVM_DEBUG(UF->dump());
-          LLVM_DEBUG(dbgs() << "to ");
+          LLVM_DEBUG(log() << "to ");
           LLVM_DEBUG(bitcast->dump());
           // TODO FIX SOON!
           /*if (type == nullptr) {
 
             type = bitcast->getType()->isPtrOrPtrVectorTy() ? bitcast->getType()->getPointerElementType() :
           bitcast->getType()->getScalarType(); while (type->isPtrOrPtrVectorTy()) { type =
-          type->getPointerElementType(); LLVM_DEBUG(dbgs() << "type " << *type << "\n");
+          type->getPointerElementType(); LLVM_DEBUG(log() << "type " << *type << "\n");
             }
-            LLVM_DEBUG(dbgs() << "Scalar type ");
+            LLVM_DEBUG(log() << "Scalar type ");
             LLVM_DEBUG(type->dump());
           } else {
             Type *type_tmp = nullptr;
@@ -94,7 +94,7 @@ MLHVec collectMallocLikeHandler(Module& m) {
           bitcast->getType()->getScalarType(); while (type_tmp->isPtrOrPtrVectorTy()) { type_tmp =
           type_tmp->getPointerElementType();
             }
-            LLVM_DEBUG(dbgs() << "Scalar type ");
+            LLVM_DEBUG(log() << "Scalar type ");
             LLVM_DEBUG(type_tmp->dump());
             if (type->getScalarSizeInBits() < type_tmp->getScalarSizeInBits()) {
               type = type_tmp;
@@ -102,11 +102,11 @@ MLHVec collectMallocLikeHandler(Module& m) {
           }*/
         }
       }
-      LLVM_DEBUG(dbgs() << "added user " << *UF << "type ptr " << type << "\n");
+      LLVM_DEBUG(log() << "added user " << *UF << "type ptr " << type << "\n");
       tmp.push_back({UF, type});
     }
   }
-  LLVM_DEBUG(dbgs() << "#### " << __func__ << " END ####\n");
+  LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
   return tmp;
 }
 
@@ -116,21 +116,21 @@ Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instru
 
   Type* RootOldTy = OldTy;
   Type* RootNewTy = NewTy;
-  LLVM_DEBUG(dbgs() << "Adjusting buffer size " << OrigSize->getNameOrAsOperand() << ", type change from " << *OldTy
+  LLVM_DEBUG(log() << "Adjusting buffer size " << OrigSize->getNameOrAsOperand() << ", type change from " << *OldTy
                     << " to " << *NewTy << "\n");
 
   if (!Tight && RootOldTy->getScalarSizeInBits() >= RootNewTy->getScalarSizeInBits()) {
-    LLVM_DEBUG(dbgs() << "Old type is larger or same size than new type, doing nothing\n");
+    LLVM_DEBUG(log() << "Old type is larger or same size than new type, doing nothing\n");
     return OrigSize;
   }
   if (Tight)
-    LLVM_DEBUG(dbgs() << "Tight flag is set, adjusting size even if it gets reduced\n");
+    LLVM_DEBUG(log() << "Tight flag is set, adjusting size even if it gets reduced\n");
   else
-    LLVM_DEBUG(dbgs() << "Old type is smaller than new type, adjusting arguments\n");
+    LLVM_DEBUG(log() << "Old type is smaller than new type, adjusting arguments\n");
 
   unsigned Num = RootNewTy->getScalarSizeInBits();
   unsigned Den = RootOldTy->getScalarSizeInBits();
-  LLVM_DEBUG(dbgs() << "Ratio: " << Num << " / " << Den << "\n");
+  LLVM_DEBUG(log() << "Ratio: " << Num << " / " << Den << "\n");
 
   ConstantInt* int_const = dyn_cast<ConstantInt>(OrigSize);
   Value* Res;
@@ -144,37 +144,37 @@ Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instru
     Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den - 1)).udiv(Den));
   }
 
-  LLVM_DEBUG(dbgs() << "Buffer size adjusted to " << *Res << "\n");
+  LLVM_DEBUG(log() << "Buffer size adjusted to " << *Res << "\n");
   return Res;
 }
 
 void closeMallocLikeHandler(Module& m, const MLHVec& vec) {
-  LLVM_DEBUG(dbgs() << "#### " << __func__ << " BEGIN ####\n");
+  LLVM_DEBUG(log() << "#### " << __func__ << " BEGIN ####\n");
   auto tmp = collectMallocLikeHandler(m);
   IRBuilder<> builder(m.getContext());
 
   for (auto& V : vec) {
     for (auto& T : tmp) {
       if (V.first == T.first) {
-        LLVM_DEBUG(dbgs() << "Processing malloc " << *(V.first) << "...\n");
+        LLVM_DEBUG(log() << "Processing malloc " << *(V.first) << "...\n");
         if (V.second == T.second && V.second == nullptr) {
-          LLVM_DEBUG(dbgs() << " Both types are null? ok...\n");
+          LLVM_DEBUG(log() << " Both types are null? ok...\n");
           continue;
         }
         Value* OldBufSize = V.first->getOperand(0);
         Value* NewBufSize = adjustBufferSize(OldBufSize, V.second, T.second, dyn_cast<Instruction>(V.first));
         if (NewBufSize != OldBufSize) {
           V.first->setOperand(0, NewBufSize);
-          LLVM_DEBUG(dbgs() << "Converted malloc transformed to " << *(V.first) << "\n");
+          LLVM_DEBUG(log() << "Converted malloc transformed to " << *(V.first) << "\n");
         }
         else {
-          LLVM_DEBUG(dbgs() << "Buffer size did not change; the malloc stays as it is\n");
+          LLVM_DEBUG(log() << "Buffer size did not change; the malloc stays as it is\n");
         }
       }
     }
   }
 
-  LLVM_DEBUG(dbgs() << "#### " << __func__ << " END ####\n");
+  LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
 }
 
 PreservedAnalyses FloatToFixed::run(Module& m, ModuleAnalysisManager& AM) {
@@ -229,7 +229,7 @@ void FloatToFixed::openPhiLoop(PHINode* phi) {
   PHIInfo info;
 
   if (phi->materialized_use_empty()) {
-    LLVM_DEBUG(dbgs() << "phi" << *phi << " not currently used by anything; skipping placeholder creation\n");
+    LLVM_DEBUG(log() << "phi" << *phi << " not currently used by anything; skipping placeholder creation\n");
     return;
   }
 
@@ -250,34 +250,34 @@ void FloatToFixed::openPhiLoop(PHINode* phi) {
   }
   convertedValues[info.placeh_noconv] = info.placeh_conv;
 
-  LLVM_DEBUG(dbgs() << "created placeholder (non-converted=[" << *info.placeh_noconv << "], converted=["
+  LLVM_DEBUG(log() << "created placeholder (non-converted=[" << *info.placeh_noconv << "], converted=["
                     << *info.placeh_conv << "]) for phi " << *phi << "\n");
 
   phiReplacementData[phi] = info;
 }
 
 void FloatToFixed::closePhiLoops() {
-  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " begin\n");
+  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " begin\n");
 
   for (auto data : phiReplacementData) {
     PHINode* origphi = data.first;
     PHIInfo& info = data.second;
-    Value* substphi = convertedValues[origphi];
+    Value* substphi = convertedValues.at(origphi);
 
-    LLVM_DEBUG(dbgs() << "restoring data flow of phi " << *origphi << "\n");
+    LLVM_DEBUG(log() << "restoring data flow of phi " << *origphi << "\n");
     if (info.placeh_noconv != info.placeh_conv)
       info.placeh_noconv->replaceAllUsesWith(origphi);
     if (!substphi) {
-      LLVM_DEBUG(dbgs() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
+      LLVM_DEBUG(log() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
       substphi = translateOrMatchAnyOperandAndType(origphi, getFixpType(origphi));
       assert(substphi && "phi conversion has failed");
     }
 
     info.placeh_conv->replaceAllUsesWith(substphi);
-    LLVM_DEBUG(dbgs() << "restored data flow of original phi " << *origphi << " to new value " << *substphi << "\n");
+    LLVM_DEBUG(log() << "restored data flow of original phi " << *origphi << " to new value " << *substphi << "\n");
   }
 
-  LLVM_DEBUG(dbgs() << __PRETTY_FUNCTION__ << " end\n");
+  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " end\n");
 }
 
 bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value* V) {
@@ -298,7 +298,7 @@ void FloatToFixed::sortQueue(std::vector<Value*>& vals) {
   size_t next = 0;
   while (next < vals.size()) {
     Value* v = vals.at(next);
-    LLVM_DEBUG(dbgs() << "[V] " << *v << "\n");
+    LLVM_DEBUG(log() << "[V] " << *v << "\n");
     SmallPtrSet<Value*, 5> roots;
     for (Value* oldroot : getConversionInfo(v)->roots)
       if (getConversionInfo(oldroot)->roots.empty())
@@ -314,7 +314,7 @@ void FloatToFixed::sortQueue(std::vector<Value*>& vals) {
     for (auto* u : v->users()) {
       if (Instruction* i = dyn_cast<Instruction>(u)) {
         if (functionPool.find(i->getFunction()) != functionPool.end()) {
-          LLVM_DEBUG(dbgs() << "old function: skipped " << *u << "\n");
+          LLVM_DEBUG(log() << "old function: skipped " << *u << "\n");
           continue;
         }
       }
@@ -334,12 +334,12 @@ void FloatToFixed::sortQueue(std::vector<Value*>& vals) {
 
       if (!hasConversionInfo(u)) {
         auto& taffoInfo = TaffoInfo::getInstance();
-        LLVM_DEBUG(dbgs() << "[WARNING] Value " << *u << " will not be converted because it has no metadata\n");
+        LLVM_DEBUG(log() << "[WARNING] Value " << *u << " will not be converted because it has no metadata\n");
         newConversionInfo(u)->noTypeConversion = true;
         getConversionInfo(u)->origType = taffoInfo.getOrCreateTransparentType(*u)->clone();
       }
 
-      LLVM_DEBUG(dbgs() << "[U] " << *u << "\n");
+      LLVM_DEBUG(log() << "[U] " << *u << "\n");
       vals.push_back(u);
       if (PHINode* phi = dyn_cast<PHINode>(u))
         openPhiLoop(phi);
@@ -352,8 +352,8 @@ void FloatToFixed::sortQueue(std::vector<Value*>& vals) {
     assert(hasConversionInfo(v) && "all values in the queue should have a valueInfo by now");
     if (getFixpType(v)->isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v))
         && !isKnownConvertibleWithIncompleteMetadata(v)) {
-      LLVM_DEBUG(dbgs() << "[WARNING] Value " << *v << " will not be converted because its metadata is incomplete\n");
-      LLVM_DEBUG(dbgs() << " (Apparent type of the value: " << *getFixpType(v) << ")\n");
+      LLVM_DEBUG(log() << "[WARNING] Value " << *v << " will not be converted because its metadata is incomplete\n");
+      LLVM_DEBUG(log() << " (Apparent type of the value: " << *getFixpType(v) << ")\n");
       getConversionInfo(v)->noTypeConversion = true;
     }
 
@@ -399,7 +399,7 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
     isrootok[root] = true;
 
   for (Value* qi : q) {
-    Value* cqi = convertedValues[qi];
+    Value* cqi = convertedValues.at(qi);
     assert(cqi && "every value should have been processed at this point!!");
     if (cqi == ConversionError) {
       if (!potentiallyUsesMemory(qi))
@@ -425,8 +425,8 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
       Instruction* i = dyn_cast<Instruction>(v);
       if (!i || (!toDelete(*i)))
         continue;
-      if (convertedValues[v] == v) {
-        LLVM_DEBUG(dbgs() << *i << " not deleted, as it was converted by self-mutation\n");
+      if (convertedValues.at(v) == v) {
+        LLVM_DEBUG(log() << *i << " not deleted, as it was converted by self-mutation\n");
         continue;
       }
       const auto& roots = getConversionInfo(v)->roots;
@@ -490,7 +490,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
     Function* oldF = call->getCalledFunction();
     Function* newF = createFixFun(call, &alreadyHandledNewF);
     if (!newF) {
-      LLVM_DEBUG(dbgs() << "Attempted to clone function " << oldF->getName() << " but failed\n");
+      LLVM_DEBUG(log() << "Attempted to clone function " << oldF->getName() << " but failed\n");
       continue;
     }
     if (alreadyHandledNewF) {
@@ -498,7 +498,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
       continue;
     }
 
-    LLVM_DEBUG(dbgs() << "Converting function " << oldF->getName() << " : " << *oldF->getType() << " into "
+    LLVM_DEBUG(log() << "Converting function " << oldF->getName() << " : " << *oldF->getType() << " into "
                       << newF->getName() << " : " << *newF->getType() << "\n");
 
     ValueToValueMapTy origValToCloned; // Create Val2Val mapping and clone function
@@ -532,20 +532,20 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
         Argument* Arg = newF->getArg(ArgId);
         if (!Arg->getType()->isPointerTy())
           continue;
-        Type* ArgTy = getUnwrappedType(Arg);
+        Type* ArgTy = getFullyUnwrappedType(Arg);
         Align align(ArgTy->getScalarSizeInBits() / 8);
         AttributeSet OldArgAttrs = OldAttrs.getParamAttrs(ArgId);
         AttributeSet NewArgAttrs = OldArgAttrs.addAttributes(
           newF->getContext(),
           AttributeSet::get(newF->getContext(), {Attribute::getWithAlignment(newF->getContext(), align)}));
         NewAttrs[ArgId] = NewArgAttrs;
-        LLVM_DEBUG(dbgs() << "Fixed align of arg " << ArgId << " (" << *Arg << ") to " << align.value() << "\n");
+        LLVM_DEBUG(log() << "Fixed align of arg " << ArgId << " (" << *Arg << ") to " << align.value() << "\n");
       }
       newF->setAttributes(
         AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
-      LLVM_DEBUG(dbgs() << "Set new attributes, hopefully without breaking anything\n");
+      LLVM_DEBUG(log() << "Set new attributes, hopefully without breaking anything\n");
     }
-    LLVM_DEBUG(dbgs() << "After CloneFunctionInto, the function now looks like this:\n"
+    LLVM_DEBUG(log() << "After CloneFunctionInto, the function now looks like this:\n"
                       << *newF->getFunctionType() << "\n");
 
     std::vector<Value*> newVals; // propagate fixp conversion
@@ -616,7 +616,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
       getConversionInfo(v)->fixpTypeRootDistance = 0;
     }
 
-    LLVM_DEBUG(dbgs() << "Sorting queue of new function " << newF->getName() << "\n");
+    LLVM_DEBUG(log() << "Sorting queue of new function " << newF->getName() << "\n");
     sortQueue(newVals);
 
     oldFuncs.insert(oldF);
@@ -654,7 +654,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
 }
 
 Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
-  LLVM_DEBUG(dbgs() << "*********** " << __FUNCTION__ << "\n");
+  LLVM_DEBUG(log() << "*********** " << __FUNCTION__ << "\n");
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
 
   Function* oldF = call->getCalledFunction();
@@ -663,7 +663,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
     return nullptr;
 
   if (!taffoInfo.isTaffoCloneFunction(*oldF)) {
-    LLVM_DEBUG(dbgs() << "createFixFun: function " << oldF->getName() << " not a clone; ignoring\n");
+    LLVM_DEBUG(log() << "createFixFun: function " << oldF->getName() << " not a clone; ignoring\n");
     return nullptr;
   }
 
@@ -672,7 +672,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
     argsFixedPointTypes;                             // for match already converted function
 
   std::string suffix;
-  if (getUnwrappedType(oldF)->isFloatingPointTy()) { // ret value in signature
+  if (getFullyUnwrappedType(oldF)->isFloatingPointTy()) { // ret value in signature
     std::shared_ptr<FixedPointType> retValType = getFixpType(call);
     suffix = retValType->toString();
     argsFixedPointTypes.push_back(std::pair(-1, retValType));
@@ -696,7 +696,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
 
   Function* newF = functionPool[oldF]; // check if is previously converted
   if (newF) {
-    LLVM_DEBUG(dbgs() << *call << " use already converted function : " << newF->getName() << " " << *newF->getType()
+    LLVM_DEBUG(log() << *call << " use already converted function : " << newF->getName() << " " << *newF->getType()
                       << "\n");
     if (old)
       *old = true;
@@ -714,14 +714,14 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
   FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argsLLVMTypes, oldF->isVarArg());
 
   LLVM_DEBUG(
-    dbgs() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
+    log() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
     for (auto [argIndex, fixedPointType] : argsFixedPointTypes)
-      dbgs() << "(" << argIndex << ", " << *fixedPointType << ") ";
-    dbgs() << "\n";);
+      log() << "(" << argIndex << ", " << *fixedPointType << ") ";
+    log() << "\n";);
 
   newF = Function::Create(newFunType, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
   taffoInfo.setTransparentType(*newF, newRetType);
-  LLVM_DEBUG(dbgs() << "created function\n"
+  LLVM_DEBUG(log() << "created function\n"
                     << *newF << "\n");
   functionPool[oldF] = newF; // add to pool
   FunctionCreated++;
@@ -730,24 +730,24 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
 
 void FloatToFixed::printConversionQueue(const std::vector<Value*>& vals) {
   if (vals.size() > 1000) {
-    LLVM_DEBUG(dbgs() << "not printing the conversion queue because it exceeds 1000 items\n";);
+    LLVM_DEBUG(log() << "not printing the conversion queue because it exceeds 1000 items\n";);
     return;
   }
 
-  LLVM_DEBUG(dbgs() << "conversion queue:\n";);
+  LLVM_DEBUG(log() << "conversion queue:\n";);
   for (Value* val : vals) {
-    LLVM_DEBUG(dbgs() << "bt=" << getConversionInfo(val)->isBacktrackingNode << " ";);
-    LLVM_DEBUG(dbgs() << "noconv=" << getConversionInfo(val)->noTypeConversion << " ";);
-    LLVM_DEBUG(dbgs() << "type=" << *getFixpType(val) << " ";);
+    LLVM_DEBUG(log() << "bt=" << getConversionInfo(val)->isBacktrackingNode << " ";);
+    LLVM_DEBUG(log() << "noconv=" << getConversionInfo(val)->noTypeConversion << " ";);
+    LLVM_DEBUG(log() << "type=" << *getFixpType(val) << " ";);
     if (Instruction* i = dyn_cast<Instruction>(val))
-      LLVM_DEBUG(dbgs() << " fun='" << i->getFunction()->getName() << "' ";);
+      LLVM_DEBUG(log() << " fun='" << i->getFunction()->getName() << "' ";);
 
-    LLVM_DEBUG(dbgs() << "roots=[";);
+    LLVM_DEBUG(log() << "roots=[";);
     for (Value* rootv : getConversionInfo(val)->roots)
-      LLVM_DEBUG(dbgs() << *rootv << ", ";);
-    LLVM_DEBUG(dbgs() << "] ";);
+      LLVM_DEBUG(log() << *rootv << ", ";);
+    LLVM_DEBUG(log() << "] ";);
 
-    LLVM_DEBUG(dbgs() << *val << "\n";);
+    LLVM_DEBUG(log() << *val << "\n";);
   }
-  LLVM_DEBUG(dbgs() << "\n\n";);
+  LLVM_DEBUG(log() << "\n\n";);
 }
