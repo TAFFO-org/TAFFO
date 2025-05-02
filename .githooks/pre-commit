@@ -20,7 +20,15 @@ glutenFree
 res=$?
 if [[ $res == 0 ]] ; then
   exit 1
-fi 
+fi
+
+# Get number of cores for parallel processing
+NPROC=
+if [[ "$(uname)" == "Darwin" ]]; then
+  NPROC="$(sysctl -n hw.ncpu)";
+else
+  NPROC="$(nproc || echo 1)";
+fi
 
 # Only operate on C/C++ files that are staged for commit
 STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(c|cpp|h|hpp)$' || true)
@@ -29,11 +37,11 @@ if [ -z "$STAGED" ]; then
 fi
 
 # 1) Replace #include "llvm/…" with <llvm/...> in each staged file
-echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$(nproc || echo 1)" \
+echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$NPROC" \
       perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
 
 # 2) Run clang-format on each staged file
-echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$(nproc || echo 1)" \
+echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$NPROC" \
       clang-format -i -style=file
 
 # 3) Restage any changes made by the above
