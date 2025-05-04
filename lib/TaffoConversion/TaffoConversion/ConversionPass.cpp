@@ -70,7 +70,8 @@ MLHVec collectMallocLikeHandler(Module& m) {
     }
 
     // cycles Users of the function
-    for (auto UF : fun->users()) {
+    // TODO FIX SOON!
+    /*for (auto UF : fun->users()) {
       // cycles Users of return value of the function
       Type* type = nullptr;
       for (auto UC : UF->users()) {
@@ -79,8 +80,7 @@ MLHVec collectMallocLikeHandler(Module& m) {
           LLVM_DEBUG(UF->dump());
           LLVM_DEBUG(log() << "to ");
           LLVM_DEBUG(bitcast->dump());
-          // TODO FIX SOON!
-          /*if (type == nullptr) {
+          if (type == nullptr) {
 
             type = bitcast->getType()->isPtrOrPtrVectorTy() ? bitcast->getType()->getPointerElementType() :
           bitcast->getType()->getScalarType(); while (type->isPtrOrPtrVectorTy()) { type =
@@ -99,12 +99,12 @@ MLHVec collectMallocLikeHandler(Module& m) {
             if (type->getScalarSizeInBits() < type_tmp->getScalarSizeInBits()) {
               type = type_tmp;
             }
-          }*/
+          }
         }
       }
       LLVM_DEBUG(log() << "added user " << *UF << "type ptr " << type << "\n");
       tmp.push_back({UF, type});
-    }
+    }*/
   }
   LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
   return tmp;
