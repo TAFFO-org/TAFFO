@@ -17,7 +17,6 @@ def main():
         str(runner_path),
         "-tests-dir", str(test_dir),
         "-diff_only",
-        "-debug",
         *sys.argv[1:]
     ]
     result = subprocess.run(cmd)

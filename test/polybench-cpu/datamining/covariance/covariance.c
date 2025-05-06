@@ -67,7 +67,6 @@ static void kernel_covariance(int m,
     for (i = 0; i < _PB_N; i++)
       mean[j] += data[i][j];
     mean[j] /= float_n;
-    printf("mean: %f\n", mean[j]);
   }
 
   for (i = 0; i < _PB_N; i++)
