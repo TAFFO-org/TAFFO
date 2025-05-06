@@ -32,11 +32,8 @@ static void init_array(int nr,
 
   for (i = 0; i < nr; i++)
     for (j = 0; j < nq; j++)
-      for (k = 0; k < np; k++) {
+      for (k = 0; k < np; k++)
         A[i][j][k] = (DATA_TYPE) ((i * j + k) % np) / np;
-        if (i == 0 && j == 0 && k == 1)
-          printf("init A[%d][%d][%d]: %f\n", i, j, k, A[i][j][k]);
-      }
   for (i = 0; i < np; i++)
     for (j = 0; j < np; j++)
       C4[i][j] = (DATA_TYPE) (i * j % np) / np;
@@ -75,11 +72,8 @@ void kernel_doitgen(int nr,
     for (q = 0; q < _PB_NQ; q++) {
       for (p = 0; p < _PB_NP; p++) {
         sum[p] = SCALAR_VAL(0.0);
-        for (s = 0; s < _PB_NP; s++) {
+        for (s = 0; s < _PB_NP; s++)
           sum[p] += A[r][q][s] * C4[s][p];
-          if (r == 0 && q == 0 && s == 1)
-            printf("ker A[%d][%d][%d]: %f\n", r, q, s, A[r][q][s]);
-        }
       }
       for (p = 0; p < _PB_NP; p++)
         A[r][q][p] = sum[p];
@@ -101,16 +95,12 @@ int main(int argc, char** argv) {
 
   /* Initialize array(s). */
   init_array(nr, nq, np, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(C4));
-  printf("after init A[0][0][1]: %f\n", A[0][0][1]);
 
   /* Start timer. */
   polybench_start_instruments;
 
   /* Run kernel. */
-
-  printf("before ker A[0][0][1]: %f\n", A[0][0][1]);
   kernel_doitgen(nr, nq, np, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(C4), POLYBENCH_ARRAY(sum));
-  printf("after ker A[0][0][1]: %f\n", A[0][0][1]);
 
   /* Stop and print timer. */
   polybench_stop_instruments;

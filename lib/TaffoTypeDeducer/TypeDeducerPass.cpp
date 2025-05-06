@@ -20,7 +20,7 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
     logger.logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE););
   for (Function& f : m) {
     if (f.isDeclaration()) {
-      // Cannot deduce the type of a declaration just save the transparent type of the value (could be opaque pointer)
+      // Cannot deduce the type of a declaration: just save the transparent type of the value (could be opaque pointer)
       taffoInfo.setTransparentType(f, TransparentTypeFactory::create(&f));
       continue;
     }
@@ -117,21 +117,33 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
   }
   else if (auto* gepInst = dyn_cast<GetElementPtrInst>(value)) {
     std::shared_ptr<TransparentType> pointerOperandType = getDeducedType(gepInst->getPointerOperand());
-    if (std::shared_ptr<TransparentStructType> structType =
-          std::dynamic_ptr_cast<TransparentStructType>(pointerOperandType)) {
-      if (auto* constInt = dyn_cast<ConstantInt>(gepInst->getOperand(2))) {
-        unsigned fieldIndex = constInt->getZExtValue();
-        std::shared_ptr<TransparentType> type = structType->getFieldType(fieldIndex)->clone();
-        type->incrementIndirections(1);
-        candidateTypes.insert(type);
+    std::shared_ptr<TransparentType> type = pointerOperandType->clone();
+    bool first = true;
+    for (Value* index : gepInst->indices()) {
+      if (first) {
+        first = false;
+        if (!isa<GlobalVariable>(gepInst->getPointerOperand()))
+          type->incrementIndirections(-1);
+        continue;
+      }
+      if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(type)) {
+        unsigned fieldIndex = cast<ConstantInt>(index)->getZExtValue();
+        type = structType->getFieldType(fieldIndex);
+      }
+      else if (auto arrayType = std::dynamic_ptr_cast<TransparentArrayType>(type)) {
+        // any array index selects the element type
+        type = arrayType->getArrayElementType();
+      }
+      else {
+        Logger& logger = log();
+        logger.log("Gep instruction ", raw_ostream::Colors::RED).logValueln(gepInst);
+        logger.logln("is trying to extract from a value that is neither a struct or an array",
+                     raw_ostream::Colors::RED);
+        llvm_unreachable("Check this gep instruction to know what happened");
       }
     }
-    if (std::shared_ptr<TransparentArrayType> arrayType =
-          std::dynamic_ptr_cast<TransparentArrayType>(pointerOperandType)) {
-      std::shared_ptr<TransparentType> type = arrayType->getArrayElementType()->clone();
-      type->incrementIndirections(1);
-      candidateTypes.insert(type);
-    }
+    type->incrementIndirections(1);
+    candidateTypes.insert(type);
   }
   else if (auto* callInst = dyn_cast<CallInst>(value)) {
     candidateTypes.insert(getDeducedType(callInst->getCalledFunction()));
@@ -162,25 +174,38 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
           type = (*iter)->clone();
         else
           type = TransparentTypeFactory::create(gepInst->getSourceElementType(), 1);
-        // Deduce field type in case of struct
-        if (std::shared_ptr<TransparentStructType> structType = std::dynamic_ptr_cast<TransparentStructType>(type))
-          if (auto* constInt = dyn_cast<ConstantInt>(gepInst->getOperand(2))) {
-            unsigned fieldIndex = constInt->getZExtValue();
-            std::shared_ptr<TransparentType> fieldType = getDeducedType(gepInst);
-            if (fieldType->getIndirections() > 0) {
-              fieldType = fieldType->clone();
-              fieldType->incrementIndirections(-1);
-            }
-            structType->setFieldType(fieldIndex, fieldType);
+        std::shared_ptr<TransparentType> containedType = type;
+        unsigned int indexCount = 0, numIndices = gepInst->getNumIndices();
+        bool isLastIndex = false;
+        bool first = true;
+        for (Value* index : gepInst->indices()) {
+          indexCount++;
+          isLastIndex = (indexCount == numIndices);
+          if (first) {
+            first = false;
+            continue;
           }
-        // Deduce element type in case of array of ptr
-        if (std::shared_ptr<TransparentArrayType> arrayType = std::dynamic_ptr_cast<TransparentArrayType>(type)) {
-          std::shared_ptr<TransparentType> elementType = getDeducedType(gepInst);
-          if (elementType->getIndirections() > 0) {
-            elementType = elementType->clone();
-            elementType->incrementIndirections(-1);
+          if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(containedType)) {
+            unsigned fieldIndex = cast<ConstantInt>(index)->getZExtValue();
+            if (isLastIndex)
+              structType->setFieldType(fieldIndex, getDeducedType(gepInst)->clone());
+            else
+              containedType = structType->getFieldType(fieldIndex);
           }
-          arrayType->setArrayElementType(elementType);
+          else if (auto arrayType = std::dynamic_ptr_cast<TransparentArrayType>(containedType)) {
+            // any array index selects the element type
+            if (isLastIndex)
+              arrayType->setArrayElementType(getDeducedType(gepInst)->clone());
+            else
+              containedType = arrayType->getArrayElementType();
+          }
+          else {
+            Logger& logger = log();
+            logger.log("Gep instruction ", raw_ostream::Colors::RED).logValueln(gepInst);
+            logger.logln("is trying to extract from a value that is neither a struct or an array",
+                         raw_ostream::Colors::RED);
+            llvm_unreachable("Check this gep instruction to know what happened");
+          }
         }
         candidateTypes.insert(type);
       }

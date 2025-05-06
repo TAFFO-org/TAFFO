@@ -249,7 +249,7 @@ Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPoi
     return Unsupported;
   std::vector<Value*> idxlist(gep->indices().begin(), gep->indices().end());
   Value* newGep =
-    builder.CreateInBoundsGEP(fixpt->toTransparentType(type)->getPointedType()->toLLVMType(), newval, idxlist);
+    builder.CreateInBoundsGEP(tempFixpt->toTransparentType(type)->getPointedType()->toLLVMType(), newval, idxlist);
   return newGep;
 }
 
