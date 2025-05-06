@@ -62,11 +62,10 @@ def generatedata(path: Path):
         shell=True
     )
 
-def compile(path: Path) -> str:
+def compile(path: Path):
     """
-    Compile both the float and taffo versions of the benchmark in `path`,
-    building and returning the full output string so it can be printed
-    atomically later, avoiding interleaved logs.
+    Compile both the float and taffo versions of the benchmark in `path`.
+    Returns a tuple (path, ok:bool, log:str).
     """
     logs = []
     bench_src = None
@@ -78,141 +77,95 @@ def compile(path: Path) -> str:
         logs.append(f"Missing source for {path.name}\n")
         return "".join(logs)
 
-    # --- float compilation ---
-    bench_exec = path.name + "-float"
-    label = f"Compiling: {bench_exec}".ljust(ACTION_PAD)
-    # choose clang command
-    if platform.system() == 'Darwin':
-        clang_cmd = 'clang -Wno-error=implicit-function-declaration'
-    else:
-        clang_cmd = CLANG
-    args_content = ""
-    args_file = path / "args.txt"
-    if args_file.exists():
-        args_content = args_file.read_text().strip()
-    cmd_f = (
-        f"{clang_cmd} {common_flags} {args_content} {bench_src} "
-        f"-o {bench_exec} -lm"
-    )
-    # run it
-    proc_f = subprocess.run(
-        cmd_f,
-        cwd=path.as_posix(),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    if proc_f.returncode == 0:
-        (path/bench_exec).chmod(0o755) # make result executable
-        status_f = f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}"
-        logs.append(f"{label}{status_f}\n")
-    else:
-        status_f = f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}"
-        logs.append(f"{label}{status_f}\n")
-        if proc_f.stderr:
-            logs.append(proc_f.stderr.decode())
+    global common_args
+    common_args += f" -I{path.absolute()}"
 
-    # --- taffo compilation ---
-    bench_exec2 = path.name + "-taffo"
-    label2 = f"Compiling: {bench_exec2}".ljust(ACTION_PAD)
-    flag2 = (
-        f"{common_flags} "
-        f"-time-profile-file {path.absolute().as_posix()}/"
-        f"{path.name}_taffo_time.csv"
-    )
-    args2_content = ""
-    args2_file = path / "args_taffo.txt"
-    if args2_file.exists():
-        args2_content = args2_file.read_text().strip()
+    # float build
+    bench_f = f"{path.name}-float"
+    label_f = f"Compiling: {bench_f}".ljust(ACTION_PAD)
+    clang_cmd = 'clang -Wno-error=implicit-function-declaration' if platform.system()=="Darwin" else CLANG
+    args_txt = (path / "args.txt").read_text().strip() if (path/"args.txt").exists() else ""
+    cmd_f = f"{clang_cmd} {common_args} {args_txt} {bench_src} -o {bench_f} -lm"
+    p_f = subprocess.run(cmd_f, cwd=str(path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ok_f = (p_f.returncode == 0)
+    if ok_f:
+        (path/bench_f).chmod(0o755)
+        logs.append(f"{label_f}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}\n")
+    else:
+        logs.append(f"{label_f}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n")
+        logs.append(p_f.stderr.decode())
+
+    # taffo build
+    bench_t = f"{path.name}-taffo"
+    label_t = f"Compiling: {bench_t}".ljust(ACTION_PAD)
+    flag2 = f"{common_args} -time-profile-file {path}/{path.name}_taffo_time.csv"
+    args2_txt = (path/"args_taffo.txt").read_text().strip() if (path/"args_taffo.txt").exists() else ""
     if debug:
-        (path / "taffo_temp").mkdir(parents=True, exist_ok=True)
+        (path/"taffo_temp").mkdir(exist_ok=True)
         flag2 += " -debug -temp-dir ./taffo_temp"
-        logpath = path / f"{path.name}_taffo.log"
-        pipe_out = open(logpath, "w")
-        proc_t = subprocess.run(
-            f"taffo {flag2} {args_content} {args2_content} {bench_src} -o {bench_exec2} -lm",
-            cwd=path.as_posix(),
-            shell=True,
-            stdout=pipe_out,
-            stderr=pipe_out
+        logf = path/f"{path.name}_taffo.log"
+        po = open(logf, "w")
+        p_t = subprocess.run(
+            f"taffo {flag2} {args_txt} {args2_txt} {bench_src} -o {bench_t} -lm",
+            cwd=str(path), shell=True, stdout=po, stderr=po
         )
+        po.close()
     else:
-        proc_t = subprocess.run(
-            f"taffo {flag2} {bench_src} -o {bench_exec2} -lm",
-            cwd=path.as_posix(),
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+        p_t = subprocess.run(
+            f"taffo {flag2} {bench_src} -o {bench_t} -lm",
+            cwd=str(path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-
-    if proc_t.returncode == 0:
-        (path/bench_exec2).chmod(0o755) # make result executable
-        status_t = f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}"
-        logs.append(f"{label2}{status_t}\n")
+    ok_t = (p_t.returncode == 0)
+    if ok_t:
+        (path/bench_t).chmod(0o755)
+        logs.append(f"{label_t}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}\n")
     else:
-        status_t = f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}"
-        logs.append(f"{label2}{status_t}\n")
-        if not debug and proc_t.stderr:
-            logs.append(proc_t.stderr.decode())
-        elif debug:
-            pipe_out.close()
+        logs.append(f"{label_t}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n")
+        if not debug:
+            logs.append(p_t.stderr.decode())
 
-    return "".join(logs)
+    return path, ok_f and ok_t, "".join(logs)
 
 def run(path: Path):
+    """
+    Runs the two binaries; returns True only if both exit zero.
+    """
     bench = path.name
-    float_exec = path / f"{bench}-float"
-    taffo_exec = path / f"{bench}-taffo"
-
-    if not (float_exec.exists() and taffo_exec.exists()):
-        label = f"Running: {bench}".ljust(ACTION_PAD)
+    f_exec = path/f"{bench}-float"
+    t_exec = path/f"{bench}-taffo"
+    label = f"Running: {bench}".ljust(ACTION_PAD)
+    if not (f_exec.exists() and t_exec.exists()):
         print(f"{label}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
-        return
+        return False
 
-    # look for any input*.txt
     inputs = sorted(path.glob("input*.txt"))
+    ok_all = True
+
     if inputs:
         for inp in inputs:
-            # suffix is everything after 'input', without the '.txt'
-            suffix = inp.stem[len("input"):]  # e.g. '.1'
-            label = f"Running: {bench}{suffix}".ljust(ACTION_PAD)
-            print(label, end="", flush=True)
-
+            suffix = inp.stem[len("input"):]
+            lbl = f"Running: {bench}{suffix}".ljust(ACTION_PAD)
+            print(lbl, end="", flush=True)
             out_t = f"taffo-res{suffix}"
             out_f = f"float-res{suffix}"
-
-            s_t = subprocess.run(
-                f"./{bench}-taffo < {inp.name} > {out_t}",
-                cwd=path.as_posix(),
-                shell=True
-            )
-            s_f = subprocess.run(
-                f"./{bench}-float < {inp.name} > {out_f}",
-                cwd=path.as_posix(),
-                shell=True
-            )
-            if s_t.returncode != 0 or s_f.returncode != 0:
+            p1 = subprocess.run(f"./{bench}-taffo < {inp.name} > {out_t}", cwd=str(path), shell=True)
+            p2 = subprocess.run(f"./{bench}-float < {inp.name} > {out_f}", cwd=str(path), shell=True)
+            if p1.returncode or p2.returncode:
+                ok_all = False
                 print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
             else:
                 print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
     else:
-        # original run behavior
-        label = f"Running: {bench}".ljust(ACTION_PAD)
         print(label, end="", flush=True)
-        s_t = subprocess.run(
-            f"./{bench}-taffo > taffo-res",
-            cwd=path.as_posix(),
-            shell=True
-        )
-        s_f = subprocess.run(
-            f"./{bench}-float > float-res",
-            cwd=path.as_posix(),
-            shell=True
-        )
-        if s_t.returncode != 0 or s_f.returncode != 0:
+        p1 = subprocess.run(f"./{bench}-taffo > taffo-res", cwd=str(path), shell=True)
+        p2 = subprocess.run(f"./{bench}-float > float-res", cwd=str(path), shell=True)
+        if p1.returncode or p2.returncode:
+            ok_all = False
             print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
         else:
             print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
+
+    return ok_all
 
 def retriveFiles(path: Path):
     """
@@ -255,12 +208,27 @@ def reject_outliers(data):
     return arr[abs(arr - m) < 2 * sd]
 
 def getTime(files):
-    times_f = [float(x) for x in re.findall(r"Cycles: (\d+)", files[0])]
-    times_t = [float(x) for x in re.findall(r"Cycles: (\d+)", files[1])]
-    return (
-        np.mean(reject_outliers(times_f)),
-        np.mean(reject_outliers(times_t))
-    )
+    # Try integer cycle counts first
+    cycles_f = re.findall(r"Cycles: (\d+)", files[0])
+    cycles_t = re.findall(r"Cycles: (\d+)", files[1])
+
+    if cycles_f and cycles_t:
+        # Option 1: cycles as floats
+        times_f = [float(x) for x in cycles_f]
+        times_t = [float(x) for x in cycles_t]
+    else:
+        # Option 2: decimal times
+        times_f = [float(x) for x in re.findall(r"Time: ([0-9]*\.?[0-9]+)", files[0])]
+        times_t = [float(x) for x in re.findall(r"Time: ([0-9]*\.?[0-9]+)", files[1])]
+
+    if len(times_f) > 1:
+        # Reject outliers in both lists
+        times_f = reject_outliers(times_f)
+        times_t = reject_outliers(times_t)
+    # Compute means (or NaN if empty)
+    mean_f = np.mean(times_f) if len(times_f) else float('nan')
+    mean_t = np.mean(times_t) if len(times_t) else float('nan')
+    return mean_f, mean_t
 
 def getData(files):
     fblock = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[0]).group(1)
@@ -271,6 +239,9 @@ def getData(files):
     max_abs = max_rel = 0
 
     for fv, tv in zip(fblock.splitlines(), tblock.splitlines()):
+        # skip empty lines
+        if not fv.strip() and not tv.strip():
+            continue
         fv_f, tv_f = float(fv), float(tv)
         if fv_f == 0 or tv_f == 0:
             continue
@@ -301,6 +272,9 @@ def ordereddiff(path: Path):
     tv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[1]).group(1)
     errs = []
     for i, (fv_line, tv_line) in enumerate(zip(fv.splitlines(), tv.splitlines()), start=1):
+        # skip empty lines
+        if not fv_line.strip() and not tv_line.strip():
+            continue
         fv_f, tv_f = float(fv_line), float(tv_line)
         if fv_f == 0 or tv_f == 0:
             continue
@@ -432,6 +406,9 @@ def comp_first_n_bit(path: Path, n: int):
     max_int = max(extract_int(float(v)) for v in fv.splitlines())
     print(f"max int bits: {max_int}", flush=True)
     for fv_line, tv_line in zip(fv.splitlines(), tv.splitlines()):
+        # skip empty lines
+        if not fv_line.strip() and not tv_line.strip():
+            continue
         fv_f, tv_f = float(fv_line), float(tv_line)
         fn = extract_first_n_bit(fv_f, n, 128, 128 - max_int)
         tn = extract_first_n_bit(tv_f, n, 128, 128 - max_int)
@@ -441,7 +418,7 @@ def comp_first_n_bit(path: Path, n: int):
 if __name__ == '__main__':
     debug = False
     parser = argparse.ArgumentParser(description='Taffo test runner')
-    parser.add_argument('-M', type=int, default=10000, help='Number of iterations')
+    parser.add_argument('-common-args', type=str, default='', help='Extra flags to pass to both float and taffo compilations')
     parser.add_argument('-tests-dir', type=str, default='.', help='Root dir containing test folders')
     parser.add_argument('-only', type=str, help='Comma-separated list of benchmark names')
     parser.add_argument('-clean', action='store_true', help='Clean benchmarks')
@@ -457,14 +434,30 @@ if __name__ == '__main__':
     parser.add_argument('-diff_only', action='store_true', help='Only diff outputs instead of complete validation')
     args = parser.parse_args()
 
-    M = args.M
-    common_flags = f"-O3 -DM={M} -fno-vectorize -fno-slp-vectorize"
+    common_args = ""
+    if args.common_args:
+        common_args = args.common_args
 
     tests_dir = Path(args.tests_dir)
+
     if args.only:
-        only = [tests_dir/x for x in args.only.split(',')]
+        names = set(args.only.split(','))
+        only  = []
+        # for each name the user asked, find its directory anywhere under tests_dir
+        for name in names:
+            matches = [
+                p for p in tests_dir.rglob(name)
+                if p.is_dir() and ((p/f"{name}.c").exists() or (p/f"{name}.cpp").exists())
+            ]
+            if not matches:
+                print(f"Warning: no benchmark directory found for '{name}'", file=sys.stderr)
+            else:
+                only.extend(matches)
     else:
-        only = [p for p in tests_dir.iterdir() if p.is_dir() and 'data' not in p.name]
+        only = [
+            p for p in tests_dir.rglob('*')
+            if p.is_dir() and ((p/f"{p.name}.c").exists() or (p/f"{p.name}.cpp").exists())
+        ]
 
     # compute padding for aligned status output
     labels = []
@@ -502,41 +495,64 @@ if __name__ == '__main__':
         for p in only:
             generatedata(p)
 
-    do_compile  = args.compile  or not (args.run or args.validate)
+    do_compile  = args.compile  or not (args.run     or args.validate)
     do_run      = args.run      or not (args.compile or args.validate)
     do_validate = args.validate or not (args.compile or args.run)
     debug = args.debug
 
+    # 1) COMPILE
+    compile_ok = set()
     if do_compile:
         bold("COMPILE")
-        max_workers = os.cpu_count() or 4
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for log in executor.map(compile, only):
-                # single print per test => no interleaving
-                print(log, end="", flush=True)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
+            results = list(ex.map(compile, only))
+        for path, ok, log in results:
+            print(log, end="", flush=True)
+            if ok:
+                compile_ok.add(path)
+    else:
+        compile_ok = set(only)
 
+    # 2) RUN (only those that compiled)
+    run_ok = set()
     if do_run:
         bold("RUN")
         for p in only:
-            run(p)
+            if p not in compile_ok:
+                lbl = f"Running: {p.name}".ljust(ACTION_PAD)
+                print(f"{lbl}{Fore.YELLOW}{Style.BRIGHT}SKIP (compile failed){Style.RESET_ALL}", flush=True)
+                continue
+            ok = run(p)
+            if ok:
+                run_ok.add(p)
+    else:
+        run_ok = set(only)
 
+    # 3) VALIDATE (only those that ran)
     if do_validate:
         bold("VALIDATE")
         if args.diff_only:
-            results = []
+            rows = []
             for p in only:
-                for suffix, (f_txt, t_txt) in retriveFiles(p).items():
-                    results.append({
-                        "name": p.name + suffix,
-                        "correct": (f_txt == t_txt)
-                    })
-            df = pd.DataFrame(results)
+                if p not in run_ok:
+                    rows.append({"name":p.name, "correct": False})
+                else:
+                    for suf, (f_txt,t_txt) in retriveFiles(p).items():
+                        rows.append({"name":p.name+suf, "correct":(f_txt==t_txt)})
+            df = pd.DataFrame(rows)
             print(df.to_string(index=False, columns=["name","correct"]), flush=True)
         else:
             allres = []
             for p in only:
-                allres.extend(validate(p, compute_speedup=True))
-            print_tables(allres)
+                if p not in run_ok:
+                    lbl = f"{p.name}".ljust(ACTION_PAD)
+                    print(f"{lbl}{Fore.YELLOW}{Style.BRIGHT}SKIP (run failed){Style.RESET_ALL}", flush=True)
+                else:
+                    allres.extend(validate(p, compute_speedup=True))
+            if allres:
+                print_tables(allres)
             if args.comp_int > 0:
                 for b in (4,8,16):
-                    for p in only: comp_first_n_bit(p, b)
+                    for p in only:
+                        if p in run_ok:
+                            comp_first_n_bit(p, b)

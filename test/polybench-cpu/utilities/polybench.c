@@ -336,6 +336,7 @@ void polybench_timer_stop() {
 }
 
 void polybench_timer_print() {
+  printf("Time: ");
 #ifdef POLYBENCH_GFLOPS
   if (polybench_program_total_flops == 0) {
     printf("[PolyBench][WARNING] Program flops not defined, use polybench_set_program_flops(value)\n");

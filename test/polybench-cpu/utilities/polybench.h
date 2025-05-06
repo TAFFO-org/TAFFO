@@ -211,13 +211,13 @@
 #define POLYBENCH_DCE_ONLY_CODE
 #endif
 
-#define POLYBENCH_DUMP_TARGET stderr
+#define POLYBENCH_DUMP_TARGET stdout
 // #define POLYBENCH_DUMP_START    fprintf(POLYBENCH_DUMP_TARGET, "==BEGIN DUMP_ARRAYS==\n")
 // #define POLYBENCH_DUMP_FINISH   fprintf(POLYBENCH_DUMP_TARGET, "==END   DUMP_ARRAYS==\n")
 // #define POLYBENCH_DUMP_BEGIN(s) fprintf(POLYBENCH_DUMP_TARGET, "begin dump: %s", s)
 // #define POLYBENCH_DUMP_END(s)   fprintf(POLYBENCH_DUMP_TARGET, "\nend   dump: %s\n", s)
-#define POLYBENCH_DUMP_START
-#define POLYBENCH_DUMP_FINISH
+#define POLYBENCH_DUMP_START fprintf(POLYBENCH_DUMP_TARGET, "Values Begin\n")
+#define POLYBENCH_DUMP_FINISH fprintf(POLYBENCH_DUMP_TARGET, "Values End\n")
 #define POLYBENCH_DUMP_BEGIN(s)
 #define POLYBENCH_DUMP_END(s)
 
