@@ -96,7 +96,7 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
 }
 
 std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value) {
-  if (GlobalValue* globalValue = dyn_cast<GlobalValue>(value))
+  if (auto* globalValue = dyn_cast<GlobalValue>(value))
     assert(globalValue->getValueType()->isPointerTy()
            && "Trying to deduce the pointer type of a global value that is not pointer");
   else
@@ -186,16 +186,28 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
             continue;
           }
           if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(containedType)) {
-            unsigned fieldIndex = cast<ConstantInt>(index)->getZExtValue();
-            if (isLastIndex)
-              structType->setFieldType(fieldIndex, getDeducedType(gepInst)->clone());
+            unsigned int fieldIndex = cast<ConstantInt>(index)->getZExtValue();
+            if (isLastIndex) {
+              std::shared_ptr<TransparentType> candidate = getDeducedType(gepInst)->clone();
+              if (candidate->getIndirections() > 0)
+                candidate->incrementIndirections(-1);
+              CandidateSet fieldCandidates = {structType->getFieldType(fieldIndex), candidate};
+              std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(fieldCandidates);
+              structType->setFieldType(fieldIndex, bestCandidate);
+            }
             else
               containedType = structType->getFieldType(fieldIndex);
           }
           else if (auto arrayType = std::dynamic_ptr_cast<TransparentArrayType>(containedType)) {
             // any array index selects the element type
-            if (isLastIndex)
-              arrayType->setArrayElementType(getDeducedType(gepInst)->clone());
+            if (isLastIndex) {
+              std::shared_ptr<TransparentType> candidate = getDeducedType(gepInst)->clone();
+              if (candidate->getIndirections() > 0)
+                candidate->incrementIndirections(-1);
+              CandidateSet arrayElementCandidates = {arrayType->getArrayElementType(), candidate};
+              std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(arrayElementCandidates);
+              arrayType->setArrayElementType(bestCandidate);
+            }
             else
               containedType = arrayType->getArrayElementType();
           }
@@ -232,7 +244,7 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deduceFunctionPointerType(Func
   CandidateSet& candidateTypes = this->candidateTypes[function];
   for (BasicBlock& bb : *function) {
     Instruction* termInst = bb.getTerminator();
-    if (ReturnInst* returnInst = dyn_cast<ReturnInst>(termInst))
+    if (auto* returnInst = dyn_cast<ReturnInst>(termInst))
       candidateTypes.insert(getDeducedType(returnInst->getReturnValue()));
   }
   std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(candidateTypes);
@@ -275,12 +287,10 @@ std::shared_ptr<TransparentType> TypeDeducerPass::getBestCandidateType(const Can
   for (const std::shared_ptr<TransparentType>& candidate : candidates) {
     if (!candidate)
       continue;
-    if (!bestCandidate) {
+    if (!bestCandidate)
       bestCandidate = candidate;
-    }
     else if (candidate->compareTransparency(*bestCandidate) == 1) {
       // TODO implement strict aliasing rule and most information detain
-
       bestCandidate = candidate;
     }
   }

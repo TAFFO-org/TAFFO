@@ -183,11 +183,11 @@ Type* TaffoInfo::getType(const std::string& typeId) const {
 }
 
 void TaffoInfo::eraseValue(Value* v) {
-  if (Instruction* i = dyn_cast<Instruction>(v))
+  if (auto* i = dyn_cast<Instruction>(v))
     i->removeFromParent();
-  if (BasicBlock* bb = dyn_cast<BasicBlock>(v))
+  if (auto* bb = dyn_cast<BasicBlock>(v))
     bb->removeFromParent();
-  if (GlobalValue* gv = dyn_cast<GlobalValue>(v))
+  if (auto* gv = dyn_cast<GlobalValue>(v))
     gv->removeFromParent();
   if (User* u = dyn_cast<User>(v))
     u->dropAllReferences();
@@ -259,9 +259,8 @@ void TaffoInfo::eraseLoop(Loop* l) {
 }
 
 void TaffoInfo::deleteErasedValues() {
-
   for (Value* val : erasedValues)
-    if (GlobalVariable* gv = dyn_cast<GlobalVariable>(val))
+    if (auto* gv = dyn_cast<GlobalVariable>(val))
       delete gv; // For some unexplained reason GlobalVariable can only be deleted via direct destructor
                  // NB Only the direct destructor of GlobalVariable is public all the others destructors are private
     else
@@ -337,10 +336,11 @@ void TaffoInfo::generateTaffoIds() {
   }
   for (auto* i : disabledConversion)
     valueSet.insert(i);
-  for (auto& [taffoF, originalF] : taffoCloneToOriginalFunction) {
-    valueSet.insert(taffoF);
+  for (auto& [originalF, taffoFunctions] : originalToTaffoCloneFunctions) {
     valueSet.insert(originalF);
-    // No need to get values of originalToTaffoCloneFunctions as they are the same of taffoCloneToOriginalFunction
+    for (auto* f : taffoFunctions)
+      valueSet.insert(f);
+    // No need to get values of taffoCloneToOriginalFunction as they are the same of originalToTaffoCloneFunctions
   }
   for (auto& [v, _] : valueInfo)
     valueSet.insert(v);

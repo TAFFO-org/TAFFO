@@ -276,7 +276,7 @@ std::shared_ptr<TransparentType> TransparentStructType::clone() const {
 
 std::string TransparentStructType::toString() const {
   if (!unwrappedType || std::ranges::any_of(fieldTypes, [](const std::shared_ptr<TransparentType>& field) -> bool {
-        return field != nullptr;
+        return field == nullptr;
       }))
     return "InvalidType";
 
