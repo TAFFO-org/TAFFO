@@ -1,7 +1,5 @@
+add_test(NAME simple-test COMMAND ./run.py WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_test(NAME simple-test COMMAND ./run-test.sh WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/test/simple-test-cases")
+set (failRegex "ERR!")
 
-set (failRegex "FAIL")
-
-set_property (TEST simple-test
-              PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")
+set_property (TEST simple-test PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")
