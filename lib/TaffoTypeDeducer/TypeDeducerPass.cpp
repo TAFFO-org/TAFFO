@@ -165,8 +165,8 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
     }
     else if (auto* gepInst = dyn_cast<GetElementPtrInst>(user)) {
       if (value == gepInst->getPointerOperand()) {
-        // Lambda to get the best candidate type between a type contained in the pointer operand of the gep and the type
-        // of the gep
+        // Lambda to get the best candidate type between a type contained in the pointer operand of the gep
+        // and the type of the gep itself
         auto getNewContainedType = [this, &gepInst](const auto& oldType) -> std::shared_ptr<TransparentType> {
           std::shared_ptr<TransparentType> candidate = getDeducedType(gepInst)->clone();
           if (candidate->getIndirections() > 0)
