@@ -81,9 +81,9 @@ struct OptimizerScalarInfo : public OptimizerInfo {
     return sstm.str();
   }
 
-  unsigned int getMinBits() const { return minBits; }
+  unsigned getMinBits() const { return minBits; }
 
-  unsigned int getMaxBits() const { return maxBits; }
+  unsigned getMaxBits() const { return maxBits; }
 
   const std::string getFixedSelectedVariable() { return *baseName + "_fixp"; }
 
@@ -111,7 +111,7 @@ struct OptimizerScalarInfo : public OptimizerInfo {
 
   const std::string getBaseEnobVariable() { return *baseName + "_enob"; }
 
-  unsigned int getTotalBits() const { return totalBits; }
+  unsigned getTotalBits() const { return totalBits; }
 
   bool isSigned1() const { return isSigned; }
 
@@ -202,7 +202,7 @@ public:
     if (Fields.size() != b2->Fields.size())
       return false;
 
-    for (unsigned int i = 0; i < Fields.size(); i++) {
+    for (unsigned i = 0; i < Fields.size(); i++) {
       if (Fields[i] == nullptr && b2->Fields[i] == nullptr)
         continue;
       if (Fields[i] == nullptr)

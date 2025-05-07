@@ -479,7 +479,7 @@ Value* FloatToFixed::convertUnaryOp(Instruction* instr, const std::shared_ptr<Fi
   if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->noTypeConversion)
     return Unsupported;
 
-  unsigned int opc = instr->getOpcode();
+  unsigned opc = instr->getOpcode();
 
   if (opc == Instruction::FNeg) {
     LLVM_DEBUG(log() << instr->getOperand(0) << "\n";);

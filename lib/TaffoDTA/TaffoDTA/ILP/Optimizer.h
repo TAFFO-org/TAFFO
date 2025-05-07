@@ -81,7 +81,7 @@ public:
 
 private:
   llvm::Instruction* currentInstruction;
-  unsigned int currentInstructionTripCount = 1;
+  unsigned currentInstructionTripCount = 1;
 
 public:
   void handleGlobal(llvm::GlobalObject* glob, shared_ptr<TunerInfo> tunerInfo);
@@ -112,7 +112,7 @@ public:
   shared_ptr<OptimizerInfo> getInfoOfValue(llvm::Value* value);
 
   void
-  handleBinaryInstruction(llvm::Instruction* instr, const unsigned int OpCode, const shared_ptr<TunerInfo>& valueInfos);
+  handleBinaryInstruction(llvm::Instruction* instr, const unsigned OpCode, const shared_ptr<TunerInfo>& valueInfos);
   void handleUnaryInstruction(llvm::Instruction* instr, const shared_ptr<TunerInfo>& valueInfos);
 
   void insertTypeEqualityConstraint(shared_ptr<OptimizerScalarInfo> op1,

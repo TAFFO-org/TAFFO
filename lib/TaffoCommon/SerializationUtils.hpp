@@ -95,14 +95,14 @@ std::string toString(const T& obj) {
   return result;
 }
 
-inline std::string repeatString(const std::string& str, unsigned int n) {
+inline std::string repeatString(const std::string& str, unsigned n) {
   std::ostringstream oss;
-  for (unsigned int i = 0; i < n; i++)
+  for (unsigned i = 0; i < n; i++)
     oss << str;
   return oss.str();
 }
 
-inline std::string formatNumber(unsigned int digits, unsigned int number) {
+inline std::string formatNumber(unsigned digits, unsigned number) {
   std::ostringstream oss;
   oss << std::setw(int(digits)) << std::setfill('0') << number;
   return oss.str();

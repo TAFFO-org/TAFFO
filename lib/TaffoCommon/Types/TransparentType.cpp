@@ -40,7 +40,7 @@ std::shared_ptr<TransparentType> TransparentTypeFactory::create(const Value* val
   return create(value->getType(), 0);
 }
 
-std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type* unwrappedType, unsigned int indirections) {
+std::shared_ptr<TransparentType> TransparentTypeFactory::create(Type* unwrappedType, unsigned indirections) {
   if (auto* structType = dyn_cast<StructType>(unwrappedType))
     return std::shared_ptr<TransparentType>(new TransparentStructType(structType, indirections));
   if (auto* arrayType = dyn_cast<ArrayType>(unwrappedType))
@@ -261,7 +261,7 @@ bool TransparentStructType::operator==(const TransparentType& other) const {
   if (fieldTypes.size() != otherStructType.fieldTypes.size())
     return false;
 
-  for (unsigned int i = 0; i < fieldTypes.size(); i++) {
+  for (unsigned i = 0; i < fieldTypes.size(); i++) {
     if (!fieldTypes[i] && !otherStructType.fieldTypes[i])
       continue;
     if (!fieldTypes[i] || !otherStructType.fieldTypes[i] || *fieldTypes[i] != *otherStructType.fieldTypes[i])

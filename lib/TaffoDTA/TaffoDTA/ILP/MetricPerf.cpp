@@ -573,7 +573,7 @@ void MetricPerf::closePhiLoop(PHINode* phiNode, Value* requestedValue) {
 
   string enob_var;
 
-  for (unsigned int index = 0; index < phiNode->getNumIncomingValues(); index++) {
+  for (unsigned index = 0; index < phiNode->getNumIncomingValues(); index++) {
     if (phiNode->getIncomingValue(index) == requestedValue) {
       enob_var = getEnobActivationVariable(phiNode, index);
       break;
@@ -609,7 +609,7 @@ void MetricPerf::closeMemLoop(LoadInst* load, Value* requestedValue) {
   SmallVectorImpl<Value*>& def_vals = memssa_utils.getDefiningValues(load);
   def_vals.push_back(load->getPointerOperand());
 
-  for (unsigned int index = 0; index < def_vals.size(); index++) {
+  for (unsigned index = 0; index < def_vals.size(); index++) {
     if (def_vals[index] == requestedValue) {
       enob_var = getEnobActivationVariable(load, index);
       break;

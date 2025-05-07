@@ -22,11 +22,11 @@ std::shared_ptr<ValueInfo> ValueInfoFactory::create(
     return iter->second;
 
   if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(type)) {
-    unsigned int numFields = structType->getNumFieldTypes();
+    unsigned numFields = structType->getNumFieldTypes();
     SmallVector<std::shared_ptr<ValueInfo>, 4> fields;
     auto res = std::make_shared<StructInfo>(StructInfo(numFields));
     recursionMap.insert({structType, res});
-    for (unsigned int i = 0; i < numFields; i++)
+    for (unsigned i = 0; i < numFields; i++)
       res->setField(i, create(structType->getFieldType(i), recursionMap));
     return res;
   }

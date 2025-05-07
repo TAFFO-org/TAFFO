@@ -25,10 +25,10 @@ std::shared_ptr<TransparentType> FixedPointType::toTransparentType(const std::sh
 }
 
 std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::shared_ptr<TransparentType>& srcType,
-                                                                ArrayRef<unsigned int> indices) {
+                                                                ArrayRef<unsigned> indices) {
   std::shared_ptr<TransparentType> resolvedType = srcType;
   std::shared_ptr<FixedPointType> resolvedFixpType = this->clone();
-  for (unsigned int index : indices)
+  for (unsigned index : indices)
     if (resolvedType->isPointerType())
       resolvedType = resolvedType->getPointedType();
     else if (resolvedType->isStructType()) {
@@ -44,7 +44,7 @@ std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::share
 
 std::shared_ptr<FixedPointType> FixedPointType::unwrapIndexList(const std::shared_ptr<TransparentType>& srcType,
                                                                 iterator_range<const Use*> indices) {
-  SmallVector<unsigned int, 4> indicesVector;
+  SmallVector<unsigned, 4> indicesVector;
   for (Value* val : indices) {
     auto constantIndex = dyn_cast<ConstantInt>(val);
     // The constant value of the index is only used to navigate struct types.
@@ -231,7 +231,7 @@ bool FixedPointStructType::toTransparentTypeHelper(const std::shared_ptr<Transpa
 
   bool hasFloats = false;
   SmallVector<Type*, 4> fieldsLLVMTypes;
-  for (unsigned int i = 0; i < getNumFieldTypes(); i++) {
+  for (unsigned i = 0; i < getNumFieldTypes(); i++) {
     std::shared_ptr<TransparentType> fieldTransparentType = newStructType->getFieldType(i);
     std::shared_ptr<FixedPointType> fieldType = getFieldType(i);
     fieldsLLVMTypes.push_back(fieldTransparentType->getUnwrappedType());

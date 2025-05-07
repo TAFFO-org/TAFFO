@@ -487,9 +487,9 @@ void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo
   LLVM_DEBUG(log() << "Handling instruction " << (instruction->dump(), "\n"));
   currentInstruction = instruction;
   Module& M = *(instruction->getFunction()->getParent());
-  unsigned int info = computeFullTripCount(tuner->getFAM(M), instruction);
+  unsigned info = computeFullTripCount(tuner->getFAM(M), instruction);
   LLVM_DEBUG(log() << "Optimizer: got trip count " << info << "\n");
-  unsigned int prevInstrTripCount = currentInstructionTripCount;
+  unsigned prevInstrTripCount = currentInstructionTripCount;
   currentInstructionTripCount *= info;
   LLVM_DEBUG(log() << "Current cumulative trip count: " << currentInstructionTripCount << "\n");
 
@@ -742,7 +742,7 @@ shared_ptr<ValueInfo> Optimizer::buildDataHierarchy(shared_ptr<OptimizerInfo> in
   else if (info->getKind() == OptimizerInfo::K_Struct) {
     auto sti = std::dynamic_ptr_cast<OptimizerStructInfo>(info);
     auto result = make_shared<StructInfo>(sti->size());
-    for (unsigned int i = 0; i < sti->size(); i++)
+    for (unsigned i = 0; i < sti->size(); i++)
       result->setField(i, buildDataHierarchy(sti->getField(i)));
 
     return result;

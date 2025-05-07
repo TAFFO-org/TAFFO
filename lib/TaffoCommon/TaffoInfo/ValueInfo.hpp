@@ -113,7 +113,7 @@ class StructInfo : public ValueInfoWithRange {
 public:
   static bool classof(const ValueInfo* valueInfo) { return valueInfo->getKind() == K_Struct; }
 
-  StructInfo(unsigned int numFields)
+  StructInfo(unsigned numFields)
   : Fields(numFields, nullptr) {}
 
   StructInfo(const llvm::ArrayRef<std::shared_ptr<ValueInfo>> SInfos)
@@ -124,9 +124,9 @@ public:
   auto begin() const { return Fields.begin(); }
   auto end() const { return Fields.end(); }
 
-  unsigned int getNumFields() const { return Fields.size(); }
-  std::shared_ptr<ValueInfo> getField(unsigned int i) { return Fields[i]; }
-  void setField(unsigned int i, std::shared_ptr<ValueInfo> field) { Fields[i] = std::move(field); }
+  unsigned getNumFields() const { return Fields.size(); }
+  std::shared_ptr<ValueInfo> getField(unsigned i) { return Fields[i]; }
+  void setField(unsigned i, std::shared_ptr<ValueInfo> field) { Fields[i] = std::move(field); }
 
   ValueInfoKind getKind() const override { return K_Struct; }
   bool isConversionEnabled() const override;

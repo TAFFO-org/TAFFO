@@ -58,7 +58,7 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
       taffoInfo.setTransparentType(globalValue, TransparentTypeFactory::create(&globalValue));
 
   // Continue deducing types until there is no change
-  unsigned int iterations = 1;
+  unsigned iterations = 1;
   bool deducedTypesChanged = true;
   while (deducedTypesChanged) {
     LLVM_DEBUG(log() << raw_ostream::Colors::BLUE << "[Deduction iteration " << iterations << "]\n"
@@ -165,6 +165,16 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
     }
     else if (auto* gepInst = dyn_cast<GetElementPtrInst>(user)) {
       if (value == gepInst->getPointerOperand()) {
+        // Lambda to get the best candidate type between a type contained in the pointer operand of the gep and the type
+        // of the gep
+        auto getNewContainedType = [this, &gepInst](const auto& oldType) -> std::shared_ptr<TransparentType> {
+          std::shared_ptr<TransparentType> candidate = getDeducedType(gepInst)->clone();
+          if (candidate->getIndirections() > 0)
+            candidate->incrementIndirections(-1);
+          CandidateSet candidates = {oldType, candidate};
+          return getBestCandidateType(candidates);
+        };
+
         // Search for a coherent candide type, or create it if not present
         auto iter = std::ranges::find_if(candidateTypes, [gepInst](const std::shared_ptr<TransparentType>& type) {
           return type->getUnwrappedType() == gepInst->getSourceElementType() && type->getIndirections() == 1;
@@ -175,7 +185,7 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
         else
           type = TransparentTypeFactory::create(gepInst->getSourceElementType(), 1);
         std::shared_ptr<TransparentType> containedType = type;
-        unsigned int indexCount = 0, numIndices = gepInst->getNumIndices();
+        unsigned indexCount = 0, numIndices = gepInst->getNumIndices();
         bool isLastIndex = false;
         bool first = true;
         for (Value* index : gepInst->indices()) {
@@ -186,28 +196,16 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
             continue;
           }
           if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(containedType)) {
-            unsigned int fieldIndex = cast<ConstantInt>(index)->getZExtValue();
-            if (isLastIndex) {
-              std::shared_ptr<TransparentType> candidate = getDeducedType(gepInst)->clone();
-              if (candidate->getIndirections() > 0)
-                candidate->incrementIndirections(-1);
-              CandidateSet fieldCandidates = {structType->getFieldType(fieldIndex), candidate};
-              std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(fieldCandidates);
-              structType->setFieldType(fieldIndex, bestCandidate);
-            }
+            unsigned fieldIndex = cast<ConstantInt>(index)->getZExtValue();
+            if (isLastIndex)
+              structType->setFieldType(fieldIndex, getNewContainedType(structType->getFieldType(fieldIndex)));
             else
               containedType = structType->getFieldType(fieldIndex);
           }
           else if (auto arrayType = std::dynamic_ptr_cast<TransparentArrayType>(containedType)) {
             // any array index selects the element type
-            if (isLastIndex) {
-              std::shared_ptr<TransparentType> candidate = getDeducedType(gepInst)->clone();
-              if (candidate->getIndirections() > 0)
-                candidate->incrementIndirections(-1);
-              CandidateSet arrayElementCandidates = {arrayType->getArrayElementType(), candidate};
-              std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(arrayElementCandidates);
-              arrayType->setArrayElementType(bestCandidate);
-            }
+            if (isLastIndex)
+              arrayType->setArrayElementType(getNewContainedType(arrayType->getArrayElementType()));
             else
               containedType = arrayType->getArrayElementType();
           }
@@ -223,7 +221,7 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
       }
     }
     else if (auto* callInst = dyn_cast<CallInst>(user)) {
-      for (unsigned int i = 0; i < callInst->getCalledFunction()->arg_size(); i++) {
+      for (unsigned i = 0; i < callInst->getCalledFunction()->arg_size(); i++) {
         Value* arg = callInst->getArgOperand(i);
         if (arg == value) {
           candidateTypes.insert(getDeducedType(callInst->getCalledFunction()->getArg(i)));
@@ -257,7 +255,7 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deduceArgumentPointerType(Argu
 
   CandidateSet& candidateTypes = this->candidateTypes[argument];
 
-  unsigned int argIndex = argument->getArgNo();
+  unsigned argIndex = argument->getArgNo();
   Function* parentF = argument->getParent();
   for (User* functionUser : parentF->users())
     if (auto* callInst = dyn_cast<CallInst>(functionUser)) {

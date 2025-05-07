@@ -40,13 +40,13 @@ public:
     friend class Logger;
 
   public:
-    Logger& increaseIndent(unsigned int amount = 1) {
+    Logger& increaseIndent(unsigned amount = 1) {
       logger.increaseIndent(amount);
       indent += amount;
       return logger;
     }
 
-    Logger& decreaseIndent(unsigned int amount = 1) {
+    Logger& decreaseIndent(unsigned amount = 1) {
       if (indent >= amount) {
         logger.decreaseIndent(amount);
         indent -= amount;
@@ -62,7 +62,7 @@ public:
 
   private:
     Logger& logger;
-    unsigned int indent;
+    unsigned indent;
 
     Indenter(Logger& logger)
     : logger(logger), indent(0) {}
@@ -184,7 +184,7 @@ private:
   llvm::raw_ostream& ostream;
   std::list<std::string> contextTagStack;
   llvm::raw_ostream::Colors currentColor;
-  unsigned int indent;
+  unsigned indent;
   bool isLineStart;
 
   Logger()

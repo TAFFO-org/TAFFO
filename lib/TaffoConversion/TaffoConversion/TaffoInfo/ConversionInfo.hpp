@@ -14,7 +14,7 @@ struct ConversionInfo : Printable {
   bool isBacktrackingNode;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
-  unsigned int fixpTypeRootDistance = UINT_MAX;
+  unsigned fixpTypeRootDistance = UINT_MAX;
 
   /* Disable type conversion even if the instruction
    * produces a floating point value */

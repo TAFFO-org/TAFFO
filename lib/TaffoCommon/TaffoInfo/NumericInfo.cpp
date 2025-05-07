@@ -50,7 +50,7 @@ void FixedPointInfo::deserialize(const json& j) {
   assert(j["kind"] == "FixedPoint");
   sign = j["signed"].get<bool>();
   bits = j["bits"].get<int>();
-  fractionalBits = j["fractionalBits"].get<unsigned int>();
+  fractionalBits = j["fractionalBits"].get<unsigned>();
 }
 
 std::string FloatingPointInfo::getFloatStandardName(FloatStandard standard) {

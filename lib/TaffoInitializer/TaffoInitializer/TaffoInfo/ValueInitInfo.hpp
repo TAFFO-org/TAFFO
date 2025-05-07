@@ -12,24 +12,24 @@ public:
   friend class ValueInitInfoFactory;
 
   ValueInfo* getValueInfo() { return valueInfo; }
-  void setRootDistance(unsigned int distance) { rootDistance = distance; }
-  unsigned int getRootDistance() const { return rootDistance; }
-  unsigned int getUserRootDistance() const { return std::max(rootDistance, rootDistance + 1); }
-  void setBacktrackingDepth(unsigned int depth) { backtrackingDepth = depth; }
+  void setRootDistance(unsigned distance) { rootDistance = distance; }
+  unsigned getRootDistance() const { return rootDistance; }
+  unsigned getUserRootDistance() const { return std::max(rootDistance, rootDistance + 1); }
+  void setBacktrackingDepth(unsigned depth) { backtrackingDepth = depth; }
   void decreaseBacktrackingDepth() { backtrackingDepth = std::min(backtrackingDepth, backtrackingDepth - 1); }
-  unsigned int getBacktrackingDepth() const { return backtrackingDepth; }
-  unsigned int getUserBacktrackingDepth() const { return std::min(backtrackingDepth, backtrackingDepth - 1); }
+  unsigned getBacktrackingDepth() const { return backtrackingDepth; }
+  unsigned getUserBacktrackingDepth() const { return std::min(backtrackingDepth, backtrackingDepth - 1); }
 
   std::string toString() const override;
 
 private:
   ValueInfo* valueInfo;
-  unsigned int rootDistance;
-  unsigned int backtrackingDepth;
+  unsigned rootDistance;
+  unsigned backtrackingDepth;
 
   ValueInitInfo() = delete;
 
-  ValueInitInfo(ValueInfo* valueInfo, unsigned int rootDistance, unsigned int backtrackingDepth)
+  ValueInitInfo(ValueInfo* valueInfo, unsigned rootDistance, unsigned backtrackingDepth)
   : valueInfo(valueInfo), rootDistance(rootDistance), backtrackingDepth(backtrackingDepth) {}
 };
 
@@ -37,8 +37,7 @@ class ValueInitInfoFactory {
 private:
   friend class TaffoInitInfo;
 
-  static ValueInitInfo
-  createValueInitInfo(ValueInfo* valueInfo, unsigned int rootDistance, unsigned int backtrackingDepth) {
+  static ValueInitInfo createValueInitInfo(ValueInfo* valueInfo, unsigned rootDistance, unsigned backtrackingDepth) {
     return ValueInitInfo(valueInfo, rootDistance, backtrackingDepth);
   }
 };

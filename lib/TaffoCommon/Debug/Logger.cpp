@@ -62,12 +62,12 @@ Logger& Logger::resetColor() {
   return *this;
 }
 
-Logger& Logger::increaseIndent(unsigned int amount) {
+Logger& Logger::increaseIndent(unsigned amount) {
   indent += amount;
   return *this;
 }
 
-Logger& Logger::decreaseIndent(unsigned int amount) {
+Logger& Logger::decreaseIndent(unsigned amount) {
   if (indent >= amount)
     indent -= amount;
   else

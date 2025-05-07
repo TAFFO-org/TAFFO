@@ -203,7 +203,7 @@ void VRAGlobalStore::updateValueInfo(const std::shared_ptr<ValueInfo>& valueInfo
   else if (const std::shared_ptr<StructInfo> newStructInfo = std::dynamic_ptr_cast<StructInfo>(valueInfoWithRange)) {
     if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
       auto newFieldsIter = newStructInfo->begin();
-      for (unsigned int i = 0; i < structInfo->getNumFields(); i++) {
+      for (unsigned i = 0; i < structInfo->getNumFields(); i++) {
         if (newFieldsIter == newStructInfo->end())
           break;
         if (std::shared_ptr<ValueInfo> field = structInfo->getField(i))

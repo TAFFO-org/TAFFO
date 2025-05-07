@@ -15,7 +15,7 @@ private:
   ValueInitInfo& getValueInitInfo(const llvm::Value* value);
   ValueInitInfo& getOrCreateValueInitInfo(llvm::Value* value);
   ValueInitInfo&
-  createValueInitInfo(llvm::Value* value, unsigned int rootDistance = UINT_MAX, unsigned int backtrackingDepth = 0);
+  createValueInitInfo(llvm::Value* value, unsigned rootDistance = UINT_MAX, unsigned backtrackingDepth = 0);
   bool hasValueInitInfo(const llvm::Value* value) const;
 };
 

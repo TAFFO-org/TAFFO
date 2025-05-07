@@ -28,8 +28,8 @@
 #include <sstream>
 
 #define DEBUG_TYPE "taffo-conversion"
-extern llvm::cl::opt<unsigned int> MaxTotalBitsConv;
-extern llvm::cl::opt<unsigned int> MinQuotientFrac;
+extern llvm::cl::opt<unsigned> MaxTotalBitsConv;
+extern llvm::cl::opt<unsigned> MinQuotientFrac;
 
 STATISTIC(FixToFloatCount,
           "Number of generic fixed point to floating point "

@@ -64,7 +64,7 @@ FloatToFixed::convertConstantExpr(ConstantExpr* cexp, std::shared_ptr<FixedPoint
       fixpt = getFixpType(newval);
 
     std::vector<Constant*> vals;
-    for (unsigned int i = 1; i < cexp->getNumOperands(); i++)
+    for (unsigned i = 1; i < cexp->getNumOperands(); i++)
       vals.push_back(cexp->getOperand(i));
 
     ArrayRef<Constant*> idxlist(vals);
@@ -106,7 +106,7 @@ Constant* FloatToFixed::convertConstantAggregate(ConstantAggregate* cag,
                                                  std::shared_ptr<FixedPointType>& fixpt,
                                                  TypeMatchPolicy typepol) {
   std::vector<Constant*> consts;
-  for (unsigned int i = 0; i < cag->getNumOperands(); i++) {
+  for (unsigned i = 0; i < cag->getNumOperands(); i++) {
     Constant* oldconst = cag->getOperand(i);
     Constant* newconst = nullptr;
     if (getFullyUnwrappedType(oldconst)->isFloatingPointTy()) {
@@ -143,7 +143,7 @@ Constant* FloatToFixed::createConstantDataSequential(ConstantDataSequential* cds
                                                      const std::shared_ptr<FixedPointType>& fixpt) {
   std::vector<T> newConsts;
 
-  for (unsigned int i = 0; i < cds->getNumElements(); i++) {
+  for (unsigned i = 0; i < cds->getNumElements(); i++) {
     APFloat thiselem = cds->getElementAsAPFloat(i);
     APSInt fixval;
     if (!convertAPFloat(thiselem, fixval, nullptr, std::static_ptr_cast<FixedPointScalarType>(fixpt))) {
@@ -163,7 +163,7 @@ Constant* FloatToFixed::createConstantDataSequentialFP(ConstantDataSequential* c
                                                        const std::shared_ptr<FixedPointType>& fixpt) {
   std::vector<T> newConsts;
 
-  for (unsigned int i = 0; i < cds->getNumElements(); i++) {
+  for (unsigned i = 0; i < cds->getNumElements(); i++) {
     bool dontCare;
 
     APFloat thiselem = cds->getElementAsAPFloat(i);

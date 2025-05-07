@@ -126,8 +126,7 @@ std::pair<double, double> CPUCosts::MaxMinCosts(const string& ref) {
   return {max, min};
 }
 
-llvm::Type*
-CPUCosts::getType(unsigned int n, const string& tmpString, llvm::LLVMContext& context, llvm::Module& module) {
+llvm::Type* CPUCosts::getType(unsigned n, const string& tmpString, llvm::LLVMContext& context, llvm::Module& module) {
   LLVM_DEBUG(log() << tmpString << " with n " << n << " to " << tmpString.substr(n) << "\n");
   if (tmpString.find("FIX", n) == n)
     return llvm::Type::getIntNTy(context, module.getDataLayout().getPointerSizeInBits());

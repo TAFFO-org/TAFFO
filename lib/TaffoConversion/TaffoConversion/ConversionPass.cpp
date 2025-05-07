@@ -30,15 +30,15 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-cl::opt<unsigned int> MaxTotalBitsConv("maxtotalbitsconv",
-                                       cl::value_desc("bits"),
-                                       cl::desc("Maximum amount of bits used in fmul and fdiv conversion."),
-                                       cl::init(128));
+cl::opt<unsigned> MaxTotalBitsConv("maxtotalbitsconv",
+                                   cl::value_desc("bits"),
+                                   cl::desc("Maximum amount of bits used in fmul and fdiv conversion."),
+                                   cl::init(128));
 
-cl::opt<unsigned int> MinQuotientFrac("minquotientfrac",
-                                      cl::value_desc("bits"),
-                                      cl::desc("minimum number of quotient fractional preserved"),
-                                      cl::init(5));
+cl::opt<unsigned> MinQuotientFrac("minquotientfrac",
+                                  cl::value_desc("bits"),
+                                  cl::desc("minimum number of quotient fractional preserved"),
+                                  cl::init(5));
 
 PreservedAnalyses Conversion::run(Module& M, ModuleAnalysisManager& AM) {
   FloatToFixed Impl;

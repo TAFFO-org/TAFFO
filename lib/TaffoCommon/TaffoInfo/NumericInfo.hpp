@@ -35,7 +35,7 @@ class FixedPointInfo : public NumericTypeInfo {
 public:
   static bool classof(const NumericTypeInfo* T) { return T->getKind() == K_FixedPoint; }
 
-  FixedPointInfo(bool isSigned, unsigned int bits, unsigned int fractionalBits)
+  FixedPointInfo(bool isSigned, unsigned bits, unsigned fractionalBits)
   : sign(isSigned), bits(bits), fractionalBits(fractionalBits) {}
 
   double getRoundingError() const override;
@@ -43,8 +43,8 @@ public:
   llvm::APFloat getMaxValueBound() const override;
 
   bool isSigned() const { return sign; }
-  unsigned int getBits() const { return bits; }
-  unsigned int getFractionalBits() const { return fractionalBits; }
+  unsigned getBits() const { return bits; }
+  unsigned getFractionalBits() const { return fractionalBits; }
   NumericTypeKind getKind() const override { return K_FixedPoint; }
 
   bool operator==(const NumericTypeInfo& other) const override;
@@ -56,8 +56,8 @@ public:
 
 private:
   bool sign;
-  unsigned int bits;
-  unsigned int fractionalBits;
+  unsigned bits;
+  unsigned fractionalBits;
 };
 
 class FloatingPointInfo : public NumericTypeInfo {

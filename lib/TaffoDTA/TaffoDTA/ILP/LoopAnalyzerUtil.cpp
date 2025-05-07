@@ -31,7 +31,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction* 
 }
 
 unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
-  unsigned int LocalTrip;
+  unsigned LocalTrip;
 
   if (!loop) {
     LLVM_DEBUG(log() << "Loop Info: loop is null! Not part of a loop, finishing search!\n";);

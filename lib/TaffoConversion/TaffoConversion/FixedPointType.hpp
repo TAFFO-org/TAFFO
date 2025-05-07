@@ -25,7 +25,7 @@ public:
   std::shared_ptr<TransparentType> toTransparentType(const std::shared_ptr<TransparentType>& srcType,
                                                      bool* hasFloats = nullptr) const;
   std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<TransparentType>& srcType,
-                                                  llvm::ArrayRef<unsigned int> indices);
+                                                  llvm::ArrayRef<unsigned> indices);
   std::shared_ptr<FixedPointType> unwrapIndexList(const std::shared_ptr<TransparentType>& srcType,
                                                   llvm::iterator_range<const llvm::Use*> indices);
   virtual FixedPointTypeKind getKind() const = 0;

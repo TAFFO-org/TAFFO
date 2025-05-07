@@ -78,7 +78,7 @@ bool AnnotationParser::parseSyntax(Type* type) {
       }
       else {
         backtracking = true;
-        backtrackingDepth = std::numeric_limits<unsigned int>::max();
+        backtrackingDepth = std::numeric_limits<unsigned>::max();
       }
     }
     else if (peek("struct")) {
@@ -203,12 +203,12 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, Ty
     error = "Duplicated content definition in this context";
     return false;
   }
-  unsigned int numFields = structType->getNumElements();
+  unsigned numFields = structType->getNumElements();
   std::vector<std::shared_ptr<ValueInfo>> fields;
   fields.reserve(numFields);
 
   bool first = true;
-  unsigned int currentField = 0;
+  unsigned currentField = 0;
   while (!peek("]")) {
     if (first)
       first = false;

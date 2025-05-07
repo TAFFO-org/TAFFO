@@ -135,8 +135,7 @@ private:
   std::map<CostsId, bool> disableMap;
 
   CostType cType;
-  auto getType(unsigned int n, const string& tmpString, llvm::LLVMContext& context, llvm::Module& module)
-    -> llvm::Type*;
+  auto getType(unsigned n, const string& tmpString, llvm::LLVMContext& context, llvm::Module& module) -> llvm::Type*;
   void LLVMInizializer(llvm::Module& module,
                        llvm::TargetTransformInfo& TTI,
                        llvm::TargetTransformInfo::TargetCostKind costKind);

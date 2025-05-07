@@ -102,7 +102,7 @@ void InitializerPass::propagateInfo() {
   SmallPtrSet<Value*, 8> visited;
 
   // Continue propagation until the queue size stabilizes
-  unsigned int iteration = 0;
+  unsigned iteration = 0;
   size_t prevQueueSize = 0;
   while (prevQueueSize < infoPropagationQueue.size()) {
     LLVM_DEBUG(log() << raw_ostream::Colors::BLUE << "[Propagation iteration " << iteration << "]\n"
@@ -139,7 +139,7 @@ void InitializerPass::propagateInfo() {
         propagateInfo(value, user);
 
         // Determine the new backtracking depth for backward propagation
-        unsigned int newUserBtDepth = valueInitInfo.getUserBacktrackingDepth();
+        unsigned newUserBtDepth = valueInitInfo.getUserBacktrackingDepth();
         if (auto* storeUser = dyn_cast<StoreInst>(user))
           if (newUserBtDepth <= 1) {
             Value* storedValue = storeUser->getValueOperand();
@@ -170,7 +170,7 @@ void InitializerPass::propagateInfo() {
       Value* value = *iter;
       ValueInitInfo& valueInitInfo = taffoInitInfo.getValueInitInfo(value);
 
-      unsigned int backtrackingDepth = valueInitInfo.getBacktrackingDepth();
+      unsigned backtrackingDepth = valueInitInfo.getBacktrackingDepth();
       if (backtrackingDepth == 0)
         continue;
       auto* inst = dyn_cast<Instruction>(value);
@@ -246,8 +246,8 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
   ValueInfo* srcInfo = &*taffoInfo.getValueInfo(*src);
   ValueInfo* dstInfo = &*taffoInfo.getValueInfo(*dst);
 
-  unsigned int dstRootDistance = dstInitInfo.getRootDistance();
-  unsigned int newDstRootDistance = srcInitInfo.getUserRootDistance();
+  unsigned dstRootDistance = dstInitInfo.getRootDistance();
+  unsigned newDstRootDistance = srcInitInfo.getUserRootDistance();
 
   // If dst is a gep and src is not its pointer operand, skip propagation completely
   if (isa<GetElementPtrInst>(dst) && src != cast<GetElementPtrInst>(dst)->getPointerOperand()) {

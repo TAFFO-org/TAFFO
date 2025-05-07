@@ -124,7 +124,7 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr* cexp
                        offset)) {
 
     LLVM_DEBUG(log() << "Exctracted offset: [";);
-    for (unsigned int i = 0; i < offset.size(); i++)
+    for (unsigned i = 0; i < offset.size(); i++)
       LLVM_DEBUG(log() << offset[i] << ", ";);
     LLVM_DEBUG(log() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the
@@ -141,7 +141,7 @@ shared_ptr<OptimizerInfo> MetricBase::handleGEPConstant(const ConstantExpr* cexp
       return nullptr;
     }
     // This will only contain displacements for struct fields...
-    for (unsigned int i = 0; i < offset.size(); i++) {
+    for (unsigned i = 0; i < offset.size(); i++) {
       auto structInfo = dynamic_ptr_cast<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
         LLVM_DEBUG(log() << "Probably trying to access a non float element, bailing out.\n";);
@@ -202,7 +202,7 @@ void MetricBase::handleGEPInstr(Instruction* gep, shared_ptr<TunerInfo> valueInf
                        iterator_range<User::const_op_iterator>(gep_i->idx_begin(), gep_i->idx_end()),
                        offset)) {
     LLVM_DEBUG(log() << "Extracted offset: [";);
-    for (unsigned int i = 0; i < offset.size(); i++)
+    for (unsigned i = 0; i < offset.size(); i++)
       LLVM_DEBUG(log() << offset[i] << ", ";);
     LLVM_DEBUG(log() << "]\n";);
     // When we load an address from a "thing" we need to store a reference to it in order to successfully update the
@@ -229,7 +229,7 @@ void MetricBase::handleGEPInstr(Instruction* gep, shared_ptr<TunerInfo> valueInf
     }
 
     // This will only contain displacements for struct fields...
-    for (unsigned int i = 0; i < offset.size(); i++) {
+    for (unsigned i = 0; i < offset.size(); i++) {
       auto structInfo = dynamic_ptr_cast<OptimizerStructInfo>(optInfo);
       if (!structInfo) {
         LLVM_DEBUG(

@@ -205,7 +205,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
         LLVM_DEBUG(log() << "The top-level MDInfo was " << valueInfo->toString() << "\n");
         llvm_unreachable("Non-conforming StructInfo.");
       }
-      for (unsigned int i = 0; i < structInfo->getNumFields(); i++)
+      for (unsigned i = 0; i < structInfo->getNumFields(); i++)
         if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
           queue.push_back(
             std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
@@ -1004,7 +1004,7 @@ bool DataTypeAllocationPass::overwriteType(shared_ptr<ValueInfo> old, shared_ptr
     std::shared_ptr<StructInfo> model1 = dynamic_ptr_cast<StructInfo>(model);
 
     bool changed = false;
-    for (unsigned int i = 0; i < old1->getNumFields(); i++)
+    for (unsigned i = 0; i < old1->getNumFields(); i++)
       changed |= overwriteType(old1->getField(i), model1->getField(i));
     return changed;
   }

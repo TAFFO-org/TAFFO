@@ -32,7 +32,7 @@ private:
   friend class TaffoInfo;
 
   static std::shared_ptr<TransparentType> create(const llvm::Value* value);
-  static std::shared_ptr<TransparentType> create(llvm::Type* unwrappedType, unsigned int indirections);
+  static std::shared_ptr<TransparentType> create(llvm::Type* unwrappedType, unsigned indirections);
   static std::shared_ptr<TransparentType> create(const json& j);
 };
 
@@ -54,7 +54,7 @@ public:
   bool isValid() const { return unwrappedType; }
   llvm::Type* getUnwrappedType() const { return unwrappedType; }
   virtual llvm::Type* getFullyUnwrappedType() const { return unwrappedType; }
-  unsigned int getIndirections() const { return indirections; }
+  unsigned getIndirections() const { return indirections; }
   std::shared_ptr<TransparentType> getPointedType() const;
   virtual llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const { return {unwrappedType}; }
   bool isArrayType() const { return unwrappedType->isArrayTy() || unwrappedType->isVectorTy(); }
@@ -78,12 +78,12 @@ public:
 
 protected:
   llvm::Type* unwrappedType = nullptr;
-  unsigned int indirections = 0;
+  unsigned indirections = 0;
 
   TransparentType() = default;
   TransparentType(const TransparentType& other) = default;
 
-  TransparentType(llvm::Type* unwrappedType, unsigned int indirections)
+  TransparentType(llvm::Type* unwrappedType, unsigned indirections)
   : unwrappedType(unwrappedType), indirections(indirections) {}
 
   void incrementIndirections(int increment);
@@ -122,12 +122,12 @@ private:
   TransparentArrayType(const TransparentArrayType& other)
   : TransparentType(other), elementType(other.elementType->clone()) {}
 
-  TransparentArrayType(llvm::ArrayType* arrayType, unsigned int indirections)
+  TransparentArrayType(llvm::ArrayType* arrayType, unsigned indirections)
   : TransparentType(arrayType, indirections) {
     elementType = TransparentTypeFactory::create(arrayType->getElementType(), 0);
   }
 
-  TransparentArrayType(llvm::VectorType* vecType, unsigned int indirections)
+  TransparentArrayType(llvm::VectorType* vecType, unsigned indirections)
   : TransparentType(vecType, indirections) {
     elementType = TransparentTypeFactory::create(vecType->getElementType(), 0);
   }
@@ -149,8 +149,8 @@ public:
   bool isOpaquePointer() const override;
   bool containsFloatingPointType() const override;
   int compareTransparency(const TransparentType& other) const override;
-  std::shared_ptr<TransparentType> getFieldType(unsigned int i) const { return fieldTypes[i]; }
-  unsigned int getNumFieldTypes() const { return fieldTypes.size(); }
+  std::shared_ptr<TransparentType> getFieldType(unsigned i) const { return fieldTypes[i]; }
+  unsigned getNumFieldTypes() const { return fieldTypes.size(); }
   llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const override;
   TransparentTypeKind getKind() const override { return K_Struct; }
 
@@ -172,13 +172,13 @@ private:
       fieldTypes.push_back(field->clone());
   }
 
-  TransparentStructType(llvm::StructType* unwrappedType, unsigned int indirections)
+  TransparentStructType(llvm::StructType* unwrappedType, unsigned indirections)
   : TransparentType(unwrappedType, indirections) {
     for (llvm::Type* fieldType : unwrappedType->elements())
       fieldTypes.push_back(TransparentTypeFactory::create(fieldType, 0));
   }
 
-  void setFieldType(unsigned int i, std::shared_ptr<TransparentType> fieldType) { fieldTypes[i] = fieldType; }
+  void setFieldType(unsigned i, std::shared_ptr<TransparentType> fieldType) { fieldTypes[i] = fieldType; }
 };
 
 } // namespace taffo
@@ -194,7 +194,7 @@ struct hash<shared_ptr<taffo::TransparentType>> {
     size_t combined = 0;
     auto combine = [](size_t seed, size_t value) { return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2)); };
     combined = combine(combined, hash<llvm::Type*>()(ptr->getUnwrappedType()));
-    combined = combine(combined, hash<unsigned int>()(ptr->getIndirections()));
+    combined = combine(combined, hash<unsigned>()(ptr->getIndirections()));
 
     if (auto arrayPtr = dynamic_ptr_cast<taffo::TransparentArrayType>(ptr))
       combined = combine(combined, hash()(arrayPtr->getArrayElementType()));

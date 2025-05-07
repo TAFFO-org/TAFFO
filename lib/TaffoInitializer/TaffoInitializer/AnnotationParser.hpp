@@ -15,7 +15,7 @@ class AnnotationParser {
 public:
   bool startingPoint;
   bool backtracking;
-  unsigned int backtrackingDepth;
+  unsigned backtrackingDepth;
 
   bool parseAnnotationAndGenValueInfo(llvm::StringRef annotationStr, llvm::Value* annotatedValue);
   llvm::StringRef getLastError();

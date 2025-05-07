@@ -147,16 +147,16 @@ void TaffoInfo::getTaffoCloneFunctions(const Function& originalF, SmallPtrSetImp
       taffoFunctions.insert(taffoF);
 }
 
-void TaffoInfo::setMaxRecursionCount(Function& f, unsigned int maxRecursion) { maxRecursionCount[&f] = maxRecursion; }
+void TaffoInfo::setMaxRecursionCount(Function& f, unsigned maxRecursion) { maxRecursionCount[&f] = maxRecursion; }
 
-unsigned int TaffoInfo::getMaxRecursionCount(const Function& f) const {
+unsigned TaffoInfo::getMaxRecursionCount(const Function& f) const {
   auto iter = maxRecursionCount.find(&f);
   return iter != maxRecursionCount.end() ? iter->second : 0;
 }
 
-void TaffoInfo::setLoopUnrollCount(Loop& l, unsigned int unrollCount) { loopUnrollCount[&l] = unrollCount; }
+void TaffoInfo::setLoopUnrollCount(Loop& l, unsigned unrollCount) { loopUnrollCount[&l] = unrollCount; }
 
-unsigned int TaffoInfo::getLoopUnrollCount(const Loop& l) const {
+unsigned TaffoInfo::getLoopUnrollCount(const Loop& l) const {
   auto iter = loopUnrollCount.find(&l);
   return iter != loopUnrollCount.end() ? iter->second : 0;
 }
@@ -436,8 +436,8 @@ std::string TaffoInfo::generateLoopId(const Loop* l) {
 }
 
 void TaffoInfo::updateIdDigits() {
-  unsigned int idCounterCopy = idCounter;
-  unsigned int newDigits = 0;
+  unsigned idCounterCopy = idCounter;
+  unsigned newDigits = 0;
   do {
     newDigits++;
     idCounterCopy /= 10;
@@ -455,7 +455,7 @@ void TaffoInfo::updateIdDigits() {
         size_t pos = oldId.find_last_not_of("0123456789");
         std::string prefix = oldId.substr(0, pos + 1);
         std::string numericPart = oldId.substr(pos + 1);
-        unsigned int number = numericPart.empty() ? 0 : std::stoul(numericPart);
+        unsigned number = numericPart.empty() ? 0 : std::stoul(numericPart);
         std::string newId = prefix + formatNumber(idDigits, number);
         map.updateKey(oldId, newId);
         if (jsonRepresentation.contains(jsonMapName))
@@ -673,7 +673,7 @@ void TaffoInfo::deserialize(const json& j) {
   cmpError.clear();
 
   // Deserialize idCounter
-  idCounter = j["idCounter"].get<unsigned int>();
+  idCounter = j["idCounter"].get<unsigned>();
 
   // Deserialize startingPoints
   for (const auto& id : j["startingPoints"]) {
@@ -826,7 +826,7 @@ void TaffoInfo::deserialize(const json& j) {
     if (iter != idValueMapping.end()) {
       Value* val = iter->second;
       if (auto* f = dyn_cast<Function>(val))
-        maxRecursionCount[f] = item.value().get<unsigned int>();
+        maxRecursionCount[f] = item.value().get<unsigned>();
     }
   }
 
@@ -836,7 +836,7 @@ void TaffoInfo::deserialize(const json& j) {
     auto iter = idLoopMapping.find(loopId);
     if (iter != idLoopMapping.end()) {
       Loop* loop = iter->second;
-      loopUnrollCount[loop] = item.value().get<unsigned int>();
+      loopUnrollCount[loop] = item.value().get<unsigned>();
     }
   }
 }

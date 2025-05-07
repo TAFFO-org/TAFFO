@@ -13,8 +13,7 @@ ValueInitInfo& TaffoInitInfo::getOrCreateValueInitInfo(Value* value) {
   return valueInitInfo.contains(value) ? valueInitInfo.find(value)->second : createValueInitInfo(value);
 }
 
-ValueInitInfo&
-TaffoInitInfo::createValueInitInfo(Value* value, unsigned int rootDistance, unsigned int backtrackingDepth) {
+ValueInitInfo& TaffoInitInfo::createValueInitInfo(Value* value, unsigned rootDistance, unsigned backtrackingDepth) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   assert(taffoInfo.hasValueInfo(*value) && "Creating a ValueInitInfo of a value without ValueInfo");
   ValueInfo* valueInfo = &*taffoInfo.getValueInfo(*value);

@@ -60,11 +60,11 @@ public:
   void setOriginalFunctionLinkage(llvm::Function& originalF, llvm::GlobalValue::LinkageTypes linkage);
   llvm::GlobalValue::LinkageTypes getOriginalFunctionLinkage(const llvm::Function& originalF) const;
 
-  void setMaxRecursionCount(llvm::Function& f, unsigned int maxRecursion);
-  unsigned int getMaxRecursionCount(const llvm::Function& f) const;
+  void setMaxRecursionCount(llvm::Function& f, unsigned maxRecursion);
+  unsigned getMaxRecursionCount(const llvm::Function& f) const;
 
-  void setLoopUnrollCount(llvm::Loop& l, unsigned int unrollCount);
-  unsigned int getLoopUnrollCount(const llvm::Loop& l) const;
+  void setLoopUnrollCount(llvm::Loop& l, unsigned unrollCount);
+  unsigned getLoopUnrollCount(const llvm::Loop& l) const;
 
   void setError(llvm::Instruction& i, double error);
   double getError(llvm::Instruction& i) const;
@@ -95,8 +95,8 @@ private:
   llvm::DenseMap<llvm::Value*, std::shared_ptr<ValueInfo>> valueInfo;
   llvm::DenseMap<llvm::Value*, int> valueWeights;
 
-  llvm::DenseMap<llvm::Function*, unsigned int> maxRecursionCount;
-  llvm::DenseMap<llvm::Loop*, unsigned int> loopUnrollCount;
+  llvm::DenseMap<llvm::Function*, unsigned> maxRecursionCount;
+  llvm::DenseMap<llvm::Loop*, unsigned> loopUnrollCount;
   llvm::DenseMap<llvm::Instruction*, double> error;
   llvm::DenseMap<llvm::Instruction*, std::shared_ptr<CmpErrorInfo>> cmpError;
 
@@ -106,8 +106,8 @@ private:
   BiMap<std::string, llvm::Value*> idValueMapping;
   BiMap<std::string, llvm::Loop*> idLoopMapping;
   BiMap<std::string, llvm::Type*> idTypeMapping;
-  unsigned int idCounter;
-  unsigned int idDigits;
+  unsigned idCounter;
+  unsigned idDigits;
   json jsonRepresentation;
   std::string logContextTag = "TaffoInfo";
 
