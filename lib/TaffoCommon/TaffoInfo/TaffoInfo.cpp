@@ -45,12 +45,12 @@ std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value& v)
   LLVM_DEBUG(
     Logger& logger = log();
     logger.setContextTag(logContextTag);
-    logger.log("Missing transparent type for value: ", raw_ostream::Colors::YELLOW);
+    logger.log("Missing transparent type for value: ", Logger::Yellow);
     logger.logValueln(&v);
-    logger.log("Transparent type set to:            ", raw_ostream::Colors::YELLOW);
-    logger.logln(type, raw_ostream::Colors::CYAN);
+    logger.log("Transparent type set to:            ", Logger::Yellow);
+    logger.logln(type, Logger::Cyan);
     if (type->isOpaquePointer())
-      logger.logln("Warning: the newly created transparent type is opaque", raw_ostream::Colors::RED);
+      logger.logln("Warning: the newly created transparent type is opaque", Logger::Red);
     logger.restorePrevContextTag(););
   return transparentTypes[&v] = type;
 }

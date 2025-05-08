@@ -28,7 +28,7 @@ using namespace tuner;
 STATISTIC(FixCast, "Number of fixed point format cast");
 
 PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& AM) {
-  LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", Logger::Magenta));
   TaffoInfo::getInstance().initializeFromFile("taffo_info_vra.json", m);
 
   MAM = &AM;
@@ -65,7 +65,7 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
     TaffoInfo::getInstance().eraseValue(f);
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_dta.json", m);
-  LLVM_DEBUG(log().logln("[End of DataTypeAllocationPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of DataTypeAllocationPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
 

@@ -113,14 +113,14 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
   AnnotationParser parser;
   if (!parser.parseAnnotationAndGenValueInfo(annotationStr, annotatedValue)) {
     Logger& logger = log();
-    logger.logln("TAFFO Annotation parser error:", raw_ostream::Colors::RED);
+    logger.logln("TAFFO Annotation parser error:", Logger::Red);
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
-    logger.log("In annotation: \"", raw_ostream::Colors::RED);
-    logger.log(annotationStr, raw_ostream::Colors::RED);
-    logger.log("\" of value ", raw_ostream::Colors::RED);
-    logger.logln(annotatedValue, raw_ostream::Colors::RED);
-    logger.logln(parser.getLastError(), raw_ostream::Colors::RED);
+    logger.log("In annotation: \"", Logger::Red);
+    logger.log(annotationStr, Logger::Red);
+    logger.log("\" of value ", Logger::Red);
+    logger.logln(annotatedValue, Logger::Red);
+    logger.logln(parser.getLastError(), Logger::Red);
     llvm_unreachable("Error parsing annotation!");
   }
 
@@ -150,9 +150,9 @@ void InitializerPass::removeNotFloats() {
     if (!containsFloatingPoint) {
       LLVM_DEBUG(
         Logger& logger = log();
-        logger.log("Removing ", llvm::raw_ostream::Colors::YELLOW);
-        logger.log(val, llvm::raw_ostream::Colors::YELLOW);
-        logger.logln(" from infoPropagationQueue as it is not float", raw_ostream::Colors::YELLOW););
+        logger.log("Removing ", Logger::Yellow);
+        logger.log(val, Logger::Yellow);
+        logger.logln(" from infoPropagationQueue as it is not float", Logger::Yellow););
       infoPropagationQueue.remove(val);
     }
   }

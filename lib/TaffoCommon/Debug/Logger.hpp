@@ -68,6 +68,20 @@ public:
     : logger(logger), indent(0) {}
   };
 
+  enum Color {
+    Current = -3,
+    Reset = -2,
+    Bold = -1,
+    Black = static_cast<int>(llvm::raw_ostream::Colors::BLACK),
+    Red = static_cast<int>(llvm::raw_ostream::Colors::RED),
+    Green = static_cast<int>(llvm::raw_ostream::Colors::GREEN),
+    Yellow = static_cast<int>(llvm::raw_ostream::Colors::YELLOW),
+    Blue = static_cast<int>(llvm::raw_ostream::Colors::BLUE),
+    Magenta = static_cast<int>(llvm::raw_ostream::Colors::MAGENTA),
+    Cyan = static_cast<int>(llvm::raw_ostream::Colors::CYAN),
+    White = static_cast<int>(llvm::raw_ostream::Colors::WHITE),
+  };
+
   static Logger& getInstance();
 
   Logger& logValue(const llvm::Value* value, bool logParent = true);
@@ -77,21 +91,21 @@ public:
   Logger& setContextTag(const char* tag);
   Logger& restorePrevContextTag();
 
-  Logger& setColor(llvm::raw_ostream::Colors color);
+  Logger& setColor(Color color);
   Logger& resetColor();
 
   [[nodiscard]] Indenter getIndenter() { return Indenter(*this); }
 
   // Log for Printable objects
   template <PrintableConcept T>
-  Logger& log(const T& value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger& log(const T& value, Color color = Current) {
     log(value.toString(), color);
     return *this;
   }
 
   // Log for shared_ptr to Printable objects.
   template <PrintableConcept T>
-  Logger& log(const std::shared_ptr<T>& value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger& log(const std::shared_ptr<T>& value, Color color = Current) {
     if (value)
       log(value->toString(), color);
     else
@@ -101,7 +115,7 @@ public:
 
   // Log for LLVM-printable objects
   template <LLVMPrintableConcept T>
-  Logger& log(const T& value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger& log(const T& value, Color color = Current) {
     log(toString(value), color);
     return *this;
   }
@@ -109,33 +123,52 @@ public:
   // Log for iterable objects
   template <IterableConcept T>
     requires(!PrintableConcept<T> && !LLVMPrintableConcept<T>)
-  Logger& log(const T& container, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
-    log("[");
+  Logger& log(const T& container, Color color = Current) {
+    log("[", Bold);
     bool first = true;
     for (const auto& el : container) {
       if (!first)
-        log(", ");
+        log(", ", Bold);
       else
         first = false;
       log(el, color);
     }
-    log("]");
+    log("]", Bold);
     return *this;
   }
 
   // Generic fallback log (for types that are not printable in any special way)
   template <typename T>
     requires(!PrintableConcept<T> && !LLVMPrintableConcept<T> && !IterableConcept<T>)
-  Logger& log(const T& message, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger& log(const T& message, Color color = Current) {
     // Convert message to string.
     std::string s;
     llvm::raw_string_ostream oss(s);
     oss << message;
     std::string messageString = oss.str();
 
-    llvm::raw_ostream::Colors resColor = (color == llvm::raw_ostream::Colors::RESET) ? currentColor : color;
-    // TODO add conditional ostream.is_displayed()
-    bool useColors = ostream.is_displayed() && resColor != llvm::raw_ostream::Colors::RESET;
+    // TODO add conditional ostream.is_displayed() (command line)
+    bool useColors = ostream.is_displayed();
+
+    Color resColor;
+    bool bold = false;
+    if (color == Current)
+      resColor = currentColor;
+    else if (color == Bold) {
+      bold = true;
+      resColor = currentColor;
+    }
+    else
+      resColor = color;
+
+    if (resColor == Reset) {
+      ostream.resetColor();
+      if (!bold)
+        useColors = false;
+    }
+    else
+      bold = true;
+
     // Log the string splitting by '\n'.
     size_t start = 0;
     while (start < messageString.size()) {
@@ -144,8 +177,11 @@ public:
         (pos == std::string::npos) ? messageString.substr(start) : messageString.substr(start, pos - start);
       if (isLineStart)
         logIndent();
-      if (useColors)
-        ostream.changeColor(resColor, /*Bold=*/true);
+      if (useColors) {
+        auto finalColor = (resColor == Reset) ? llvm::raw_ostream::Colors::SAVEDCOLOR
+                                              : static_cast<llvm::raw_fd_ostream::Colors>(resColor);
+        ostream.changeColor(finalColor, bold);
+      }
       ostream << line;
       if (useColors)
         ostream.resetColor();
@@ -161,8 +197,13 @@ public:
     return *this;
   }
 
+  Logger& log(const bool value, Color color = Current) {
+    log(value ? "true" : "false", color);
+    return *this;
+  }
+
   template <typename T>
-  Logger& logln(const T& value, llvm::raw_ostream::Colors color = llvm::raw_ostream::Colors::RESET) {
+  Logger& logln(const T& value, Color color = Current) {
     log(value, color);
     ostream << "\n";
     isLineStart = true;
@@ -175,7 +216,7 @@ public:
     return *this;
   }
 
-  Logger& operator<<(llvm::raw_ostream::Colors color) {
+  Logger& operator<<(Color color) {
     setColor(color);
     return *this;
   }
@@ -183,12 +224,12 @@ public:
 private:
   llvm::raw_ostream& ostream;
   std::list<std::string> contextTagStack;
-  llvm::raw_ostream::Colors currentColor;
+  Color currentColor;
   unsigned indent;
   bool isLineStart;
 
   Logger()
-  : ostream(getOutputStream()), currentColor(llvm::raw_ostream::Colors::RESET), indent(0), isLineStart(true) {}
+  : ostream(getOutputStream()), currentColor(Reset), indent(0), isLineStart(true) {}
 
   Logger(const Logger&) = delete;
 

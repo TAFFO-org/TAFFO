@@ -41,26 +41,26 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
 
     auto indenter = logger.getIndenter();
     LLVM_DEBUG(
-      logger << raw_ostream::Colors::BLUE << repeatString("▀▄▀▄", 10) << "[Perform conversion]"
-             << repeatString("▄▀▄▀", 10) << raw_ostream::Colors::RESET << "\n";
+      logger << Logger::Blue << repeatString("▀▄▀▄", 10) << "[Perform conversion]" << repeatString("▄▀▄▀", 10)
+             << Logger::Reset << "\n";
       indenter.increaseIndent();
-      logger.log("Value: ").logValueln(v);
-      logger << "To convert: " << getConversionInfo(v)->noTypeConversion << "\n";
-      logger << "Requested type: " << *newType << "\n";);
+      logger.log("[Value] ", Logger::Bold).logValueln(v);
+      logger << "to convert: " << !getConversionInfo(v)->noTypeConversion << "\n";
+      logger << "requested type: " << *newType << "\n";);
 
     Value* newv = convertSingleValue(m, v, newType);
     getConversionInfo(v)->fixpType = newType;
     if (newv) {
       convertedValues[v] = newv;
-      LLVM_DEBUG(logger.log("Result type: ").logln(*newType, raw_ostream::Colors::CYAN));
+      LLVM_DEBUG(logger.log("result type: ", Logger::Green).logln(*newType));
     }
 
     if (newv && newv != ConversionError) {
-      LLVM_DEBUG(log().log("Result:      ").logln(*newv, raw_ostream::Colors::CYAN));
+      LLVM_DEBUG(log().log("result:      ", Logger::Green).logln(*newv));
 
       if (newv != v && isa<Instruction>(newv) && isa<Instruction>(v)) {
-        Instruction* newinst = dyn_cast<Instruction>(newv);
-        Instruction* oldinst = dyn_cast<Instruction>(v);
+        auto* newinst = dyn_cast<Instruction>(newv);
+        auto* oldinst = dyn_cast<Instruction>(v);
         newinst->setDebugLoc(oldinst->getDebugLoc());
       }
       if (newv != v) {
@@ -81,15 +81,14 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
           });
 
         if (hasConversionInfo(newv)) {
-          LLVM_DEBUG(
-            logger.log("warning: output has valueInfo already from a previous conversion", raw_ostream::Colors::YELLOW)
-            << " (type " << *getFixpType(newv) << ")\n");
+          LLVM_DEBUG(logger.log("warning: output has valueInfo already from a previous conversion", Logger::Yellow)
+                     << " (type " << *getFixpType(newv) << ")\n");
           if (*getFixpType(newv) != *getFixpType(v)) {
-            logger.logln("FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!", raw_ostream::Colors::RED);
-            logger.log("New type: ", raw_ostream::Colors::RED);
-            logger.log(getFixpType(newv), raw_ostream::Colors::RED);
-            logger.log(", old type: ", raw_ostream::Colors::RED);
-            logger.logln(getFixpType(v), raw_ostream::Colors::RED);
+            logger.logln("FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!", Logger::Red);
+            logger.log("New type: ", Logger::Red);
+            logger.log(getFixpType(newv), Logger::Red);
+            logger.log(", old type: ", Logger::Red);
+            logger.logln(getFixpType(v), Logger::Red);
             abort();
           }
         }
@@ -98,7 +97,7 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
       }
     }
     else
-      LLVM_DEBUG(logger.log("Result:      ").logln("CONVERSION ERROR", raw_ostream::Colors::RED));
+      LLVM_DEBUG(logger.log("Result:      ").logln("CONVERSION ERROR", Logger::Red));
     LLVM_DEBUG(logger << "\n");
     iter++;
   }
@@ -155,7 +154,7 @@ Value* FloatToFixed::translateOrMatchOperand(
   auto indenter = logger.getIndenter();
 
   LLVM_DEBUG(
-    logger.log("[TranslateOrMatchOperand of]", raw_ostream::Colors::RESET) << *val << "\n";
+    logger.log("[TranslateOrMatchOperand of] ", Logger::Bold) << *val << "\n";
     indenter.increaseIndent(););
 
   // FIXME: handle all the cases, we need more info about destination!
@@ -308,9 +307,9 @@ FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointS
   assert(flt->getType()->isFloatingPointTy() && "genConvertFloatToFixed called on a non-float scalar");
   LLVM_DEBUG(
     Logger& logger = log();
-    logger << "Called floatToFixed with src ";
-    logger.log(flt->getType(), raw_ostream::Colors::CYAN);
-    logger.log(" to ").logln(*fixpt, raw_ostream::Colors::CYAN););
+    logger << "called floatToFixed with src ";
+    logger.log(flt->getType(), Logger::Cyan);
+    logger.log(" to ").logln(*fixpt, Logger::Cyan););
 
   if (Constant* c = dyn_cast<Constant>(flt)) {
     std::shared_ptr<FixedPointType> fixptcopy = fixpt->clone();
@@ -407,10 +406,10 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
 
   LLVM_DEBUG(
     Logger& logger = log();
-    logger.log("Called fixedToFixed with src ");
-    logger.log(*srcFixedType, llvm::raw_ostream::Colors::CYAN);
+    logger.log("called fixedToFixed with src ");
+    logger.log(*srcFixedType, Logger::Cyan);
     logger.log(" to dst ");
-    logger.logln(*dstFixedType, llvm::raw_ostream::Colors::CYAN););
+    logger.logln(*dstFixedType, Logger::Cyan););
 
   Instruction* fixInst = dyn_cast<Instruction>(fix);
   if (!ip && fixInst)

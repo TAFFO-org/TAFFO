@@ -16,8 +16,8 @@ using namespace taffo;
 PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(
     Logger& logger = log();
-    logger.logln("[TypeDeducerPass]", raw_ostream::Colors::MAGENTA);
-    logger.logln("[Deduction iteration 0]", raw_ostream::Colors::BLUE););
+    logger.logln("[TypeDeducerPass]", Logger::Magenta);
+    logger.logln("[Deduction iteration 0]", Logger::Blue););
   for (Function& f : m) {
     if (f.isDeclaration()) {
       // Cannot deduce the type of a declaration: just save the transparent type of the value (could be opaque pointer)
@@ -61,8 +61,8 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
   unsigned iterations = 1;
   bool deducedTypesChanged = true;
   while (deducedTypesChanged) {
-    LLVM_DEBUG(log() << raw_ostream::Colors::BLUE << "[Deduction iteration " << iterations << "]\n"
-                     << raw_ostream::Colors::RESET);
+    LLVM_DEBUG(log() << Logger::Blue << "[Deduction iteration " << iterations << "]\n"
+                     << Logger::Reset);
     iterations++;
     deducedTypesChanged = false;
     for (const auto& [value, deducedType] : deducedTypes)
@@ -82,7 +82,7 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
         }
       }
   }
-  LLVM_DEBUG(log().logln("[Deduction completed]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Deduction completed]", Logger::Blue));
 
   // Save deduced transparent types
   for (const auto& [value, deducedType] : deducedTypes)
@@ -91,7 +91,7 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(logDeducedTypes());
 
   TaffoInfo::getInstance().dumpToFile("taffo_typededucer.json", m);
-  LLVM_DEBUG(log().logln("[End of TypeDeducerPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of TypeDeducerPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
 
@@ -136,9 +136,8 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
       }
       else {
         Logger& logger = log();
-        logger.log("Gep instruction ", raw_ostream::Colors::RED).logValueln(gepInst);
-        logger.logln("is trying to extract from a value that is neither a struct or an array",
-                     raw_ostream::Colors::RED);
+        logger.log("Gep instruction ", Logger::Red).logValueln(gepInst);
+        logger.logln("is trying to extract from a value that is neither a struct or an array", Logger::Red);
         llvm_unreachable("Check this gep instruction to know what happened");
       }
     }
@@ -211,9 +210,8 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
           }
           else {
             Logger& logger = log();
-            logger.log("Gep instruction ", raw_ostream::Colors::RED).logValueln(gepInst);
-            logger.logln("is trying to extract from a value that is neither a struct or an array",
-                         raw_ostream::Colors::RED);
+            logger.log("Gep instruction ", Logger::Red).logValueln(gepInst);
+            logger.logln("is trying to extract from a value that is neither a struct or an array", Logger::Red);
             llvm_unreachable("Check this gep instruction to know what happened");
           }
         }
@@ -299,39 +297,39 @@ void TypeDeducerPass::logDeduction(Value* value,
                                    const std::shared_ptr<TransparentType>& bestCandidate,
                                    const CandidateSet& candidates) {
   Logger& logger = log();
-  logger.log("[Deducing type of] ", raw_ostream::Colors::RESET).logValueln(value);
+  logger.log("[Deducing type of] ", Logger::Bold).logValueln(value);
   auto indenter = logger.getIndenter();
   indenter.increaseIndent();
   logger.log("current candidates: ").logln(candidates);
   logger.log("best candidate is ");
   if (bestCandidate)
-    logger.logln(bestCandidate, raw_ostream::Colors::CYAN);
+    logger.logln(bestCandidate, Logger::Cyan);
   else
-    logger.logln("ambiguous", raw_ostream::Colors::YELLOW);
+    logger.logln("ambiguous", Logger::Yellow);
 }
 
 void TypeDeducerPass::logDeducedTypes() {
   Logger& logger = log();
-  logger.logln("[Results]", raw_ostream::Colors::GREEN);
+  logger.logln("[Results]", Logger::Green);
   for (const auto& [value, deducedType] : deducedTypes) {
-    logger.log("[Value] ", raw_ostream::Colors::RESET).logValueln(value);
+    logger.log("[Value] ", Logger::Bold).logValueln(value);
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
     logger.log("deduced pointer type: ");
     if (deducedType) {
-      auto color = deducedType->isOpaquePointer() ? raw_ostream::Colors::YELLOW : raw_ostream::Colors::GREEN;
+      auto color = deducedType->isOpaquePointer() ? Logger::Yellow : Logger::Green;
       logger.logln(deducedType, color);
     }
     else {
-      logger.log("ambiguous: ", raw_ostream::Colors::YELLOW);
+      logger.log("ambiguous: ", Logger::Yellow);
       CandidateSet& candidates = candidateTypes[value];
       candidates.erase(nullptr);
       if (!candidates.empty()) {
-        logger.log("candidate types: ", raw_ostream::Colors::YELLOW);
-        logger.logln(candidates, raw_ostream::Colors::YELLOW);
+        logger.log("candidate types: ", Logger::Yellow);
+        logger.logln(candidates, Logger::Yellow);
       }
       else
-        logger.logln("no candidate types", raw_ostream::Colors::RED);
+        logger.logln("no candidate types", Logger::Red);
     }
   }
 }

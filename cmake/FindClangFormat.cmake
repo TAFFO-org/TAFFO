@@ -1,5 +1,5 @@
 # Find clang-format in the system's PATH
-find_program(CLANG_FORMAT_EXECUTABLE clang-format)
+find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format-19 clang-format)
 
 # Check if clang-format was found
 if(NOT CLANG_FORMAT_EXECUTABLE)

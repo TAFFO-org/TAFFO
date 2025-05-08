@@ -24,7 +24,7 @@ cl::opt<bool> openCLKernelMode("oclkern", cl::desc("Allows cloning of OpenCL ker
 cl::opt<bool> cudaKernelMode("cudakern", cl::desc("Allows cloning of Cuda kernel functions"), cl::init(false));
 
 PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
-  LLVM_DEBUG(log().logln("[InitializerPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[InitializerPass]", Logger::Magenta));
   taffoInfo.initializeFromFile("taffo_typededucer.json", m);
 
   if (openCLKernelMode) {
@@ -50,18 +50,18 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
     taffoInfo.addStartingPoint(*startingPoint);
   }
 
-  LLVM_DEBUG(log().logln("[Propagating info from roots]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Propagating info from roots]", Logger::Blue));
   propagateInfo();
   generateFunctionClones();
-  LLVM_DEBUG(log().logln("[Propagating info after function cloning]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Propagating info after function cloning]", Logger::Blue));
   propagateInfo();
   LLVM_DEBUG(
-    log().logln("[Results]", raw_ostream::Colors::GREEN);
+    log().logln("[Results]", Logger::Green);
     logInfoPropagationQueue(););
   saveValueWeights();
 
   taffoInfo.dumpToFile("taffo_info_init.json", m);
-  LLVM_DEBUG(log().logln("[End of InitializerPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of InitializerPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
 
@@ -76,7 +76,7 @@ void InitializerPass::saveValueWeights() {
           scalarInfo->conversionEnabled = false;
           LLVM_DEBUG(
             Logger& logger = log();
-            logger.log("Disabled conversion of shared variable ", raw_ostream::Colors::YELLOW);
+            logger.log("Disabled conversion of shared variable ", Logger::Yellow);
             logger.logValueln(inst););
         }
   }
@@ -93,7 +93,7 @@ void InitializerPass::saveValueWeights() {
 void InitializerPass::propagateInfo() {
   Logger& logger = log();
   LLVM_DEBUG(
-    logger.logln("[Initial propagation queue]", raw_ostream::Colors::RESET);
+    logger.logln("[Initial propagation queue]", Logger::Bold);
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
     logInfoPropagationQueue(););
@@ -105,8 +105,8 @@ void InitializerPass::propagateInfo() {
   unsigned iteration = 0;
   size_t prevQueueSize = 0;
   while (prevQueueSize < infoPropagationQueue.size()) {
-    LLVM_DEBUG(log() << raw_ostream::Colors::BLUE << "[Propagation iteration " << iteration << "]\n"
-                     << raw_ostream::Colors::RESET);
+    LLVM_DEBUG(log() << Logger::Blue << "[Propagation iteration " << iteration << "]\n"
+                     << Logger::Reset);
     prevQueueSize = infoPropagationQueue.size();
     iteration++;
 
@@ -117,7 +117,7 @@ void InitializerPass::propagateInfo() {
 
       auto indenter = logger.getIndenter();
       LLVM_DEBUG(
-        logger.log("[Value] ", raw_ostream::Colors::RESET).logValueln(value);
+        logger.log("[Value] ", Logger::Bold).logValueln(value);
         indenter.increaseIndent();
         logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";
         if (value->user_empty())
@@ -132,7 +132,7 @@ void InitializerPass::propagateInfo() {
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
           Logger& logger = log();
-          logger.log("[User] ", raw_ostream::Colors::RESET).logValueln(user);
+          logger.log("[User] ", Logger::Bold).logValueln(user);
           indenter.increaseIndent(););
 
         // Update valueInitInfo of the user based on the parent's valueInitInfo
@@ -146,7 +146,7 @@ void InitializerPass::propagateInfo() {
             if (getFullyUnwrappedType(storedValue)->isFloatingPointTy()) {
               LLVM_DEBUG(
                 Logger& logger = log();
-                logger.log("will backtrack to stored value: ", raw_ostream::Colors::CYAN);
+                logger.log("will backtrack to stored value: ", Logger::Cyan);
                 logger.logValueln(storedValue););
               newUserBtDepth = 1;
             }
@@ -180,7 +180,7 @@ void InitializerPass::propagateInfo() {
       auto indenter = logger.getIndenter();
       LLVM_DEBUG(
         Logger& logger = log();
-        logger.log("[Backtracking] ", raw_ostream::Colors::RESET).logValueln(value);
+        logger.log("[Backtracking] ", Logger::Bold).logValueln(value);
         indenter.increaseIndent();
         logger << "depth left = " << backtrackingDepth << "\n";);
 
@@ -189,7 +189,7 @@ void InitializerPass::propagateInfo() {
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
           Logger& logger = log();
-          logger.log("[Operand] ", raw_ostream::Colors::RESET).logValueln(operand);
+          logger.log("[Operand] ", Logger::Bold).logValueln(operand);
           indenter.increaseIndent(););
         // Skip operands that are not a User or an Argument
         if (!isa<User>(operand) && !isa<Argument>(operand)) {
@@ -234,7 +234,7 @@ void InitializerPass::propagateInfo() {
       }
     }
   }
-  LLVM_DEBUG(log().logln("[Propagation completed]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Propagation completed]", Logger::Blue));
 }
 
 void InitializerPass::propagateInfo(Value* src, Value* dst) {
@@ -264,11 +264,11 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
       logger.setContextTag(__FUNCTION__);
       logger << "updated root distance: " << newDstRootDistance << "\n";
       logger << "srcType = ";
-      logger.log(*srcType, raw_ostream::Colors::CYAN);
+      logger.log(*srcType, Logger::Cyan);
       logger << ", srcInfo = ";
-      logger.logln(*srcInfo, raw_ostream::Colors::CYAN);
+      logger.logln(*srcInfo, Logger::Cyan);
       logger << "dstType = ";
-      logger.log(*dstType, raw_ostream::Colors::CYAN);
+      logger.log(*dstType, Logger::Cyan);
       logger << ", ";);
 
     // TODO Manage structs
@@ -301,9 +301,9 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
       Logger& logger = log();
       logger << "dstInfo";
       logger << " = ";
-      logger.log(*dstInfo, raw_ostream::Colors::CYAN);
+      logger.log(*dstInfo, Logger::Cyan);
       if (copied)
-        logger.log(" copied", raw_ostream::Colors::GREEN);
+        logger.log(" copied", Logger::Green);
       logger << "\n";
       logger.restorePrevContextTag(););
   }
@@ -316,7 +316,7 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
 }
 
 void InitializerPass::generateFunctionClones() {
-  LLVM_DEBUG(log().logln("[Function cloning]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Function cloning]", Logger::Blue));
   for (Value* value : infoPropagationQueue) {
     auto* call = dyn_cast<CallBase>(value);
     if (!call)
@@ -324,16 +324,16 @@ void InitializerPass::generateFunctionClones() {
 
     Function* oldF = call->getCalledFunction();
     if (!oldF) {
-      LLVM_DEBUG(log().log("Skipping indirect function invoked by: ", raw_ostream::Colors::YELLOW).logValueln(value));
+      LLVM_DEBUG(log().log("Skipping indirect function invoked by: ", Logger::Yellow).logValueln(value));
       continue;
     }
     if (isSpecialFunction(oldF)) {
-      LLVM_DEBUG(log().log("Skipping special function invoked by: ", raw_ostream::Colors::YELLOW).logValueln(value));
+      LLVM_DEBUG(log().log("Skipping special function invoked by: ", Logger::Yellow).logValueln(value));
       continue;
     }
     if (manualFunctionCloning) {
       if (!annotatedFunctions.contains(oldF)) {
-        LLVM_DEBUG(log().log("Skipping disabled function invoked by: ", raw_ostream::Colors::YELLOW).logValueln(value));
+        LLVM_DEBUG(log().log("Skipping disabled function invoked by: ", Logger::Yellow).logValueln(value));
         continue;
       }
     }
@@ -348,7 +348,7 @@ void InitializerPass::generateFunctionClones() {
 
     taffoInfo.setTaffoFunction(*oldF, *newF);
   }
-  LLVM_DEBUG(log().logln("[Function cloning completed]", raw_ostream::Colors::BLUE));
+  LLVM_DEBUG(log().logln("[Function cloning completed]", Logger::Blue));
 }
 
 Function* InitializerPass::cloneFunction(const CallBase* call) {
@@ -391,11 +391,11 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   Logger& logger = log();
   auto indenter = logger.getIndenter();
   LLVM_DEBUG(
-    logger.log("[Cloning of] ", raw_ostream::Colors::RESET).logValueln(oldF);
+    logger.log("[Cloning of] ", Logger::Bold).logValueln(oldF);
     indenter.increaseIndent();
     logger.log("new function: ").logValueln(newF);
     logger.log("for call: ").logValueln(call);
-    logger.logln("[Propagating info from call arguments to clone function arguments]", raw_ostream::Colors::RESET);
+    logger.logln("[Propagating info from call arguments to clone function arguments]", Logger::Bold);
     indenter.increaseIndent();
     if (newF->arg_empty())
       logger.logln("function has no arguments: continuing"););
@@ -404,8 +404,7 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   for (Argument& arg : newF->args()) {
     auto indenter = logger.getIndenter();
     LLVM_DEBUG(
-      logger << raw_ostream::Colors::RESET << "[Arg " << arg.getArgNo() << "] " << raw_ostream::Colors::RESET << arg
-             << "\n";
+      logger << Logger::Reset << "[Arg " << arg.getArgNo() << "] " << Logger::Reset << arg << "\n";
       indenter.increaseIndent(););
     if (arg.user_empty()) {
       LLVM_DEBUG(log().logln("arg has no users: skipping"));
@@ -441,10 +440,10 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
     LLVM_DEBUG(
       Logger& logger = log();
       logger.log("argInfo: ");
-      logger.log(*argInitInfo.getValueInfo(), raw_ostream::Colors::CYAN);
-      logger.logln(" copied from call", raw_ostream::Colors::GREEN);
+      logger.log(*argInitInfo.getValueInfo(), Logger::Cyan);
+      logger.logln(" copied from call", Logger::Green);
       if (argAlloca) {
-        logger.log("argInfo also copied to argument alloca: ", raw_ostream::Colors::GREEN);
+        logger.log("argInfo also copied to argument alloca: ", Logger::Green);
         logger.logln(*argAlloca);
       });
   }
@@ -455,12 +454,12 @@ void InitializerPass::logInfoPropagationQueue() {
   Logger& logger = log();
   if (infoPropagationQueue.size() < 1000) {
     for (Value* value : infoPropagationQueue) {
-      logger.log("[Value] ", raw_ostream::Colors::RESET).logValueln(value);
+      logger.log("[Value] ", Logger::Bold).logValueln(value);
       auto indenter = logger.getIndenter();
       indenter.increaseIndent();
       logger << "valueInitInfo: " << taffoInitInfo.getValueInitInfo(value) << "\n";
     }
   }
   else
-    logger.log("Not logging the queue because it exceeds 1000 items", raw_ostream::Colors::YELLOW);
+    logger.log("Not logging the queue because it exceeds 1000 items", Logger::Yellow);
 }

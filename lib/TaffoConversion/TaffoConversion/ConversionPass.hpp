@@ -412,7 +412,7 @@ struct FloatToFixed {
   llvm::Type* getLLVMFixedPointTypeForFloatValue(llvm::Value* val);
 
   std::shared_ptr<ConversionInfo> newConversionInfo(llvm::Value* val) {
-    LLVM_DEBUG(log() << "new valueinfo for " << *val << "\n");
+    LLVM_DEBUG(log() << "new conversionInfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
       conversionInfo[val] = std::make_shared<ConversionInfo>();
@@ -424,7 +424,7 @@ struct FloatToFixed {
   }
 
   std::shared_ptr<ConversionInfo> demandConversionInfo(llvm::Value* val, bool* isNew = nullptr) {
-    LLVM_DEBUG(log() << "new valueinfo for " << *val << "\n");
+    LLVM_DEBUG(log() << "new conversionInfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
       if (isNew)

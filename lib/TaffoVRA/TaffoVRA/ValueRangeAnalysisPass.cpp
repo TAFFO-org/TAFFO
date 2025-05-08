@@ -32,7 +32,7 @@ cl::opt<unsigned>
 } // namespace taffo
 
 PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& AM) {
-  LLVM_DEBUG(log().logln("[ValueRangeAnalysisPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[ValueRangeAnalysisPass]", Logger::Magenta));
   TaffoInfo::getInstance().initializeFromFile("taffo_info_memToReg.json", M);
 
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>();
@@ -45,7 +45,7 @@ PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& 
   GlobalStore->saveResults(M);
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_vra.json", M);
-  LLVM_DEBUG(log().logln("[End of ValueRangeAnalysisPass]", raw_ostream::Colors::MAGENTA));
+  LLVM_DEBUG(log().logln("[End of ValueRangeAnalysisPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
 

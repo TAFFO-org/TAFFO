@@ -686,7 +686,7 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
         LLVM_DEBUG(
           Logger& logger = log();
           logger << "Conversion result: " << intermResult << "\nFixType: ";
-          logger.logln(intermResult, raw_ostream::Colors::CYAN););
+          logger.logln(intermResult, Logger::Cyan););
 
         return genConvertFixedToFixed(intermResult, intermType, dstType, instr);
       }
