@@ -33,7 +33,7 @@ jobs:
     - name: Dependencies
       run: |
         sudo apt install protobuf-compiler
-        sudo apt install -y build-essential cmake lsb-release
+        sudo apt install -y build-essential cmake lsb-release clang-format-19
         
     - name: or-tools
       uses: actions/cache@v4
