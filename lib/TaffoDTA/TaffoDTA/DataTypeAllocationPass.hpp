@@ -17,6 +17,17 @@
 
 namespace tuner {
 
+class dataTypeAllocationStrategy {
+public:
+  virtual ~dataTypeAllocationStrategy() {}
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) = 0;
+};
+
+class fixedPointOnlyStrategy : public dataTypeAllocationStrategy {
+public:
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
+};
+
 bool isMergeable(const std::shared_ptr<taffo::FixedPointInfo>& fpv, const std::shared_ptr<taffo::FixedPointInfo>& fpu);
 std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
                                              const std::shared_ptr<taffo::FixedPointInfo>& fpu);
@@ -47,8 +58,20 @@ public:
 
   llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
 
+  void setStrategy(dataTypeAllocationStrategy* strategy) { this->strategy = strategy; }
+
   void
-  retrieveAllMetadata(llvm::Module& m, std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+  dataTypeAllocation(llvm::Module& m, std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+
+  void dataTypeAllocationOfValue(llvm::Value& value, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfFunctions(llvm::Module& m, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfGlobals(llvm::Module& m, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfArguments(llvm::Function& m, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfInstructions(llvm::Function& m, std::vector<llvm::Value*>& vals);
 
   void retrieveBufferID(llvm::Value* V);
 
@@ -152,6 +175,7 @@ public:
 
 private:
   llvm::ModuleAnalysisManager* MAM = nullptr;
+  dataTypeAllocationStrategy* strategy;
 };
 
 } // namespace tuner

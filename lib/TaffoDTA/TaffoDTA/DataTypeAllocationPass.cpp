@@ -27,6 +27,128 @@ using namespace tuner;
 
 STATISTIC(FixCast, "Number of fixed point format cast");
 
+std::map<std::string, std::function<dataTypeAllocationStrategy*()>> strategyMap = {
+  {"fixedpoint-only", []() -> fixedPointOnlyStrategy* { return new fixedPointOnlyStrategy(); }}
+};
+
+bool fixedPointOnlyStrategy::apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) {
+  if (!scalarInfo->isConversionEnabled()) {
+    LLVM_DEBUG(log() << "[Info] Skipping " << scalarInfo->toString() << ", conversion disabled\n");
+    return false;
+  }
+
+  if (scalarInfo->numericType) {
+    LLVM_DEBUG(log() << "[Info] Type of " << scalarInfo->toString() << " already assigned\n");
+    return true;
+  }
+
+  Range* rng = scalarInfo->range.get();
+  if (rng == nullptr) {
+    LLVM_DEBUG(log() << "[Info] Skipping " << scalarInfo->toString() << ", no range\n");
+    return false;
+  }
+
+  double greatest = std::max(std::abs(rng->min), std::abs(rng->max));
+  auto* I = dyn_cast<Instruction>(value);
+  if (I) {
+    if (I->isBinaryOp() || I->isUnaryOp()) {
+      std::shared_ptr<ScalarInfo> scalarInfo =
+        dynamic_ptr_cast_or_null<ScalarInfo>(TaffoInfo::getInstance().getValueInfo(*I->getOperand(0U)));
+      if (scalarInfo && scalarInfo->range)
+        greatest = std::max(greatest, std::max(std::abs(scalarInfo->range->max), std::abs(scalarInfo->range->min)));
+      else
+        LLVM_DEBUG(log() << "[Warning] No range metadata found on first arg of " << *I << "\n");
+    }
+    if (I->isBinaryOp()) {
+      std::shared_ptr<ScalarInfo> scalarInfo =
+        dynamic_ptr_cast_or_null<ScalarInfo>(TaffoInfo::getInstance().getValueInfo(*I->getOperand(1U)));
+      if (scalarInfo && scalarInfo->range)
+        greatest = std::max(greatest, std::max(std::abs(scalarInfo->range->max), std::abs(scalarInfo->range->min)));
+      else
+        LLVM_DEBUG(log() << "[Warning] No range metadata found on second arg of " << *I << "\n");
+    }
+  }
+  LLVM_DEBUG(log() << "[Info] Maximum value involved in " << *value << " = " << greatest << "\n");
+
+  if (!UseFloat.empty()) {
+    FloatingPointInfo::FloatStandard standard;
+    if (UseFloat == "f16")
+      standard = FloatingPointInfo::Float_half;
+    else if (UseFloat == "f32")
+      standard = FloatingPointInfo::Float_float;
+    else if (UseFloat == "f64")
+      standard = FloatingPointInfo::Float_double;
+    else if (UseFloat == "bf16")
+      standard = FloatingPointInfo::Float_bfloat;
+    else {
+      errs() << "[DTA] Invalid format " << UseFloat << " specified to the -usefloat argument.\n";
+      abort();
+    }
+    // auto standard = static_cast<mdutils::FloatType::FloatStandard>(ForceFloat.getValue());
+
+    auto res = std::make_shared<FloatingPointInfo>(FloatingPointInfo(standard, greatest));
+    double maxRep = std::max(std::abs(res->getMaxValueBound().convertToDouble()),
+                             std::abs(res->getMinValueBound().convertToDouble()));
+    LLVM_DEBUG(log() << "[Info] Maximum value representable in " << res->toString() << " = " << maxRep << "\n");
+
+    if (greatest >= maxRep) {
+      LLVM_DEBUG(log() << "[Info] CANNOT force conversion to float " << res->toString()
+                       << " because max value is not representable\n");
+    }
+    else {
+      LLVM_DEBUG(log() << "[Info] Forcing conversion to float " << res->toString() << "\n");
+      scalarInfo->numericType = res;
+      return true;
+    }
+  }
+  else {
+    FixedPointTypeGenError fpgerr;
+
+    /* Testing maximum type for operands, not deciding type yet */
+    fixedPointTypeFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    if (fpgerr == FixedPointTypeGenError::NoError) {
+      FixedPointInfo res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+      if (fpgerr == FixedPointTypeGenError::NoError) {
+        LLVM_DEBUG(log() << "[Info] Converting to " << res.toString() << "\n");
+        scalarInfo->numericType = res.clone();
+        return true;
+      }
+
+      LLVM_DEBUG(log() << "[Info] Error when generating fixed point type\n");
+      switch (fpgerr) {
+      case FixedPointTypeGenError::InvalidRange:
+        LLVM_DEBUG(log() << "[Info] Invalid range\n");
+        break;
+      case FixedPointTypeGenError::UnboundedRange:
+        LLVM_DEBUG(log() << "[Info] Unbounded range\n");
+        break;
+      case FixedPointTypeGenError::NotEnoughIntAndFracBits:
+      case FixedPointTypeGenError::NotEnoughFracBits:
+        LLVM_DEBUG(log() << "[Info] Result not representable\n");
+        break;
+      default:
+        LLVM_DEBUG(log() << "[Info] error code unknown\n");
+      }
+    }
+    else {
+      LLVM_DEBUG(log() << "[Info] The operands of " << *value
+                       << " are not representable as fixed point with specified constraints\n");
+    }
+  }
+
+  /* We failed, try to keep original type */
+  Type* Ty = getFullyUnwrappedType(value);
+  if (Ty->isFloatingPointTy()) {
+    auto res = std::make_shared<FloatingPointInfo>(FloatingPointInfo(Ty->getTypeID(), greatest));
+    scalarInfo->numericType = res;
+    LLVM_DEBUG(log() << "[Info] Keeping original type which was " << res->toString() << "\n");
+    return true;
+  }
+
+  LLVM_DEBUG(log() << "[Info] The original type was not floating point, skipping (fingers crossed!)\n");
+  return false;
+}
+
 PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& AM) {
   LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", Logger::Magenta));
   TaffoInfo::getInstance().initializeFromFile("taffo_info_vra.json", m);
@@ -35,7 +157,10 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
 
   std::vector<Value*> vals;
   SmallPtrSet<Value*, 8U> valset;
-  retrieveAllMetadata(m, vals, valset);
+
+  setStrategy(strategyMap["fixedpoint-only"]());
+
+  dataTypeAllocation(m, vals, valset);
 
 #ifdef TAFFO_BUILD_ILP_DTA
   if (MixedMode) {
@@ -69,27 +194,35 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
   return PreservedAnalyses::all();
 }
 
-/**
- * Reads metadata for the program and DOES THE ACTUAL DATA TYPE ALLOCATION.
- * Yes you read that right.
+/* TODO: Maybe i can remove the vals.push back (removing the sorting function) and the retrieve bufferID function
+ * (they say it is no more used) and make this function the one that actually does the dataTypeAllocation
  */
-void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
-                                                 std::vector<Value*>& vals,
-                                                 SmallPtrSetImpl<Value*>& valset) {
-  LLVM_DEBUG(log() << "**********************************************************\n");
-  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " BEGIN\n");
-  LLVM_DEBUG(log() << "**********************************************************\n");
-
-  LLVM_DEBUG(log() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
-  for (GlobalObject& globObj : m.globals()) {
-    if (processMetadataOfValue(&globObj)) {
-      vals.push_back(&globObj);
-      retrieveBufferID(&globObj);
-    }
+void DataTypeAllocationPass::dataTypeAllocationOfValue(Value& value, std::vector<Value*>& vals) {
+  if (processMetadataOfValue(&value)) {
+    vals.push_back(&value);
+    retrieveBufferID(&value);
   }
-  LLVM_DEBUG(log() << "\n");
+}
 
+void DataTypeAllocationPass::dataTypeAllocationOfGlobals(Module& m, std::vector<Value*>& vals) {
+  for (GlobalObject& globObj : m.globals())
+    dataTypeAllocationOfValue(globObj, vals);
+  LLVM_DEBUG(log() << "\n");
+}
+
+void DataTypeAllocationPass::dataTypeAllocationOfArguments(Function& f, std::vector<Value*>& vals) {
+  for (Argument& arg : f.args())
+    dataTypeAllocationOfValue(arg, vals);
+}
+
+void DataTypeAllocationPass::dataTypeAllocationOfInstructions(Function& f, std::vector<Value*>& vals) {
+  for (Instruction& inst : instructions(f))
+    dataTypeAllocationOfValue(inst, vals);
+}
+
+void DataTypeAllocationPass::dataTypeAllocationOfFunctions(Module& m, std::vector<Value*>& vals) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+
   for (Function& f : m.functions()) {
     if (f.isIntrinsic())
       continue;
@@ -100,21 +233,22 @@ void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
     LLVM_DEBUG(log() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand()
                      << "  <<<<===============\n");
 
-    for (Argument& arg : f.args()) {
-      if (processMetadataOfValue(&arg)) {
-        vals.push_back(&arg);
-        retrieveBufferID(&arg);
-      }
-    }
+    dataTypeAllocationOfArguments(f, vals);
+    dataTypeAllocationOfInstructions(f, vals);
 
-    for (Instruction& inst : instructions(f)) {
-      if (processMetadataOfValue(&inst)) {
-        vals.push_back(&inst);
-        retrieveBufferID(&inst);
-      }
-    }
     LLVM_DEBUG(log() << "\n");
   }
+}
+
+void DataTypeAllocationPass::dataTypeAllocation(Module& m, std::vector<Value*>& vals, SmallPtrSetImpl<Value*>& valset) {
+  LLVM_DEBUG(log() << "**********************************************************\n");
+  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " BEGIN\n");
+  LLVM_DEBUG(log() << "**********************************************************\n");
+
+  LLVM_DEBUG(log() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
+
+  dataTypeAllocationOfGlobals(m, vals);
+  dataTypeAllocationOfFunctions(m, vals);
 
   LLVM_DEBUG(log() << "=============>>>>  SORTING QUEUE  <<<<===============\n");
   sortQueue(vals, valset);
@@ -123,6 +257,61 @@ void DataTypeAllocationPass::retrieveAllMetadata(Module& m,
   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " END\n");
   LLVM_DEBUG(log() << "**********************************************************\n");
 }
+
+/**
+ * Reads metadata for the program and DOES THE ACTUAL DATA TYPE ALLOCATION.
+ * Yes you read that right.
+ */
+// void DataTypeAllocationPass::dataTypeAllocation(Module& m,
+//                                                  std::vector<Value*>& vals,
+//                                                  SmallPtrSetImpl<Value*>& valset) {
+//   LLVM_DEBUG(log() << "**********************************************************\n");
+//   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " BEGIN\n");
+//   LLVM_DEBUG(log() << "**********************************************************\n");
+
+// LLVM_DEBUG(log() << "=============>>>>  " << __FUNCTION__ << " GLOBALS  <<<<===============\n");
+// for (GlobalObject& globObj : m.globals()) {
+//   if (processMetadataOfValue(&globObj)) {
+//     vals.push_back(&globObj);
+//     retrieveBufferID(&globObj);
+//   }
+// }
+// LLVM_DEBUG(log() << "\n");
+
+// TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+// for (Function& f : m.functions()) {
+//   if (f.isIntrinsic())
+//     continue;
+//   if (!taffoInfo.isTaffoCloneFunction(f) && !taffoInfo.isStartingPoint(f)) {
+//     LLVM_DEBUG(log() << " Skip function " << f.getName() << " as it is not a cloned function\n";);
+//     continue;
+//   }
+//   LLVM_DEBUG(log() << "=============>>>>  " << __FUNCTION__ << " FUNCTION " << f.getNameOrAsOperand()
+//                    << "  <<<<===============\n");
+
+// for (Argument& arg : f.args()) {
+//   if (processMetadataOfValue(&arg)) {
+//     vals.push_back(&arg);
+//     retrieveBufferID(&arg);
+//   }
+// }
+
+// for (Instruction& inst : instructions(f)) {
+//   if (processMetadataOfValue(&inst)) {
+//     vals.push_back(&inst);
+//     retrieveBufferID(&inst);
+//   }
+// }
+// LLVM_DEBUG(log() << "\n");
+// }
+
+// LLVM_DEBUG(log() << "=============>>>>  SORTING QUEUE  <<<<===============\n");
+// sortQueue(vals, valset);
+
+// LLVM_DEBUG(log() << "**********************************************************\n");
+// LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " END\n");
+// LLVM_DEBUG(log() << "**********************************************************\n");
+// }
 
 /**
  * Reads metadata for a value and DOES THE ACTUAL DATA TYPE ALLOCATION.
@@ -194,7 +383,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
       }
 
       // TODO: insert logic here to associate different types in a clever way
-      if (associateFixFormat(scalarInfo, v))
+      if (strategy->apply(scalarInfo, v))
         skippedAll = false;
     }
     else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo)) {

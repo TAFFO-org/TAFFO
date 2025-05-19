@@ -68,7 +68,7 @@ public:
    * @param key The key of the element to erase.
    * @return The number of elements removed.
    */
-  size_t erase(const Key& key) {
+  std::size_t erase(const Key& key) {
     auto it = keyValueMap.find(key);
     if (it == keyValueMap.end())
       return 0;
@@ -99,7 +99,7 @@ public:
    * @param value The value of the element to erase.
    * @return The number of elements removed.
    */
-  size_t eraseByValue(const Value& value) {
+  std::size_t eraseByValue(const Value& value) {
     auto it = findByValue(value);
     if (it == keyValueMap.end())
       return 0;
@@ -274,7 +274,7 @@ public:
    *
    * @return The size of the BiMap.
    */
-  size_t size() const { return keyValueMap.size(); }
+  std::size_t size() const { return keyValueMap.size(); }
 
   /**
    * @brief Checks if the BiMap is empty.
