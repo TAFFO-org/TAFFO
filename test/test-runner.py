@@ -122,7 +122,7 @@ def compile(path: Path):
     else:
         logs.append(f"{label_t}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n")
         if not debug:
-            logs.append(p_t.stderr.decode())
+            logs.append(f"{Fore.RED}{p_t.stderr.decode()}{Style.RESET_ALL}")
 
     return path, ok_f and ok_t, "".join(logs)
 
@@ -133,41 +133,53 @@ def run(path: Path):
     bench = path.name
     f_exec = path/f"{bench}-float"
     t_exec = path/f"{bench}-taffo"
-    label = f"Running: {bench}".ljust(ACTION_PAD)
-    if not (f_exec.exists() and t_exec.exists()):
-        print(f"{label}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
-        return False
-
     inputs = sorted(path.glob("input*.txt"))
     ok_all = True
 
     if inputs:
         for inp in inputs:
             suffix = inp.stem[len("input"):]
-            lbl = f"Running: {bench}{suffix}".ljust(ACTION_PAD)
-            print(lbl, end="", flush=True)
             out_t = f"taffo-res{suffix}"
             out_f = f"float-res{suffix}"
-            p1 = subprocess.run(f"./{bench}-taffo < {inp.name} > {out_t}", cwd=str(path), shell=True)
-            p2 = subprocess.run(f"./{bench}-float < {inp.name} > {out_f}", cwd=str(path), shell=True)
-            if p1.returncode or p2.returncode:
+
+            print(f"Running: {bench}{suffix}-float".ljust(ACTION_PAD), end="", flush=True)
+            p1 = subprocess.run(f"./{bench}-float < {inp.name} > {out_f}", cwd=str(path), shell=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if p1.returncode:
                 ok_all = False
-                print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
+                print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n{Fore.RED}{p1.stderr.decode().strip()}{Style.RESET_ALL}", flush=True)
+            else:
+                print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
+
+            print(f"Running: {bench}{suffix}-taffo".ljust(ACTION_PAD), end="", flush=True)
+            p2 = subprocess.run(f"./{bench}-taffo < {inp.name} > {out_t}", cwd=str(path), shell=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if p2.returncode:
+                ok_all = False
+                print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n{Fore.RED}{p2.stderr.decode().strip()}{Style.RESET_ALL}", flush=True)
             else:
                 print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
     else:
-        print(label, end="", flush=True)
-        p1 = subprocess.run(f"./{bench}-taffo > taffo-res", cwd=str(path), shell=True)
-        p2 = subprocess.run(f"./{bench}-float > float-res", cwd=str(path), shell=True)
-        if p1.returncode or p2.returncode:
+        print(f"Running: {bench}-float".ljust(ACTION_PAD), end="", flush=True)
+        p1 = subprocess.run(f"./{bench}-float > float-res", cwd=str(path), shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if p1.returncode:
             ok_all = False
-            print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
+            print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n{Fore.RED}{p1.stderr.decode().strip()}{Style.RESET_ALL}", flush=True)
+        else:
+            print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
+        print(f"Running: {bench}-taffo".ljust(ACTION_PAD), end="", flush=True)
+        p2 = subprocess.run(f"./{bench}-taffo > taffo-res", cwd=str(path), shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if p2.returncode:
+            ok_all = False
+            print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n{Fore.RED}{p2.stderr.decode().strip()}{Style.RESET_ALL}", flush=True)
         else:
             print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
 
     return ok_all
 
-def retriveFiles(path: Path):
+def retrieveFiles(path: Path):
     """
     Return a dict mapping each input-suffix ('' or '.1', '.2', etc.)
     to a (float_output, taffo_output) tuple of strings.
@@ -267,7 +279,7 @@ def getData(files):
     }
 
 def ordereddiff(path: Path):
-    files = retriveFiles(path)
+    files = retrieveFiles(path)
     fv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[0]).group(1)
     tv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[1]).group(1)
     errs = []
@@ -288,7 +300,7 @@ def validate(path: Path, compute_speedup=True):
     if compile_df.empty: return []
     compile_time = compile_df.iloc[0].taffo_end - compile_df.iloc[0].taffo_start
     results = []
-    files_dict = retriveFiles(path)
+    files_dict = retrieveFiles(path)
     for suffix, (f_txt, t_txt) in files_dict.items():
         ftime, ttime = getTime([f_txt, t_txt])
         datas = getData([f_txt, t_txt])
@@ -400,7 +412,7 @@ def extract_int(x: float):
 
 def comp_first_n_bit(path: Path, n: int):
     bold(f"\nComparing first {n} bits for: {path.name}\n")
-    files = retriveFiles(path)
+    files = retrieveFiles(path)
     fv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[0]).group(1)
     tv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[1]).group(1)
     max_int = max(extract_int(float(v)) for v in fv.splitlines())
@@ -537,7 +549,7 @@ if __name__ == '__main__':
                 if p not in run_ok:
                     rows.append({"name":p.name, "correct": False})
                 else:
-                    for suf, (f_txt,t_txt) in retriveFiles(p).items():
+                    for suf, (f_txt,t_txt) in retrieveFiles(p).items():
                         rows.append({"name":p.name+suf, "correct":(f_txt==t_txt)})
             df = pd.DataFrame(rows)
             print(df.to_string(index=False, columns=["name","correct"]), flush=True)

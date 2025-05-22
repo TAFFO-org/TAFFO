@@ -162,7 +162,8 @@ public:
       resColor = color;
 
     if (resColor == Reset) {
-      ostream.resetColor();
+      if (useColors)
+        ostream.resetColor();
       if (!bold)
         useColors = false;
     }
