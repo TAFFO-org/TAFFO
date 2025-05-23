@@ -1,1 +1,1 @@
--Xvra -propagate-all -fopenmp
+-Xvra -propagate-all

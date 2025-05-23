@@ -106,8 +106,9 @@ public:
         return true;
       return !(getTunerInfo(val)->metadata && getTunerInfo(val)->metadata->isConversionEnabled());
     }
-    std::shared_ptr<taffo::ValueInfo> valueInfo = taffo::TaffoInfo::getInstance().getValueInfo(*val);
-    return !(valueInfo && valueInfo->isConversionEnabled()) && incomingValuesDisabled(val);
+    taffo::TaffoInfo& taffoInfo = taffo::TaffoInfo::getInstance();
+    return !(taffoInfo.hasValueInfo(*val) && taffoInfo.getValueInfo(*val)->isConversionEnabled())
+        && incomingValuesDisabled(val);
   }
 
   bool incomingValuesDisabled(llvm::Value* v) {

@@ -71,7 +71,7 @@ void InitializerPass::saveValueWeights() {
     if (isa<Instruction>(value) || isa<GlobalObject>(value))
       taffoInfo.setValueWeight(*value, valueInitInfo.getRootDistance());
     if (auto* inst = dyn_cast<Instruction>(value))
-      if (auto scalarInfo = dyn_cast<ScalarInfo>(valueInitInfo.getValueInfo()))
+      if (auto scalarInfo = dyn_cast<ScalarInfo>(taffoInfo.getValueInfo(*value).get()))
         if (taffoInfo.isConversionDisabled(*inst)) {
           scalarInfo->conversionEnabled = false;
           LLVM_DEBUG(
@@ -421,26 +421,29 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
         if (store->getValueOperand() == &arg && isa<AllocaInst>(store->getPointerOperand()))
           argAlloca = store->getPointerOperand();
 
+    std::shared_ptr<ValueInfo> callArgInfo = taffoInfo.getValueInfo(*callArg);
     ValueInitInfo& callArgInitInfo = taffoInitInfo.getValueInitInfo(callArg);
-    taffoInfo.setValueInfo(arg, callArgInitInfo.getValueInfo()->clone());
-    ValueInitInfo& argInitInfo = taffoInitInfo.createValueInitInfo(&arg);
+
+    std::shared_ptr<ValueInfo> argInfo = callArgInfo->clone();
+    taffoInfo.setValueInfo(arg, argInfo);
+    ValueInitInfo& argInitInfo = taffoInitInfo.getOrCreateValueInitInfo(&arg);
     argInitInfo.setRootDistance(callArgInitInfo.getUserRootDistance());
     infoPropagationQueue.push_back(&arg);
 
     if (argAlloca) {
-      taffoInfo.setValueInfo(*argAlloca, callArgInitInfo.getValueInfo()->clone());
-      ValueInitInfo& argAllocaInitInfo = taffoInitInfo.createValueInitInfo(argAlloca);
+      taffoInfo.setValueInfo(*argAlloca, argInfo->clone());
+      ValueInitInfo& argAllocaInitInfo = taffoInitInfo.getOrCreateValueInitInfo(argAlloca);
       argAllocaInitInfo.setRootDistance(argInitInfo.getUserRootDistance());
       infoPropagationQueue.push_back(argAlloca);
     }
 
     // Propagate BufferID
-    argInitInfo.getValueInfo()->bufferId = callArgInitInfo.getValueInfo()->bufferId;
+    argInfo->bufferId = callArgInfo->bufferId;
 
     LLVM_DEBUG(
       Logger& logger = log();
       logger.log("argInfo: ");
-      logger.log(*argInitInfo.getValueInfo(), Logger::Cyan);
+      logger.log(*argInfo, Logger::Cyan);
       logger.logln(" copied from call", Logger::Green);
       if (argAlloca) {
         logger.log("argInfo also copied to argument alloca: ", Logger::Green);
@@ -457,6 +460,7 @@ void InitializerPass::logInfoPropagationQueue() {
       logger.log("[Value] ", Logger::Bold).logValueln(value);
       auto indenter = logger.getIndenter();
       indenter.increaseIndent();
+      logger << "valueInfo: " << taffoInfo.getValueInfo(*value) << "\n";
       logger << "valueInitInfo: " << taffoInitInfo.getValueInitInfo(value) << "\n";
     }
   }

@@ -12,4 +12,5 @@ test/**/*taffo-res*
 test/**/*.log
 test/**/*.csv
 test/**/*.json
+test/**/taffo_temp
 test/**/*.taffotmp.ll

@@ -62,25 +62,25 @@ def generatedata(path: Path):
         shell=True
     )
 
-def run_subproc(cmd: str, cwd: Path, capture: bool = True):
+def run_subproc(cmd: str, cwd: Path, stdoutCapture = subprocess.PIPE, stderrCapture = subprocess.PIPE):
     """Run shell command; return (returncode, stdout, stderr)."""
     p = subprocess.run(
         cmd, cwd=str(cwd), shell=True,
-        stdout=subprocess.PIPE if capture else None,
-        stderr=subprocess.PIPE if capture else None,
+        stdout=stdoutCapture,
+        stderr=stdoutCapture,
     )
-    out = p.stdout.decode() if capture and p.stdout else ""
-    err = p.stderr.decode() if capture and p.stderr else ""
+    out = p.stdout.decode() if stdoutCapture == subprocess.PIPE else None
+    err = p.stderr.decode() if stderrCapture == subprocess.PIPE else None
     return p.returncode, out, err
 
-def build_variant(path: Path, label: str, cmd: str, debug: bool):
+def build_variant(path: Path, label: str, cmd: str, logFile = None):
     """
     Build one variant (float or taffo).
     Returns (ok:bool, log_lines:list[str]).
     """
     logs = []
     pad_label = label.ljust(ACTION_PAD)
-    ret, out, err = run_subproc(cmd, path)
+    ret, out, err = run_subproc(cmd, path) if logFile is None else run_subproc(cmd, path, logFile, logFile)
     if ret == 0:
         # mark executable
         (path / label.split()[-1]).chmod(0o755)
@@ -88,7 +88,7 @@ def build_variant(path: Path, label: str, cmd: str, debug: bool):
     else:
         logs.append(f"{pad_label}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL} ({cmd})\n")
         # if debug we already captured to file, otherwise show stderr
-        if err and not debug:
+        if err:
             logs.append(f"{Fore.RED}{err}{Style.RESET_ALL}")
     return ret == 0, logs
 
@@ -99,14 +99,15 @@ def compile(path: Path, common_args: str, debug: bool):
     logs = []
 
     # discover source
-    bench_src = path.name
+    bench_name = path.name
+    bench_src = bench_name
     for ext in (".c", ".cpp"):
         src = path / f"{bench_src}{ext}"
         if src.exists():
             bench_src = src
             break
     else:
-        return False, f"Missing source for {bench_src}\n"
+        return False, f"Missing source for {bench_name}\n"
 
     # add include of this dir
     common_args += f" -I{path.absolute()}"
@@ -116,7 +117,7 @@ def compile(path: Path, common_args: str, debug: bool):
     clang_cmd = 'clang -Wno-error=implicit-function-declaration' if platform.system()=="Darwin" else CLANG
     args_txt = (path / "args.txt").read_text().strip() if (path/"args.txt").exists() else ""
     cmd_f = f"{clang_cmd} {common_args} {args_txt} {bench_src} -o {float_exec} -lm"
-    ok_f, log_f = build_variant(path, f"Compiling: {float_exec}", cmd_f, debug)
+    ok_f, log_f = build_variant(path, f"Compiling: {float_exec}", cmd_f)
     logs.extend(log_f)
 
     # taffo build
@@ -127,17 +128,13 @@ def compile(path: Path, common_args: str, debug: bool):
         (path/"taffo_temp").mkdir(exist_ok=True)
         flag2 += " -debug -temp-dir ./taffo_temp"
         # capture into a file
-        logfile = path/f"{bench_src}_taffo.log"
+        logfile = path/f"{bench_name}_taffo.log"
         cmd_t = f"taffo {flag2} {args_txt} {args2_txt} {bench_src} -o {taffo_exec} -lm"
         with open(logfile, "w") as f:
-            subprocess.run(cmd_t, cwd=str(path), shell=True, stdout=f, stderr=f)
-        # on debug, we won't re-capture stderr here
-        ret = subprocess.call("true", shell=True)
-        ok_t = (ret == 0)
-        log_t = [f"{f'Compiling: {taffo_exec}'.ljust(ACTION_PAD)}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}\n"] if ok_t else [f"{f'Compiling: {taffo_exec}'.ljust(ACTION_PAD)}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n"]
+            ok_t, log_t = build_variant(path, f"Compiling: {taffo_exec}", cmd_t, f)
     else:
-        cmd_t = f"taffo {flag2} {bench_src} -o {taffo_exec} -lm"
-        ok_t, log_t = build_variant(path, f"Compiling: {taffo_exec}", cmd_t, debug)
+        cmd_t = f"taffo {flag2} {args_txt} {args2_txt} {bench_src} -o {taffo_exec} -lm"
+        ok_t, log_t = build_variant(path, f"Compiling: {taffo_exec}", cmd_t)
 
     logs.extend(log_t)
     return (ok_f and ok_t), "".join(logs)
@@ -146,18 +143,19 @@ def run(path: Path):
     """
     Runs the two binaries; returns True only if all invocations exit zero.
     """
-    bench = path.name
+    bench_name = path.name
     ok_all = True
     inputs = sorted(path.glob("input*.txt"))
     variants = [("float", "-float"), ("taffo", "-taffo")]
 
-    def run_bench(cmd, path, suffix = ""):
-        label = f"Running: {bench}{suffix}".ljust(ACTION_PAD)
+    def run_bench(cmd, path, bench_name):
+        label = f"Running: {bench_name}".ljust(ACTION_PAD)
+        print(f"{label}", end="", flush=True)
         ret, _, err = run_subproc(cmd, path)
         if ret == 0:
-            print(f"{label}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL} ({cmd})", flush=True)
+            print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL} ({cmd})", flush=True)
         else:
-            print(f"{label}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n{Fore.RED}{err.strip()}{Style.RESET_ALL} ({cmd})", flush=True)
+            print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL} ({cmd})\n{Fore.RED}{err.strip()}{Style.RESET_ALL}", flush=True)
         return ret
 
     if inputs:
@@ -165,16 +163,16 @@ def run(path: Path):
             suffix = inp.stem[len("input"):]  # e.g. "" or ".1" or ".2"
             for name, var in variants:
                 out_f = f"{name}-res{suffix}"
-                cmd   = f"./{bench}{var} < {inp.name} > {out_f}"
-                ret = run_bench(cmd, path, suffix)
+                cmd   = f"./{bench_name}{var} < {inp.name} > {out_f}"
+                ret = run_bench(cmd, path, bench_name + var + suffix)
                 if ret != 0:
                     ok_all = False
     else:
         # no input files
         for name, var in variants:
             out_f = f"{name}-res"
-            cmd   = f"./{bench}{var} > {out_f}"
-            ret = run_bench(cmd, path)
+            cmd   = f"./{bench_name}{var} > {out_f}"
+            ret = run_bench(cmd, path, bench_name + var)
             if ret != 0:
                 ok_all = False
 
@@ -429,7 +427,6 @@ def comp_first_n_bit(path: Path, n: int):
             print(f"{fv_f} != {tv_f} -> {fn:0{n}b} != {tn:0{n}b}", flush=True)
 
 if __name__ == '__main__':
-    debug = False
     parser = argparse.ArgumentParser(description='Taffo test runner')
     parser.add_argument('-common-args', type=str, default='', help='Extra flags to pass to both float and taffo compilations')
     parser.add_argument('-tests-dir', type=str, default='.', help='Root dir containing test folders')

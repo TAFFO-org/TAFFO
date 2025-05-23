@@ -113,14 +113,12 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
   AnnotationParser parser;
   if (!parser.parseAnnotationAndGenValueInfo(annotationStr, annotatedValue)) {
     Logger& logger = log();
-    logger.logln("TAFFO Annotation parser error:", Logger::Red);
+    logger << Logger::Red << "TAFFO Annotation parser error:\n";
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
-    logger.log("In annotation: \"", Logger::Red);
-    logger.log(annotationStr, Logger::Red);
-    logger.log("\" of value ", Logger::Red);
-    logger.logln(annotatedValue, Logger::Red);
-    logger.logln(parser.getLastError(), Logger::Red);
+    logger << "In annotation: \"" << annotationStr << "\"\nof value ";
+    logger.logValueln(annotatedValue);
+    logger.logln(parser.getLastError());
     llvm_unreachable("Error parsing annotation!");
   }
 

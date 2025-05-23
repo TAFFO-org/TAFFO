@@ -45,14 +45,13 @@ bool containsUnsupportedFunctions(const Function* function, std::unordered_set<F
 
 /// Handle the __kmpc_fork_call replacing the indirect call with a direct call.
 /// In case an unsupported function is called, keep the indirect function and
-/// attach the OMP disabled metadata to the the shared variables.
+/// attach the OMP disabled metadata to the shared variables.
 void handleKmpcFork(const Module& m,
                     std::vector<Instruction*>& toDelete,
                     CallInst* curCallInstruction,
                     const CallBase* curCall,
                     Function* indirectFunction) {
-  auto microTaskOperand = dyn_cast<ConstantExpr>(curCall->arg_begin() + 2)->getOperand(0);
-  auto microTaskFunction = dyn_cast_or_null<Function>(microTaskOperand);
+  auto microTaskFunction = dyn_cast_or_null<Function>(curCall->getArgOperand(2));
 
   assert(microTaskFunction != nullptr
          && "The microtask function must be present in the __kmpc_fork_call as a "
