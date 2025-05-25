@@ -1,1 +1,1 @@
--lm -Xdta -usefloat=f32
+-Xdta -usefloat=f32

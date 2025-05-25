@@ -4,7 +4,7 @@ import sys
 import subprocess
 from pathlib import Path
 
-def main():
+if __name__ == "__main__":
     runner_path = Path.cwd().parent / "test-runner.py"
     test_dir = Path.cwd()
 
@@ -21,6 +21,3 @@ def main():
     ]
     result = subprocess.run(cmd)
     sys.exit(result.returncode)
-
-if __name__ == "__main__":
-    main()

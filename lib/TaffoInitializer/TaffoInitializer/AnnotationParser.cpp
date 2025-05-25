@@ -20,21 +20,22 @@ void AnnotationParser::reset() {
 }
 
 bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value* annotatedValue) {
-  Type* type = getFullyUnwrappedType(annotatedValue);
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  std::shared_ptr<TransparentType> type = taffoInfo.getTransparentType(*annotatedValue);
   reset();
   stringStream = std::istringstream(annotationStr.str());
 
   bool res = parseSyntax(type);
   if (res) {
     error = "";
-    TaffoInfo::getInstance().setValueInfo(*annotatedValue, buildValueInfo());
+    taffoInfo.setValueInfo(*annotatedValue, buildValueInfo());
   }
   return res;
 }
 
 StringRef AnnotationParser::getLastError() { return error; }
 
-bool AnnotationParser::parseSyntax(Type* type) {
+bool AnnotationParser::parseSyntax(const std::shared_ptr<TransparentType>& type) {
   stringStream.unsetf(std::ios_base::skipws);
   char next = skipWhitespace();
   stringStream.putback(next);
@@ -118,7 +119,8 @@ bool AnnotationParser::parseSyntax(Type* type) {
   return true;
 }
 
-bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo, Type* type) {
+bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo,
+                                   const std::shared_ptr<TransparentType>& type) {
   if (!expect("("))
     return false;
 
@@ -187,8 +189,9 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo, Ty
   return true;
 }
 
-bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, Type* type) {
-  auto* structType = dyn_cast<StructType>(type);
+bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo,
+                                   const std::shared_ptr<TransparentType>& type) {
+  auto structType = std::dynamic_ptr_cast<TransparentStructType>(type);
   if (!structType) {
     std::string errStr;
     raw_string_ostream ss(errStr);
@@ -203,7 +206,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, Ty
     error = "Duplicated content definition in this context";
     return false;
   }
-  unsigned numFields = structType->getNumElements();
+  unsigned numFields = structType->getNumFieldTypes();
   std::vector<std::shared_ptr<ValueInfo>> fields;
   fields.reserve(numFields);
 
@@ -226,14 +229,14 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, Ty
 
     if (peek("scalar")) {
       std::shared_ptr<ValueInfo> tmp;
-      if (!parseScalar(tmp, structType->getElementType(currentField)))
+      if (!parseScalar(tmp, structType->getFieldType(currentField)))
         return false;
       fields.push_back(tmp);
       currentField++;
     }
     else if (peek("struct")) {
       std::shared_ptr<ValueInfo> tmp;
-      if (!parseStruct(tmp, structType->getElementType(currentField)))
+      if (!parseStruct(tmp, structType->getFieldType(currentField)))
         return false;
       fields.push_back(tmp);
       currentField++;

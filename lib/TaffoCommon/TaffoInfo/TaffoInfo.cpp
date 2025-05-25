@@ -10,6 +10,7 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
@@ -183,6 +184,16 @@ Type* TaffoInfo::getType(const std::string& typeId) const {
 }
 
 void TaffoInfo::eraseValue(Value* v) {
+  if (auto* f = dyn_cast<Function>(v)) {
+    SmallPtrSet<Value*, 32> childValues;
+    for (Instruction& inst : instructions(f))
+      childValues.insert(&inst);
+    for (Argument& arg : f->args())
+      childValues.insert(&arg);
+    for (Value* child : childValues)
+      eraseValue(child);
+  }
+
   if (auto* i = dyn_cast<Instruction>(v))
     i->removeFromParent();
   if (auto* bb = dyn_cast<BasicBlock>(v))
@@ -191,6 +202,7 @@ void TaffoInfo::eraseValue(Value* v) {
     gv->removeFromParent();
   if (User* u = dyn_cast<User>(v))
     u->dropAllReferences();
+
   auto eraseByKey = [](auto& map, auto* v) {
     if (!v)
       return;
@@ -201,7 +213,7 @@ void TaffoInfo::eraseValue(Value* v) {
       return;
     auto iter = map.end();
     do {
-      iter = std::ranges::find_if(map, [v](auto pair) { return pair.second == v; });
+      iter = std::ranges::find_if(map, [v](const auto& pair) { return pair.second == v; });
       if (iter != map.end())
         map.erase(iter);
     }
@@ -249,7 +261,7 @@ void TaffoInfo::eraseValue(Value* v) {
   eraseByKey(cmpError, vInst);
   eraseByValue(idValueMapping, v);
 
-  erasedValues.insert(v);
+  erasedValues.push_back(v);
   idValueMapping.eraseByValue(v);
 }
 
@@ -263,6 +275,10 @@ void TaffoInfo::deleteErasedValues() {
     if (auto* gv = dyn_cast<GlobalVariable>(val))
       delete gv; // For some unexplained reason GlobalVariable can only be deleted via direct destructor
                  // NB Only the direct destructor of GlobalVariable is public all the others destructors are private
+    else if (auto* f = dyn_cast<Function>(val))
+      delete f;  // Same for functions (see above)
+    else if (isa<Argument>(val)) { /*Arguments are deleted when their function is deleted*/
+    }
     else
       val->deleteValue();
   erasedValues.clear();
@@ -355,8 +371,6 @@ void TaffoInfo::generateTaffoIds() {
 
   // Set the taffoId of each value, updating idValueMapping and idTypeMapping
   for (auto* value : valueSet) {
-    if (erasedValues.contains(value))
-      continue;
     generateTaffoId(value);
 
     SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedTypes();
@@ -524,8 +538,6 @@ json TaffoInfo::serialize() const {
 
   // Serialize deducedPointerTypes as a field in each value’s JSON entry
   for (const auto& [v, transparentType] : transparentTypes) {
-    if (erasedValues.contains(v))
-      continue;
     std::string id = idValueMapping.findByValue(v)->first;
     j["values"][id]["transparentType"] = transparentType->serialize();
   }
@@ -533,8 +545,6 @@ json TaffoInfo::serialize() const {
   // Serialize starting points
   j["startingPoints"] = json::array();
   for (auto* f : startingPoints) {
-    if (erasedValues.contains(f))
-      continue;
     std::string id = idValueMapping.findByValue(f)->first;
     j["startingPoints"].push_back(id);
   }
@@ -542,8 +552,6 @@ json TaffoInfo::serialize() const {
   // Serialize indirect functions
   j["indirectFunctions"] = json::object();
   for (auto& [call, f] : indirectFunctions) {
-    if (erasedValues.contains(call) || erasedValues.contains(f))
-      continue;
     std::string callId = idValueMapping.findByValue(call)->first;
     std::string funcId = idValueMapping.findByValue(f)->first;
     j["indirectFunctions"][callId] = funcId;
@@ -552,8 +560,6 @@ json TaffoInfo::serialize() const {
   // Serialize OpenCL trampolines
   j["oclTrampolines"] = json::object();
   for (auto& [tramp, kernF] : oclTrampolines) {
-    if (erasedValues.contains(tramp) || erasedValues.contains(kernF))
-      continue;
     std::string trampId = idValueMapping.findByValue(tramp)->first;
     std::string kernFId = idValueMapping.findByValue(kernF)->first;
     j["oclTrampolines"][trampId] = kernFId;
@@ -562,8 +568,6 @@ json TaffoInfo::serialize() const {
   // Serialize disabled conversions
   j["disabledConversion"] = json::array();
   for (auto* inst : disabledConversion) {
-    if (erasedValues.contains(inst))
-      continue;
     std::string id = idValueMapping.findByValue(inst)->first;
     j["disabledConversion"].push_back(id);
   }
@@ -571,8 +575,6 @@ json TaffoInfo::serialize() const {
   // Serialize taffoCloneToOriginalFunction
   j["taffoCloneToOriginalFunction"] = json::object();
   for (auto& [taffoF, originalF] : taffoCloneToOriginalFunction) {
-    if (erasedValues.contains(taffoF) || erasedValues.contains(originalF))
-      continue;
     std::string taffoId = idValueMapping.findByValue(taffoF)->first;
     std::string originalId = idValueMapping.findByValue(originalF)->first;
     j["taffoCloneToOriginalFunction"][taffoId] = originalId;
@@ -581,13 +583,9 @@ json TaffoInfo::serialize() const {
   // Serialize originalToTaffoCloneFunctions
   j["originalToTaffoCloneFunctions"] = json::object();
   for (auto& [originalF, taffoFunctions] : originalToTaffoCloneFunctions) {
-    if (erasedValues.contains(originalF))
-      continue;
     std::string originalId = idValueMapping.findByValue(originalF)->first;
     j["originalToTaffoCloneFunctions"][originalId] = json::array();
     for (auto taffoF : taffoFunctions) {
-      if (erasedValues.contains(taffoF))
-        continue;
       std::string taffoId = idValueMapping.findByValue(taffoF)->first;
       j["originalToTaffoCloneFunctions"][originalId].push_back(taffoId);
     }
@@ -596,24 +594,18 @@ json TaffoInfo::serialize() const {
   // Serialize OpenCL trampolines
   j["originalFunctionLinkage"] = json::object();
   for (auto& [fun, link] : originalFunctionLinkage) {
-    if (erasedValues.contains(fun))
-      continue;
     std::string funId = idValueMapping.findByValue(fun)->first;
     j["originalFunctionLinkage"][funId] = link;
   }
 
   // Serialize valueInfo
   for (auto& [v, vi] : valueInfo) {
-    if (erasedValues.contains(v))
-      continue;
     std::string id = idValueMapping.findByValue(v)->first;
     j["values"][id]["info"] = vi ? vi->serialize() : nullptr;
   }
 
   // Serialize valueWeights
   for (auto& [val, weight] : valueWeights) {
-    if (erasedValues.contains(val))
-      continue;
     std::string id = idValueMapping.findByValue(val)->first;
     j["values"][id]["weight"] = weight;
   }
@@ -621,8 +613,6 @@ json TaffoInfo::serialize() const {
   // Serialize maxRecursionCount
   j["maxRecursionCount"] = json::object();
   for (auto& [fun, count] : maxRecursionCount) {
-    if (erasedValues.contains(fun))
-      continue;
     std::string id = idValueMapping.findByValue(fun)->first;
     j["maxRecursionCount"][id] = count;
   }
@@ -638,16 +628,12 @@ json TaffoInfo::serialize() const {
 
   // Serialize error
   for (auto& [inst, errVal] : error) {
-    if (erasedValues.contains(inst))
-      continue;
     std::string id = idValueMapping.findByValue(inst)->first;
     j["values"][id]["error"] = errVal;
   }
 
   // Serialize cmpError
   for (auto& [inst, cmpErr] : cmpError) {
-    if (erasedValues.contains(inst))
-      continue;
     std::string id = idValueMapping.findByValue(inst)->first;
     j["values"][id]["cmpError"] = cmpErr->serialize();
   }

@@ -62,112 +62,123 @@ def generatedata(path: Path):
         shell=True
     )
 
-def compile(path: Path):
+def run_subproc(cmd: str, cwd: Path, stdoutCapture = subprocess.PIPE, stderrCapture = subprocess.PIPE):
+    """Run shell command; return (returncode, stdout, stderr)."""
+    p = subprocess.run(
+        cmd, cwd=str(cwd), shell=True,
+        stdout=stdoutCapture,
+        stderr=stdoutCapture,
+    )
+    out = p.stdout.decode() if stdoutCapture == subprocess.PIPE else None
+    err = p.stderr.decode() if stderrCapture == subprocess.PIPE else None
+    return p.returncode, out, err
+
+def build_variant(path: Path, label: str, cmd: str, logFile = None):
     """
-    Compile both the float and taffo versions of the benchmark in `path`.
-    Returns a tuple (path, ok:bool, log:str).
+    Build one variant (float or taffo).
+    Returns (ok:bool, log_lines:list[str]).
     """
     logs = []
-    bench_src = None
-    for ext in [".c", ".cpp", ".ll"]:
-        if (path/f"{path.name}{ext}").exists():
-            bench_src = path / f"{path.name}{ext}"
-            break
-    if not bench_src:
-        logs.append(f"Missing source for {path.name}\n")
-        return "".join(logs)
+    pad_label = label.ljust(ACTION_PAD)
+    ret, out, err = run_subproc(cmd, path) if logFile is None else run_subproc(cmd, path, logFile, logFile)
+    if ret == 0:
+        # mark executable
+        (path / label.split()[-1]).chmod(0o755)
+        logs.append(f"{pad_label}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL} ({cmd})\n")
+    else:
+        logs.append(f"{pad_label}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL} ({cmd})\n")
+        # if debug we already captured to file, otherwise show stderr
+        if err:
+            logs.append(f"{Fore.RED}{err}{Style.RESET_ALL}")
+    return ret == 0, logs
 
-    global common_args
+def compile(path: Path, common_args: str, debug: bool):
+    """
+    Compile both float and taffo variants. Returns (ok:bool, log:str).
+    """
+    logs = []
+
+    # discover source
+    bench_name = path.name
+    bench_src = bench_name
+    for ext in (".c", ".cpp"):
+        src = path / f"{bench_src}{ext}"
+        if src.exists():
+            bench_src = src
+            break
+    else:
+        return False, f"Missing source for {bench_name}\n"
+
+    # add include of this dir
     common_args += f" -I{path.absolute()}"
 
     # float build
-    bench_f = f"{path.name}-float"
-    label_f = f"Compiling: {bench_f}".ljust(ACTION_PAD)
+    float_exec = f"{path.name}-float"
     clang_cmd = 'clang -Wno-error=implicit-function-declaration' if platform.system()=="Darwin" else CLANG
     args_txt = (path / "args.txt").read_text().strip() if (path/"args.txt").exists() else ""
-    cmd_f = f"{clang_cmd} {common_args} {args_txt} {bench_src} -o {bench_f} -lm"
-    p_f = subprocess.run(cmd_f, cwd=str(path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    ok_f = (p_f.returncode == 0)
-    if ok_f:
-        (path/bench_f).chmod(0o755)
-        logs.append(f"{label_f}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}\n")
-    else:
-        logs.append(f"{label_f}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n")
-        logs.append(p_f.stderr.decode())
+    cmd_f = f"{clang_cmd} {common_args} {args_txt} {bench_src} -o {float_exec} -lm"
+    ok_f, log_f = build_variant(path, f"Compiling: {float_exec}", cmd_f)
+    logs.extend(log_f)
 
     # taffo build
-    bench_t = f"{path.name}-taffo"
-    label_t = f"Compiling: {bench_t}".ljust(ACTION_PAD)
+    taffo_exec = f"{path.name}-taffo"
     flag2 = f"{common_args} -time-profile-file {path}/{path.name}_taffo_time.csv"
     args2_txt = (path/"args_taffo.txt").read_text().strip() if (path/"args_taffo.txt").exists() else ""
     if debug:
         (path/"taffo_temp").mkdir(exist_ok=True)
         flag2 += " -debug -temp-dir ./taffo_temp"
-        logf = path/f"{path.name}_taffo.log"
-        po = open(logf, "w")
-        p_t = subprocess.run(
-            f"taffo {flag2} {args_txt} {args2_txt} {bench_src} -o {bench_t} -lm",
-            cwd=str(path), shell=True, stdout=po, stderr=po
-        )
-        po.close()
+        # capture into a file
+        logfile = path/f"{bench_name}_taffo.log"
+        cmd_t = f"taffo {flag2} {args_txt} {args2_txt} {bench_src} -o {taffo_exec} -lm"
+        with open(logfile, "w") as f:
+            ok_t, log_t = build_variant(path, f"Compiling: {taffo_exec}", cmd_t, f)
     else:
-        p_t = subprocess.run(
-            f"taffo {flag2} {bench_src} -o {bench_t} -lm",
-            cwd=str(path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-    ok_t = (p_t.returncode == 0)
-    if ok_t:
-        (path/bench_t).chmod(0o755)
-        logs.append(f"{label_t}{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}\n")
-    else:
-        logs.append(f"{label_t}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}\n")
-        if not debug:
-            logs.append(p_t.stderr.decode())
+        cmd_t = f"taffo {flag2} {args_txt} {args2_txt} {bench_src} -o {taffo_exec} -lm"
+        ok_t, log_t = build_variant(path, f"Compiling: {taffo_exec}", cmd_t)
 
-    return path, ok_f and ok_t, "".join(logs)
+    logs.extend(log_t)
+    return (ok_f and ok_t), "".join(logs)
 
 def run(path: Path):
     """
-    Runs the two binaries; returns True only if both exit zero.
+    Runs the two binaries; returns True only if all invocations exit zero.
     """
-    bench = path.name
-    f_exec = path/f"{bench}-float"
-    t_exec = path/f"{bench}-taffo"
-    label = f"Running: {bench}".ljust(ACTION_PAD)
-    if not (f_exec.exists() and t_exec.exists()):
-        print(f"{label}{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
-        return False
-
-    inputs = sorted(path.glob("input*.txt"))
+    bench_name = path.name
     ok_all = True
+    inputs = sorted(path.glob("input*.txt"))
+    variants = [("float", "-float"), ("taffo", "-taffo")]
+
+    def run_bench(cmd, path, bench_name):
+        label = f"Running: {bench_name}".ljust(ACTION_PAD)
+        print(f"{label}", end="", flush=True)
+        ret, _, err = run_subproc(cmd, path)
+        if ret == 0:
+            print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL} ({cmd})", flush=True)
+        else:
+            print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL} ({cmd})\n{Fore.RED}{err.strip()}{Style.RESET_ALL}", flush=True)
+        return ret
 
     if inputs:
         for inp in inputs:
-            suffix = inp.stem[len("input"):]
-            lbl = f"Running: {bench}{suffix}".ljust(ACTION_PAD)
-            print(lbl, end="", flush=True)
-            out_t = f"taffo-res{suffix}"
-            out_f = f"float-res{suffix}"
-            p1 = subprocess.run(f"./{bench}-taffo < {inp.name} > {out_t}", cwd=str(path), shell=True)
-            p2 = subprocess.run(f"./{bench}-float < {inp.name} > {out_f}", cwd=str(path), shell=True)
-            if p1.returncode or p2.returncode:
-                ok_all = False
-                print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
-            else:
-                print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
+            suffix = inp.stem[len("input"):]  # e.g. "" or ".1" or ".2"
+            for name, var in variants:
+                out_f = f"{name}-res{suffix}"
+                cmd   = f"./{bench_name}{var} < {inp.name} > {out_f}"
+                ret = run_bench(cmd, path, bench_name + var + suffix)
+                if ret != 0:
+                    ok_all = False
     else:
-        print(label, end="", flush=True)
-        p1 = subprocess.run(f"./{bench}-taffo > taffo-res", cwd=str(path), shell=True)
-        p2 = subprocess.run(f"./{bench}-float > float-res", cwd=str(path), shell=True)
-        if p1.returncode or p2.returncode:
-            ok_all = False
-            print(f"{Fore.RED}{Style.BRIGHT}ERR!{Style.RESET_ALL}", flush=True)
-        else:
-            print(f"{Fore.GREEN}{Style.BRIGHT}OKK!{Style.RESET_ALL}", flush=True)
+        # no input files
+        for name, var in variants:
+            out_f = f"{name}-res"
+            cmd   = f"./{bench_name}{var} > {out_f}"
+            ret = run_bench(cmd, path, bench_name + var)
+            if ret != 0:
+                ok_all = False
 
     return ok_all
 
-def retriveFiles(path: Path):
+def retrieveFiles(path: Path):
     """
     Return a dict mapping each input-suffix ('' or '.1', '.2', etc.)
     to a (float_output, taffo_output) tuple of strings.
@@ -267,7 +278,7 @@ def getData(files):
     }
 
 def ordereddiff(path: Path):
-    files = retriveFiles(path)
+    files = retrieveFiles(path)
     fv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[0]).group(1)
     tv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[1]).group(1)
     errs = []
@@ -288,7 +299,7 @@ def validate(path: Path, compute_speedup=True):
     if compile_df.empty: return []
     compile_time = compile_df.iloc[0].taffo_end - compile_df.iloc[0].taffo_start
     results = []
-    files_dict = retriveFiles(path)
+    files_dict = retrieveFiles(path)
     for suffix, (f_txt, t_txt) in files_dict.items():
         ftime, ttime = getTime([f_txt, t_txt])
         datas = getData([f_txt, t_txt])
@@ -400,7 +411,7 @@ def extract_int(x: float):
 
 def comp_first_n_bit(path: Path, n: int):
     bold(f"\nComparing first {n} bits for: {path.name}\n")
-    files = retriveFiles(path)
+    files = retrieveFiles(path)
     fv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[0]).group(1)
     tv = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[1]).group(1)
     max_int = max(extract_int(float(v)) for v in fv.splitlines())
@@ -416,7 +427,6 @@ def comp_first_n_bit(path: Path, n: int):
             print(f"{fv_f} != {tv_f} -> {fn:0{n}b} != {tn:0{n}b}", flush=True)
 
 if __name__ == '__main__':
-    debug = False
     parser = argparse.ArgumentParser(description='Taffo test runner')
     parser.add_argument('-common-args', type=str, default='', help='Extra flags to pass to both float and taffo compilations')
     parser.add_argument('-tests-dir', type=str, default='.', help='Root dir containing test folders')
@@ -433,10 +443,6 @@ if __name__ == '__main__':
     parser.add_argument('-plot_compile_time', action='store_true', help='Plot compile times')
     parser.add_argument('-diff_only', action='store_true', help='Only diff outputs instead of complete validation')
     args = parser.parse_args()
-
-    common_args = ""
-    if args.common_args:
-        common_args = args.common_args
 
     tests_dir = Path(args.tests_dir)
 
@@ -498,14 +504,13 @@ if __name__ == '__main__':
     do_compile  = args.compile  or not (args.run     or args.validate)
     do_run      = args.run      or not (args.compile or args.validate)
     do_validate = args.validate or not (args.compile or args.run)
-    debug = args.debug
 
     # 1) COMPILE
     compile_ok = set()
     if do_compile:
         bold("COMPILE")
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
-            results = list(ex.map(compile, only))
+            results = list(ex.map(lambda p: (p, ) + compile(p, args.common_args, args.debug), only))
         for path, ok, log in results:
             print(log, end="", flush=True)
             if ok:
@@ -519,11 +524,10 @@ if __name__ == '__main__':
         bold("RUN")
         for p in only:
             if p not in compile_ok:
-                lbl = f"Running: {p.name}".ljust(ACTION_PAD)
-                print(f"{lbl}{Fore.YELLOW}{Style.BRIGHT}SKIP (compile failed){Style.RESET_ALL}", flush=True)
+                label = f"Running: {p.name}".ljust(ACTION_PAD)
+                print(f"{label}{Fore.YELLOW}{Style.BRIGHT}SKIP (compile failed){Style.RESET_ALL}", flush=True)
                 continue
-            ok = run(p)
-            if ok:
+            if run(p):
                 run_ok.add(p)
     else:
         run_ok = set(only)
@@ -537,7 +541,7 @@ if __name__ == '__main__':
                 if p not in run_ok:
                     rows.append({"name":p.name, "correct": False})
                 else:
-                    for suf, (f_txt,t_txt) in retriveFiles(p).items():
+                    for suf, (f_txt,t_txt) in retrieveFiles(p).items():
                         rows.append({"name":p.name+suf, "correct":(f_txt==t_txt)})
             df = pd.DataFrame(rows)
             print(df.to_string(index=False, columns=["name","correct"]), flush=True)

@@ -4,7 +4,6 @@
 #include "Types/TransparentType.hpp"
 
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
 
@@ -25,13 +24,18 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
       continue;
     }
     // Deduce instructions' types
-    for (Instruction& inst : instructions(f))
+    for (Instruction& inst : instructions(f)) {
       if (inst.getType()->isPointerTy()) {
         std::shared_ptr<TransparentType> deduced = deducePointerType(&inst);
         deducedTypes.insert({&inst, deduced});
       }
       else // If there is nothing to deduce just save the transparent type of the value
         taffoInfo.setTransparentType(inst, TransparentTypeFactory::create(&inst));
+      // Also save the transparent type of constants
+      for (Use& operand : inst.operands())
+        if (auto* constant = dyn_cast<Constant>(operand.get()))
+          taffoInfo.setTransparentType(*constant, TransparentTypeFactory::create(constant));
+    }
     // Deduce function arguments' types
     for (Argument& arg : f.args())
       if (arg.getType()->isPointerTy()) {

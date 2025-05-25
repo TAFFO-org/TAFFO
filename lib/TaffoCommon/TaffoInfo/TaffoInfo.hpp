@@ -100,7 +100,7 @@ private:
   llvm::DenseMap<llvm::Instruction*, double> error;
   llvm::DenseMap<llvm::Instruction*, std::shared_ptr<CmpErrorInfo>> cmpError;
 
-  llvm::SmallPtrSet<llvm::Value*, 4> erasedValues;
+  llvm::SmallVector<llvm::Value*, 32> erasedValues;
   llvm::SmallPtrSet<llvm::Loop*, 4> erasedLoops;
 
   BiMap<std::string, llvm::Value*> idValueMapping;

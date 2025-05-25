@@ -16,9 +16,7 @@ ValueInitInfo& TaffoInitInfo::getOrCreateValueInitInfo(Value* value) {
 ValueInitInfo& TaffoInitInfo::createValueInitInfo(Value* value, unsigned rootDistance, unsigned backtrackingDepth) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   assert(taffoInfo.hasValueInfo(*value) && "Creating a ValueInitInfo of a value without ValueInfo");
-  ValueInfo* valueInfo = &*taffoInfo.getValueInfo(*value);
-  ValueInitInfo newValueInitInfo =
-    ValueInitInfoFactory::createValueInitInfo(valueInfo, rootDistance, backtrackingDepth);
+  ValueInitInfo newValueInitInfo = ValueInitInfoFactory::createValueInitInfo(rootDistance, backtrackingDepth);
   auto [_, success] = valueInitInfo.insert({value, newValueInitInfo});
   assert(success && "ValueInitInfo already exists");
   return valueInitInfo.find(value)->second;

@@ -77,7 +77,7 @@ Logger& Logger::decreaseIndent(unsigned amount) {
 }
 
 raw_fd_ostream& Logger::getOutputStream() {
-  static raw_fd_ostream ostream(1, false);
+  static raw_fd_ostream ostream(1, true);
   return ostream;
 }
 

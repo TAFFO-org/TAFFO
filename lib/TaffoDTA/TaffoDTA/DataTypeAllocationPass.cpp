@@ -437,21 +437,29 @@ bool DataTypeAllocationPass::associateFixFormat(std::shared_ptr<ScalarInfo>& sca
   double greatest = std::max(std::abs(rng->min), std::abs(rng->max));
   auto* I = dyn_cast<Instruction>(value);
   if (I) {
+    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+    auto getRange = [&taffoInfo](Value* v) -> std::shared_ptr<Range> {
+      if (!taffoInfo.hasValueInfo(*v))
+        return nullptr;
+      std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*v));
+      if (!scalarInfo)
+        return nullptr;
+      return scalarInfo->range;
+    };
+
     if (I->isBinaryOp() || I->isUnaryOp()) {
-      std::shared_ptr<ScalarInfo> scalarInfo =
-        dynamic_ptr_cast_or_null<ScalarInfo>(TaffoInfo::getInstance().getValueInfo(*I->getOperand(0U)));
-      if (scalarInfo && scalarInfo->range)
-        greatest = std::max(greatest, std::max(std::abs(scalarInfo->range->max), std::abs(scalarInfo->range->min)));
+      Value* firstOperand = I->getOperand(0U);
+      if (std::shared_ptr<Range> range = getRange(firstOperand))
+        greatest = std::max(greatest, std::max(std::abs(range->max), std::abs(range->min)));
       else
-        LLVM_DEBUG(log() << "[Warning] No range metadata found on first arg of " << *I << "\n");
+        LLVM_DEBUG(log() << "[Warning] No range metadata found on first operand of " << *I << "\n");
     }
     if (I->isBinaryOp()) {
-      std::shared_ptr<ScalarInfo> scalarInfo =
-        dynamic_ptr_cast_or_null<ScalarInfo>(TaffoInfo::getInstance().getValueInfo(*I->getOperand(1U)));
-      if (scalarInfo && scalarInfo->range)
-        greatest = std::max(greatest, std::max(std::abs(scalarInfo->range->max), std::abs(scalarInfo->range->min)));
+      Value* secondOperand = I->getOperand(1U);
+      if (std::shared_ptr<Range> range = getRange(secondOperand))
+        greatest = std::max(greatest, std::max(std::abs(range->max), std::abs(range->min)));
       else
-        LLVM_DEBUG(log() << "[Warning] No range metadata found on second arg of " << *I << "\n");
+        LLVM_DEBUG(log() << "[Warning] No range metadata found on second operand of " << *I << "\n");
     }
   }
   LLVM_DEBUG(log() << "[Info] Maximum value involved in " << *value << " = " << greatest << "\n");
