@@ -374,6 +374,17 @@ void DataTypeAllocationPass::processStructInfo(
         std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
 }
 
+void DataTypeAllocationPass::associateMetadata(Value* v, std::shared_ptr<ValueInfo> valueInfo) {
+  std::shared_ptr<TunerInfo> tunerInfo = getTunerInfo(v);
+  tunerInfo->metadata = valueInfo;
+  LLVM_DEBUG(log() << "associated metadata '" << valueInfo->toString() << "' to value " << *v);
+  if (auto* i = dyn_cast<Instruction>(v))
+    LLVM_DEBUG(log() << " (parent function = " << i->getFunction()->getName() << ")");
+  LLVM_DEBUG(log() << "\n");
+  if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo))
+    tunerInfo->initialType = scalarInfo->numericType;
+}
+
 bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   std::shared_ptr<ValueInfo> valueInfo;
@@ -408,37 +419,16 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
   while (!queue.empty()) {
     const auto& [valueInfo, transparentType] = queue.pop_back_val();
 
-    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
+    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo))
       skippedAll &= !processScalarInfo(scalarInfo, v, transparentType, forceEnableConv);
-    }
-    else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo)) {
-      if (!transparentType->isStructType()) {
-        LLVM_DEBUG(log() << "[ERROR] found non conforming structinfo " << structInfo->toString() << " on value " << *v
-                         << "\n");
-        LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
-        LLVM_DEBUG(log() << "The top-level MDInfo was " << valueInfo->toString() << "\n");
-        llvm_unreachable("Non-conforming StructInfo.");
-      }
-      for (unsigned i = 0; i < structInfo->getNumFields(); i++)
-        if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
-          queue.push_back(
-            std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
-    }
-    else {
+    else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo))
+      processStructInfo(structInfo, v, transparentType, queue);
+    else
       llvm_unreachable("unknown mdinfo subclass");
-    }
   }
 
-  if (!skippedAll) {
-    std::shared_ptr<TunerInfo> tunerInfo = getTunerInfo(v);
-    tunerInfo->metadata = newValueInfo;
-    LLVM_DEBUG(log() << "associated metadata '" << newValueInfo->toString() << "' to value " << *v);
-    if (auto* i = dyn_cast<Instruction>(v))
-      LLVM_DEBUG(log() << " (parent function = " << i->getFunction()->getName() << ")");
-    LLVM_DEBUG(log() << "\n");
-    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(newValueInfo))
-      tunerInfo->initialType = scalarInfo->numericType;
-  }
+  if (!skippedAll)
+    associateMetadata(v, newValueInfo);
   return !skippedAll;
 }
 

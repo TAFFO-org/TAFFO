@@ -86,6 +86,8 @@ public:
     const std::shared_ptr<taffo::TransparentType>& transparentType,
     llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, std::shared_ptr<taffo::TransparentType>>, 8> queue);
 
+  void associateMetadata(llvm::Value* v, std::shared_ptr<taffo::ValueInfo> valueInfo);
+
   bool processMetadataOfValue(llvm::Value* v);
 
   bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value);
