@@ -75,6 +75,17 @@ public:
 
   void retrieveBufferID(llvm::Value* V);
 
+  bool processScalarInfo(std::shared_ptr<taffo::ScalarInfo>& scalarInfo,
+                         llvm::Value* v,
+                         const std::shared_ptr<taffo::TransparentType>& transparentType,
+                         bool forceEnable);
+
+  void processStructInfo(
+    std::shared_ptr<taffo::StructInfo>& structInfo,
+    llvm::Value* v,
+    const std::shared_ptr<taffo::TransparentType>& transparentType,
+    llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, std::shared_ptr<taffo::TransparentType>>, 8> queue);
+
   bool processMetadataOfValue(llvm::Value* v);
 
   bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value);

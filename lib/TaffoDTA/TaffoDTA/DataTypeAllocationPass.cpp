@@ -4,6 +4,7 @@
 #include "Debug/Logger.hpp"
 #include "PtrCasts.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TaffoInfo/ValueInfo.hpp"
 #ifdef TAFFO_BUILD_ILP_DTA
 #include "ILP/MetricBase.h"
 #include "ILP/Optimizer.h"
@@ -333,6 +334,46 @@ void DataTypeAllocationPass::retrieveBufferID(Value* V) {
   }
 }
 
+bool DataTypeAllocationPass::processScalarInfo(std::shared_ptr<ScalarInfo>& scalarInfo,
+                                               Value* v,
+                                               const std::shared_ptr<TransparentType>& transparentType,
+                                               bool forceEnable) {
+  if (forceEnable)
+    scalarInfo->conversionEnabled = true;
+
+  // FIXME: hack to propagate itofp metadata
+  if (/*MixedMode && */ isa<UIToFPInst>(v) || isa<SIToFPInst>(v)) {
+    LLVM_DEBUG(log() << "FORCING CONVERSION OF A ITOFP!\n";);
+    scalarInfo->conversionEnabled = true;
+  }
+
+  if (!transparentType->containsFloatingPointType()) {
+    LLVM_DEBUG(log() << "[Info] Skipping a member of " << *v << " because not a float\n");
+    return false;
+  }
+
+  // TODO: insert logic here to associate different types in a clever way
+  return strategy->apply(scalarInfo, v);
+}
+
+void DataTypeAllocationPass::processStructInfo(
+  std::shared_ptr<StructInfo>& structInfo,
+  Value* v,
+  const std::shared_ptr<TransparentType>& transparentType,
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, std::shared_ptr<TransparentType>>, 8> queue) {
+  if (!transparentType->isStructType()) {
+    LLVM_DEBUG(log() << "[ERROR] found non conforming structinfo " << structInfo->toString() << " on value " << *v
+                     << "\n");
+    LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
+    LLVM_DEBUG(log() << "The top-level MDInfo was " << structInfo->toString() << "\n");
+    llvm_unreachable("Non-conforming StructInfo.");
+  }
+  for (unsigned i = 0; i < structInfo->getNumFields(); i++)
+    if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
+      queue.push_back(
+        std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
+}
+
 bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   std::shared_ptr<ValueInfo> valueInfo;
@@ -368,23 +409,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
     const auto& [valueInfo, transparentType] = queue.pop_back_val();
 
     if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
-      if (forceEnableConv)
-        scalarInfo->conversionEnabled = true;
-
-      // FIXME: hack to propagate itofp metadata
-      if (/*MixedMode && */ isa<UIToFPInst>(v) || isa<SIToFPInst>(v)) {
-        LLVM_DEBUG(log() << "FORCING CONVERSION OF A ITOFP!\n";);
-        scalarInfo->conversionEnabled = true;
-      }
-
-      if (!transparentType->containsFloatingPointType()) {
-        LLVM_DEBUG(log() << "[Info] Skipping a member of " << *v << " because not a float\n");
-        continue;
-      }
-
-      // TODO: insert logic here to associate different types in a clever way
-      if (strategy->apply(scalarInfo, v))
-        skippedAll = false;
+      skippedAll &= !processScalarInfo(scalarInfo, v, transparentType, forceEnableConv);
     }
     else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo)) {
       if (!transparentType->isStructType()) {
