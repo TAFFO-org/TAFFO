@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     # Build the command:
     #  - use the same Python interpreter (sys.executable)
-    #  - point --tests-dir at the test_dir
+    #  - point -tests-dir at the test_dir
     #  - forward all other CLI args
     cmd = [
         sys.executable,

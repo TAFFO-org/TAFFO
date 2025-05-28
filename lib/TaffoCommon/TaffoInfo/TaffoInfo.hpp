@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../Containers/BiMap.hpp"
+#include "StructPaddingInfo.hpp"
+#include "TaffoCommon/Containers/BiMap.hpp"
 #include "Types/TransparentType.hpp"
 #include "ValueInfo.hpp"
 
@@ -20,6 +21,8 @@ public:
   TaffoInfo& operator=(const TaffoInfo&) = delete;
 
   static TaffoInfo& getInstance();
+
+  std::optional<StructPaddingInfo> getStructPaddingInfo(llvm::StructType* t) const;
 
   void setTransparentType(llvm::Value& v, const std::shared_ptr<TransparentType>& t);
   std::shared_ptr<TransparentType> getOrCreateTransparentType(llvm::Value& v);
@@ -73,11 +76,13 @@ public:
   std::shared_ptr<CmpErrorInfo> getCmpError(const llvm::Instruction& i) const;
 
   llvm::Type* getType(const std::string& typeId) const;
+  const llvm::DataLayout* getDataLayout() const { return dataLayout; }
 
   void eraseValue(llvm::Value* v);
   void eraseLoop(llvm::Loop* l);
 
   void dumpToFile(const std::string& filePath, llvm::Module& m);
+  void initialize(llvm::Module& m);
   void initializeFromFile(const std::string& filePath, llvm::Module& m);
 
 private:
@@ -106,6 +111,10 @@ private:
   BiMap<std::string, llvm::Value*> idValueMapping;
   BiMap<std::string, llvm::Loop*> idLoopMapping;
   BiMap<std::string, llvm::Type*> idTypeMapping;
+
+  std::unordered_map<llvm::StructType*, StructPaddingInfo> structPaddingInfo;
+  const llvm::DataLayout* dataLayout;
+
   unsigned idCounter;
   unsigned idDigits;
   json jsonRepresentation;

@@ -9,6 +9,8 @@ add_library(${SELF} STATIC
   TaffoInfo/NumericInfo.cpp
   TaffoInfo/RangeInfo.hpp
   TaffoInfo/RangeInfo.cpp
+  TaffoInfo/StructPaddingInfo.hpp
+  TaffoInfo/StructPaddingInfo.cpp
   MetadataManager.hpp
   MetadataManager.cpp
   Containers/InsertionOrderedMap.hpp

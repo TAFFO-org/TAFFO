@@ -30,11 +30,16 @@ TaffoInfo& TaffoInfo::getInstance() {
   return instance;
 }
 
+std::optional<StructPaddingInfo> TaffoInfo::getStructPaddingInfo(StructType* t) const {
+  auto iter = structPaddingInfo.find(t);
+  return iter != structPaddingInfo.end() ? std::optional(iter->second) : std::nullopt;
+}
+
 void TaffoInfo::setTransparentType(Value& v, const std::shared_ptr<TransparentType>& t) { transparentTypes[&v] = t; }
 
 std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(const Value& v) const {
   auto iter = transparentTypes.find(&v);
-  assert(iter != transparentTypes.end() && "Transparent type not present");
+  assert(iter != transparentTypes.end() && "TransparentType not present");
   return iter->second;
 }
 
@@ -46,12 +51,12 @@ std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value& v)
   LLVM_DEBUG(
     Logger& logger = log();
     logger.setContextTag(logContextTag);
-    logger.log("Missing transparent type for value: ", Logger::Yellow);
+    logger.log("Missing transparentType for value: ", Logger::Yellow);
     logger.logValueln(&v);
-    logger.log("Transparent type set to:            ", Logger::Yellow);
+    logger.log("TransparentType set to:            ", Logger::Yellow);
     logger.logln(type, Logger::Cyan);
     if (type->isOpaquePointer())
-      logger.logln("Warning: the newly created transparent type is opaque", Logger::Red);
+      logger.logln("Warning: the newly created transparentType is opaque", Logger::Red);
     logger.restorePrevContextTag(););
   return transparentTypes[&v] = type;
 }
@@ -309,7 +314,7 @@ void TaffoInfo::dumpToFile(const std::string& filePath, Module& m) {
     logger.restorePrevContextTag(););
 }
 
-void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
+void TaffoInfo::initialize(Module& m) {
   LLVM_DEBUG(
     Logger& logger = log();
     logger.setContextTag(logContextTag);
@@ -318,7 +323,13 @@ void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
   idValueMapping = MetadataManager::getIdValueMapping(m);
   idLoopMapping = MetadataManager::getIdLoopMapping(m);
   idTypeMapping = MetadataManager::getIdTypeMapping(m);
+  structPaddingInfo = MetadataManager::getStructPaddingInfo(m);
+  dataLayout = &m.getDataLayout();
   jsonRepresentation.clear();
+}
+
+void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
+  initialize(m);
 
   std::ifstream inFile(filePath);
   if (!inFile.is_open())
@@ -370,7 +381,7 @@ void TaffoInfo::generateTaffoIds() {
     valueSet.insert(inst);
 
   // Set the taffoId of each value, updating idValueMapping and idTypeMapping
-  for (auto* value : valueSet) {
+  for (Value* value : valueSet) {
     generateTaffoId(value);
 
     SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedTypes();
@@ -536,7 +547,7 @@ json TaffoInfo::serialize() const {
     j["loops"][id] = loopJson;
   }
 
-  // Serialize deducedPointerTypes as a field in each value’s JSON entry
+  // Serialize transparentTypes as a field in each value’s JSON entry
   for (const auto& [v, transparentType] : transparentTypes) {
     std::string id = idValueMapping.findByValue(v)->first;
     j["values"][id]["transparentType"] = transparentType->serialize();
@@ -760,7 +771,7 @@ void TaffoInfo::deserialize(const json& j) {
     }
   }
 
-  // Deserialize values (valueInfo, deducedPointerType, valueWeights, constantUsers, error, cmpError)
+  // Deserialize values (valueInfo, transparentTypes, valueWeights, constantUsers, error, cmpError)
   for (auto& item : j["values"].items()) {
     const std::string& id = item.key();
     auto iter = idValueMapping.find(id);
@@ -781,7 +792,7 @@ void TaffoInfo::deserialize(const json& j) {
       valueInfo[val] = vi;
     }
 
-    // Deserialize deducedPointerTypes
+    // Deserialize transparentTypes
     if (valueJson.contains("transparentType") && !valueJson["transparentType"].is_null())
       transparentTypes[val] = TransparentTypeFactory::create(valueJson["transparentType"]);
 

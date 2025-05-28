@@ -195,6 +195,7 @@ public:
       isLineStart = true;
       start = pos + 1;
     }
+    ostream.flush();
     return *this;
   }
 
@@ -208,6 +209,7 @@ public:
     log(value, color);
     ostream << "\n";
     isLineStart = true;
+    ostream.flush();
     return *this;
   }
 

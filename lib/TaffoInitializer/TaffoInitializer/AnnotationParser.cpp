@@ -1,7 +1,7 @@
 #include "AnnotationParser.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
-#include "Types/TypeUtils.hpp"
 
 #include <llvm/Support/raw_ostream.h>
 
@@ -19,11 +19,11 @@ void AnnotationParser::reset() {
   valueInfoBuild.reset();
 }
 
-bool AnnotationParser::parseAnnotationAndGenValueInfo(StringRef annotationStr, Value* annotatedValue) {
+bool AnnotationParser::parseAnnotationAndGenValueInfo(const std::string& annotationStr, Value* annotatedValue) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   std::shared_ptr<TransparentType> type = taffoInfo.getTransparentType(*annotatedValue);
   reset();
-  stringStream = std::istringstream(annotationStr.str());
+  stringStream = std::istringstream(annotationStr);
 
   bool res = parseSyntax(type);
   if (res) {
@@ -211,17 +211,28 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo,
   fields.reserve(numFields);
 
   bool first = true;
-  unsigned currentField = 0;
+  unsigned currentFieldIdx = 0;
+  unsigned currentNumPaddingFields = 0;
+  auto nextFieldIdx = [&structType, &fields, &currentNumPaddingFields](unsigned currentFieldIdx) -> unsigned {
+    unsigned nextFieldIdx = currentFieldIdx + 1;
+    while (nextFieldIdx < structType->getNumFieldTypes() && structType->isFieldPadding(nextFieldIdx)) {
+      fields.push_back(std::make_shared<ScalarInfo>());
+      currentNumPaddingFields++;
+      nextFieldIdx++;
+    }
+    return nextFieldIdx;
+  };
+
   while (!peek("]")) {
     if (first)
       first = false;
     else if (!expect(","))
       return false;
 
-    if (currentField >= numFields) {
+    if (currentFieldIdx >= numFields) {
       std::string errStr;
       raw_string_ostream ss(errStr);
-      ss << "Typechecking failed: " << (currentField + 1) << " fields specified but only " << numFields
+      ss << "Typechecking failed: " << (currentFieldIdx + 1) << " fields specified but only " << numFields
          << " fields present in LLVM struct type " << *structType;
       error = ss.str();
       return false;
@@ -229,21 +240,21 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo,
 
     if (peek("scalar")) {
       std::shared_ptr<ValueInfo> tmp;
-      if (!parseScalar(tmp, structType->getFieldType(currentField)))
+      if (!parseScalar(tmp, structType->getFieldType(currentFieldIdx)))
         return false;
       fields.push_back(tmp);
-      currentField++;
+      currentFieldIdx = nextFieldIdx(currentFieldIdx);
     }
     else if (peek("struct")) {
       std::shared_ptr<ValueInfo> tmp;
-      if (!parseStruct(tmp, structType->getFieldType(currentField)))
+      if (!parseStruct(tmp, structType->getFieldType(currentFieldIdx)))
         return false;
       fields.push_back(tmp);
-      currentField++;
+      currentFieldIdx = nextFieldIdx(currentFieldIdx);
     }
     else if (peek("void")) {
       fields.push_back(nullptr);
-      currentField++;
+      currentFieldIdx = nextFieldIdx(currentFieldIdx);
     }
     else {
       error = "Unknown identifier at character index " + std::to_string(stringStream.tellg());
@@ -251,11 +262,17 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo,
     }
   }
 
-  if (currentField < numFields) {
+  if (currentFieldIdx < numFields) {
+    unsigned numPaddingFields = structType->getNumPaddingFields();
     std::string errStr;
     raw_string_ostream ss(errStr);
-    ss << "Typechecking failed: only " << currentField << " fields specified but " << numFields
-       << " fields are expected in LLVM struct type " << *structType;
+    ss << "Typechecking failed: only " << currentFieldIdx - currentNumPaddingFields << " fields";
+    if (currentNumPaddingFields > 0)
+      ss << " (+" << currentNumPaddingFields << " for padding)";
+    ss << " specified but " << numFields - numPaddingFields << " fields";
+    if (numPaddingFields > 0)
+      ss << " (+" << numPaddingFields << " for padding)";
+    ss << " are expected in\nLLVM struct type " << *structType;
     error = ss.str();
     return false;
   }

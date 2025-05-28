@@ -17,7 +17,7 @@ public:
   bool backtracking;
   unsigned backtrackingDepth;
 
-  bool parseAnnotationAndGenValueInfo(llvm::StringRef annotationStr, llvm::Value* annotatedValue);
+  bool parseAnnotationAndGenValueInfo(const std::string& annotationStr, llvm::Value* annotatedValue);
   llvm::StringRef getLastError();
 
 private:

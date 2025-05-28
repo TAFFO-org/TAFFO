@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Containers/BiMap.hpp"
+#include "TaffoInfo/StructPaddingInfo.hpp"
 
 #include <llvm/Analysis/LoopInfo.h>
 
@@ -23,6 +24,8 @@ public:
 
   static void setIdTypeMapping(const BiMap<std::string, llvm::Type*>&, llvm::Module& m);
   static BiMap<std::string, llvm::Type*> getIdTypeMapping(llvm::Module& m);
+
+  static std::unordered_map<llvm::StructType*, StructPaddingInfo> getStructPaddingInfo(llvm::Module& m);
 
   static void getCudaKernels(llvm::Module& m, llvm::SmallVectorImpl<llvm::Function*> kernels);
 };

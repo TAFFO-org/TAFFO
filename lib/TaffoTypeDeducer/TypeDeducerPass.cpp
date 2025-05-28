@@ -13,10 +13,10 @@ using namespace llvm;
 using namespace taffo;
 
 PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
-  LLVM_DEBUG(
-    Logger& logger = log();
-    logger.logln("[TypeDeducerPass]", Logger::Magenta);
-    logger.logln("[Deduction iteration 0]", Logger::Blue););
+  LLVM_DEBUG(log().logln("[TypeDeducerPass]", Logger::Magenta));
+  taffoInfo.initialize(m);
+
+  LLVM_DEBUG(log().logln("[Deduction iteration 0]", Logger::Blue););
   for (Function& f : m) {
     if (f.isDeclaration()) {
       // Cannot deduce the type of a declaration: just save the transparent type of the value (could be opaque pointer)
