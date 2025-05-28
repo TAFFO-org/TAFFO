@@ -21,18 +21,23 @@ class dataTypeAllocationStrategy {
 public:
   virtual ~dataTypeAllocationStrategy() {}
   virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) = 0;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) = 0;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) = 0;
 };
 
 class fixedPointOnlyStrategy : public dataTypeAllocationStrategy {
 public:
   virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
-};
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
 
-bool isMergeable(const std::shared_ptr<taffo::FixedPointInfo>& fpv, const std::shared_ptr<taffo::FixedPointInfo>& fpu);
-std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
-                                             const std::shared_ptr<taffo::FixedPointInfo>& fpu);
-std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
-                                              const std::shared_ptr<taffo::NumericTypeInfo>& fpu);
+  std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
+                                               const std::shared_ptr<taffo::FixedPointInfo>& fpu);
+};
 
 struct TunerInfo {
   std::shared_ptr<taffo::ValueInfo> metadata;

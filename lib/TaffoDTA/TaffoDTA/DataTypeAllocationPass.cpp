@@ -52,21 +52,29 @@ bool fixedPointOnlyStrategy::apply(std::shared_ptr<taffo::ScalarInfo>& scalarInf
   double greatest = std::max(std::abs(rng->min), std::abs(rng->max));
   auto* I = dyn_cast<Instruction>(value);
   if (I) {
+    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+    auto getRange = [&taffoInfo](Value* v) -> std::shared_ptr<Range> {
+      if (!taffoInfo.hasValueInfo(*v))
+        return nullptr;
+      std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*v));
+      if (!scalarInfo)
+        return nullptr;
+      return scalarInfo->range;
+    };
+
     if (I->isBinaryOp() || I->isUnaryOp()) {
-      std::shared_ptr<ScalarInfo> scalarInfo =
-        dynamic_ptr_cast_or_null<ScalarInfo>(TaffoInfo::getInstance().getValueInfo(*I->getOperand(0U)));
-      if (scalarInfo && scalarInfo->range)
-        greatest = std::max(greatest, std::max(std::abs(scalarInfo->range->max), std::abs(scalarInfo->range->min)));
+      Value* firstOperand = I->getOperand(0U);
+      if (std::shared_ptr<Range> range = getRange(firstOperand))
+        greatest = std::max(greatest, std::max(std::abs(range->max), std::abs(range->min)));
       else
-        LLVM_DEBUG(log() << "[Warning] No range metadata found on first arg of " << *I << "\n");
+        LLVM_DEBUG(log() << "[Warning] No range metadata found on first operand of " << *I << "\n");
     }
     if (I->isBinaryOp()) {
-      std::shared_ptr<ScalarInfo> scalarInfo =
-        dynamic_ptr_cast_or_null<ScalarInfo>(TaffoInfo::getInstance().getValueInfo(*I->getOperand(1U)));
-      if (scalarInfo && scalarInfo->range)
-        greatest = std::max(greatest, std::max(std::abs(scalarInfo->range->max), std::abs(scalarInfo->range->min)));
+      Value* secondOperand = I->getOperand(1U);
+      if (std::shared_ptr<Range> range = getRange(secondOperand))
+        greatest = std::max(greatest, std::max(std::abs(range->max), std::abs(range->min)));
       else
-        LLVM_DEBUG(log() << "[Warning] No range metadata found on second arg of " << *I << "\n");
+        LLVM_DEBUG(log() << "[Warning] No range metadata found on second operand of " << *I << "\n");
     }
   }
   LLVM_DEBUG(log() << "[Info] Maximum value involved in " << *value << " = " << greatest << "\n");
@@ -148,6 +156,63 @@ bool fixedPointOnlyStrategy::apply(std::shared_ptr<taffo::ScalarInfo>& scalarInf
 
   LLVM_DEBUG(log() << "[Info] The original type was not floating point, skipping (fingers crossed!)\n");
   return false;
+}
+
+std::shared_ptr<taffo::NumericTypeInfo>
+fixedPointOnlyStrategy::merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                              const std::shared_ptr<taffo::NumericTypeInfo>& fpu) {
+  if (isa<FixedPointInfo>(fpv.get()) && isa<FixedPointInfo>(fpu.get()))
+    return merge(dynamic_ptr_cast<FixedPointInfo>(fpv), dynamic_ptr_cast<FixedPointInfo>(fpu));
+  if (isa<FixedPointInfo>(fpv.get()) && isa<FloatingPointInfo>(fpu.get()))
+    return dynamic_ptr_cast<FloatingPointInfo>(fpu)->clone();
+  if (isa<FixedPointInfo>(fpu.get()) && isa<FloatingPointInfo>(fpv.get()))
+    return dynamic_ptr_cast<FloatingPointInfo>(fpv)->clone();
+  if (isa<FloatingPointInfo>(fpu.get()) && isa<FloatingPointInfo>(fpv.get())) {
+    std::shared_ptr<FloatingPointInfo> a = dynamic_ptr_cast<FloatingPointInfo>(fpu);
+    std::shared_ptr<FloatingPointInfo> b = dynamic_ptr_cast<FloatingPointInfo>(fpv);
+    FloatingPointInfo::FloatStandard maxStd = std::max(a->getStandard(), b->getStandard());
+    double maxMax = std::max(a->getGreatestNumber(), b->getGreatestNumber());
+    return std::make_shared<FloatingPointInfo>(maxStd, maxMax);
+  }
+  llvm_unreachable("unknown numericType subclass");
+}
+
+std::shared_ptr<taffo::FixedPointInfo>
+fixedPointOnlyStrategy::merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
+                              const std::shared_ptr<taffo::FixedPointInfo>& fpu) {
+  int sign_v = fpv->isSigned() ? 1 : 0;
+  int int_v = int(fpv->getBits()) - fpv->getFractionalBits() - sign_v;
+  int sign_u = fpu->isSigned() ? 1 : 0;
+  int int_u = int(fpu->getBits()) - fpu->getFractionalBits() - sign_u;
+
+  int sign_res = std::max(sign_u, sign_v);
+  int int_res = std::max(int_u, int_v);
+  int size_res = std::max(fpv->getBits(), fpu->getBits());
+  int frac_res = size_res - int_res - sign_res;
+  if (sign_res + int_res + frac_res != size_res || frac_res < 0)
+    return nullptr; // Invalid format.
+  else
+    return std::make_shared<FixedPointInfo>(sign_res, size_res, frac_res);
+}
+
+bool fixedPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
+                                         std::shared_ptr<NumericTypeInfo> userNumericType) {
+
+  std::shared_ptr<FixedPointInfo> fpv = dynamic_ptr_cast<FixedPointInfo>(valueNumericType);
+  std::shared_ptr<FixedPointInfo> fpu = dynamic_ptr_cast<FixedPointInfo>(userNumericType);
+  if (!fpv || !fpu) {
+    LLVM_DEBUG(log() << "not attempting merge of " << valueNumericType->toString() << ", "
+                     << valueNumericType->toString() << " because one is not a FPType\n");
+    return false;
+  }
+
+  if (fpv != fpu)
+    return false;
+
+  return fpv->getBits() == fpu->getBits()
+      && (std::abs(int(fpv->getFractionalBits()) - int(fpu->getFractionalBits()))
+          + (fpv->isSigned() == fpu->isSigned() ? 0 : 1))
+           <= SimilarBits;
 }
 
 PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& AM) {
@@ -650,7 +715,7 @@ void DataTypeAllocationPass::mergeFixFormat(const std::vector<Value*>& vals, con
   for (Value* v : vals) {
     for (Value* u : v->users()) {
       if (valset.count(u)) {
-        if (IterativeMerging ? mergeFixFormatIterative(v, u) : mergeFixFormat(v, u)) {
+        if (mergeFixFormat(v, u)) {
           restoreTypesAcrossFunctionCall(v);
           restoreTypesAcrossFunctionCall(u);
 
@@ -664,6 +729,7 @@ void DataTypeAllocationPass::mergeFixFormat(const std::vector<Value*>& vals, con
 }
 
 bool DataTypeAllocationPass::mergeFixFormat(Value* v, Value* u) {
+
   std::shared_ptr<TunerInfo> valueTunerInfo = getTunerInfo(v);
   std::shared_ptr<TunerInfo> userTunerInfo = getTunerInfo(u);
   std::shared_ptr<ScalarInfo> valueInfo = dynamic_ptr_cast<ScalarInfo>(valueTunerInfo->metadata);
@@ -682,123 +748,31 @@ bool DataTypeAllocationPass::mergeFixFormat(Value* v, Value* u) {
     LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because at least one is a pointer\n");
     return false;
   }
-  std::shared_ptr<FixedPointInfo> valueFixpType = dynamic_ptr_cast<FixedPointInfo>(valueTunerInfo->initialType);
-  std::shared_ptr<FixedPointInfo> userFixpType = dynamic_ptr_cast<FixedPointInfo>(userTunerInfo->initialType);
-  if (!valueFixpType || !userFixpType) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because one is not a FPType\n");
-    return false;
-  }
-  if (valueFixpType != userFixpType) {
-    if (isMergeable(valueFixpType, userFixpType)) {
-      std::shared_ptr<FixedPointInfo> fp = merge(valueFixpType, userFixpType);
-      if (!fp) {
-        LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because resulting type is invalid\n");
-        return false;
-      }
-      LLVM_DEBUG(log() << "Merged fixp : \n"
-                       << "\t" << *v << " fix type " << valueFixpType->toString() << "\n"
-                       << "\t" << *u << " fix type " << userFixpType->toString() << "\n"
-                       << "Final format " << fp->toString() << "\n";);
 
-      valueInfo->numericType = fp->clone();
-      userInfo->numericType = fp->clone();
-      return true;
+  std::shared_ptr<NumericTypeInfo> valueNumericType = dynamic_ptr_cast<NumericTypeInfo>(valueTunerInfo->initialType);
+  std::shared_ptr<NumericTypeInfo> userNumericType = dynamic_ptr_cast<NumericTypeInfo>(userTunerInfo->initialType);
+
+  if (strategy->isMergeable(valueNumericType, userNumericType)) {
+
+    std::shared_ptr<NumericTypeInfo> fp = strategy->merge(valueNumericType, userNumericType);
+    if (!fp) {
+      LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because resulting type is invalid\n");
+      return false;
     }
-    else {
-      FixCast++;
-    }
+    LLVM_DEBUG(log() << "Merged type : \n"
+                     << "\t" << *v << " fix type " << valueNumericType->toString() << "\n"
+                     << "\t" << *u << " fix type " << userNumericType->toString() << "\n"
+                     << "Final format " << fp->toString() << "\n";);
+
+    valueInfo->numericType = fp->clone();
+    userInfo->numericType = fp->clone();
+    return true;
   }
+  else {
+    FixCast++;
+  }
+
   return false;
-}
-
-bool DataTypeAllocationPass::mergeFixFormatIterative(Value* v, Value* u) {
-  std::shared_ptr<TunerInfo> viv = getTunerInfo(v);
-  std::shared_ptr<TunerInfo> viu = getTunerInfo(u);
-  std::shared_ptr<ScalarInfo> iiv = dynamic_ptr_cast<ScalarInfo>(viv->metadata);
-  std::shared_ptr<ScalarInfo> iiu = dynamic_ptr_cast<ScalarInfo>(viu->metadata);
-  if (!iiv || !iiu) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because at least one is a struct\n");
-    return false;
-  }
-  if (!iiv->numericType || !iiu->numericType) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u
-                     << " because at least one does not change to a fixed point type\n");
-    return false;
-  }
-  if (v->getType()->isPointerTy() || u->getType()->isPointerTy()) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because at least one is a pointer\n");
-    return false;
-  }
-  std::shared_ptr<FixedPointInfo> fpv = dynamic_ptr_cast<FixedPointInfo>(iiv->numericType);
-  std::shared_ptr<FixedPointInfo> fpu = dynamic_ptr_cast<FixedPointInfo>(iiu->numericType);
-  if (!fpv || !fpu) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because one is not a FPType\n");
-    return false;
-  }
-  if (*fpv != *fpu) {
-    if (isMergeable(fpv, fpu)) {
-      std::shared_ptr<FixedPointInfo> fp = merge(fpv, fpu);
-      if (!fp) {
-        LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because resulting type "
-                         << fp->toString() << " is invalid\n");
-        return false;
-      }
-      LLVM_DEBUG(log() << "Merged fixp : \n"
-                       << "\t" << *v << " fix type " << fpv->toString() << "\n"
-                       << "\t" << *u << " fix type " << fpu->toString() << "\n"
-                       << "Final format " << fp->toString() << "\n";);
-
-      iiv->numericType = fp->clone();
-      iiu->numericType = fp->clone();
-      return true;
-    }
-    else {
-      FixCast++;
-    }
-  }
-  return false;
-}
-
-bool tuner::isMergeable(const std::shared_ptr<FixedPointInfo>& fpv, const std::shared_ptr<FixedPointInfo>& fpu) {
-  return fpv->getBits() == fpu->getBits()
-      && (std::abs(int(fpv->getFractionalBits()) - int(fpu->getFractionalBits()))
-          + (fpv->isSigned() == fpu->isSigned() ? 0 : 1))
-           <= SimilarBits;
-}
-
-std::shared_ptr<FixedPointInfo> tuner::merge(const std::shared_ptr<FixedPointInfo>& fpv,
-                                             const std::shared_ptr<FixedPointInfo>& fpu) {
-  int sign_v = fpv->isSigned() ? 1 : 0;
-  int int_v = int(fpv->getBits()) - fpv->getFractionalBits() - sign_v;
-  int sign_u = fpu->isSigned() ? 1 : 0;
-  int int_u = int(fpu->getBits()) - fpu->getFractionalBits() - sign_u;
-
-  int sign_res = std::max(sign_u, sign_v);
-  int int_res = std::max(int_u, int_v);
-  int size_res = std::max(fpv->getBits(), fpu->getBits());
-  int frac_res = size_res - int_res - sign_res;
-  if (sign_res + int_res + frac_res != size_res || frac_res < 0)
-    return nullptr; // Invalid format.
-  else
-    return std::make_shared<FixedPointInfo>(sign_res, size_res, frac_res);
-}
-
-std::shared_ptr<NumericTypeInfo> tuner::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
-                                              const std::shared_ptr<NumericTypeInfo>& fpu) {
-  if (isa<FixedPointInfo>(fpv.get()) && isa<FixedPointInfo>(fpu.get()))
-    return merge(dynamic_ptr_cast<FixedPointInfo>(fpv), dynamic_ptr_cast<FixedPointInfo>(fpu));
-  if (isa<FixedPointInfo>(fpv.get()) && isa<FloatingPointInfo>(fpu.get()))
-    return dynamic_ptr_cast<FloatingPointInfo>(fpu)->clone();
-  if (isa<FixedPointInfo>(fpu.get()) && isa<FloatingPointInfo>(fpv.get()))
-    return dynamic_ptr_cast<FloatingPointInfo>(fpv)->clone();
-  if (isa<FloatingPointInfo>(fpu.get()) && isa<FloatingPointInfo>(fpv.get())) {
-    std::shared_ptr<FloatingPointInfo> a = dynamic_ptr_cast<FloatingPointInfo>(fpu);
-    std::shared_ptr<FloatingPointInfo> b = dynamic_ptr_cast<FloatingPointInfo>(fpv);
-    FloatingPointInfo::FloatStandard maxStd = std::max(a->getStandard(), b->getStandard());
-    double maxMax = std::max(a->getGreatestNumber(), b->getGreatestNumber());
-    return std::make_shared<FloatingPointInfo>(maxStd, maxMax);
-  }
-  llvm_unreachable("unknown numericType subclass");
 }
 
 void DataTypeAllocationPass::mergeBufferIDSets() {
@@ -838,7 +812,7 @@ void DataTypeAllocationPass::mergeBufferIDSets() {
         if (!DestType)
           DestType = T->clone();
         else
-          DestType = merge(DestType, T);
+          DestType = strategy->merge(DestType, T);
       }
     }
     LLVM_DEBUG(log() << "Computed merged type: " << DestType->toString() << "\n");
