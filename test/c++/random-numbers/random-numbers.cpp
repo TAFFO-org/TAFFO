@@ -1,8 +1,10 @@
+// This test generates random numbers with the c++ standard library and uses them in simple computations
+
 #include <iomanip>
 #include <iostream>
 #include <random>
 
-#define iterations 100
+#define ITERATIONS 100
 
 int main() {
   std::mt19937 gen(0);
@@ -10,7 +12,7 @@ int main() {
   std::uniform_real_distribution distB(-10.0, 10.0);
 
   std::cout << "Values Begin\n";
-  for (std::size_t i = 0; i < iterations; i++) {
+  for (std::size_t i = 0; i < ITERATIONS; i++) {
     __attribute((annotate("scalar(range(-3000, 3000))"))) double a = distA(gen);
     __attribute((annotate("scalar(range(-10, 10))"))) double b = distB(gen);
 
