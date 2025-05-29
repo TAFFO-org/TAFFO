@@ -10,7 +10,6 @@
 #include <string>
 
 #define DEBUG_TYPE "taffo-vra"
-#define DEBUG_HEAD "[TAFFO][VRA]"
 
 namespace taffo {
 
@@ -66,7 +65,7 @@ public:
     log() << Error << "\n";
   }
 
-  void lineHead() const { log() << DEBUG_HEAD << std::string(IndentLevel * 2U, ' '); }
+  void lineHead() const { log() << std::string(IndentLevel * 2U, ' '); }
 
   static std::string toString(const std::shared_ptr<ValueInfo> Range) {
     if (Range) {
@@ -91,8 +90,7 @@ public:
       case ValueInfo::K_Pointer: {
         return "Pointer Node";
       }
-      default:
-        llvm_unreachable("Unhandled node type.");
+      default: llvm_unreachable("Unhandled node type.");
       }
     }
     return "null range";

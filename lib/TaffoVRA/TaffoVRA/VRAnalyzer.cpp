@@ -83,48 +83,29 @@ void VRAnalyzer::analyzeInstruction(Instruction* I) {
   else {
     switch (OpCode) {
     // memory operations
-    case Instruction::Alloca:
-      handleAllocaInstr(I);
-      break;
-    case Instruction::Load:
-      handleLoadInstr(&i);
-      break;
-    case Instruction::Store:
-      handleStoreInstr(&i);
-      break;
-    case Instruction::GetElementPtr:
-      handleGEPInstr(&i);
-      break;
-    case Instruction::BitCast:
-      handleBitCastInstr(I);
-      break;
+    case Instruction::Alloca:        handleAllocaInstr(I); break;
+    case Instruction::Load:          handleLoadInstr(&i); break;
+    case Instruction::Store:         handleStoreInstr(&i); break;
+    case Instruction::GetElementPtr: handleGEPInstr(&i); break;
+    case Instruction::BitCast:       handleBitCastInstr(I); break;
     case Instruction::Fence:
-      LLVM_DEBUG(Logger->logErrorln("Handling of Fence not supported yet"));
-      break; // TODO implement
+      LLVM_DEBUG(Logger->logErrorln("Handling of Fence not supported yet")); break; // TODO implement
     case Instruction::AtomicCmpXchg:
       LLVM_DEBUG(Logger->logErrorln("Handling of AtomicCmpXchg not supported yet"));
-      break; // TODO implement
+      break;                                                                                     // TODO implement
     case Instruction::AtomicRMW:
       LLVM_DEBUG(Logger->logErrorln("Handling of AtomicRMW not supported yet"));
-      break; // TODO implement
+      break;                                                                                     // TODO implement
 
       // other operations
-    case Instruction::Ret:
-      handleReturn(I);
-      break;
+    case Instruction::Ret: handleReturn(I); break;
     case Instruction::Br:
       // do nothing
       break;
     case Instruction::ICmp:
-    case Instruction::FCmp:
-      handleCmpInstr(&i);
-      break;
-    case Instruction::PHI:
-      handlePhiNode(&i);
-      break;
-    case Instruction::Select:
-      handleSelect(&i);
-      break;
+    case Instruction::FCmp:   handleCmpInstr(&i); break;
+    case Instruction::PHI:    handlePhiNode(&i); break;
+    case Instruction::Select: handleSelect(&i); break;
     case Instruction::UserOp1: // TODO implement
     case Instruction::UserOp2: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of UserOp not supported yet"));
@@ -150,9 +131,7 @@ void VRAnalyzer::analyzeInstruction(Instruction* I) {
     case Instruction::LandingPad: // TODO implement
       LLVM_DEBUG(Logger->logErrorln("Handling of LandingPad not supported yet"));
       break;
-    default:
-      LLVM_DEBUG(Logger->logErrorln("unhandled instruction " + std::to_string(OpCode)));
-      break;
+    default: LLVM_DEBUG(Logger->logErrorln("unhandled instruction " + std::to_string(OpCode))); break;
     }
   } // end else
 }
@@ -193,7 +172,6 @@ void VRAnalyzer::prepareForCall(Instruction* I, std::shared_ptr<AnalysisStore> F
   std::list<std::shared_ptr<ValueInfo>> ArgRanges;
   for (Value* Arg : CB->args()) {
     ArgRanges.push_back(getNode(Arg));
-
     LLVM_DEBUG(log() << VRALogger::toString(fetchRangeNode(Arg)) << ", ");
   }
   LLVM_DEBUG(log() << "\n");
@@ -261,11 +239,8 @@ void VRAnalyzer::handleSpecialCall(const Instruction* I) {
   else if (Callee->isIntrinsic()) {
     const auto IntrinsicsID = Callee->getIntrinsicID();
     switch (IntrinsicsID) {
-    case Intrinsic::memcpy:
-      handleMemCpyIntrinsics(CB);
-      break;
-    default:
-      LLVM_DEBUG(Logger->logInfoln("skipping intrinsic " + std::string(FunctionName)));
+    case Intrinsic::memcpy: handleMemCpyIntrinsics(CB); break;
+    default: LLVM_DEBUG(Logger->logInfoln("skipping intrinsic " + std::string(FunctionName)));
     }
   }
   else {

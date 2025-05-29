@@ -59,5 +59,5 @@ void ValueRangeAnalysisPass::processModule(CodeInterpreter& CodeInt, Module& M) 
   }
 
   if (!FoundVisitableFunction)
-    LLVM_DEBUG(log() << DEBUG_HEAD << " No visitable functions found.\n");
+    LLVM_DEBUG(log() << " No visitable functions found.\n");
 }

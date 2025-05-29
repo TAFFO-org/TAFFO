@@ -122,8 +122,13 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         if (!root)
           continue;
         LLVM_DEBUG(
-          Logger->lineHead();
-          log() << " Considering input valueInfo of " << inst << " (weight=" << weight << ")\n");
+          taffo::Logger& logger = log();
+          logger.log("[Value] ", Logger::Bold);
+          logger.logln(inst);
+          auto indenter = logger.getIndenter();
+          indenter.increaseIndent();
+          logger << "valueInfo: " << valueInfo << "\n";
+          logger << "weight: " << weight << "\n");
         if (auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
           if (isValidRange(scalarInfo->range.get()))
             UserInput[&inst] = scalarInfo;

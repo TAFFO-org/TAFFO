@@ -28,7 +28,7 @@ bool MemToRegPass::promoteMemoryToRegister(Function& f,
 
     // Find allocas that are safe to promote, by looking at all instructions in the entry node
     for (Instruction& inst : bb)
-      if (AllocaInst* allocaInst = dyn_cast<AllocaInst>(&inst))
+      if (auto* allocaInst = dyn_cast<AllocaInst>(&inst))
         if (isAllocaPromotable(allocaInst))
           allocas.push_back(allocaInst);
 

@@ -314,7 +314,7 @@ std::string TransparentStructType::toString() const {
     ss << *fieldType;
   }
 
-  ss << " }>" << std::string(indirections, '*');
+  ss << " }" << std::string(indirections, '*');
   return ss.str();
 }
 

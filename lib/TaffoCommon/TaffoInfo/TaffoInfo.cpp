@@ -326,6 +326,8 @@ void TaffoInfo::initialize(Module& m) {
   structPaddingInfo = MetadataManager::getStructPaddingInfo(m);
   dataLayout = &m.getDataLayout();
   jsonRepresentation.clear();
+
+  LLVM_DEBUG(log().restorePrevContextTag());
 }
 
 void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
@@ -341,6 +343,7 @@ void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
 
   LLVM_DEBUG(
     Logger& logger = log();
+    logger.setContextTag(logContextTag);
     logger.logln("Initialized from file " + filePath);
     logger.restorePrevContextTag(););
 }

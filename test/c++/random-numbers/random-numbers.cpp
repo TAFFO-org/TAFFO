@@ -9,6 +9,7 @@ int main() {
   std::uniform_real_distribution distA(-3000.0, 3000.0);
   std::uniform_real_distribution distB(-10.0, 10.0);
 
+  std::cout << "Values Begin\n";
   for (std::size_t i = 0; i < iterations; i++) {
     __attribute((annotate("scalar(range(-3000, 3000))"))) double a = distA(gen);
     __attribute((annotate("scalar(range(-10, 10))"))) double b = distB(gen);
@@ -19,5 +20,6 @@ int main() {
 
     std::cout << add << "\n" << sub << "\n" << mul << "\n\n";
   }
+  std::cout << "Values End\n";
   return 0;
 }
