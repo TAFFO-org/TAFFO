@@ -7,8 +7,8 @@ cmake-build-*/
 # test executables, results and temp files
 test/**/*-float
 test/**/*-taffo
-test/**/*float-res*
-test/**/*taffo-res*
+test/**/*res-float*
+test/**/*res-taffo*
 test/**/*.log
 test/**/*.csv
 test/**/*.json
