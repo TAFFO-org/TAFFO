@@ -455,6 +455,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     tests_dir = Path(args.tests_dir)
+    ignore_dir = tests_dir / ".ignore"
 
     if args.only:
         names = set(args.only.split(','))
@@ -463,7 +464,9 @@ if __name__ == '__main__':
         for name in names:
             matches = [
                 p for p in tests_dir.rglob(name)
-                if p.is_dir() and ((p/f"{name}.c").exists() or (p/f"{name}.cpp").exists())
+                if p.is_dir()
+                   and not p.is_relative_to(ignore_dir)
+                   and ((p/f"{name}.c").exists() or (p/f"{name}.cpp").exists())
             ]
             if not matches:
                 print(f"Warning: no benchmark directory found for '{name}'", file=sys.stderr)
@@ -472,7 +475,9 @@ if __name__ == '__main__':
     else:
         only = [
             p for p in tests_dir.rglob('*')
-            if p.is_dir() and ((p/f"{p.name}.c").exists() or (p/f"{p.name}.cpp").exists())
+            if p.is_dir()
+               and not p.is_relative_to(ignore_dir)
+               and ((p/f"{p.name}.c").exists() or (p/f"{p.name}.cpp").exists())
         ]
 
     # compute padding for aligned status output
