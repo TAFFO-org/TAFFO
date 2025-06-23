@@ -47,16 +47,44 @@ STATISTIC(NumSingleStore, "Number of alloca's promoted with a single store");
 STATISTIC(NumDeadAlloca, "Number of dead alloca's removed");
 STATISTIC(NumPHIInsert, "Number of PHI nodes inserted");
 
+static void propagateTaffoInfo(Value& src, Value& dst) {
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  if (taffoInfo.hasValueInfo(src)) {
+    taffoInfo.setValueInfo(dst, taffoInfo.getValueInfo(src)->clone());
+    LLVM_DEBUG(
+      Logger& logger = log();
+      auto indenter = logger.getIndenter();
+      logger.logln("[Copied valueInfo]", Logger::Bold);
+      indenter.increaseIndent();
+      logger << "from: " << src << "\n";
+      logger << "to:  " << dst << "\n";);
+  }
+  if (taffoInfo.hasTransparentType(src)) {
+    std::shared_ptr<TransparentType> srcType = taffoInfo.getTransparentType(src);
+    std::shared_ptr<TransparentType> dstType = srcType;
+    if (src.getType()->isPointerTy() and !dst.getType()->isPointerTy())
+      dstType = dstType->getPointedType();
+    taffoInfo.setTransparentType(dst, dstType);
+    LLVM_DEBUG(
+      Logger& logger = log();
+      auto indenter = logger.getIndenter();
+      logger.logln("[Copied transparentType]", Logger::Bold);
+      indenter.increaseIndent();
+      logger << "from: " << src << "\n";
+      logger << "to:  " << dst << "\n";);
+  }
+}
+
 bool taffo::isAllocaPromotable(const AllocaInst* allocaInst) {
   // Only allow direct and non-volatile loads and stores...
   for (const User* user : allocaInst->users()) {
-    if (const LoadInst* loadInst = dyn_cast<LoadInst>(user)) {
+    if (const auto* loadInst = dyn_cast<LoadInst>(user)) {
       // Note that atomic loads can be transformed; atomic semantics do
       // not have any meaning for a local alloca.
       if (loadInst->isVolatile())
         return false;
     }
-    else if (const StoreInst* storeInst = dyn_cast<StoreInst>(user)) {
+    else if (const auto* storeInst = dyn_cast<StoreInst>(user)) {
       if (storeInst->getValueOperand() == allocaInst
           || storeInst->getValueOperand()->getType() != allocaInst->getAllocatedType())
         return false; // Don't allow a store OF the AI, only INTO the AI.
@@ -65,21 +93,21 @@ bool taffo::isAllocaPromotable(const AllocaInst* allocaInst) {
       if (storeInst->isVolatile())
         return false;
     }
-    else if (const IntrinsicInst* intrinsicInst = dyn_cast<IntrinsicInst>(user)) {
+    else if (const auto* intrinsicInst = dyn_cast<IntrinsicInst>(user)) {
       if (!intrinsicInst->isLifetimeStartOrEnd() && !intrinsicInst->isDroppable())
         return false;
     }
-    else if (const BitCastInst* bitCastInst = dyn_cast<BitCastInst>(user)) {
+    else if (const auto* bitCastInst = dyn_cast<BitCastInst>(user)) {
       if (!onlyUsedByLifetimeMarkersOrDroppableInsts(bitCastInst))
         return false;
     }
-    else if (const GetElementPtrInst* gepInst = dyn_cast<GetElementPtrInst>(user)) {
+    else if (const auto* gepInst = dyn_cast<GetElementPtrInst>(user)) {
       if (!gepInst->hasAllZeroIndices())
         return false;
       if (!onlyUsedByLifetimeMarkersOrDroppableInsts(gepInst))
         return false;
     }
-    else if (const AddrSpaceCastInst* addrSpaceCastInst = dyn_cast<AddrSpaceCastInst>(user)) {
+    else if (const auto* addrSpaceCastInst = dyn_cast<AddrSpaceCastInst>(user)) {
       if (!onlyUsedByLifetimeMarkers(addrSpaceCastInst))
         return false;
     }
@@ -87,7 +115,6 @@ bool taffo::isAllocaPromotable(const AllocaInst* allocaInst) {
       return false;
     }
   }
-
   return true;
 }
 
@@ -120,10 +147,10 @@ struct AllocaInfo {
     clear();
 
     // As we scan the uses of the alloca instruction, keep track of stores,
-    // and decide whether all of the loads and stores to the alloca are within
+    // and decide whether all the loads and stores to the alloca are within
     // the same basic block.
     for (User* U : AI->users()) {
-      Instruction* User = cast<Instruction>(U);
+      auto* User = cast<Instruction>(U);
 
       if (StoreInst* SI = dyn_cast<StoreInst>(User)) {
         // Remember the basic blocks which define new values for the alloca
@@ -283,18 +310,18 @@ private:
                            SmallPtrSetImpl<BasicBlock*>& LiveInBlocks);
   void RenamePass(BasicBlock* BB,
                   BasicBlock* Pred,
-                  RenamePassData::ValVector& IncVals,
-                  RenamePassData::LocationVector& IncLocs,
+                  RenamePassData::ValVector& IncomingVals,
+                  RenamePassData::LocationVector& IncomingLocs,
                   std::vector<RenamePassData>& Worklist);
-  bool QueuePhiNode(BasicBlock* BB, unsigned AllocaIdx, unsigned& Version);
+  bool QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& Version);
 };
 
-} // end anonymous namespace
+} // anonymous namespace
 
 /// Given a LoadInst LI this adds assume(LI != null) after it.
 static void addAssumeNonNull(AssumptionCache* AC, LoadInst* LI) {
   Function* AssumeIntrinsic = Intrinsic::getDeclaration(LI->getModule(), Intrinsic::assume);
-  ICmpInst* LoadNotNull = new ICmpInst(ICmpInst::ICMP_NE, LI, Constant::getNullValue(LI->getType()));
+  auto* LoadNotNull = new ICmpInst(ICmpInst::ICMP_NE, LI, Constant::getNullValue(LI->getType()));
   LoadNotNull->insertAfter(LI);
   CallInst* CI = CallInst::Create(AssumeIntrinsic, {LoadNotNull});
   CI->insertAfter(LoadNotNull);
@@ -306,13 +333,13 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
   // instructions except for load and store.
 
   for (Use& U : make_early_inc_range(AI->uses())) {
-    Instruction* I = cast<Instruction>(U.getUser());
+    auto* I = cast<Instruction>(U.getUser());
     if (isa<LoadInst>(I) || isa<StoreInst>(I))
       continue;
 
     // Drop the use of AI in droppable instructions.
     if (I->isDroppable()) {
-      I->dropDroppableUse(U);
+      Instruction::dropDroppableUse(U);
       continue;
     }
 
@@ -321,11 +348,11 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
       // Follow the use/def chain to erase them now instead of leaving it for
       // dead code elimination later.
       for (Use& UU : make_early_inc_range(I->uses())) {
-        Instruction* Inst = cast<Instruction>(UU.getUser());
+        auto* Inst = cast<Instruction>(UU.getUser());
 
         // Drop the use of I in droppable instructions.
         if (Inst->isDroppable()) {
-          Inst->dropDroppableUse(UU);
+          Instruction::dropDroppableUse(UU);
           continue;
         }
         TaffoInfo::getInstance().eraseValue(Inst);
@@ -354,10 +381,10 @@ static bool rewriteSingleStoreAlloca(
   Info.UsingBlocks.clear();
 
   for (User* U : make_early_inc_range(AI->users())) {
-    Instruction* UserInst = cast<Instruction>(U);
+    auto* UserInst = cast<Instruction>(U);
     if (UserInst == OnlyStore)
       continue;
-    LoadInst* LI = cast<LoadInst>(UserInst);
+    auto* LI = cast<LoadInst>(UserInst);
 
     // Okay, if we have a load from the alloca, we want to replace it with the
     // only value stored to the alloca.  We can do this if the value is
@@ -369,9 +396,9 @@ static bool rewriteSingleStoreAlloca(
         // indices of the two instructions to see which one came first.  If the
         // load came before the store, we can't handle it.
         if (StoreIndex == -1)
-          StoreIndex = LBI.getInstructionIndex(OnlyStore);
+          StoreIndex = static_cast<int>(LBI.getInstructionIndex(OnlyStore));
 
-        if (unsigned(StoreIndex) > LBI.getInstructionIndex(LI)) {
+        if (static_cast<unsigned>(StoreIndex) > LBI.getInstructionIndex(LI)) {
           // Can't handle this load, bail out.
           Info.UsingBlocks.push_back(StoreBB);
           continue;
@@ -399,6 +426,7 @@ static bool rewriteSingleStoreAlloca(
     if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
       addAssumeNonNull(AC, LI);
 
+    propagateTaffoInfo(*LI, *ReplVal);
     LI->replaceAllUsesWith(ReplVal);
     TaffoInfo::getInstance().eraseValue(LI);
     LBI.deleteValue(LI);
@@ -460,7 +488,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
   StoresByIndexTy StoresByIndex;
 
   for (User* U : AI->users())
-    if (StoreInst* SI = dyn_cast<StoreInst>(U))
+    if (auto* SI = dyn_cast<StoreInst>(U))
       StoresByIndex.push_back(std::make_pair(LBI.getInstructionIndex(SI), SI));
 
   // Sort the stores by their index, making it efficient to do a lookup with a
@@ -470,7 +498,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
   // Walk all of the loads from this alloca, replacing them with the nearest
   // store above them, if any.
   for (User* U : make_early_inc_range(AI->users())) {
-    LoadInst* LI = dyn_cast<LoadInst>(U);
+    auto* LI = dyn_cast<LoadInst>(U);
     if (!LI)
       continue;
 
@@ -501,6 +529,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
       if (ReplVal == LI)
         ReplVal = PoisonValue::get(LI->getType());
 
+      propagateTaffoInfo(*LI, *ReplVal);
       LI->replaceAllUsesWith(ReplVal);
     }
 
@@ -510,7 +539,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
 
   // Remove the (now dead) stores and alloca.
   while (!AI->use_empty()) {
-    StoreInst* SI = cast<StoreInst>(AI->user_back());
+    auto* SI = cast<StoreInst>(AI->user_back());
     // Record debuginfo for the store before removing it.
     for (DbgVariableIntrinsic* DII : Info.DbgUsers) {
       if (DII->isAddressOfVariable()) {
@@ -693,6 +722,7 @@ void PromoteMemToReg::run() {
       Value* V = SimplifyInstruction(PN, SQ);
 #endif
       if (V) {
+        propagateTaffoInfo(*PN, *V);
         PN->replaceAllUsesWith(V);
         TaffoInfo::getInstance().eraseValue(PN);
         NewPhiNodes.erase(I++);
@@ -708,17 +738,15 @@ void PromoteMemToReg::run() {
   // hasn't traversed.  If this is the case, the PHI nodes may not
   // have incoming values for all predecessors.  Loop over all PHI nodes we have
   // created, inserting undef values if they are missing any incoming values.
-  for (DenseMap<std::pair<unsigned, unsigned>, PHINode*>::iterator I = NewPhiNodes.begin(), E = NewPhiNodes.end();
-       I != E;
-       ++I) {
+  for (auto& NewPhiNode : NewPhiNodes) {
     // We want to do this once per basic block.  As such, only process a block
     // when we find the PHI that is the first entry in the block.
-    PHINode* SomePHI = I->second;
+    PHINode* SomePHI = NewPhiNode.second;
     BasicBlock* BB = SomePHI->getParent();
     if (&BB->front() != SomePHI)
       continue;
 
-    // Only do work here if there the PHI nodes are missing incoming values.  We
+    // Only do work here if there, the PHI nodes are missing incoming values. We
     // know that all PHI nodes that were inserted in a block will have the same
     // number of incoming values, so we can just check any of them.
     if (SomePHI->getNumIncomingValues() == getNumPreds(BB))
@@ -727,7 +755,7 @@ void PromoteMemToReg::run() {
     // Get the preds for BB.
     SmallVector<BasicBlock*, 16> Preds(predecessors(BB));
 
-    // Ok, now we know that all of the PHI nodes are missing entries for some
+    // Ok, now we know that all the PHI nodes are missing entries for some
     // basic blocks.  Start by sorting the incoming predecessors for efficient
     // access.
     auto CompareBBNumbers = [this](BasicBlock* A, BasicBlock* B) {
@@ -739,7 +767,7 @@ void PromoteMemToReg::run() {
     // them from the Preds list.
     for (unsigned i = 0, e = SomePHI->getNumIncomingValues(); i != e; ++i) {
       // Do a log(n) search of the Preds list for the entry we want.
-      SmallVectorImpl<BasicBlock*>::iterator EntIt = lower_bound(Preds, SomePHI->getIncomingBlock(i), CompareBBNumbers);
+      auto EntIt = lower_bound(Preds, SomePHI->getIncomingBlock(i), CompareBBNumbers);
       assert(EntIt != Preds.end() && *EntIt == SomePHI->getIncomingBlock(i)
              && "PHI node has entry for a block which is not a predecessor!");
 
@@ -788,7 +816,7 @@ void PromoteMemToReg::ComputeLiveInBlocks(AllocaInst* AI,
     // Okay, this is a block that both uses and defines the value.  If the first
     // reference to the alloca is a def (store), then we know it isn't live-in.
     for (BasicBlock::iterator I = BB->begin();; ++I) {
-      if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
+      if (auto* SI = dyn_cast<StoreInst>(I)) {
         if (SI->getOperand(1) != AI)
           continue;
 
@@ -801,7 +829,7 @@ void PromoteMemToReg::ComputeLiveInBlocks(AllocaInst* AI,
         break;
       }
 
-      if (LoadInst* LI = dyn_cast<LoadInst>(I))
+      if (auto* LI = dyn_cast<LoadInst>(I))
         // Okay, we found a load before a store to the alloca.  It is actually
         // live into this block.
         if (LI->getOperand(0) == AI)
@@ -851,35 +879,14 @@ bool PromoteMemToReg::QueuePhiNode(BasicBlock* BB, unsigned AllocaNo, unsigned& 
   ++NumPHIInsert;
   PhiToAllocaMap[PN] = AllocaNo;
 
-  // TAFFO-SPECIFIC: Transfer info from the alloca to the phi node
-  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-  if (taffoInfo.hasValueInfo(*A)) {
-    taffoInfo.setValueInfo(*PN, taffoInfo.getValueInfo(*A)->clone());
-    LLVM_DEBUG(
-      Logger& logger = log();
-      auto indenter = logger.getIndenter();
-      logger.logln("[Copied valueInfo]", Logger::Bold);
-      indenter.increaseIndent();
-      logger << "from alloca: " << *A << "\n";
-      logger << "to new phi:  " << *PN << "\n";);
-  }
-  if (taffoInfo.hasTransparentType(*A)) {
-    taffoInfo.setTransparentType(*PN, taffoInfo.getTransparentType(*A)->getPointedType());
-    LLVM_DEBUG(
-      Logger& logger = log();
-      auto indenter = logger.getIndenter();
-      logger.logln("[Copied transparentType]", Logger::Bold);
-      indenter.increaseIndent();
-      logger << "from alloca: " << *A << "\n";
-      logger << "to new phi:  " << *PN << "\n";);
-  }
+  propagateTaffoInfo(*A, *PN);
 
   return true;
 }
 
 /// Update the debug location of a phi. \p ApplyMergedLoc indicates whether to
 /// create a merged location incorporating \p DL, or to set \p DL directly.
-static void updateForIncomingValueLocation(PHINode* PN, DebugLoc DL, bool ApplyMergedLoc) {
+static void updateForIncomingValueLocation(PHINode* PN, const DebugLoc& DL, bool ApplyMergedLoc) {
   if (ApplyMergedLoc)
     PN->applyMergedLocation(PN->getDebugLoc(), DL);
   else
@@ -899,7 +906,7 @@ void PromoteMemToReg::RenamePass(BasicBlock* BB,
 NextIteration:
   // If we are inserting any phi nodes into this BB, they will already be in the
   // block.
-  if (PHINode* APN = dyn_cast<PHINode>(BB->begin())) {
+  if (auto* APN = dyn_cast<PHINode>(BB->begin())) {
     // If we have PHI nodes to update, compute the number of edges from Pred to
     // BB.
     if (PhiToAllocaMap.count(APN)) {
@@ -952,8 +959,8 @@ NextIteration:
   for (BasicBlock::iterator II = BB->begin(); !II->isTerminator();) {
     Instruction* I = &*II++; // get the instruction, increment iterator
 
-    if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
-      AllocaInst* Src = dyn_cast<AllocaInst>(LI->getPointerOperand());
+    if (auto* LI = dyn_cast<LoadInst>(I)) {
+      auto* Src = dyn_cast<AllocaInst>(LI->getPointerOperand());
       if (!Src)
         continue;
 
@@ -970,13 +977,14 @@ NextIteration:
         addAssumeNonNull(AC, LI);
 
       // Anything using the load now uses the current value.
+      propagateTaffoInfo(*LI, *V);
       LI->replaceAllUsesWith(V);
       TaffoInfo::getInstance().eraseValue(LI);
     }
-    else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
+    else if (auto* SI = dyn_cast<StoreInst>(I)) {
       // Delete this instruction and mark the name as the current holder of the
       // value
-      AllocaInst* Dest = dyn_cast<AllocaInst>(SI->getPointerOperand());
+      auto* Dest = dyn_cast<AllocaInst>(SI->getPointerOperand());
       if (!Dest)
         continue;
 

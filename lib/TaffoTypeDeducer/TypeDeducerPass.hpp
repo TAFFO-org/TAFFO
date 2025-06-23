@@ -20,9 +20,10 @@ private:
   llvm::DenseMap<llvm::Value*, CandidateSet> candidateTypes;
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
 
-  std::shared_ptr<TransparentType> deducePointerType(llvm::Value* value);
-  std::shared_ptr<TransparentType> deduceFunctionPointerType(llvm::Function* function);
-  std::shared_ptr<TransparentType> deduceArgumentPointerType(llvm::Argument* argument);
+  bool deducePointerType(llvm::Value* value, std::shared_ptr<TransparentType> currentDeducedType = nullptr);
+  CandidateSet deduceValuePointerType(llvm::Value* value);
+  CandidateSet deduceFunctionPointerType(llvm::Function* function);
+  CandidateSet deduceArgumentPointerType(llvm::Argument* argument);
   std::shared_ptr<TransparentType> getDeducedType(llvm::Value* value) const;
   std::shared_ptr<TransparentType> getBestCandidateType(const CandidateSet& candidates) const;
 

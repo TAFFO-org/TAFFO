@@ -14,10 +14,6 @@ namespace taffo {
 class FixedPointScalarType;
 class FixedPointStructType;
 
-} // namespace taffo
-
-namespace taffo {
-
 class TransparentType;
 
 class TransparentTypeFactory {
@@ -151,6 +147,8 @@ public:
   int compareTransparency(const TransparentType& other) const override;
   std::shared_ptr<TransparentType> getFieldType(unsigned i) const { return fieldTypes[i]; }
   unsigned getNumFieldTypes() const { return fieldTypes.size(); }
+  bool isFieldPadding(unsigned i) const { return llvm::is_contained(paddingFields, i); }
+  unsigned getNumPaddingFields() const { return paddingFields.size(); }
   llvm::SmallPtrSet<llvm::Type*, 4> getContainedTypes() const override;
   TransparentTypeKind getKind() const override { return K_Struct; }
 
@@ -162,21 +160,20 @@ public:
   void deserialize(const json& j) override;
 
 private:
-  llvm::SmallVector<std::shared_ptr<TransparentType>, 2> fieldTypes;
+  llvm::SmallVector<std::shared_ptr<TransparentType>, 8> fieldTypes;
+  llvm::SmallVector<unsigned> paddingFields;
 
   TransparentStructType() = default;
 
   TransparentStructType(const TransparentStructType& other)
   : TransparentType(other) {
-    for (auto field : other.fieldTypes)
+    for (const auto& field : other.fieldTypes)
       fieldTypes.push_back(field->clone());
+    for (const auto& paddingFieldIdx : other.paddingFields)
+      paddingFields.push_back(paddingFieldIdx);
   }
 
-  TransparentStructType(llvm::StructType* unwrappedType, unsigned indirections)
-  : TransparentType(unwrappedType, indirections) {
-    for (llvm::Type* fieldType : unwrappedType->elements())
-      fieldTypes.push_back(TransparentTypeFactory::create(fieldType, 0));
-  }
+  TransparentStructType(llvm::StructType* unwrappedType, unsigned indirections);
 
   void setFieldType(unsigned i, std::shared_ptr<TransparentType> fieldType) { fieldTypes[i] = fieldType; }
 };

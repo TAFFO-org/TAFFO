@@ -42,14 +42,15 @@ def print_tables(table):
         df.to_string(
             columns=[
                 "name", "speedup", "compile_time",
-                "rel_err", "abs_err", "pvalue"
+                "mean_rel_err(wMAPE)", "mean_abs_err", "max_abs_err", "pvalue"
             ],
             formatters={
-                "speedup": lambda x: f"{x:.2f}x",
-                "compile_time": lambda x: f"{x:.2f}s",
-                "rel_err": "{:.2%}".format,
-                "abs_err": "{:.2e}".format,
-                "pvalue": "{:.2e}".format
+                "speedup":             lambda x: f"{x:.2f}x",
+                "compile_time":        lambda x: f"{x:.2f}s",
+                "mean_rel_err(wMAPE)": "{:.2%}".format,
+                "mean_abs_err":        "{:.2e}".format,
+                "max_abs_err":         "{:.2e}".format,
+                "pvalue":              "{:.2e}".format
             }
         ),
         flush=True
@@ -101,9 +102,12 @@ def compile(path: Path, common_args: str, debug: bool):
     # discover source
     bench_name = path.name
     bench_src = bench_name
+    clang = CLANG
     for ext in (".c", ".cpp"):
         src = path / f"{bench_src}{ext}"
         if src.exists():
+            if ext == ".cpp":
+                clang += "++"
             bench_src = src
             break
     else:
@@ -114,7 +118,7 @@ def compile(path: Path, common_args: str, debug: bool):
 
     # float build
     float_exec = f"{path.name}-float"
-    clang_cmd = 'clang -Wno-error=implicit-function-declaration' if platform.system()=="Darwin" else CLANG
+    clang_cmd = f"{clang} -Wno-error=implicit-function-declaration" if platform.system()=="Darwin" else clang
     args_txt = (path / "args.txt").read_text().strip() if (path/"args.txt").exists() else ""
     cmd_f = f"{clang_cmd} {common_args} {args_txt} {bench_src} -o {float_exec} -lm"
     ok_f, log_f = build_variant(path, f"Compiling: {float_exec}", cmd_f)
@@ -146,7 +150,7 @@ def run(path: Path):
     bench_name = path.name
     ok_all = True
     inputs = sorted(path.glob("input*.txt"))
-    variants = [("float", "-float"), ("taffo", "-taffo")]
+    variants = ["-float", "-taffo"]
 
     def run_bench(cmd, path, bench_name):
         label = f"Running: {bench_name}".ljust(ACTION_PAD)
@@ -161,16 +165,16 @@ def run(path: Path):
     if inputs:
         for inp in inputs:
             suffix = inp.stem[len("input"):]  # e.g. "" or ".1" or ".2"
-            for name, var in variants:
-                out_f = f"{name}-res{suffix}"
+            for var in variants:
+                out_f = f"res{var}{suffix}"
                 cmd   = f"./{bench_name}{var} < {inp.name} > {out_f}"
                 ret = run_bench(cmd, path, bench_name + var + suffix)
                 if ret != 0:
                     ok_all = False
     else:
         # no input files
-        for name, var in variants:
-            out_f = f"{name}-res"
+        for var in variants:
+            out_f = f"res{var}"
             cmd   = f"./{bench_name}{var} > {out_f}"
             ret = run_bench(cmd, path, bench_name + var)
             if ret != 0:
@@ -190,18 +194,18 @@ def retrieveFiles(path: Path):
         for inp in inputs:
             # compute suffix ('' or '.1', '.2', etc.)
             suffix = inp.stem[len("input"):]
-            ffile = path / f"float-res{suffix}"
-            tfile = path / f"taffo-res{suffix}"
+            ffile = path / f"res-float{suffix}"
+            tfile = path / f"res-taffo{suffix}"
             if not ffile.exists() or not tfile.exists():
                 print(f"{Fore.RED}{Style.BRIGHT}ERR! missing results for suffix '{suffix}'{Style.RESET_ALL}")
                 continue
             results[suffix] = (ffile.read_text(), tfile.read_text())
     else:
         # fallback to the un-suffixed files
-        ffile = path / "float-res"
-        tfile = path / "taffo-res"
+        ffile = path / "res-float"
+        tfile = path / "res-taffo"
         if not ffile.exists() or not tfile.exists():
-            print(f"{Fore.RED}{Style.BRIGHT}ERR! missing float-res or taffo-res{Style.RESET_ALL}")
+            print(f"{Fore.RED}{Style.BRIGHT}ERR! missing res-float or res-taffo{Style.RESET_ALL}")
             return {}
         results[""] = (ffile.read_text(), tfile.read_text())
     return results
@@ -242,39 +246,45 @@ def getTime(files):
     return mean_f, mean_t
 
 def getData(files):
-    fblock = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[0]).group(1)
-    tblock = re.search(r"Values Begin\n([\s\S]*?)\nValues End", files[1]).group(1)
+    blocks: list[str] = []
+    for idx, text in enumerate(files):
+        match = re.search(r"Values Begin\n([\s\S]*?)\nValues End", text)
+        if match is None:
+            raise ValueError(f"Missing 'Values Begin ... Values End' block in test output ")
+        blocks.append(match.group(1))
+    fblock = blocks[0]
+    tblock = blocks[1]
 
-    abs_errs, rel_errs = [], []
+    abs_errs = []
     float_data, taffo_data = [], []
-    max_abs = max_rel = 0
-
+    max_abs = 0
+    cumulative_diff = 0
+    cumulative_float = 0
     for fv, tv in zip(fblock.splitlines(), tblock.splitlines()):
         # skip empty lines
         if not fv.strip() and not tv.strip():
             continue
+        # Absolute error
         fv_f, tv_f = float(fv), float(tv)
-        if fv_f == 0 or tv_f == 0:
-            continue
         diff = abs(tv_f - fv_f)
         abs_errs.append(diff)
-        rel = diff / abs(fv_f)
-        rel_errs.append(rel)
         max_abs = max(max_abs, diff)
-        max_rel = max(max_rel, rel)
+        # Relative error (wMAPE)
+        cumulative_diff += diff
+        cumulative_float += abs(fv_f)
+        # PValue
         float_data.append(fv_f)
         taffo_data.append(tv_f)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        pval = sc.stats.ks_2samp(float_data, taffo_data).pvalue
+        p_value = sc.stats.ks_2samp(float_data, taffo_data).pvalue
 
     return {
-        "abs_err": np.mean(abs_errs),
-        "max_abs": max_abs,
-        "rel_err": np.mean(rel_errs),
-        "max_rel": max_rel,
-        "pvalue": pval,
+        "mean_abs_err": np.mean(abs_errs),
+        "max_abs_err": max_abs,
+        "mean_rel_err(wMAPE)": cumulative_diff / cumulative_float,
+        "pvalue": p_value,
     }
 
 def ordereddiff(path: Path):
@@ -445,6 +455,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     tests_dir = Path(args.tests_dir)
+    ignore_dir = tests_dir / ".ignore"
 
     if args.only:
         names = set(args.only.split(','))
@@ -453,7 +464,9 @@ if __name__ == '__main__':
         for name in names:
             matches = [
                 p for p in tests_dir.rglob(name)
-                if p.is_dir() and ((p/f"{name}.c").exists() or (p/f"{name}.cpp").exists())
+                if p.is_dir()
+                   and not p.is_relative_to(ignore_dir)
+                   and ((p/f"{name}.c").exists() or (p/f"{name}.cpp").exists())
             ]
             if not matches:
                 print(f"Warning: no benchmark directory found for '{name}'", file=sys.stderr)
@@ -462,7 +475,9 @@ if __name__ == '__main__':
     else:
         only = [
             p for p in tests_dir.rglob('*')
-            if p.is_dir() and ((p/f"{p.name}.c").exists() or (p/f"{p.name}.cpp").exists())
+            if p.is_dir()
+               and not p.is_relative_to(ignore_dir)
+               and ((p/f"{p.name}.c").exists() or (p/f"{p.name}.cpp").exists())
         ]
 
     # compute padding for aligned status output

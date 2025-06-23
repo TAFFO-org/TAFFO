@@ -1,14 +1,13 @@
 #include "TaffoConversion/TaffoConversion/ConversionPass.hpp"
 #include "TaffoDTA/TaffoDTA/DataTypeAllocationPass.hpp"
 #include "TaffoInitializer/TaffoInitializer/InitializerPass.hpp"
+#include "TaffoMemToReg/MemToRegPass.hpp"
 #include "TaffoTypeDeducer/TypeDeducerPass.hpp"
 #include "TaffoVRA/TaffoVRA/ValueRangeAnalysisPass.hpp"
 
 #include <llvm/IR/PassManager.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/PassPlugin.h>
-// #include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
-#include "TaffoMemToReg/MemToRegPass.hpp"
 
 using namespace llvm;
 using namespace taffo;
@@ -25,21 +24,18 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
                   passManager.addPass(InitializerPass());
                   return true;
                 }
-                else if (name == "taffovra") {
+                if (name == "taffovra") {
                   passManager.addPass(ValueRangeAnalysisPass());
                   return true;
                 }
-                else if (name == "taffodta") {
+                if (name == "taffodta") {
                   passManager.addPass(tuner::DataTypeAllocationPass());
                   return true;
                 }
-                else if (name == "taffoconv") {
+                if (name == "taffoconv") {
                   passManager.addPass(Conversion());
                   return true;
-                } /*else if (Name == "taffoerr") {
-                  PM.addPass(ErrorProp::ErrorPropagator());
-                  return true;
-                }*/
+                }
                 return false;
               });
             passBuilder.registerPipelineParsingCallback(

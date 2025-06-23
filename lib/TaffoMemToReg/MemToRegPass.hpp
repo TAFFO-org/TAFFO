@@ -15,6 +15,8 @@ private:
   bool promoteMemoryToRegister(llvm::Function& f,
                                llvm::DominatorTree& dominatorTree,
                                llvm::AssumptionCache& assumptionCache);
+
+  std::string logContextTag = "MemToReg";
 };
 
 } // namespace taffo

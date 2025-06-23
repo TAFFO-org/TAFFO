@@ -17,7 +17,7 @@ bool containsPtrType(Type* type) {
     return type->isPointerTy();
   if (type->isArrayTy())
     return containsPtrType(type->getArrayElementType());
-  if (StructType* structType = dyn_cast<StructType>(type)) {
+  if (auto* structType = dyn_cast<StructType>(type)) {
     for (Type* fieldType : structType->elements())
       if (containsPtrType(fieldType))
         return true;
@@ -182,7 +182,7 @@ std::string TransparentArrayType::toString() const {
   if (!unwrappedType || !elementType)
     return "InvalidType";
   std::stringstream ss;
-  ss << "[" << *elementType << "]";
+  ss << "[" << unwrappedType->getArrayNumElements() << " x " << *elementType << "]";
   ss << std::string(indirections, '*');
   return ss.str();
 }
@@ -197,6 +197,24 @@ json TransparentArrayType::serialize() const {
 void TransparentArrayType::deserialize(const json& j) {
   TransparentType::deserialize(j);
   elementType = TransparentTypeFactory::create(j["elementType"]);
+}
+
+TransparentStructType::TransparentStructType(StructType* unwrappedType, unsigned indirections)
+: TransparentType(unwrappedType, indirections) {
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  std::optional<StructPaddingInfo> structPaddingInfo = taffoInfo.getStructPaddingInfo(unwrappedType);
+  ArrayRef<StructPaddingInfo::ByteRange> paddingRanges =
+    structPaddingInfo ? structPaddingInfo->getPaddingRanges() : llvm::ArrayRef<StructPaddingInfo::ByteRange>();
+  const StructLayout* structLayout = taffoInfo.getDataLayout()->getStructLayout(unwrappedType);
+  for (unsigned i = 0; i < unwrappedType->getNumElements(); i++) {
+    bool isPadding = std::ranges::any_of(paddingRanges, [&structLayout, i](const StructPaddingInfo::ByteRange& range) {
+      return structLayout->getElementOffset(i) == range.first;
+    });
+    if (isPadding)
+      paddingFields.push_back(i);
+    Type* fieldType = unwrappedType->getElementType(i);
+    fieldTypes.push_back(TransparentTypeFactory::create(fieldType, 0));
+  }
 }
 
 bool TransparentStructType::isOpaquePointer() const {
@@ -235,7 +253,7 @@ int TransparentStructType::compareTransparency(const TransparentType& other) con
     if (overallResult == 0)
       overallResult = cmp;
     else if ((overallResult > 0 && cmp < 0) || (overallResult < 0 && cmp > 0))
-      return 0; // conflicting fields' comparisons result in equal transparency
+      return 0; // Conflicting fields' comparisons result in equal transparency
   }
   return overallResult;
 }
@@ -243,8 +261,8 @@ int TransparentStructType::compareTransparency(const TransparentType& other) con
 SmallPtrSet<Type*, 4> TransparentStructType::getContainedTypes() const {
   SmallPtrSet<Type*, 4> containedTypes = TransparentType::getContainedTypes();
   for (auto& field : *this) {
-    SmallPtrSet<Type*, 4> elementContaineTypes = field->getContainedTypes();
-    containedTypes.insert(elementContaineTypes.begin(), elementContaineTypes.end());
+    SmallPtrSet<Type*, 4> elementContainedTypes = field->getContainedTypes();
+    containedTypes.insert(elementContainedTypes.begin(), elementContainedTypes.end());
   }
   return containedTypes;
 }
@@ -285,11 +303,14 @@ std::string TransparentStructType::toString() const {
   ss << typeString.substr(0, typeString.find('{') + 1) << " ";
 
   bool first = true;
-  for (const auto& fieldType : fieldTypes) {
+  for (unsigned i = 0; i < fieldTypes.size(); i++) {
+    const auto& fieldType = fieldTypes[i];
     if (!first)
       ss << ", ";
     else
       first = false;
+    if (isFieldPadding(i))
+      ss << "pad";
     ss << *fieldType;
   }
 
@@ -303,6 +324,9 @@ json TransparentStructType::serialize() const {
   j["fieldTypes"] = json::array();
   for (const auto& field : fieldTypes)
     j["fieldTypes"].push_back(field ? field->serialize() : nullptr);
+  j["paddingFields"] = json::array();
+  for (unsigned paddingFieldIdx : paddingFields)
+    j["paddingFields"].push_back(paddingFieldIdx);
   return j;
 }
 
@@ -311,4 +335,6 @@ void TransparentStructType::deserialize(const json& j) {
   fieldTypes.clear();
   for (const auto& f : j["fieldTypes"])
     fieldTypes.push_back(TransparentTypeFactory::create(f));
+  for (unsigned paddingField : j["paddingFields"])
+    paddingFields.push_back(paddingField);
 }

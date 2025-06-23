@@ -13,10 +13,10 @@ using namespace llvm;
 using namespace taffo;
 
 PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
-  LLVM_DEBUG(
-    Logger& logger = log();
-    logger.logln("[TypeDeducerPass]", Logger::Magenta);
-    logger.logln("[Deduction iteration 0]", Logger::Blue););
+  LLVM_DEBUG(log().logln("[TypeDeducerPass]", Logger::Magenta));
+  taffoInfo.initialize(m);
+
+  LLVM_DEBUG(log().logln("[Deduction iteration 0]", Logger::Blue););
   for (Function& f : m) {
     if (f.isDeclaration()) {
       // Cannot deduce the type of a declaration: just save the transparent type of the value (could be opaque pointer)
@@ -25,10 +25,8 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
     }
     // Deduce instructions' types
     for (Instruction& inst : instructions(f)) {
-      if (inst.getType()->isPointerTy()) {
-        std::shared_ptr<TransparentType> deduced = deducePointerType(&inst);
-        deducedTypes.insert({&inst, deduced});
-      }
+      if (inst.getType()->isPointerTy())
+        deducePointerType(&inst);
       else // If there is nothing to deduce just save the transparent type of the value
         taffoInfo.setTransparentType(inst, TransparentTypeFactory::create(&inst));
       // Also save the transparent type of constants
@@ -38,26 +36,20 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
     }
     // Deduce function arguments' types
     for (Argument& arg : f.args())
-      if (arg.getType()->isPointerTy()) {
-        std::shared_ptr<TransparentType> deduced = deduceArgumentPointerType(&arg);
-        deducedTypes.insert({&arg, deduced});
-      }
+      if (arg.getType()->isPointerTy())
+        deducePointerType(&arg);
       else // If there is nothing to deduce just save the transparent type of the value
         taffoInfo.setTransparentType(arg, TransparentTypeFactory::create(&arg));
     // Deduce functions' types
-    if (f.getReturnType()->isPointerTy()) {
-      std::shared_ptr<TransparentType> deduced = deduceFunctionPointerType(&f);
-      deducedTypes.insert({&f, deduced});
-    }
+    if (f.getReturnType()->isPointerTy())
+      deducePointerType(&f);
     else // If there is nothing to deduce just save the transparent type of the value
       taffoInfo.setTransparentType(f, TransparentTypeFactory::create(&f));
   }
   // Deduce global values' types
   for (GlobalValue& globalValue : m.globals())
-    if (globalValue.getValueType()->isPointerTy()) {
-      std::shared_ptr<TransparentType> deduced = deducePointerType(&globalValue);
-      deducedTypes.insert({&globalValue, deduced});
-    }
+    if (globalValue.getValueType()->isPointerTy())
+      deducePointerType(&globalValue);
     else // If there is nothing to deduce just save the transparent type of the value
       taffoInfo.setTransparentType(globalValue, TransparentTypeFactory::create(&globalValue));
 
@@ -69,22 +61,8 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
                      << Logger::Reset);
     iterations++;
     deducedTypesChanged = false;
-    for (const auto& [value, deducedType] : deducedTypes)
-      if (!deducedType || deducedType->isOpaquePointer()) {
-        std::shared_ptr<TransparentType> newPointerType;
-        if (auto* function = dyn_cast<Function>(value))
-          newPointerType = deduceFunctionPointerType(function);
-        else if (auto* argument = dyn_cast<Argument>(value))
-          newPointerType = deduceArgumentPointerType(argument);
-        else
-          newPointerType = deducePointerType(value);
-        if (!newPointerType)
-          continue;
-        if (!deducedType || newPointerType != deducedType) {
-          deducedTypes[value] = newPointerType;
-          deducedTypesChanged = true;
-        }
-      }
+    for (const auto& [value, currentDeducedType] : deducedTypes)
+      deducedTypesChanged |= deducePointerType(value, currentDeducedType);
   }
   LLVM_DEBUG(log().logln("[Deduction completed]", Logger::Blue));
 
@@ -99,7 +77,31 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager&) {
   return PreservedAnalyses::all();
 }
 
-std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value) {
+bool TypeDeducerPass::deducePointerType(Value* value, std::shared_ptr<TransparentType> currentDeducedType) {
+  bool deducedTypesChanged = false;
+  if (!currentDeducedType)
+    currentDeducedType = deducedTypes[value];
+  if (currentDeducedType && !currentDeducedType->isOpaquePointer())
+    return false;
+  CandidateSet candidateTypes;
+  if (auto* function = dyn_cast<Function>(value))
+    candidateTypes = deduceFunctionPointerType(function);
+  else if (auto* argument = dyn_cast<Argument>(value))
+    candidateTypes = deduceArgumentPointerType(argument);
+  else
+    candidateTypes = deduceValuePointerType(value);
+  std::shared_ptr<TransparentType> newPointerType = getBestCandidateType(candidateTypes);
+  LLVM_DEBUG(logDeduction(value, newPointerType, candidateTypes));
+  if (!newPointerType)
+    return false;
+  if (!currentDeducedType || newPointerType != currentDeducedType) {
+    deducedTypes[value] = newPointerType;
+    deducedTypesChanged = true;
+  }
+  return deducedTypesChanged;
+}
+
+TypeDeducerPass::CandidateSet TypeDeducerPass::deduceValuePointerType(Value* value) {
   if (auto* globalValue = dyn_cast<GlobalValue>(value))
     assert(globalValue->getValueType()->isPointerTy()
            && "Trying to deduce the pointer type of a global value that is not pointer");
@@ -163,6 +165,11 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
       if (value == storeInst->getPointerOperand()) {
         std::shared_ptr<TransparentType> type = getDeducedType(storeInst->getValueOperand())->clone();
         type->incrementIndirections(1);
+        candidateTypes.insert(type);
+      }
+      if (value == storeInst->getValueOperand()) {
+        std::shared_ptr<TransparentType> type = getDeducedType(storeInst->getPointerOperand())->clone();
+        type->incrementIndirections(-1);
         candidateTypes.insert(type);
       }
     }
@@ -232,12 +239,10 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deducePointerType(Value* value
       }
     }
   }
-  std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(candidateTypes);
-  LLVM_DEBUG(logDeduction(value, bestCandidate, candidateTypes));
-  return bestCandidate;
+  return candidateTypes;
 }
 
-std::shared_ptr<TransparentType> TypeDeducerPass::deduceFunctionPointerType(Function* function) {
+TypeDeducerPass::CandidateSet TypeDeducerPass::deduceFunctionPointerType(Function* function) {
   assert(function->getReturnType()->isPointerTy()
          && "Trying to deduce the pointer type of a function that doesn't return a pointer");
 
@@ -247,12 +252,10 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deduceFunctionPointerType(Func
     if (auto* returnInst = dyn_cast<ReturnInst>(termInst))
       candidateTypes.insert(getDeducedType(returnInst->getReturnValue()));
   }
-  std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(candidateTypes);
-  LLVM_DEBUG(logDeduction(function, bestCandidate, candidateTypes));
-  return bestCandidate;
+  return candidateTypes;
 }
 
-std::shared_ptr<TransparentType> TypeDeducerPass::deduceArgumentPointerType(Argument* argument) {
+TypeDeducerPass::CandidateSet TypeDeducerPass::deduceArgumentPointerType(Argument* argument) {
   assert(argument->getType()->isPointerTy() && "Trying to deduce the pointer type of a argument that is not a pointer");
 
   CandidateSet& candidateTypes = this->candidateTypes[argument];
@@ -260,13 +263,12 @@ std::shared_ptr<TransparentType> TypeDeducerPass::deduceArgumentPointerType(Argu
   unsigned argIndex = argument->getArgNo();
   Function* parentF = argument->getParent();
   for (User* functionUser : parentF->users())
-    if (auto* callInst = dyn_cast<CallInst>(functionUser)) {
-      Value* value = callInst->getArgOperand(argIndex);
+    if (auto* callBase = dyn_cast<CallBase>(functionUser)) {
+      Value* value = callBase->getArgOperand(argIndex);
       candidateTypes.insert(getDeducedType(value));
     }
-  std::shared_ptr<TransparentType> bestCandidate = getBestCandidateType(candidateTypes);
-  LLVM_DEBUG(logDeduction(argument, bestCandidate, candidateTypes));
-  return bestCandidate;
+  candidateTypes.merge(deduceValuePointerType(argument));
+  return candidateTypes;
 }
 
 std::shared_ptr<TransparentType> TypeDeducerPass::getDeducedType(Value* value) const {

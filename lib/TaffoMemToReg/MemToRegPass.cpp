@@ -1,3 +1,4 @@
+#include "Debug/Logger.hpp"
 #include "MemToRegPass.hpp"
 #include "PromoteMemToReg.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
@@ -28,7 +29,7 @@ bool MemToRegPass::promoteMemoryToRegister(Function& f,
 
     // Find allocas that are safe to promote, by looking at all instructions in the entry node
     for (Instruction& inst : bb)
-      if (AllocaInst* allocaInst = dyn_cast<AllocaInst>(&inst))
+      if (auto* allocaInst = dyn_cast<AllocaInst>(&inst))
         if (isAllocaPromotable(allocaInst))
           allocas.push_back(allocaInst);
 
@@ -45,6 +46,8 @@ bool MemToRegPass::promoteMemoryToRegister(Function& f,
 PreservedAnalyses MemToRegPass::run(Function& f, FunctionAnalysisManager& analysisManager) {
   static bool initializedTaffoInfo = false;
 
+  LLVM_DEBUG(log().setContextTag(logContextTag));
+
   Module& m = *f.getParent();
   if (!initializedTaffoInfo) {
     TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", m);
@@ -53,10 +56,13 @@ PreservedAnalyses MemToRegPass::run(Function& f, FunctionAnalysisManager& analys
 
   auto& dominatorTree = analysisManager.getResult<DominatorTreeAnalysis>(f);
   auto& assumptionCache = analysisManager.getResult<AssumptionAnalysis>(f);
-  if (!promoteMemoryToRegister(f, dominatorTree, assumptionCache))
+  if (!promoteMemoryToRegister(f, dominatorTree, assumptionCache)) {
+    LLVM_DEBUG(log().restorePrevContextTag());
     return PreservedAnalyses::all();
+  }
 
   TaffoInfo::getInstance().dumpToFile("taffo_info_memToReg.json", m);
+  LLVM_DEBUG(log().restorePrevContextTag());
 
   PreservedAnalyses preservedAnalyses;
   preservedAnalyses.preserveSet<CFGAnalyses>();

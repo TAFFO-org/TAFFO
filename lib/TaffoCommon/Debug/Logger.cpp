@@ -83,7 +83,7 @@ raw_fd_ostream& Logger::getOutputStream() {
 
 void Logger::logIndent() {
   isLineStart = false;
-  ostream << std::string(indent, ' ');
   if (!contextTagStack.empty())
     log(contextTagStack.front(), Bold);
+  ostream << std::string(indent, ' ');
 }

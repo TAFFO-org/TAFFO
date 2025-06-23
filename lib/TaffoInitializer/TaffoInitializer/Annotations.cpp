@@ -108,7 +108,9 @@ void InitializerPass::readAndRemoveLocalAnnotations(Module& m) {
 void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationValue, bool* isStartingPoint) {
   auto* annotationContent = cast<GlobalVariable>(annotationValue);
   auto* annotationStrConstant = cast<ConstantDataSequential>(annotationContent->getInitializer());
-  StringRef annotationStr = annotationStrConstant->getAsString();
+  std::string annotationStr = annotationStrConstant->getAsString().str();
+  if (annotationStr.back() == 0)
+    annotationStr.pop_back();
 
   AnnotationParser parser;
   if (!parser.parseAnnotationAndGenValueInfo(annotationStr, annotatedValue)) {
