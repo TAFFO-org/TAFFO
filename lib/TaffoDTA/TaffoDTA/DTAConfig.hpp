@@ -17,6 +17,13 @@ extern llvm::cl::opt<std::string> UseFloat;
 extern llvm::cl::opt<std::string> BufferIDExport;
 extern llvm::cl::opt<std::string> BufferIDImport;
 
+enum DtaStrategyType {
+  fixedPointOnly,
+  floatingPointOnly,
+  fixedFloating
+};
+extern llvm::cl::opt<DtaStrategyType> DtaStrategy;
+
 #ifdef TAFFO_BUILD_ILP_DTA
 
 extern bool hasDouble;

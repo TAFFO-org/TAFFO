@@ -29,6 +29,14 @@ llvm::cl::opt<std::string> UseFloat(
   llvm::cl::desc("Uses the specified floating point type instead of fixed point. Options are f16, bf16, f32, f64."),
   llvm::cl::init(""));
 
+llvm::cl::opt<DtaStrategyType>
+  DtaStrategy("dtastrategy",
+              llvm::cl::desc("Chose data type allocation strategy (default is fixedpoint-only)"),
+              llvm::cl::values(clEnumValN(fixedPointOnly, "fixedpoint_only", "use only fixed point types"),
+                               clEnumValN(floatingPointOnly, "floatingpoint_only", "use only floating point types"),
+                               clEnumValN(fixedFloating, "fixed_floating", "use mixed strategy fixed + floating")),
+              llvm::cl::init(fixedPointOnly));
+
 llvm::cl::opt<std::string>
   BufferIDExport("bufferid-export", llvm::cl::desc("File where to export buffer ID types"), llvm::cl::init(""));
 llvm::cl::opt<std::string>

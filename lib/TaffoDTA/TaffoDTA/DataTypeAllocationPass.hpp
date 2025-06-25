@@ -39,6 +39,24 @@ public:
                                                const std::shared_ptr<taffo::FixedPointInfo>& fpu);
 };
 
+class floatingPointOnlyStrategy : public dataTypeAllocationStrategy {
+public:
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
+};
+
+class fixedFloatingPointStrategy : public dataTypeAllocationStrategy {
+public:
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
+};
+
 struct TunerInfo {
   std::shared_ptr<taffo::ValueInfo> metadata;
   std::shared_ptr<taffo::NumericTypeInfo> initialType;
@@ -100,6 +118,8 @@ public:
   void sortQueue(std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
 
   void mergeFixFormat(const std::vector<llvm::Value*>& vals, const llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+
+  double static getGreatest(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value, taffo::Range* rng);
 
 #ifdef TAFFO_BUILD_ILP_DTA
   void buildModelAndOptimze(llvm::Module& m,
