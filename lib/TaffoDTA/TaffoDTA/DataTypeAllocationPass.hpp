@@ -17,6 +17,19 @@
 
 namespace tuner {
 
+/* this is the core of the strategy pattern for each new strategy
+ * you should create a new class that inherits from dataTypeAllocationStrategy
+ * and implement the apply, merge and isMergeable methods.
+ * (the apply method is the actual strategy that will be applied to each value
+ * the isMergeable method decides if two values are mergeable and the merge methods
+ * decides how to merge them)
+ *
+ * When implementing a new strategy you should:
+ * - create a new class that inherits from dataTypeAllocationStrategy
+ * - implement the apply, merge and isMergeable methods
+ * - add a new entry in the strategyMap in DataTypeAllocationPass.cpp
+ * - add a new entry in the DtaStrategyType enum in DTAConfig.hpp and a new entry in the DtaStrategy in DTAConfig.cpp */
+
 class dataTypeAllocationStrategy {
 public:
   virtual ~dataTypeAllocationStrategy() {}
@@ -27,6 +40,7 @@ public:
                                                         const std::shared_ptr<taffo::NumericTypeInfo>& fpu) = 0;
 };
 
+// *** STRATEGIES DECLARATIONS ***
 class fixedPointOnlyStrategy : public dataTypeAllocationStrategy {
 public:
   virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
@@ -34,9 +48,6 @@ public:
                            std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
   virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
                                                         const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
-
-  std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
-                                               const std::shared_ptr<taffo::FixedPointInfo>& fpu);
 };
 
 class floatingPointOnlyStrategy : public dataTypeAllocationStrategy {
@@ -56,6 +67,8 @@ public:
   virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
                                                         const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
 };
+
+// *** END OF STRATEGIES DECLARATIONS ***
 
 struct TunerInfo {
   std::shared_ptr<taffo::ValueInfo> metadata;

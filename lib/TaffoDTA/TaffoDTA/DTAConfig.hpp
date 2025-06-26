@@ -17,6 +17,7 @@ extern llvm::cl::opt<std::string> UseFloat;
 extern llvm::cl::opt<std::string> BufferIDExport;
 extern llvm::cl::opt<std::string> BufferIDImport;
 
+/* when adding a new strategy, add an entry here */
 enum DtaStrategyType {
   fixedPointOnly,
   floatingPointOnly,

@@ -27,8 +27,9 @@ llvm::cl::opt<bool>
 llvm::cl::opt<std::string> UseFloat(
   "usefloat",
   llvm::cl::desc("Uses the specified floating point type instead of fixed point. Options are f16, bf16, f32, f64."),
-  llvm::cl::init(""));
+  llvm::cl::init("f64"));
 
+/* when adding a new strategy, add an entry here */
 llvm::cl::opt<DtaStrategyType>
   DtaStrategy("dtastrategy",
               llvm::cl::desc("Chose data type allocation strategy (default is fixedpoint-only)"),
