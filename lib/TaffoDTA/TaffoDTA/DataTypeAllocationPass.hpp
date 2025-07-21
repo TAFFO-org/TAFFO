@@ -17,11 +17,58 @@
 
 namespace tuner {
 
-bool isMergeable(const std::shared_ptr<taffo::FixedPointInfo>& fpv, const std::shared_ptr<taffo::FixedPointInfo>& fpu);
-std::shared_ptr<taffo::FixedPointInfo> merge(const std::shared_ptr<taffo::FixedPointInfo>& fpv,
-                                             const std::shared_ptr<taffo::FixedPointInfo>& fpu);
-std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
-                                              const std::shared_ptr<taffo::NumericTypeInfo>& fpu);
+/* this is the core of the strategy pattern for each new strategy
+ * you should create a new class that inherits from dataTypeAllocationStrategy
+ * and implement the apply, merge and isMergeable methods.
+ * (the apply method is the actual strategy that will be applied to each value
+ * the isMergeable method decides if two values are mergeable and the merge methods
+ * decides how to merge them)
+ *
+ * When implementing a new strategy you should:
+ * - create a new class that inherits from dataTypeAllocationStrategy
+ * - implement the apply, merge and isMergeable methods
+ * - add a new entry in the strategyMap in DataTypeAllocationPass.cpp
+ * - add a new entry in the DtaStrategyType enum in DTAConfig.hpp and a new entry in the DtaStrategy in DTAConfig.cpp */
+
+class dataTypeAllocationStrategy {
+public:
+  virtual ~dataTypeAllocationStrategy() {}
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) = 0;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) = 0;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) = 0;
+};
+
+// *** STRATEGIES DECLARATIONS ***
+class fixedPointOnlyStrategy : public dataTypeAllocationStrategy {
+public:
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
+};
+
+class floatingPointOnlyStrategy : public dataTypeAllocationStrategy {
+public:
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
+};
+
+class fixedFloatingPointStrategy : public dataTypeAllocationStrategy {
+public:
+  virtual bool apply(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value) override;
+  virtual bool isMergeable(std::shared_ptr<taffo::NumericTypeInfo> valueNumericType,
+                           std::shared_ptr<taffo::NumericTypeInfo> userNumericType) override;
+  virtual std::shared_ptr<taffo::NumericTypeInfo> merge(const std::shared_ptr<taffo::NumericTypeInfo>& fpv,
+                                                        const std::shared_ptr<taffo::NumericTypeInfo>& fpu) override;
+};
+
+// *** END OF STRATEGIES DECLARATIONS ***
 
 struct TunerInfo {
   std::shared_ptr<taffo::ValueInfo> metadata;
@@ -47,10 +94,35 @@ public:
 
   llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
 
+  void setStrategy(dataTypeAllocationStrategy* strategy) { this->strategy = strategy; }
+
   void
-  retrieveAllMetadata(llvm::Module& m, std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+  dataTypeAllocation(llvm::Module& m, std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+
+  void dataTypeAllocationOfValue(llvm::Value& value, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfFunctions(llvm::Module& m, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfGlobals(llvm::Module& m, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfArguments(llvm::Function& m, std::vector<llvm::Value*>& vals);
+
+  void dataTypeAllocationOfInstructions(llvm::Function& m, std::vector<llvm::Value*>& vals);
 
   void retrieveBufferID(llvm::Value* V);
+
+  bool processScalarInfo(std::shared_ptr<taffo::ScalarInfo>& scalarInfo,
+                         llvm::Value* v,
+                         const std::shared_ptr<taffo::TransparentType>& transparentType,
+                         bool forceEnable);
+
+  void processStructInfo(
+    std::shared_ptr<taffo::StructInfo>& structInfo,
+    llvm::Value* v,
+    const std::shared_ptr<taffo::TransparentType>& transparentType,
+    llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, std::shared_ptr<taffo::TransparentType>>, 8> queue);
+
+  void associateMetadata(llvm::Value* v, std::shared_ptr<taffo::ValueInfo> valueInfo);
 
   bool processMetadataOfValue(llvm::Value* v);
 
@@ -59,6 +131,8 @@ public:
   void sortQueue(std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
 
   void mergeFixFormat(const std::vector<llvm::Value*>& vals, const llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+
+  double static getGreatest(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value, taffo::Range* rng);
 
 #ifdef TAFFO_BUILD_ILP_DTA
   void buildModelAndOptimze(llvm::Module& m,
@@ -153,6 +227,7 @@ public:
 
 private:
   llvm::ModuleAnalysisManager* MAM = nullptr;
+  dataTypeAllocationStrategy* strategy;
 };
 
 } // namespace tuner
