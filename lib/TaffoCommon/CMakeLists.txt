@@ -9,26 +9,21 @@ add_library(${SELF} STATIC
   TaffoInfo/NumericInfo.cpp
   TaffoInfo/RangeInfo.hpp
   TaffoInfo/RangeInfo.cpp
-  TaffoInfo/StructPaddingInfo.hpp
-  TaffoInfo/StructPaddingInfo.cpp
   MetadataManager.hpp
   MetadataManager.cpp
-  Containers/InsertionOrderedMap.hpp
   Containers/BiMap.hpp
   Debug/DebugUtils.hpp
-  Debug/Logger.hpp
-  Debug/Logger.cpp
-  Types/TransparentType.hpp
-  Types/TransparentType.cpp
   Types/TypeUtils.hpp
   Types/TypeUtils.cpp
-  PtrCasts.hpp
   SerializationUtils.hpp
+  SerializationUtils.cpp
   MemSSAUtils.cpp
   MemSSAUtils.hpp
   WriteModule.cpp
   WriteModule.hpp
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${SELF} PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(${SELF} PUBLIC
+  TypeDeductionAnalysis
+  nlohmann_json::nlohmann_json)
 set_property(TARGET ${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

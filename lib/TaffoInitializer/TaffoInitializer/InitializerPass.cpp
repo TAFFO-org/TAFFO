@@ -13,6 +13,7 @@
 #define DEBUG_TYPE "taffo-init"
 
 using namespace taffo;
+using namespace tda;
 using namespace llvm;
 
 cl::opt<bool> manualFunctionCloning("manualclone",
@@ -97,6 +98,19 @@ void InitializerPass::propagateInfo() {
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
     logInfoPropagationQueue(););
+
+  // Propagate info from arguments alloca to formal arguments to call arguments
+  // for (Value* value : infoPropagationQueue)
+  //  if (auto* argAlloca = dyn_cast<AllocaInst>(value))
+  //    for (User* argAllocaUser : argAlloca->users())
+  //      if (auto* argStore = dyn_cast<StoreInst>(argAllocaUser))
+  //        if (argStore->getPointerOperand() == argAlloca)
+  //          if (auto* arg = dyn_cast<Argument>(argStore->getValueOperand())) {
+  //            propagateInfo(argAlloca, arg);
+  //            for (User* user : arg->getParent()->users())
+  //              if (auto* call = dyn_cast<CallBase>(user))
+  //                propagateInfo(arg, call->getArgOperand(arg->getArgNo()));
+  //          }
 
   // Set to track processed values to avoid reprocessing
   SmallPtrSet<Value*, 8> visited;
@@ -249,7 +263,12 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
   unsigned dstRootDistance = dstInitInfo.getRootDistance();
   unsigned newDstRootDistance = srcInitInfo.getUserRootDistance();
 
-  // If dst is a gep and src is not its pointer operand, skip propagation completely
+  //// If dst is a gep and src is one of its index operands, skip propagation completely
+  // if (auto* dstGep = dyn_cast<GetElementPtrInst>(dst);
+  //     dstGep && is_contained(dstGep->operands(), src) && src != dstGep->getPointerOperand()) {
+  //   LLVM_DEBUG(log().logln("dst is a gep, but src is just an index operand: continuing"));
+  //     }
+  //  If dst is a gep and src is not its pointer operand, skip propagation completely
   if (isa<GetElementPtrInst>(dst) && src != cast<GetElementPtrInst>(dst)->getPointerOperand()) {
     LLVM_DEBUG(log().logln("dst is a gep, but src is not its pointer operand: continuing"));
   }
@@ -271,40 +290,18 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
       logger.log(*dstType, Logger::Cyan);
       logger << ", ";);
 
-    // TODO Manage structs
-    bool copied = false;
-    bool wasEnabled = dstInfo->isConversionEnabled();
-    if (!srcType->isStructType() && !dstType->isStructType()) {
-      // If dst is a call, create empty valueInfo without range
-      if (isa<CallBase>(dst)) {
-        // TODO Probably better to always enable conversion and fix the return type of non float calls not to change
-        // randomly in the dta
-        if (dstType->containsFloatingPointType() || dstType->getFullyUnwrappedType()->isVoidTy())
-          if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
-            dstScalarInfo->conversionEnabled = srcInfo->isConversionEnabled();
-      }
-      else {
-        dstInfo->copyFrom(*srcInfo);
-        copied = true;
-      }
-
-      if (wasEnabled)
-        if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
-          dstScalarInfo->conversionEnabled = true;
-    }
-    else if (srcInfo->isConversionEnabled()) {
+    if (!srcType->isStructType() && !dstType->isStructType())
+      dstInfo->copyFrom(*srcInfo);
+    // TODO Manage structs (conversionEnabled of fields)
+    if (dstInfo->isConversionEnabled() || srcInfo->isConversionEnabled())
       if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
         dstScalarInfo->conversionEnabled = true;
-    }
 
     LLVM_DEBUG(
       Logger& logger = log();
       logger << "dstInfo";
       logger << " = ";
-      logger.log(*dstInfo, Logger::Cyan);
-      if (copied)
-        logger.log(" copied", Logger::Green);
-      logger << "\n";
+      logger.logln(*dstInfo, Logger::Cyan);
       logger.restorePrevContextTag(););
   }
   else
@@ -465,5 +462,5 @@ void InitializerPass::logInfoPropagationQueue() {
     }
   }
   else
-    logger.log("Not logging the queue because it exceeds 1000 items", Logger::Yellow);
+    logger.logln("Not logging the queue because it exceeds 1000 items", Logger::Yellow);
 }

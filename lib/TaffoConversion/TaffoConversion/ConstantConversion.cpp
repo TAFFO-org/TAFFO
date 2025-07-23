@@ -13,7 +13,7 @@
 #include <cmath>
 
 using namespace llvm;
-using namespace taffo;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"

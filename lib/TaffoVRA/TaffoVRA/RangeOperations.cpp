@@ -1,6 +1,6 @@
-#include "PtrCasts.hpp"
 #include "RangeOperations.hpp"
 #include "RangeOperationsCallWhitelist.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APSInt.h>
@@ -24,32 +24,20 @@ std::shared_ptr<Range> taffo::handleBinaryInstruction(const std::shared_ptr<Rang
                                                       const unsigned OpCode) {
   switch (OpCode) {
   case Instruction::Add:
-  case Instruction::FAdd:
-    return handleAdd(op1, op2);
-    break;
+  case Instruction::FAdd: return handleAdd(op1, op2); break;
   case Instruction::Sub:
-  case Instruction::FSub:
-    return handleSub(op1, op2);
-    break;
+  case Instruction::FSub: return handleSub(op1, op2); break;
   case Instruction::Mul:
-  case Instruction::FMul:
-    return handleMul(op1, op2);
-    break;
+  case Instruction::FMul: return handleMul(op1, op2); break;
   case Instruction::UDiv:
   case Instruction::SDiv:
-  case Instruction::FDiv:
-    return handleDiv(op1, op2);
-    break;
+  case Instruction::FDiv: return handleDiv(op1, op2); break;
   case Instruction::URem:
   case Instruction::SRem:
-  case Instruction::FRem:
-    return handleRem(op1, op2);
-    break;
-  case Instruction::Shl:
-    return handleShl(op1, op2);
+  case Instruction::FRem: return handleRem(op1, op2); break;
+  case Instruction::Shl:  return handleShl(op1, op2);
   case Instruction::LShr: // TODO implement
-  case Instruction::AShr:
-    return handleAShr(op1, op2);
+  case Instruction::AShr: return handleAShr(op1, op2);
   case Instruction::And:  // TODO implement
   case Instruction::Or:   // TODO implement
   case Instruction::Xor:  // TODO implement
@@ -66,9 +54,7 @@ std::shared_ptr<Range> taffo::handleUnaryInstruction(const std::shared_ptr<Range
     return nullptr;
 
   switch (OpCode) {
-  case Instruction::FNeg:
-    return std::make_shared<Range>(-op->max, -op->min);
-    break;
+  case Instruction::FNeg: return std::make_shared<Range>(-op->max, -op->min); break;
   default:
     assert(false); // unsupported operation
     break;
@@ -80,40 +66,23 @@ std::shared_ptr<Range> taffo::handleUnaryInstruction(const std::shared_ptr<Range
 std::shared_ptr<Range>
 taffo::handleCastInstruction(const std::shared_ptr<Range> scalar, const unsigned OpCode, const Type* dest) {
   switch (OpCode) {
-  case Instruction::Trunc:
-    return handleTrunc(scalar, dest);
-    break;
+  case Instruction::Trunc:    return handleTrunc(scalar, dest); break;
   case Instruction::ZExt:
-  case Instruction::SExt:
-    return copyRange(scalar);
-    break;
-  case Instruction::FPToUI:
-    return handleCastToUI(scalar);
-    break;
-  case Instruction::FPToSI:
-    return handleCastToSI(scalar);
-    break;
+  case Instruction::SExt:     return copyRange(scalar); break;
+  case Instruction::FPToUI:   return handleCastToUI(scalar); break;
+  case Instruction::FPToSI:   return handleCastToSI(scalar); break;
   case Instruction::UIToFP:
-  case Instruction::SIToFP:
-    return copyRange(scalar);
-    break;
-  case Instruction::FPTrunc:
-    return handleFPTrunc(scalar, dest);
-  case Instruction::FPExt:
-    return copyRange(scalar);
-    break;
+  case Instruction::SIToFP:   return copyRange(scalar); break;
+  case Instruction::FPTrunc:  return handleFPTrunc(scalar, dest);
+  case Instruction::FPExt:    return copyRange(scalar); break;
   case Instruction::PtrToInt:
-  case Instruction::IntToPtr:
-    return handleCastToSI(scalar);
-    break;
+  case Instruction::IntToPtr: return handleCastToSI(scalar); break;
   case Instruction::BitCast: // TODO check
     return copyRange(scalar);
     break;
-  case Instruction::AddrSpaceCast:
-    return copyRange(scalar);
-    break;
+  case Instruction::AddrSpaceCast: return copyRange(scalar); break;
   default:
-    assert(false); // unsupported operation
+    assert(false);           // unsupported operation
     break;
   }
   return nullptr;
@@ -135,12 +104,9 @@ std::shared_ptr<Range> taffo::handleMathCallInstruction(const std::list<std::sha
 std::shared_ptr<Range> taffo::handleCompare(const std::list<std::shared_ptr<Range>>& ops,
                                             const CmpInst::Predicate pred) {
   switch (pred) {
-  case CmpInst::Predicate::FCMP_FALSE:
-    return getAlwaysFalse();
-  case CmpInst::Predicate::FCMP_TRUE:
-    return getAlwaysTrue();
-  default:
-    break;
+  case CmpInst::Predicate::FCMP_FALSE: return getAlwaysFalse();
+  case CmpInst::Predicate::FCMP_TRUE:  return getAlwaysTrue();
+  default:                             break;
   }
 
   // from now on only 2 operators compare
@@ -224,8 +190,7 @@ std::shared_ptr<Range> taffo::handleCompare(const std::list<std::shared_ptr<Rang
   case CmpInst::Predicate::FCMP_UNO: // one of the operand is NaN
     // TODO implement
     break;
-  default:
-    break;
+  default: break;
   }
   return nullptr;
 }

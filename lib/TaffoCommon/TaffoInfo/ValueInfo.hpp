@@ -1,10 +1,9 @@
 #pragma once
 
 #include "NumericInfo.hpp"
-#include "PtrCasts.hpp"
 #include "RangeInfo.hpp"
 #include "SerializationUtils.hpp"
-#include "Types/TransparentType.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/IR/Instructions.h>
 
@@ -22,18 +21,18 @@ public:
 
   static std::shared_ptr<ValueInfo> create(llvm::Value* value);
 
-  static std::shared_ptr<ValueInfo> create(const std::shared_ptr<TransparentType>& type);
+  static std::shared_ptr<ValueInfo> create(const std::shared_ptr<tda::TransparentType>& type);
 
   static std::shared_ptr<ValueInfo>
-  create(const std::shared_ptr<TransparentType>& type,
-         std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>>& recursionMap);
+  create(const std::shared_ptr<tda::TransparentType>& type,
+         std::unordered_map<std::shared_ptr<tda::TransparentType>, std::shared_ptr<StructInfo>>& recursionMap);
 };
 
 class InitializerPass; // TODO remove
 class AnnotationParser;
 
 class ValueInfo : public Serializable,
-                  public Printable {
+                  public tda::Printable {
 public:
   friend class InitializerPass; // TODO remove
   friend class AnnotationParser;

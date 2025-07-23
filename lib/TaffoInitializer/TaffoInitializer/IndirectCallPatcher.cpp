@@ -17,6 +17,7 @@
 #include <unordered_set>
 
 using namespace taffo;
+using namespace tda;
 using namespace llvm;
 
 #define DEBUG_TYPE "taffo-init"

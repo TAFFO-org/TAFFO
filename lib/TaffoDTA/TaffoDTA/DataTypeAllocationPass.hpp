@@ -70,8 +70,7 @@ public:
 
 // *** END OF STRATEGIES DECLARATIONS ***
 
-struct TunerInfo {
-  std::shared_ptr<taffo::ValueInfo> metadata;
+struct DtaValueInfo {
   std::shared_ptr<taffo::NumericTypeInfo> initialType;
   std::optional<std::string> bufferID;
 };
@@ -86,7 +85,7 @@ struct FunInfo {
 class DataTypeAllocationPass : public llvm::PassInfoMixin<DataTypeAllocationPass> {
 public:
   /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value*, std::shared_ptr<TunerInfo>> info;
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<DtaValueInfo>> info;
   /* original function -> cloned function map */
   llvm::DenseMap<llvm::Function*, std::vector<FunInfo>> functionPool;
   /* buffer ID sets */
@@ -113,14 +112,14 @@ public:
 
   bool processScalarInfo(std::shared_ptr<taffo::ScalarInfo>& scalarInfo,
                          llvm::Value* v,
-                         const std::shared_ptr<taffo::TransparentType>& transparentType,
+                         const std::shared_ptr<tda::TransparentType>& transparentType,
                          bool forceEnable);
 
   void processStructInfo(
     std::shared_ptr<taffo::StructInfo>& structInfo,
     llvm::Value* v,
-    const std::shared_ptr<taffo::TransparentType>& transparentType,
-    llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, std::shared_ptr<taffo::TransparentType>>, 8> queue);
+    const std::shared_ptr<tda::TransparentType>& transparentType,
+    llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, std::shared_ptr<tda::TransparentType>>, 8> queue);
 
   void associateMetadata(llvm::Value* v, std::shared_ptr<taffo::ValueInfo> valueInfo);
 
@@ -158,31 +157,34 @@ public:
 
   void attachFunctionMetaData(llvm::Module& m);
 
-  std::shared_ptr<TunerInfo> getTunerInfo(llvm::Value* val) {
-    auto vi = info.find(val);
-    if (vi == info.end()) {
-      LLVM_DEBUG(taffo::log() << "new valueinfo for " << *val << "\n");
-      info[val] = std::make_shared<TunerInfo>(TunerInfo());
+  std::shared_ptr<DtaValueInfo> createDtaValueInfo(llvm::Value* val) {
+    LLVM_DEBUG(tda::log() << "new valueinfo for " << *val << "\n");
+    info[val] = std::make_shared<DtaValueInfo>(DtaValueInfo());
+    return info[val];
+  }
+
+  std::shared_ptr<DtaValueInfo> getDtaValueInfo(llvm::Value* val) {
+    auto dtaValueInfo = info.find(val);
+    assert(dtaValueInfo != info.end() && "DtaValueInfo not present");
+    return dtaValueInfo->getSecond();
+  }
+
+  std::shared_ptr<DtaValueInfo> getOrCreateDtaValueInfo(llvm::Value* val) {
+    if (info.contains(val))
       return info[val];
-    }
-    else {
-      return vi->getSecond();
-    }
+    return createDtaValueInfo(val);
   }
 
   bool hasTunerInfo(llvm::Value* val) { return info.find(val) != info.end(); }
 
-  bool conversionDisabled(llvm::Value* val) {
+  bool isConversionDisabled(llvm::Value* val) {
     if (llvm::isa<llvm::Constant>(val))
       return false;
-    if (llvm::isa<llvm::Argument>(val)) {
-      if (!hasTunerInfo(val))
-        return true;
-      return !(getTunerInfo(val)->metadata && getTunerInfo(val)->metadata->isConversionEnabled());
-    }
-    taffo::TaffoInfo& taffoInfo = taffo::TaffoInfo::getInstance();
-    return !(taffoInfo.hasValueInfo(*val) && taffoInfo.getValueInfo(*val)->isConversionEnabled())
-        && incomingValuesDisabled(val);
+    if (!taffoInfo.hasValueInfo(*val))
+      return true;
+    if (llvm::isa<llvm::Argument>(val))
+      return !taffoInfo.getValueInfo(*val)->isConversionEnabled();
+    return !taffoInfo.getValueInfo(*val)->isConversionEnabled() && incomingValuesDisabled(val);
   }
 
   bool incomingValuesDisabled(llvm::Value* v) {
@@ -193,7 +195,7 @@ public:
     if (auto* phi = dyn_cast<PHINode>(v)) {
       bool disabled = false;
       for (Value* inc : phi->incoming_values()) {
-        if (!isa<PHINode>(inc) && conversionDisabled(inc)) {
+        if (!isa<PHINode>(inc) && isConversionDisabled(inc)) {
           disabled = true;
           break;
         }
@@ -226,6 +228,7 @@ public:
   }
 
 private:
+  taffo::TaffoInfo& taffoInfo = taffo::TaffoInfo::getInstance();
   llvm::ModuleAnalysisManager* MAM = nullptr;
   dataTypeAllocationStrategy* strategy;
 };

@@ -8,7 +8,7 @@ namespace taffo {
 class ValueInitInfoFactory;
 class TaffoInitInfo;
 
-class ValueInitInfo : Printable {
+class ValueInitInfo : tda::Printable {
 public:
   friend class ValueInitInfoFactory;
 

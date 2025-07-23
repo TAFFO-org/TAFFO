@@ -1,7 +1,7 @@
 #include "Debug/Logger.hpp"
 #include "MetadataManager.hpp"
 #include "TaffoInfo.hpp"
-#include "Types/TransparentType.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
@@ -22,17 +22,13 @@
 
 #define DEBUG_TYPE "taffo-util"
 
-using namespace taffo;
 using namespace llvm;
+using namespace tda;
+using namespace taffo;
 
 TaffoInfo& TaffoInfo::getInstance() {
   static TaffoInfo instance;
   return instance;
-}
-
-std::optional<StructPaddingInfo> TaffoInfo::getStructPaddingInfo(StructType* t) const {
-  auto iter = structPaddingInfo.find(t);
-  return iter != structPaddingInfo.end() ? std::optional(iter->second) : std::nullopt;
 }
 
 void TaffoInfo::setTransparentType(Value& v, const std::shared_ptr<TransparentType>& t) { transparentTypes[&v] = t; }
@@ -323,7 +319,6 @@ void TaffoInfo::initialize(Module& m) {
   idValueMapping = MetadataManager::getIdValueMapping(m);
   idLoopMapping = MetadataManager::getIdLoopMapping(m);
   idTypeMapping = MetadataManager::getIdTypeMapping(m);
-  structPaddingInfo = MetadataManager::getStructPaddingInfo(m);
   dataLayout = &m.getDataLayout();
   jsonRepresentation.clear();
 
@@ -445,7 +440,7 @@ std::string TaffoInfo::generateValueId(const Value* v) {
 
   idCounter++;
   updateIdDigits();
-  os << "_" << formatNumber(idDigits, idCounter);
+  os << "_" << formatUnsigned(idDigits, idCounter);
   return os.str();
 }
 
@@ -459,7 +454,7 @@ std::string TaffoInfo::generateLoopId(const Loop* l) {
 
   idCounter++;
   updateIdDigits();
-  os << "loop_" << formatNumber(idDigits, idCounter);
+  os << "loop_" << formatUnsigned(idDigits, idCounter);
   return os.str();
 }
 
@@ -484,7 +479,7 @@ void TaffoInfo::updateIdDigits() {
         std::string prefix = oldId.substr(0, pos + 1);
         std::string numericPart = oldId.substr(pos + 1);
         unsigned number = numericPart.empty() ? 0 : std::stoul(numericPart);
-        std::string newId = prefix + formatNumber(idDigits, number);
+        std::string newId = prefix + formatUnsigned(idDigits, number);
         map.updateKey(oldId, newId);
         if (jsonRepresentation.contains(jsonMapName))
           jsonRepresentation[jsonMapName].erase(oldId);
@@ -553,7 +548,7 @@ json TaffoInfo::serialize() const {
   // Serialize transparentTypes as a field in each value’s JSON entry
   for (const auto& [v, transparentType] : transparentTypes) {
     std::string id = idValueMapping.findByValue(v)->first;
-    j["values"][id]["transparentType"] = transparentType->serialize();
+    j["values"][id]["transparentType"] = taffo::serialize(*transparentType);
   }
 
   // Serialize starting points
@@ -797,7 +792,7 @@ void TaffoInfo::deserialize(const json& j) {
 
     // Deserialize transparentTypes
     if (valueJson.contains("transparentType") && !valueJson["transparentType"].is_null())
-      transparentTypes[val] = TransparentTypeFactory::create(valueJson["transparentType"]);
+      transparentTypes[val] = taffo::deserialize(valueJson["transparentType"]);
 
     // Deserialize valueWeights
     if (valueJson.contains("weight") && !valueJson["weight"].is_null())

@@ -143,7 +143,7 @@ def compile(path: Path, common_args: str, debug: bool):
     logs.extend(log_t)
     return (ok_f and ok_t), "".join(logs)
 
-def run(path: Path):
+def run(path: Path, use_io_files: bool):
     """
     Runs the two binaries; returns True only if all invocations exit zero.
     """
@@ -167,7 +167,7 @@ def run(path: Path):
             suffix = inp.stem[len("input"):]  # e.g. "" or ".1" or ".2"
             for var in variants:
                 out_f = f"res{var}{suffix}"
-                cmd   = f"./{bench_name}{var} < {inp.name} > {out_f}"
+                cmd   = f"./{bench_name}{var} {"< " if not use_io_files else ""}{inp.name} {"> " if not use_io_files else ""}{out_f}"
                 ret = run_bench(cmd, path, bench_name + var + suffix)
                 if ret != 0:
                     ok_all = False
@@ -175,7 +175,7 @@ def run(path: Path):
         # no input files
         for var in variants:
             out_f = f"res{var}"
-            cmd   = f"./{bench_name}{var} > {out_f}"
+            cmd   = f"./{bench_name}{var} {"> " if not use_io_files else ""}{out_f}"
             ret = run_bench(cmd, path, bench_name + var)
             if ret != 0:
                 ok_all = False
@@ -440,7 +440,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Taffo test runner')
     parser.add_argument('-common-args', type=str, default='', help='Extra flags to pass to both float and taffo compilations')
     parser.add_argument('-tests-dir', type=str, default='.', help='Root dir containing test folders')
+    parser.add_argument('-use-io-files', action='store_true', help='Use input/output files instead of stdin/stdout')
     parser.add_argument('-only', type=str, help='Comma-separated list of benchmark names')
+    parser.add_argument('-debug', action='store_true', help='Enable debug build')
     parser.add_argument('-clean', action='store_true', help='Clean benchmarks')
     parser.add_argument('-init', action='store_true', help='Init benchmarks')
     parser.add_argument('-fullreset', action='store_true', help='Reset benchmarks')
@@ -449,7 +451,6 @@ if __name__ == '__main__':
     parser.add_argument('-validate', action='store_true', help='Validate benchmarks')
     parser.add_argument('-comp_int', type=int, default=0, help='Compare first n bits')
     parser.add_argument('-ordereddiff', action='store_true', help='Show ordered diffs by error')
-    parser.add_argument('-debug', action='store_true', help='Enable debug build')
     parser.add_argument('-plot_compile_time', action='store_true', help='Plot compile times')
     parser.add_argument('-diff_only', action='store_true', help='Only diff outputs instead of complete validation')
     args = parser.parse_args()
@@ -542,7 +543,7 @@ if __name__ == '__main__':
                 label = f"Running: {p.name}".ljust(ACTION_PAD)
                 print(f"{label}{Fore.YELLOW}{Style.BRIGHT}SKIP (compile failed){Style.RESET_ALL}", flush=True)
                 continue
-            if run(p):
+            if run(p, args.use_io_files):
                 run_ok.add(p)
     else:
         run_ok = set(only)

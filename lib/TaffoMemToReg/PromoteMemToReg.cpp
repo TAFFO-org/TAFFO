@@ -38,6 +38,7 @@
 #include <vector>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-mem2reg"

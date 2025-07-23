@@ -10,6 +10,7 @@
 #define DEBUG_TYPE "taffo-vra"
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 namespace taffo {
@@ -33,7 +34,9 @@ cl::opt<unsigned>
 
 PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& AM) {
   LLVM_DEBUG(log().logln("[ValueRangeAnalysisPass]", Logger::Magenta));
-  TaffoInfo::getInstance().initializeFromFile("taffo_info_memToReg.json", M);
+
+  // No need to initialize if memToReg is run before in the same opt call
+  // TaffoInfo::getInstance().initializeFromFile("taffo_info_memToReg.json", M);
 
   std::shared_ptr<VRAGlobalStore> GlobalStore = std::make_shared<VRAGlobalStore>();
   GlobalStore->harvestValueInfo(M);

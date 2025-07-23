@@ -8,6 +8,7 @@
 #define DEBUG_TYPE "taffo-vra"
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 void VRAStore::convexMerge(const VRAStore& other) {
@@ -79,8 +80,7 @@ std::shared_ptr<ValueInfo> VRAStore::loadNode(const std::shared_ptr<ValueInfo>& 
   if (!valueInfo)
     return nullptr;
   switch (valueInfo->getKind()) {
-  case ValueInfo::K_Scalar:
-    return valueInfo;
+  case ValueInfo::K_Scalar: return valueInfo;
   case ValueInfo::K_Struct:
     if (Offset.empty()) {
       return valueInfo;
@@ -104,8 +104,7 @@ std::shared_ptr<ValueInfo> VRAStore::loadNode(const std::shared_ptr<ValueInfo>& 
     std::shared_ptr<PointerInfo> pointerInfo = std::static_ptr_cast<PointerInfo>(valueInfo);
     return pointerInfo->getPointed();
   }
-  default:
-    llvm_unreachable("Unhandled node type.");
+  default: llvm_unreachable("Unhandled node type.");
   }
 }
 
@@ -190,8 +189,7 @@ void VRAStore::storeNode(const std::shared_ptr<ValueInfo>& dst,
       pointerDst->setPointed(src);
     break;
   }
-  default:
-    LLVM_DEBUG(log() << "WARNING: trying to store into a non-pointer node, aborted.\n");
+  default: LLVM_DEBUG(log() << "WARNING: trying to store into a non-pointer node, aborted.\n");
   }
 }
 
@@ -205,8 +203,7 @@ std::shared_ptr<ValueInfoWithRange> VRAStore::fetchRange(const std::shared_ptr<V
   if (!valueInfo)
     return nullptr;
   switch (valueInfo->getKind()) {
-  case ValueInfo::K_Scalar:
-    return std::static_ptr_cast<ScalarInfo>(valueInfo);
+  case ValueInfo::K_Scalar: return std::static_ptr_cast<ScalarInfo>(valueInfo);
   case ValueInfo::K_Struct: {
     std::shared_ptr<StructInfo> StructNode = std::static_ptr_cast<StructInfo>(valueInfo);
     if (offset.empty()) {
@@ -228,8 +225,7 @@ std::shared_ptr<ValueInfoWithRange> VRAStore::fetchRange(const std::shared_ptr<V
     std::shared_ptr<PointerInfo> PtrNode = std::dynamic_ptr_cast<PointerInfo>(valueInfo);
     return fetchRange(PtrNode->getPointed(), offset);
   }
-  default:
-    llvm_unreachable("Unhandled node type.");
+  default: llvm_unreachable("Unhandled node type.");
   }
 }
 

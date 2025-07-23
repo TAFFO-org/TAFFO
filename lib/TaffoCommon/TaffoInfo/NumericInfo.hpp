@@ -8,7 +8,7 @@
 namespace taffo {
 
 class NumericTypeInfo : public Serializable,
-                        public Printable {
+                        public tda::Printable {
 public:
   enum NumericTypeKind {
     K_FixedPoint,
@@ -82,29 +82,14 @@ public:
   FloatingPointInfo(llvm::Type::TypeID typeId, double greatestNumber)
   : greatestNumber(greatestNumber) {
     switch (typeId) {
-    case llvm::Type::HalfTyID:
-      standard = Float_half;
-      break;
-    case llvm::Type::FloatTyID:
-      standard = Float_float;
-      break;
-    case llvm::Type::DoubleTyID:
-      standard = Float_double;
-      break;
-    case llvm::Type::FP128TyID:
-      standard = Float_fp128;
-      break;
-    case llvm::Type::X86_FP80TyID:
-      standard = Float_x86_fp80;
-      break;
-    case llvm::Type::PPC_FP128TyID:
-      standard = Float_ppc_fp128;
-      break;
-    case llvm::Type::BFloatTyID:
-      standard = Float_bfloat;
-      break;
-    default:
-      llvm_unreachable("invalid type id for FloatType's constructor");
+    case llvm::Type::HalfTyID:      standard = Float_half; break;
+    case llvm::Type::FloatTyID:     standard = Float_float; break;
+    case llvm::Type::DoubleTyID:    standard = Float_double; break;
+    case llvm::Type::FP128TyID:     standard = Float_fp128; break;
+    case llvm::Type::X86_FP80TyID:  standard = Float_x86_fp80; break;
+    case llvm::Type::PPC_FP128TyID: standard = Float_ppc_fp128; break;
+    case llvm::Type::BFloatTyID:    standard = Float_bfloat; break;
+    default:                        llvm_unreachable("invalid type id for FloatType's constructor");
     }
   }
 

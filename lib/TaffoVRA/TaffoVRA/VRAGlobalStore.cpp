@@ -8,6 +8,7 @@
 #include <llvm/IR/Operator.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-vra"
@@ -122,9 +123,9 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         if (!root)
           continue;
         LLVM_DEBUG(
-          taffo::Logger& logger = log();
+          tda::Logger& logger = log();
           logger.log("[Value] ", Logger::Bold);
-          logger.logln(inst);
+          logger.logValueln(&inst);
           auto indenter = logger.getIndenter();
           indenter.increaseIndent();
           logger << "valueInfo: " << valueInfo << "\n";

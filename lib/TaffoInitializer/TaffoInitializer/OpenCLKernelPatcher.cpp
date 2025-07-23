@@ -12,6 +12,7 @@
 #define DEBUG_TYPE "taffo-init"
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 void findOpenCLKernels(Module& M, SmallVectorImpl<Function*>& Fs) {

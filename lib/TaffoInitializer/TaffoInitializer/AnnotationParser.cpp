@@ -8,8 +8,9 @@
 #include <cctype>
 #include <memory>
 
-using namespace taffo;
 using namespace llvm;
+using namespace tda;
+using namespace taffo;
 
 #define DEBUG_TYPE "taffo-init"
 

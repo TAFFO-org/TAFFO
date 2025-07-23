@@ -3,15 +3,15 @@
 #include "TypeUtils.hpp"
 
 #include <llvm/Support/Debug.h>
-#include <llvm/Support/raw_ostream.h>
 
 #define DEBUG_TYPE "taffo"
 
-using namespace taffo;
 using namespace llvm;
+using namespace tda;
+using namespace taffo;
 
 Type* taffo::getFullyUnwrappedType(Value* value) {
-  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+  std::shared_ptr<tda::TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return transparentType->getFullyUnwrappedType();
 }
 

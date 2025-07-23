@@ -2,7 +2,7 @@
 #include "Debug/Logger.hpp"
 #include "TaffoConversion/TaffoConversion/FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
@@ -26,6 +26,7 @@
 #include <llvm/Transforms/Utils/ValueMapper.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"

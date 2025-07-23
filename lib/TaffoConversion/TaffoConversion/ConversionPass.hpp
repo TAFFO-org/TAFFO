@@ -2,12 +2,12 @@
 
 #include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
-#include "PtrCasts.hpp"
 #include "SerializationUtils.hpp"
 #include "TaffoInfo/ConversionInfo.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>
@@ -56,7 +56,7 @@ extern llvm::Value* Unsupported;
 
 namespace taffo {
 
-struct PHIInfo : Printable {
+struct PHIInfo : tda::Printable {
   llvm::Value* placeh_noconv;
   llvm::Value* placeh_conv;
 
@@ -250,7 +250,7 @@ struct FloatToFixed {
     if (val->getType()->getNumContainedTypes() > 0) {
       if (llvm::Constant* cst = llvm::dyn_cast<llvm::Constant>(val)) {
         res = convertConstant(cst, iofixpt, typepol);
-        taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
+        taffoInfo.setTransparentType(*res, tda::TransparentTypeFactory::create(res->getType()));
       }
       else {
         res = matchOp(val);
@@ -309,9 +309,9 @@ struct FloatToFixed {
   bool hasConvertedValue(llvm::Value* value) { return convertedValues.contains(value); }
 
   llvm::Value* fallbackMatchValue(llvm::Value* value,
-                                  const std::shared_ptr<TransparentType>& origType,
+                                  const std::shared_ptr<tda::TransparentType>& origType,
                                   llvm::Instruction* insertionPoint = nullptr) {
-    Logger& logger = log();
+    tda::Logger& logger = tda::log();
 
     llvm::Value* fallBackValue = matchOp(value);
     assert(fallBackValue != ConversionError);
@@ -320,22 +320,18 @@ struct FloatToFixed {
       auto indenter = logger.getIndenter();
       indenter.increaseIndent();
       logger << "[FallbackMatchingValue] ";
-      if (fallBackValue != nullptr) {
-        logger.logValue(value);
-        logger << " was converted to ";
-        logger.logValue(fallBackValue);
-        logger << "\n";
-      });
+      if (fallBackValue != nullptr)
+        logger << *value << " was converted to " << *fallBackValue << "\n";);
 
     if (fallBackValue == ConversionError) {
-      LLVM_DEBUG(log() << "error: bail out reverse match of " << *value << "\n");
+      LLVM_DEBUG(tda::log() << "error: bail out reverse match of " << *value << "\n");
       return nullptr;
     }
 
-    LLVM_DEBUG(log() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
+    LLVM_DEBUG(tda::log() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
     if (!hasConversionInfo(fallBackValue))
       return fallBackValue;
-    LLVM_DEBUG(log() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->noTypeConversion << "\n";);
+    LLVM_DEBUG(tda::log() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->noTypeConversion << "\n";);
     if (getConversionInfo(fallBackValue)->noTypeConversion)
       return fallBackValue;
 
@@ -369,7 +365,7 @@ struct FloatToFixed {
 
   llvm::Value* genConvertFixToFloat(llvm::Value* fix,
                                     const std::shared_ptr<FixedPointType>& fixpt,
-                                    const std::shared_ptr<TransparentType>& destt);
+                                    const std::shared_ptr<tda::TransparentType>& destt);
 
   /** Generate code for converting between two fixed point formats.
    *  @param flt A fixed point scalar value.
@@ -394,14 +390,14 @@ struct FloatToFixed {
    *    will be true if at least one floating point type to transform to
    *    fixed point was encountered.
    *  @returns The new LLVM type.  */
-  llvm::Type* getLLVMFixedPointTypeForFloatType(const std::shared_ptr<taffo::TransparentType>& srcType,
+  llvm::Type* getLLVMFixedPointTypeForFloatType(const std::shared_ptr<tda::TransparentType>& srcType,
                                                 const std::shared_ptr<FixedPointType>& baset,
                                                 bool* hasfloats = nullptr);
 
   llvm::Instruction* getFirstInsertionPointAfter(llvm::Instruction* i) {
     llvm::Instruction* ip = i->getNextNode();
     if (!ip) {
-      LLVM_DEBUG(log() << "warning: getFirstInsertionPointAfter on a BB-terminating inst\n");
+      LLVM_DEBUG(tda::log() << "warning: getFirstInsertionPointAfter on a BB-terminating inst\n");
       return nullptr;
     }
     if (llvm::isa<llvm::PHINode>(ip))
@@ -412,7 +408,7 @@ struct FloatToFixed {
   llvm::Type* getLLVMFixedPointTypeForFloatValue(llvm::Value* val);
 
   std::shared_ptr<ConversionInfo> newConversionInfo(llvm::Value* val) {
-    LLVM_DEBUG(log() << "new conversionInfo for " << *val << "\n");
+    LLVM_DEBUG(tda::log() << "new conversionInfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
       conversionInfo[val] = std::make_shared<ConversionInfo>();
@@ -424,7 +420,7 @@ struct FloatToFixed {
   }
 
   std::shared_ptr<ConversionInfo> demandConversionInfo(llvm::Value* val, bool* isNew = nullptr) {
-    LLVM_DEBUG(log() << "new conversionInfo for " << *val << "\n");
+    LLVM_DEBUG(tda::log() << "new conversionInfo for " << *val << "\n");
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
       if (isNew)
@@ -442,7 +438,7 @@ struct FloatToFixed {
   std::shared_ptr<ConversionInfo> getConversionInfo(llvm::Value* val) {
     auto vi = conversionInfo.find(val);
     if (vi == conversionInfo.end()) {
-      LLVM_DEBUG(log() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
+      LLVM_DEBUG(tda::log() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
       llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
     }
     return vi->getSecond();
@@ -493,7 +489,8 @@ struct FloatToFixed {
     return true;
   }
 
-  llvm::Value* copyValueInfo(llvm::Value* dst, llvm::Value* src, std::shared_ptr<TransparentType> dstType = nullptr) {
+  llvm::Value*
+  copyValueInfo(llvm::Value* dst, llvm::Value* src, std::shared_ptr<tda::TransparentType> dstType = nullptr) {
     using namespace llvm;
     using namespace taffo;
     auto& taffoInfo = TaffoInfo::getInstance();
@@ -504,7 +501,7 @@ struct FloatToFixed {
     if (dstType)
       taffoInfo.setTransparentType(*dst, dstType);
     else
-      taffoInfo.setTransparentType(*dst, TransparentTypeFactory::create(dst->getType()));
+      taffoInfo.setTransparentType(*dst, tda::TransparentTypeFactory::create(dst->getType()));
 
     // TODO check old impl because I don't know what this does
     /*if (openMPIndirectMD) {

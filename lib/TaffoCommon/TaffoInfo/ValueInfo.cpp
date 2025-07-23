@@ -2,6 +2,7 @@
 #include "ValueInfo.hpp"
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 std::shared_ptr<ValueInfo> ValueInfoFactory::create(Value* value) {

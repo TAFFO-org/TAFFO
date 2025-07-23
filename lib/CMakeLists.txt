@@ -1,4 +1,5 @@
 add_subdirectory(InstructionMix)
+add_subdirectory(TypeDeductionAnalysis)
 add_subdirectory(TaffoCommon)
 
 add_subdirectory(TaffoTypeDeducer)
@@ -9,6 +10,7 @@ add_subdirectory(TaffoConversion)
 add_subdirectory(TaffoMemToReg)
 
 add_llvm_library(Taffo MODULE
+  $<TARGET_OBJECTS:obj.TypeDeductionAnalysis>
   $<TARGET_OBJECTS:obj.TaffoTypeDeducer>
   $<TARGET_OBJECTS:obj.TaffoInitializer>
   $<TARGET_OBJECTS:obj.TaffoVRA>

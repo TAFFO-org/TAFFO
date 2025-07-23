@@ -11,6 +11,7 @@
 #include <llvm/Support/Casting.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-mem2reg"
@@ -61,7 +62,9 @@ PreservedAnalyses MemToRegPass::run(Function& f, FunctionAnalysisManager& analys
     return PreservedAnalyses::all();
   }
 
-  TaffoInfo::getInstance().dumpToFile("taffo_info_memToReg.json", m);
+  // Use this only when debugging, or you will have terrible performance
+  // TaffoInfo::getInstance().dumpToFile("taffo_info_memToReg.json", m);
+
   LLVM_DEBUG(log().restorePrevContextTag());
 
   PreservedAnalyses preservedAnalyses;

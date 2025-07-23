@@ -4,12 +4,14 @@
 #include "TaffoMemToReg/MemToRegPass.hpp"
 #include "TaffoTypeDeducer/TypeDeducerPass.hpp"
 #include "TaffoVRA/TaffoVRA/ValueRangeAnalysisPass.hpp"
+#include "TypeDeductionAnalysis/TypeDeductionAnalysis.hpp"
 
 #include <llvm/IR/PassManager.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/PassPlugin.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
@@ -39,12 +41,15 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
                 return false;
               });
             passBuilder.registerPipelineParsingCallback(
-              [](StringRef name, FunctionPassManager& PM, ArrayRef<PassBuilder::PipelineElement>) {
+              [](StringRef name, FunctionPassManager& passManager, ArrayRef<PassBuilder::PipelineElement>) {
                 if (name == "taffomem2reg") {
-                  PM.addPass(MemToRegPass());
+                  passManager.addPass(MemToRegPass());
                   return true;
                 }
                 return false;
               });
+            passBuilder.registerAnalysisRegistrationCallback([](ModuleAnalysisManager& moduleAnalysisManager) {
+              moduleAnalysisManager.registerPass([] { return TypeDeductionAnalysis(); });
+            });
           }};
 }

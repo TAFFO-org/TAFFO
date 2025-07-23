@@ -1,7 +1,7 @@
 #include "ConversionPass.hpp"
 #include "FixedPointType.hpp"
-#include "PtrCasts.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/Support/Casting.h>
@@ -12,7 +12,7 @@
 #define DEBUG_TYPE "taffo-conversion"
 
 using namespace llvm;
-using namespace taffo;
+using namespace tda;
 using namespace taffo;
 
 std::shared_ptr<TransparentType> FixedPointType::toTransparentType(const std::shared_ptr<TransparentType>& srcType,
@@ -148,8 +148,7 @@ Type* FixedPointScalarType::scalarToLLVMType(LLVMContext& context) const {
     return Type::getPPC_FP128Ty(context);
   case Float_bfloat:    // 128-bit floating-point value (two 64-bits)
     return Type::getBFloatTy(context);
-  default:
-    llvm_unreachable("Unhandled floating point type");
+  default: llvm_unreachable("Unhandled floating point type");
   }
 }
 

@@ -11,6 +11,7 @@
 #define DEBUG_TYPE "taffo-init"
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 void getAndDeleteAnnotationsOfArgumentCuda(Function& KernF, unsigned ArgId, std::optional<ConstantExpr*>& Res) {

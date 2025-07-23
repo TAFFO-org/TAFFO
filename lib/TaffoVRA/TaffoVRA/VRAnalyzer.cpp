@@ -8,6 +8,7 @@
 #include <llvm/Support/Debug.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-vra"

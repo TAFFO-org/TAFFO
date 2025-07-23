@@ -3,7 +3,7 @@
 #include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Constants.h>
@@ -21,7 +21,7 @@
 #include <memory>
 
 using namespace llvm;
-using namespace taffo;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -824,6 +824,8 @@ Value* FloatToFixed::convertCmp(FCmpInst* fcmp) {
     t1->setSigned(true);
     isOneFloat = t2->isFloatingPoint();
   }
+  else
+    return fcmp;
   if (!isOneFloat) {
     bool mixedsign = t1->isSigned() != t2->isSigned();
     int intpart1 = t1->getBits() - t1->getFractionalBits() + (mixedsign ? t1->isSigned() : 0);

@@ -5,7 +5,7 @@
 namespace taffo {
 
 struct Range : public Serializable,
-               public Printable {
+               public tda::Printable {
   double min;
   double max;
 

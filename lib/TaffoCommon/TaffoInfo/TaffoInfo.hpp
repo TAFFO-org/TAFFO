@@ -1,8 +1,7 @@
 #pragma once
 
-#include "StructPaddingInfo.hpp"
 #include "TaffoCommon/Containers/BiMap.hpp"
-#include "Types/TransparentType.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 #include "ValueInfo.hpp"
 
 #include <llvm/Analysis/LoopInfo.h>
@@ -22,11 +21,9 @@ public:
 
   static TaffoInfo& getInstance();
 
-  std::optional<StructPaddingInfo> getStructPaddingInfo(llvm::StructType* t) const;
-
-  void setTransparentType(llvm::Value& v, const std::shared_ptr<TransparentType>& t);
-  std::shared_ptr<TransparentType> getOrCreateTransparentType(llvm::Value& v);
-  std::shared_ptr<TransparentType> getTransparentType(const llvm::Value& v) const;
+  void setTransparentType(llvm::Value& v, const std::shared_ptr<tda::TransparentType>& t);
+  std::shared_ptr<tda::TransparentType> getOrCreateTransparentType(llvm::Value& v);
+  std::shared_ptr<tda::TransparentType> getTransparentType(const llvm::Value& v) const;
   bool hasTransparentType(const llvm::Value& v);
 
   void addStartingPoint(llvm::Function& f);
@@ -86,7 +83,7 @@ public:
   void initializeFromFile(const std::string& filePath, llvm::Module& m);
 
 private:
-  llvm::DenseMap<llvm::Value*, std::shared_ptr<TransparentType>> transparentTypes;
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<tda::TransparentType>> transparentTypes;
 
   llvm::SmallVector<llvm::Function*> startingPoints;
   llvm::SmallDenseMap<llvm::CallInst*, llvm::Function*> indirectFunctions;
@@ -112,7 +109,6 @@ private:
   BiMap<std::string, llvm::Loop*> idLoopMapping;
   BiMap<std::string, llvm::Type*> idTypeMapping;
 
-  std::unordered_map<llvm::StructType*, StructPaddingInfo> structPaddingInfo;
   const llvm::DataLayout* dataLayout;
 
   unsigned idCounter;
@@ -121,7 +117,7 @@ private:
   std::string logContextTag = "TaffoInfo";
 
   TaffoInfo()
-  : idCounter(0), idDigits(1) {}
+  : dataLayout(nullptr), idCounter(0), idDigits(1) {}
 
   void generateTaffoIds();
   void generateTaffoId(llvm::Value* v);

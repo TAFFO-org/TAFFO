@@ -2,7 +2,7 @@
 
 #include "../FixedPointType.hpp"
 #include "SerializationUtils.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Type.h>
@@ -10,7 +10,7 @@
 
 namespace taffo {
 
-struct ConversionInfo : Printable {
+struct ConversionInfo : tda::Printable {
   bool isBacktrackingNode;
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
@@ -24,7 +24,7 @@ struct ConversionInfo : Printable {
   // significant iff origType is a float or a pointer to a float
   // and if operation == Convert
   std::shared_ptr<FixedPointType> fixpType = std::make_shared<FixedPointScalarType>();
-  std::shared_ptr<TransparentType> origType = nullptr;
+  std::shared_ptr<tda::TransparentType> origType = nullptr;
 
   std::string toString() const override {
     std::stringstream ss;

@@ -11,12 +11,12 @@ std::string Range::toString() const {
 
 json Range::serialize() const {
   json j;
-  j["min"] = min;
-  j["max"] = max;
+  j["min"] = serializeDouble(min);
+  j["max"] = serializeDouble(max);
   return j;
 }
 
 void Range::deserialize(const json& j) {
-  min = j["min"].get<double>();
-  max = j["max"].get<double>();
+  min = deserializeDouble(j["min"]);
+  max = deserializeDouble(j["max"]);
 }

@@ -2,7 +2,7 @@
 #include "Debug/Logger.hpp"
 #include "InitializerPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
 
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallPtrSet.h>
@@ -12,9 +12,9 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/Debug.h>
-#include <llvm/Support/raw_ostream.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-init"

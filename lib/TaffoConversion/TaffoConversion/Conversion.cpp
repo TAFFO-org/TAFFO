@@ -1,7 +1,7 @@
 #include "ConversionPass.hpp"
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Types/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/APFloat.h>
@@ -12,7 +12,6 @@
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instructions.h>
-#include <llvm/IR/Module.h>
 #include <llvm/IR/NoFolder.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/Debug.h>
@@ -23,7 +22,7 @@
 #include <memory>
 
 using namespace llvm;
-using namespace taffo;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
@@ -170,6 +169,7 @@ Value* FloatToFixed::translateOrMatchOperand(
 
   assert(val->getType()->getNumContainedTypes() == 0 && "val is not scalar");
   Value* res = matchOp(val);
+  std::shared_ptr<TransparentType> valueType = taffoInfo.getTransparentType(*val);
   if (res != val) { // this means it has been converted, but can also be a floating point!
     if (res == ConversionError)
       /* the value should have been converted but it hasn't; bail out */
@@ -237,6 +237,11 @@ Value* FloatToFixed::translateOrMatchOperand(
       return res;
     /* Otherwise convert to fixed point the value */
     val = res;
+  }
+  else if (std::static_ptr_cast<FixedPointScalarType>(iofixpt)->isInvalid()
+           || *valueType == *iofixpt->toTransparentType(valueType)) {
+    // value doesn't need conversion
+    return res;
   }
 
   assert(val->getType()->isFloatingPointTy());

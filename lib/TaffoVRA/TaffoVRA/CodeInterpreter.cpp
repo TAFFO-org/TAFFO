@@ -14,6 +14,8 @@
 
 #define DEBUG_TYPE "taffo-vra"
 
+using namespace tda;
+
 namespace taffo {
 
 void CodeInterpreter::interpretFunction(llvm::Function* F, std::shared_ptr<AnalysisStore> FunctionStore) {

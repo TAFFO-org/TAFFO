@@ -1,19 +1,18 @@
 #include "ConversionPass.hpp"
-#include "PtrCasts.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Types/TypeUtils.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
-#include <llvm/Support/raw_ostream.h>
 
 #include <iostream>
 
 using namespace llvm;
-using namespace taffo;
+using namespace tda;
 using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
