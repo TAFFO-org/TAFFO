@@ -1,0 +1,3 @@
+[submodule "lib/TypeDeductionAnalysis"]
+	path = lib/TypeDeductionAnalysis
+	url = git@github.com:NiccoloN/TypeDeductionAnalysis.git
