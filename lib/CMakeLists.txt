@@ -1,7 +1,7 @@
-add_subdirectory(InstructionMix)
 add_subdirectory(TypeDeductionAnalysis)
-add_subdirectory(TaffoCommon)
+add_subdirectory(InstructionMix)
 
+add_subdirectory(TaffoCommon)
 add_subdirectory(TaffoTypeDeducer)
 add_subdirectory(TaffoInitializer)
 add_subdirectory(TaffoVRA)

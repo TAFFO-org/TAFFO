@@ -23,5 +23,8 @@ add_library(${SELF} STATIC
   WriteModule.hpp
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${SELF} PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(${SELF} PUBLIC
+  TypeDeductionAnalysis
+  nlohmann_json::nlohmann_json
+)
 set_property(TARGET ${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)
