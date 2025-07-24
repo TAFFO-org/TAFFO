@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/DenseMap.h>

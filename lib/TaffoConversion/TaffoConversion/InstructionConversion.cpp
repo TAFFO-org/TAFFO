@@ -1,9 +1,8 @@
 #include "ConversionPass.hpp"
-#include "Debug/DebugUtils.hpp"
-#include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TransparentType.hpp"
+#include "TypeDeductionAnalysis/Debug/Logger.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Constants.h>

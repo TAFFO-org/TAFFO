@@ -1,6 +1,6 @@
-#include "Debug/Logger.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>

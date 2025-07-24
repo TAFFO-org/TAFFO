@@ -1,6 +1,6 @@
 #include "RangeOperations.hpp"
 #include "RangeOperationsCallWhitelist.hpp"
-#include "Utils/PtrCasts.hpp"
+#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
 
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/APSInt.h>

@@ -2,7 +2,7 @@
 
 #include "../FixedPointType.hpp"
 #include "SerializationUtils.hpp"
-#include "TransparentType.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/Type.h>

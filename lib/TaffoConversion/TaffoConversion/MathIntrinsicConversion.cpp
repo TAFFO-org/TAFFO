@@ -1,5 +1,5 @@
 #include "ConversionPass.hpp"
-#include "TransparentType.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Intrinsics.h>

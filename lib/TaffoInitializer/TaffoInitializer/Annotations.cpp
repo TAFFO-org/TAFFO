@@ -1,8 +1,8 @@
 #include "AnnotationParser.hpp"
-#include "Debug/Logger.hpp"
 #include "InitializerPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TransparentType.hpp"
+#include "TypeDeductionAnalysis/Debug/Logger.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallPtrSet.h>

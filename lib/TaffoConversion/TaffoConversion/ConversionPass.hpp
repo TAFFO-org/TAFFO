@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Debug/Logger.hpp"
 #include "FixedPointType.hpp"
 #include "SerializationUtils.hpp"
 #include "TaffoInfo/ConversionInfo.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TransparentType.hpp"
+#include "TypeDeductionAnalysis/Debug/Logger.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
 #include "Types/TypeUtils.hpp"
-#include "Utils/PtrCasts.hpp"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>

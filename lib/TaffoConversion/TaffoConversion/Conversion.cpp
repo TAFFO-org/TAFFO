@@ -1,7 +1,7 @@
 #include "ConversionPass.hpp"
-#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TransparentType.hpp"
+#include "TypeDeductionAnalysis/Debug/Logger.hpp"
+#include "TypeDeductionAnalysis/TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/APFloat.h>

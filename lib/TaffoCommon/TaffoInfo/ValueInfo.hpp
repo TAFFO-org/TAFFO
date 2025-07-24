@@ -3,7 +3,7 @@
 #include "NumericInfo.hpp"
 #include "RangeInfo.hpp"
 #include "SerializationUtils.hpp"
-#include "Utils/PtrCasts.hpp"
+#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
 
 #include <llvm/IR/Instructions.h>
 
