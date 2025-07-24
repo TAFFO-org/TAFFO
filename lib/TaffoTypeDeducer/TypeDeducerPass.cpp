@@ -1,6 +1,6 @@
-#include "../TypeDeductionAnalysis/TransparentType.hpp"
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TransparentType.hpp"
 #include "TypeDeducerPass.hpp"
 #include "TypeDeductionAnalysis/TypeDeductionAnalysis.hpp"
 

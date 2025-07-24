@@ -52,3 +52,12 @@ FetchContent_Declare(
   GIT_TAG "v3.11.3"
 )
 FetchContent_MakeAvailable(json)
+
+execute_process(
+  COMMAND git submodule update --init --recursive
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  RESULT_VARIABLE SUBMOD_RET)
+
+if (NOT SUBMOD_RET EQUAL 0)
+  message(FATAL_ERROR "Submodule sync failed")
+endif()
