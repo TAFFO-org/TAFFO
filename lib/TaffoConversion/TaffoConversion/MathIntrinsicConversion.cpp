@@ -31,11 +31,11 @@ static MathIntrinsicFamily getMathIntrinsicFamily(Function* F) {
   return MathIntrinsicFamily::Unrecognized;
 }
 
-bool FloatToFixed::isSupportedMathIntrinsicFunction(Function* F) {
+bool ConversionPass::isSupportedMathIntrinsicFunction(Function* F) {
   return getMathIntrinsicFamily(F) != MathIntrinsicFamily::Unrecognized;
 }
 
-Value* FloatToFixed::convertMathIntrinsicFunction(CallBase* C, const std::shared_ptr<FixedPointScalarType>& fixpt) {
+Value* ConversionPass::convertMathIntrinsicFunction(CallBase* C, const std::shared_ptr<FixedPointScalarType>& fixpt) {
   /* Use the normal fallback path to handle non-converted values */
   auto& taffoInfo = TaffoInfo::getInstance();
   if (getConversionInfo(C)->noTypeConversion)

@@ -57,8 +57,8 @@ extern llvm::Value* Unsupported;
 namespace taffo {
 
 struct PHIInfo : tda::Printable {
-  llvm::Value* placeh_noconv;
-  llvm::Value* placeh_conv;
+  llvm::Value* placeh_noconv = nullptr;
+  llvm::Value* placeh_conv = nullptr;
 
   std::string toString() const override {
     std::string buff;
@@ -71,12 +71,10 @@ struct PHIInfo : tda::Printable {
   }
 };
 
-class Conversion : public llvm::PassInfoMixin<Conversion> {
+class ConversionPass : public llvm::PassInfoMixin<ConversionPass> {
 public:
   llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
-};
 
-struct FloatToFixed {
   /** Map from original values to converted values.
    *  Values not to be converted do not appear in the map.
    *  Values which have not been converted successfully are mapped to
@@ -91,24 +89,20 @@ struct FloatToFixed {
   /* to not be accessed directly, use valueInfo() */
   llvm::DenseMap<llvm::Value*, std::shared_ptr<ConversionInfo>> conversionInfo;
 
-  llvm::ValueMap<llvm::PHINode*, PHIInfo> phiReplacementData;
+  llvm::DenseMap<llvm::PHINode*, PHIInfo> phiReplacementData;
 
-  llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
   void readGlobalMetadata(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& res, bool functionAnnotation = false);
   void readLocalMetadata(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& res, bool onlyArguments = false);
   void readAllLocalMetadata(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& res);
-  bool parseMetaData(llvm::SmallVectorImpl<llvm::Value*>* variables,
-                     std::shared_ptr<taffo::ValueInfo> fpInfo,
-                     llvm::Value* instr);
+  bool
+  parseMetaData(llvm::SmallVectorImpl<llvm::Value*>* variables, std::shared_ptr<ValueInfo> fpInfo, llvm::Value* instr);
   void removeNoFloatTy(llvm::SmallVectorImpl<llvm::Value*>& res);
-  void printAnnotatedObj(llvm::Module& m);
   void openPhiLoop(llvm::PHINode* phi);
   void closePhiLoops();
   bool isKnownConvertibleWithIncompleteMetadata(llvm::Value* V);
   void sortQueue(std::vector<llvm::Value*>& vals);
   void cleanup(const std::vector<llvm::Value*>& queue);
   void cleanUpOriginalFunctions(llvm::Module& m);
-  void insertOpenMPIndirection(llvm::Module& m);
   void propagateCall(std::vector<llvm::Value*>& vals, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
   llvm::Function* createFixFun(llvm::CallBase* call, bool* old);
   void printConversionQueue(const std::vector<llvm::Value*>& vals);
@@ -550,15 +544,15 @@ struct FloatToFixed {
   llvm::Constant* createConstantDataSequentialFP(llvm::ConstantDataSequential* cds,
                                                  const std::shared_ptr<FixedPointType>& fixpt);
 
-  bool associateFixFormat(const std::shared_ptr<taffo::ScalarInfo>& II, std::shared_ptr<FixedPointType>& iofixpt);
+  bool associateFixFormat(const std::shared_ptr<ScalarInfo>& II, std::shared_ptr<FixedPointType>& iofixpt);
 
   void convertIndirectCalls(llvm::Module& m);
 
   void handleKmpcFork(llvm::CallInst* patchedDirectCall, llvm::Function* indirectFunction);
 
 private:
-  llvm::ModuleAnalysisManager* MAM;
-  const llvm::DataLayout* ModuleDL;
+  llvm::ModuleAnalysisManager* MAM = nullptr;
+  const llvm::DataLayout* ModuleDL = nullptr;
 };
 
 llvm::Value* adjustBufferSize(

@@ -35,7 +35,7 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
                   return true;
                 }
                 if (name == "taffoconv") {
-                  passManager.addPass(Conversion());
+                  passManager.addPass(ConversionPass());
                   return true;
                 }
                 return false;

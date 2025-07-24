@@ -9,7 +9,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-bool FloatToFixed::isSupportedOpenCLFunction(Function* F) {
+bool ConversionPass::isSupportedOpenCLFunction(Function* F) {
   if (F->getName() == "clCreateBuffer")
     return true;
   if (F->getName() == "clEnqueueReadBuffer")
@@ -21,7 +21,7 @@ bool FloatToFixed::isSupportedOpenCLFunction(Function* F) {
   return false;
 }
 
-Value* FloatToFixed::convertOpenCLCall(CallBase* C) {
+Value* ConversionPass::convertOpenCLCall(CallBase* C) {
   Function* F = C->getCalledFunction();
 
   unsigned BufferArgId;
@@ -78,7 +78,7 @@ Value* FloatToFixed::convertOpenCLCall(CallBase* C) {
   return C;
 }
 
-void FloatToFixed::cleanUpOpenCLKernelTrampolines(Module* M) {
+void ConversionPass::cleanUpOpenCLKernelTrampolines(Module* M) {
   LLVM_DEBUG(log() << "Cleaning up OpenCL trampolines inserted by Initializer...\n");
   SmallVector<Function*, 4> FuncsToDelete;
 

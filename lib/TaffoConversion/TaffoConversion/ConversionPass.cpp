@@ -41,11 +41,6 @@ cl::opt<unsigned> MinQuotientFrac("minquotientfrac",
                                   cl::desc("minimum number of quotient fractional preserved"),
                                   cl::init(5));
 
-PreservedAnalyses Conversion::run(Module& M, ModuleAnalysisManager& AM) {
-  FloatToFixed Impl;
-  return Impl.run(M, AM);
-}
-
 using MLHVec = std::vector<std::pair<User*, Type*>>;
 
 MLHVec collectMallocLikeHandler(Module& m) {
@@ -111,6 +106,71 @@ MLHVec collectMallocLikeHandler(Module& m) {
   return tmp;
 }
 
+void closeMallocLikeHandler(Module& m, const MLHVec& vec) {
+  LLVM_DEBUG(log() << "#### " << __func__ << " BEGIN ####\n");
+  auto tmp = collectMallocLikeHandler(m);
+  IRBuilder<> builder(m.getContext());
+
+  for (auto& V : vec) {
+    for (auto& T : tmp) {
+      if (V.first == T.first) {
+        LLVM_DEBUG(log() << "Processing malloc " << *(V.first) << "...\n");
+        if (V.second == T.second && V.second == nullptr) {
+          LLVM_DEBUG(log() << " Both types are null? ok...\n");
+          continue;
+        }
+        Value* OldBufSize = V.first->getOperand(0);
+        Value* NewBufSize = adjustBufferSize(OldBufSize, V.second, T.second, dyn_cast<Instruction>(V.first));
+        if (NewBufSize != OldBufSize) {
+          V.first->setOperand(0, NewBufSize);
+          LLVM_DEBUG(log() << "Converted malloc transformed to " << *(V.first) << "\n");
+        }
+        else {
+          LLVM_DEBUG(log() << "Buffer size did not change; the malloc stays as it is\n");
+        }
+      }
+    }
+  }
+
+  LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
+}
+
+PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& AM) {
+  LLVM_DEBUG(log().logln("[ConversionPass]", Logger::Magenta));
+  TaffoInfo::getInstance().initializeFromFile("taffo_info_dta.json", m);
+  MAM = &AM;
+  ModuleDL = &(m.getDataLayout());
+
+  SmallVector<Value*, 32> local;
+  SmallVector<Value*, 32> global;
+  readAllLocalMetadata(m, local);
+  readGlobalMetadata(m, global);
+
+  std::vector vals(local.begin(), local.end());
+  vals.insert(vals.begin(), global.begin(), global.end());
+  MetadataCount = vals.size();
+
+  sortQueue(vals);
+  propagateCall(vals, global, m);
+  LLVM_DEBUG(printConversionQueue(vals));
+  ConversionCount = vals.size();
+
+  auto mallocLikevec = collectMallocLikeHandler(m);
+  performConversion(m, vals);
+  closeMallocLikeHandler(m, mallocLikevec);
+  closePhiLoops();
+  cleanup(vals);
+
+  convertIndirectCalls(m);
+
+  cleanUpOpenCLKernelTrampolines(&m);
+  cleanUpOriginalFunctions(m);
+
+  TaffoInfo::getInstance().dumpToFile("taffo_info_conv.json", m);
+  LLVM_DEBUG(log().logln("[End of ConversionPass]", Logger::Magenta));
+  return PreservedAnalyses::none();
+}
+
 Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instruction* IP, bool Tight) {
   assert(
     IP && "adjustBufferSize requires a valid insertion pointer. Somebody must use this buffer size after all, right?");
@@ -149,72 +209,7 @@ Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instru
   return Res;
 }
 
-void closeMallocLikeHandler(Module& m, const MLHVec& vec) {
-  LLVM_DEBUG(log() << "#### " << __func__ << " BEGIN ####\n");
-  auto tmp = collectMallocLikeHandler(m);
-  IRBuilder<> builder(m.getContext());
-
-  for (auto& V : vec) {
-    for (auto& T : tmp) {
-      if (V.first == T.first) {
-        LLVM_DEBUG(log() << "Processing malloc " << *(V.first) << "...\n");
-        if (V.second == T.second && V.second == nullptr) {
-          LLVM_DEBUG(log() << " Both types are null? ok...\n");
-          continue;
-        }
-        Value* OldBufSize = V.first->getOperand(0);
-        Value* NewBufSize = adjustBufferSize(OldBufSize, V.second, T.second, dyn_cast<Instruction>(V.first));
-        if (NewBufSize != OldBufSize) {
-          V.first->setOperand(0, NewBufSize);
-          LLVM_DEBUG(log() << "Converted malloc transformed to " << *(V.first) << "\n");
-        }
-        else {
-          LLVM_DEBUG(log() << "Buffer size did not change; the malloc stays as it is\n");
-        }
-      }
-    }
-  }
-
-  LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
-}
-
-PreservedAnalyses FloatToFixed::run(Module& m, ModuleAnalysisManager& AM) {
-  LLVM_DEBUG(log().logln("[ConversionPass]", Logger::Magenta));
-  TaffoInfo::getInstance().initializeFromFile("taffo_info_dta.json", m);
-  MAM = &AM;
-  ModuleDL = &(m.getDataLayout());
-
-  SmallVector<Value*, 32> local;
-  SmallVector<Value*, 32> global;
-  readAllLocalMetadata(m, local);
-  readGlobalMetadata(m, global);
-
-  std::vector vals(local.begin(), local.end());
-  vals.insert(vals.begin(), global.begin(), global.end());
-  MetadataCount = vals.size();
-
-  sortQueue(vals);
-  propagateCall(vals, global, m);
-  LLVM_DEBUG(printConversionQueue(vals));
-  ConversionCount = vals.size();
-
-  auto mallocLikevec = collectMallocLikeHandler(m);
-  performConversion(m, vals);
-  closeMallocLikeHandler(m, mallocLikevec);
-  closePhiLoops();
-  cleanup(vals);
-
-  convertIndirectCalls(m);
-
-  cleanUpOpenCLKernelTrampolines(&m);
-  cleanUpOriginalFunctions(m);
-
-  TaffoInfo::getInstance().dumpToFile("taffo_info_conv.json", m);
-  LLVM_DEBUG(log().logln("[End of ConversionPass]", Logger::Magenta));
-  return PreservedAnalyses::none();
-}
-
-int FloatToFixed::getLoopNestingLevelOfValue(Value* v) {
+int ConversionPass::getLoopNestingLevelOfValue(Value* v) {
   Instruction* inst = dyn_cast<Instruction>(v);
   if (!inst)
     return 0;
@@ -226,7 +221,7 @@ int FloatToFixed::getLoopNestingLevelOfValue(Value* v) {
   return li.getLoopDepth(bb);
 }
 
-void FloatToFixed::openPhiLoop(PHINode* phi) {
+void ConversionPass::openPhiLoop(PHINode* phi) {
   PHIInfo info;
 
   if (phi->materialized_use_empty()) {
@@ -257,7 +252,7 @@ void FloatToFixed::openPhiLoop(PHINode* phi) {
   phiReplacementData[phi] = info;
 }
 
-void FloatToFixed::closePhiLoops() {
+void ConversionPass::closePhiLoops() {
   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " begin\n");
 
   for (auto data : phiReplacementData) {
@@ -281,7 +276,7 @@ void FloatToFixed::closePhiLoops() {
   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " end\n");
 }
 
-bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value* V) {
+bool ConversionPass::isKnownConvertibleWithIncompleteMetadata(Value* V) {
   if (Instruction* I = dyn_cast<Instruction>(V)) {
     CallBase* Call = dyn_cast<CallBase>(I);
     if (!Call)
@@ -295,7 +290,7 @@ bool FloatToFixed::isKnownConvertibleWithIncompleteMetadata(Value* V) {
   return false;
 }
 
-void FloatToFixed::sortQueue(std::vector<Value*>& vals) {
+void ConversionPass::sortQueue(std::vector<Value*>& vals) {
   size_t next = 0;
   while (next < vals.size()) {
     Value* v = vals.at(next);
@@ -389,7 +384,7 @@ bool potentiallyUsesMemory(Value* val) {
   return true;
 }
 
-void FloatToFixed::cleanup(const std::vector<Value*>& q) {
+void ConversionPass::cleanup(const std::vector<Value*>& q) {
   std::vector<Value*> roots;
   for (Value* v : q)
     if (getConversionInfo(v)->isRoot == true)
@@ -470,14 +465,14 @@ void FloatToFixed::cleanup(const std::vector<Value*>& q) {
     TaffoInfo::getInstance().eraseValue(v);
 }
 
-void FloatToFixed::cleanUpOriginalFunctions(Module& m) {
+void ConversionPass::cleanUpOriginalFunctions(Module& m) {
   auto& taffoInfo = TaffoInfo::getInstance();
   for (Function& f : m)
     if (taffoInfo.isOriginalFunction(f))
       f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
 }
 
-void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Value*>& global, Module& m) {
+void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Value*>& global, Module& m) {
   SmallPtrSet<Function*, 16> oldFuncs;
 
   for (size_t i = 0; i < vals.size(); i++) {
@@ -654,7 +649,7 @@ void FloatToFixed::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Valu
   vals.resize(removei);
 }
 
-Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
+Function* ConversionPass::createFixFun(CallBase* call, bool* old) {
   LLVM_DEBUG(log() << "*********** " << __FUNCTION__ << "\n");
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
 
@@ -729,7 +724,7 @@ Function* FloatToFixed::createFixFun(CallBase* call, bool* old) {
   return newF;
 }
 
-void FloatToFixed::printConversionQueue(const std::vector<Value*>& vals) {
+void ConversionPass::printConversionQueue(const std::vector<Value*>& vals) {
   if (vals.size() > 1000) {
     LLVM_DEBUG(log() << "not printing the conversion queue because it exceeds 1000 items\n";);
     return;

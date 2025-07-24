@@ -8,7 +8,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-bool FloatToFixed::isSupportedCudaFunction(Function* F) {
+bool ConversionPass::isSupportedCudaFunction(Function* F) {
   if (F->getName() == "cuMemcpyHtoD_v2")
     return true;
   if (F->getName() == "cuMemcpyDtoH_v2")
@@ -16,7 +16,7 @@ bool FloatToFixed::isSupportedCudaFunction(Function* F) {
   return false;
 }
 
-Value* FloatToFixed::convertCudaCall(CallBase* C) {
+Value* ConversionPass::convertCudaCall(CallBase* C) {
   Function* F = C->getCalledFunction();
 
   unsigned BufferArgId;

@@ -17,7 +17,7 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-void FloatToFixed::readGlobalMetadata(Module& m, SmallVectorImpl<Value*>& variables, bool functionAnnotation) {
+void ConversionPass::readGlobalMetadata(Module& m, SmallVectorImpl<Value*>& variables, bool functionAnnotation) {
   auto& taffoInfo = TaffoInfo::getInstance();
   for (GlobalVariable& gv : m.globals())
     if (taffoInfo.hasValueInfo(gv))
@@ -27,7 +27,7 @@ void FloatToFixed::readGlobalMetadata(Module& m, SmallVectorImpl<Value*>& variab
     removeNoFloatTy(variables);
 }
 
-void FloatToFixed::readLocalMetadata(Function& f, SmallVectorImpl<Value*>& variables, bool argumentsOnly) {
+void ConversionPass::readLocalMetadata(Function& f, SmallVectorImpl<Value*>& variables, bool argumentsOnly) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   for (Argument& arg : f.args()) {
     if (taffoInfo.hasValueInfo(arg)) {
@@ -45,7 +45,7 @@ void FloatToFixed::readLocalMetadata(Function& f, SmallVectorImpl<Value*>& varia
       parseMetaData(&variables, taffoInfo.getValueInfo(inst), &inst);
 }
 
-void FloatToFixed::readAllLocalMetadata(Module& m, SmallVectorImpl<Value*>& res) {
+void ConversionPass::readAllLocalMetadata(Module& m, SmallVectorImpl<Value*>& res) {
   for (Function& f : m.functions()) {
     bool argsOnly = false;
     if (TaffoInfo::getInstance().isTaffoCloneFunction(f)) {
@@ -62,7 +62,7 @@ void FloatToFixed::readAllLocalMetadata(Module& m, SmallVectorImpl<Value*>& res)
   }
 }
 
-bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared_ptr<ValueInfo> raw, Value* instr) {
+bool ConversionPass::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared_ptr<ValueInfo> raw, Value* instr) {
   if (hasConversionInfo(instr)) {
     auto existing = getConversionInfo(instr);
     if (existing->isArgumentPlaceholder) {
@@ -132,7 +132,7 @@ bool FloatToFixed::parseMetaData(SmallVectorImpl<Value*>* variables, std::shared
   return true;
 }
 
-void FloatToFixed::removeNoFloatTy(SmallVectorImpl<Value*>& res) {
+void ConversionPass::removeNoFloatTy(SmallVectorImpl<Value*>& res) {
   for (auto it = res.begin(); it != res.end();) {
     Type* ty;
 

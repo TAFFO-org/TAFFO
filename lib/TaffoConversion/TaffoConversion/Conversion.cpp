@@ -30,7 +30,7 @@ using namespace taffo;
 Value* ConversionError = (Value*) (&ConversionError);
 Value* Unsupported = (Value*) (&Unsupported);
 
-void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
+void ConversionPass::performConversion(Module& m, std::vector<Value*>& q) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   Logger& logger = log();
 
@@ -102,14 +102,14 @@ void FloatToFixed::performConversion(Module& m, std::vector<Value*>& q) {
   }
 }
 
-Value* FloatToFixed::createPlaceholder(Type* type, BasicBlock* where, StringRef name) {
+Value* ConversionPass::createPlaceholder(Type* type, BasicBlock* where, StringRef name) {
   IRBuilder<NoFolder> builder(where, where->getFirstInsertionPt());
   AllocaInst* alloca = builder.CreateAlloca(type);
   return builder.CreateLoad(type, alloca, name);
 }
 
 /* also inserts the new value in the basic blocks, alongside the old one */
-Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertSingleValue(Module& m, Value* val, std::shared_ptr<FixedPointType>& fixpt) {
   auto& taffoInfo = TaffoInfo::getInstance();
   Value* res = Unsupported;
 
@@ -145,7 +145,7 @@ Value* FloatToFixed::convertSingleValue(Module& m, Value* val, std::shared_ptr<F
 
 /* do not use on pointer operands */
 /* In iofixpt there is also the source type*/
-Value* FloatToFixed::translateOrMatchOperand(
+Value* ConversionPass::translateOrMatchOperand(
   Value* val, std::shared_ptr<FixedPointType>& iofixpt, Instruction* ip, TypeMatchPolicy typepol, bool wasHintForced) {
   auto& taffoInfo = TaffoInfo::getInstance();
 
@@ -291,7 +291,8 @@ Value* FloatToFixed::translateOrMatchOperand(
   return genConvertFloatToFix(val, std::static_ptr_cast<FixedPointScalarType>(iofixpt), ip);
 }
 
-bool FloatToFixed::associateFixFormat(const std::shared_ptr<ScalarInfo>& II, std::shared_ptr<FixedPointType>& iofixpt) {
+bool ConversionPass::associateFixFormat(const std::shared_ptr<ScalarInfo>& II,
+                                        std::shared_ptr<FixedPointType>& iofixpt) {
   Range* rng = II->range.get();
   assert(rng && "No range info!");
 
@@ -307,7 +308,7 @@ bool FloatToFixed::associateFixFormat(const std::shared_ptr<ScalarInfo>& II, std
 
 // TODO: rewrite this mess!
 Value*
-FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointScalarType>& fixpt, Instruction* ip) {
+ConversionPass::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointScalarType>& fixpt, Instruction* ip) {
   auto& taffoInfo = TaffoInfo::getInstance();
   assert(flt->getType()->isFloatingPointTy() && "genConvertFloatToFixed called on a non-float scalar");
   LLVM_DEBUG(
@@ -401,10 +402,10 @@ FloatToFixed::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointS
 }
 
 // TODO: rewrite this mess!
-Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
-                                            const std::shared_ptr<FixedPointScalarType>& srcFixedType,
-                                            const std::shared_ptr<FixedPointScalarType>& dstFixedType,
-                                            Instruction* ip) {
+Value* ConversionPass::genConvertFixedToFixed(Value* fix,
+                                              const std::shared_ptr<FixedPointScalarType>& srcFixedType,
+                                              const std::shared_ptr<FixedPointScalarType>& dstFixedType,
+                                              Instruction* ip) {
   auto& taffoInfo = TaffoInfo::getInstance();
   if (*srcFixedType == *dstFixedType)
     return fix;
@@ -489,9 +490,9 @@ Value* FloatToFixed::genConvertFixedToFixed(Value* fix,
 }
 
 // TODO: rewrite this mess!
-Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
-                                          const std::shared_ptr<FixedPointType>& fixpt,
-                                          const std::shared_ptr<TransparentType>& dstType) {
+Value* ConversionPass::genConvertFixToFloat(Value* fixValue,
+                                            const std::shared_ptr<FixedPointType>& fixpt,
+                                            const std::shared_ptr<TransparentType>& dstType) {
   Logger& logger = log();
   auto& taffoInfo = TaffoInfo::getInstance();
   Type* dstLLVMType = dstType->toLLVMType();
@@ -644,13 +645,13 @@ Value* FloatToFixed::genConvertFixToFloat(Value* fixValue,
   return nullptr;
 }
 
-Type* FloatToFixed::getLLVMFixedPointTypeForFloatType(const std::shared_ptr<TransparentType>& srcType,
-                                                      const std::shared_ptr<FixedPointType>& baset,
-                                                      bool* hasfloats) {
+Type* ConversionPass::getLLVMFixedPointTypeForFloatType(const std::shared_ptr<TransparentType>& srcType,
+                                                        const std::shared_ptr<FixedPointType>& baset,
+                                                        bool* hasfloats) {
   return baset->toTransparentType(srcType, hasfloats)->toLLVMType();
 }
 
-Type* FloatToFixed::getLLVMFixedPointTypeForFloatValue(Value* val) {
+Type* ConversionPass::getLLVMFixedPointTypeForFloatValue(Value* val) {
   std::shared_ptr<FixedPointType> fpt = getFixpType(val);
   return getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*val), fpt);
 }

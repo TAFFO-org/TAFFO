@@ -18,10 +18,10 @@ using namespace taffo;
 
 /// Retrieve the indirect calls converted into trampolines and re-use the
 /// original indirect functions.
-void FloatToFixed::convertIndirectCalls(Module& m) {
-  using handler_function = void (FloatToFixed::*)(CallInst* patchedDirectCall, Function* indirectFunction);
+void ConversionPass::convertIndirectCalls(Module& m) {
+  using handler_function = void (ConversionPass::*)(CallInst* patchedDirectCall, Function* indirectFunction);
   const std::map<const std::string, handler_function> indirectCallFunctions = {
-    {"__kmpc_fork_call", &FloatToFixed::handleKmpcFork}
+    {"__kmpc_fork_call", &ConversionPass::handleKmpcFork}
   };
 
   std::vector<CallInst*> trampolineCalls;
@@ -58,7 +58,7 @@ void FloatToFixed::convertIndirectCalls(Module& m) {
 
 /// Convert a trampoline call to an outlined function back into the original
 /// library function
-void FloatToFixed::handleKmpcFork(CallInst* patchedDirectCall, Function* indirectFunction) {
+void ConversionPass::handleKmpcFork(CallInst* patchedDirectCall, Function* indirectFunction) {
   auto calledFunction = cast<CallInst>(patchedDirectCall)->getCalledFunction();
   auto entryBlock = &calledFunction->getEntryBlock();
 

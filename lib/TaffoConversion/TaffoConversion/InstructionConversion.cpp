@@ -26,7 +26,7 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-conversion"
 
 /* also inserts the new value in the basic blocks, alongside the old one */
-Value* FloatToFixed::convertInstruction(Module& m, Instruction* val, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertInstruction(Module& m, Instruction* val, std::shared_ptr<FixedPointType>& fixpt) {
   Value* res = Unsupported;
   if (AllocaInst* alloca = dyn_cast<AllocaInst>(val)) {
     res = convertAlloca(alloca, fixpt);
@@ -104,7 +104,7 @@ Value* FloatToFixed::convertInstruction(Module& m, Instruction* val, std::shared
   }
 }
 
-Value* FloatToFixed::convertAlloca(AllocaInst* alloca, const std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertAlloca(AllocaInst* alloca, const std::shared_ptr<FixedPointType>& fixpt) {
   if (getConversionInfo(alloca)->noTypeConversion)
     return alloca;
   std::shared_ptr<TransparentType> prevAllocaType = TaffoInfo::getInstance().getOrCreateTransparentType(*alloca);
@@ -122,7 +122,7 @@ Value* FloatToFixed::convertAlloca(AllocaInst* alloca, const std::shared_ptr<Fix
   return newinst;
 }
 
-Value* FloatToFixed::convertLoad(LoadInst* load, std::shared_ptr<FixedPointType>& fixpt, Module& m) {
+Value* ConversionPass::convertLoad(LoadInst* load, std::shared_ptr<FixedPointType>& fixpt, Module& m) {
   auto& taffoInfo = TaffoInfo::getInstance();
   Value* ptr = load->getPointerOperand();
   Value* newptr = matchOp(ptr);
@@ -147,7 +147,7 @@ Value* FloatToFixed::convertLoad(LoadInst* load, std::shared_ptr<FixedPointType>
   return Unsupported;
 }
 
-Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
+Value* ConversionPass::convertStore(StoreInst* store, Module& m) {
   auto& taffoInfo = TaffoInfo::getInstance();
   Value* oldPtrOperand = store->getPointerOperand();
   Value* val = store->getValueOperand();
@@ -224,7 +224,7 @@ Value* FloatToFixed::convertStore(StoreInst* store, Module& m) {
   return newinst;
 }
 
-Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPointType>& fixpt) {
   LLVM_DEBUG(log() << "### Convert GEP ###\n");
   IRBuilder<NoFolder> builder(gep);
   Value* newval = matchOp(gep->getPointerOperand());
@@ -252,7 +252,7 @@ Value* FloatToFixed::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedPoi
   return newGep;
 }
 
-Value* FloatToFixed::convertExtractValue(ExtractValueInst* exv, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertExtractValue(ExtractValueInst* exv, std::shared_ptr<FixedPointType>& fixpt) {
   if (getConversionInfo(exv)->noTypeConversion)
     return Unsupported;
   IRBuilder<NoFolder> builder(exv);
@@ -271,7 +271,7 @@ Value* FloatToFixed::convertExtractValue(ExtractValueInst* exv, std::shared_ptr<
   return newi;
 }
 
-Value* FloatToFixed::convertInsertValue(InsertValueInst* inv, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertInsertValue(InsertValueInst* inv, std::shared_ptr<FixedPointType>& fixpt) {
   if (getConversionInfo(inv)->noTypeConversion)
     return Unsupported;
   IRBuilder<NoFolder> builder(inv);
@@ -294,7 +294,7 @@ Value* FloatToFixed::convertInsertValue(InsertValueInst* inv, std::shared_ptr<Fi
   return builder.CreateInsertValue(newAggVal, newInsertVal, idxlist);
 }
 
-Value* FloatToFixed::convertPhi(PHINode* phi, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertPhi(PHINode* phi, std::shared_ptr<FixedPointType>& fixpt) {
   auto& taffoInfo = TaffoInfo::getInstance();
   if (!phi->getType()->isFloatingPointTy() || getConversionInfo(phi)->noTypeConversion) {
     /* in the conversion chain the floating point number was converted to
@@ -337,7 +337,7 @@ Value* FloatToFixed::convertPhi(PHINode* phi, std::shared_ptr<FixedPointType>& f
   return newphi;
 }
 
-Value* FloatToFixed::convertSelect(SelectInst* sel, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertSelect(SelectInst* sel, std::shared_ptr<FixedPointType>& fixpt) {
   if (!isFloatingPointToConvert(sel))
     return Unsupported;
   /* the condition is always a bool (i1) or a vector of bools */
@@ -352,7 +352,7 @@ Value* FloatToFixed::convertSelect(SelectInst* sel, std::shared_ptr<FixedPointTy
   return newsel;
 }
 
-Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertCall(CallBase* call, std::shared_ptr<FixedPointType>& fixpt) {
   auto& taffoInfo = TaffoInfo::getInstance();
   /* If the function return a float the new return type will be a fix point of
    * type fixpt, otherwise the return type is left unchanged.*/
@@ -457,7 +457,7 @@ Value* FloatToFixed::convertCall(CallBase* call, std::shared_ptr<FixedPointType>
   return Unsupported;
 }
 
-Value* FloatToFixed::convertRet(ReturnInst* ret, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertRet(ReturnInst* ret, std::shared_ptr<FixedPointType>& fixpt) {
   Value* oldv = ret->getReturnValue();
   if (!oldv) // AKA return void
     return ret;
@@ -474,7 +474,7 @@ Value* FloatToFixed::convertRet(ReturnInst* ret, std::shared_ptr<FixedPointType>
   return ret;
 }
 
-Value* FloatToFixed::convertUnaryOp(Instruction* instr, const std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertUnaryOp(Instruction* instr, const std::shared_ptr<FixedPointType>& fixpt) {
   if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->noTypeConversion)
     return Unsupported;
 
@@ -505,7 +505,7 @@ Value* FloatToFixed::convertUnaryOp(Instruction* instr, const std::shared_ptr<Fi
   return Unsupported;
 }
 
-Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<FixedPointScalarType>& dstType) {
+Value* ConversionPass::convertBinOp(Instruction* instr, const std::shared_ptr<FixedPointScalarType>& dstType) {
   /* Instruction::[Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
    * are handled by the fallback function, not here */
   if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->noTypeConversion)
@@ -799,7 +799,7 @@ Value* FloatToFixed::convertBinOp(Instruction* instr, const std::shared_ptr<Fixe
   return Unsupported;
 }
 
-Value* FloatToFixed::convertCmp(FCmpInst* fcmp) {
+Value* ConversionPass::convertCmp(FCmpInst* fcmp) {
   Value* op1 = fcmp->getOperand(0);
   Value* op2 = fcmp->getOperand(1);
   std::shared_ptr<FixedPointScalarType> cmptype = std::make_shared<FixedPointScalarType>();
@@ -918,7 +918,7 @@ Value* FloatToFixed::convertCmp(FCmpInst* fcmp) {
   }
 }
 
-Value* FloatToFixed::convertCast(CastInst* cast, const std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::convertCast(CastInst* cast, const std::shared_ptr<FixedPointType>& fixpt) {
   /* Instruction opcodes:
    * - [FPToSI,FPToUI,SIToFP,UIToFP] are handled here
    * - [Trunc,ZExt,SExt] are handled as a fallback case, not here
@@ -969,7 +969,7 @@ Value* FloatToFixed::convertCast(CastInst* cast, const std::shared_ptr<FixedPoin
   return Unsupported;
 }
 
-Value* FloatToFixed::fallback(Instruction* unsupp, std::shared_ptr<FixedPointType>& fixpt) {
+Value* ConversionPass::fallback(Instruction* unsupp, std::shared_ptr<FixedPointType>& fixpt) {
   auto& taffoInfo = TaffoInfo::getInstance();
   Value* fallval;
   Value* fixval;
