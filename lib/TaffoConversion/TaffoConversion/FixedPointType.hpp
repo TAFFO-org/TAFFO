@@ -95,7 +95,7 @@ public:
   static bool classof(const FixedPointType* type) { return type->getKind() == K_Struct; }
 
   FixedPointStructType(const llvm::ArrayRef<std::shared_ptr<FixedPointType>>& fields);
-  FixedPointStructType(const std::shared_ptr<StructInfo>& structInfo, int* enableConversion);
+  FixedPointStructType(const std::shared_ptr<StructInfo>& structInfo, bool* enableConversion);
   FixedPointStructType(const FixedPointStructType& other);
 
   size_t getNumFieldTypes() const { return fieldTypes.size(); }

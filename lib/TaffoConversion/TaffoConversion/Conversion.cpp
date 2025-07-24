@@ -337,7 +337,6 @@ ConversionPass::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPoin
   assert(ip && "ip is mandatory if not passing an instruction/constant value");
 
   FloatToFixCount++;
-  FloatToFixWeight += std::pow(2, std::min((int) (sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(flt)));
 
   IRBuilder<NoFolder> builder(ip);
   Type* SrcTy = flt->getType();
@@ -581,7 +580,6 @@ Value* ConversionPass::genConvertFixToFloat(Value* fixValue,
   }
 
   FixToFloatCount++;
-  FixToFloatWeight += std::pow(2, std::min((int) (sizeof(int) * 8 - 1), this->getLoopNestingLevelOfValue(fixValue)));
 
   if (isa<Instruction>(fixValue) || isa<Argument>(fixValue)) {
     Instruction* ip = nullptr;

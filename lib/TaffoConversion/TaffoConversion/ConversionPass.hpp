@@ -31,23 +31,11 @@
 extern llvm::cl::opt<unsigned> MaxTotalBitsConv;
 extern llvm::cl::opt<unsigned> MinQuotientFrac;
 
-STATISTIC(FixToFloatCount,
-          "Number of generic fixed point to floating point "
-          "value conversion operations inserted");
-STATISTIC(FloatToFixCount,
-          "Number of generic floating point to fixed point "
-          "value conversion operations inserted");
-STATISTIC(FixToFloatWeight,
-          "Number of generic fixed point to floating point "
-          "value conversion operations inserted,"
-          " weighted by the loop depth");
-STATISTIC(FloatToFixWeight,
-          "Number of generic floating point to fixed point "
-          "value conversion operations inserted,"
-          " weighted by the loop depth");
+STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point value conversion operations inserted");
+STATISTIC(FloatToFixCount, "Number of generic floating point to fixed point value conversion operations inserted");
 STATISTIC(FallbackCount, "Number of instructions not replaced by a fixed-point-native equivalent");
 STATISTIC(ConversionCount, "Number of instructions affected by taffo");
-STATISTIC(MetadataCount, "Number of valid Metadata found");
+STATISTIC(ValueInfoCount, "Number of valid valueInfo found");
 STATISTIC(FunctionCreated, "Number of fixed point function inserted");
 
 /* flags in conversionPool; actually not valid LLVM values but dummy pointers */
@@ -91,11 +79,13 @@ public:
 
   llvm::DenseMap<llvm::PHINode*, PHIInfo> phiReplacementData;
 
-  void readGlobalMetadata(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& res, bool functionAnnotation = false);
-  void readLocalMetadata(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& res, bool onlyArguments = false);
-  void readAllLocalMetadata(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& res);
-  bool
-  parseMetaData(llvm::SmallVectorImpl<llvm::Value*>* variables, std::shared_ptr<ValueInfo> fpInfo, llvm::Value* instr);
+  void buildGlobalConversionInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
+  void
+  buildLocalConversionInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argumentsOnly = false);
+  void buildAllLocalConversionInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
+  bool buildConversionInfo(llvm::SmallVectorImpl<llvm::Value*>* values,
+                           std::shared_ptr<ValueInfo> fpInfo,
+                           llvm::Value* value);
   void removeNoFloatTy(llvm::SmallVectorImpl<llvm::Value*>& res);
   void openPhiLoop(llvm::PHINode* phi);
   void closePhiLoops();
@@ -538,8 +528,6 @@ public:
     }
   }
 
-  int getLoopNestingLevelOfValue(llvm::Value* v);
-
   template <class T>
   llvm::Constant* createConstantDataSequentialFP(llvm::ConstantDataSequential* cds,
                                                  const std::shared_ptr<FixedPointType>& fixpt);
@@ -551,6 +539,7 @@ public:
   void handleKmpcFork(llvm::CallInst* patchedDirectCall, llvm::Function* indirectFunction);
 
 private:
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   llvm::ModuleAnalysisManager* MAM = nullptr;
   const llvm::DataLayout* ModuleDL = nullptr;
 };

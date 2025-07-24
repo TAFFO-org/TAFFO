@@ -3,7 +3,7 @@ set(SELF TaffoConversion)
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   ConversionPass.hpp
   ConversionPass.cpp
-  ValueInfoCollector.cpp
+  ConversionInfoBuilder.cpp
   Conversion.cpp
   ConstantConversion.cpp
   IndirectCallConversion.cpp
@@ -16,5 +16,5 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
 )
 target_link_libraries(obj.${SELF} PUBLIC
   TaffoCommon
-  )
+)
 set_property(TARGET obj.${SELF} PROPERTY POSITION_INDEPENDENT_CODE ON)

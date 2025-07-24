@@ -194,18 +194,18 @@ std::string FixedPointScalarType::toString() const {
 FixedPointStructType::FixedPointStructType(const ArrayRef<std::shared_ptr<FixedPointType>>& fields)
 : fieldTypes(fields) {}
 
-FixedPointStructType::FixedPointStructType(const std::shared_ptr<StructInfo>& structInfo, int* enableConversion) {
+FixedPointStructType::FixedPointStructType(const std::shared_ptr<StructInfo>& structInfo, bool* enableConversion) {
   for (const std::shared_ptr<ValueInfo>& fieldInfo : *structInfo) {
     if (!fieldInfo)
       fieldTypes.push_back(std::make_shared<FixedPointScalarType>());
     else if (std::shared_ptr<ScalarInfo> scalarFieldInfo = std::dynamic_ptr_cast<ScalarInfo>(fieldInfo)) {
-      if (scalarFieldInfo->isConversionEnabled()) {
-        if (enableConversion)
-          (*enableConversion)++;
+      if (scalarFieldInfo->isConversionEnabled())
         fieldTypes.push_back(std::make_shared<FixedPointScalarType>(scalarFieldInfo->numericType.get()));
-      }
-      else
+      else {
+        if (enableConversion)
+          *enableConversion = false;
         fieldTypes.push_back(std::make_shared<FixedPointScalarType>());
+      }
     }
     else if (std::shared_ptr<StructInfo> structFieldInfo = std::dynamic_ptr_cast<StructInfo>(fieldInfo))
       fieldTypes.push_back(std::make_shared<FixedPointStructType>(structFieldInfo, enableConversion));

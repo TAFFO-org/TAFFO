@@ -6,7 +6,6 @@
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
-#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
@@ -143,23 +142,23 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& AM) {
 
   SmallVector<Value*, 32> local;
   SmallVector<Value*, 32> global;
-  readAllLocalMetadata(m, local);
-  readGlobalMetadata(m, global);
+  buildAllLocalConversionInfo(m, local);
+  buildGlobalConversionInfo(m, global);
 
-  std::vector vals(local.begin(), local.end());
-  vals.insert(vals.begin(), global.begin(), global.end());
-  MetadataCount = vals.size();
+  std::vector values(local.begin(), local.end());
+  values.insert(values.begin(), global.begin(), global.end());
+  ValueInfoCount = values.size();
 
-  sortQueue(vals);
-  propagateCall(vals, global, m);
-  LLVM_DEBUG(printConversionQueue(vals));
-  ConversionCount = vals.size();
+  sortQueue(values);
+  propagateCall(values, global, m);
+  LLVM_DEBUG(printConversionQueue(values));
+  ConversionCount = values.size();
 
   auto mallocLikevec = collectMallocLikeHandler(m);
-  performConversion(m, vals);
+  performConversion(m, values);
   closeMallocLikeHandler(m, mallocLikevec);
   closePhiLoops();
-  cleanup(vals);
+  cleanup(values);
 
   convertIndirectCalls(m);
 
@@ -207,18 +206,6 @@ Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instru
 
   LLVM_DEBUG(log() << "Buffer size adjusted to " << *Res << "\n");
   return Res;
-}
-
-int ConversionPass::getLoopNestingLevelOfValue(Value* v) {
-  Instruction* inst = dyn_cast<Instruction>(v);
-  if (!inst)
-    return 0;
-
-  Function* fun = inst->getFunction();
-  FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(*(fun->getParent())).getManager();
-  LoopInfo& li = FAM.getResult<LoopAnalysis>(*fun);
-  BasicBlock* bb = inst->getParent();
-  return li.getLoopDepth(bb);
 }
 
 void ConversionPass::openPhiLoop(PHINode* phi) {
@@ -587,7 +574,7 @@ void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Va
 
     newVals.insert(newVals.end(), global.begin(), global.end());
     SmallVector<Value*, 32> localFix;
-    readLocalMetadata(*newF, localFix);
+    buildLocalConversionInfo(*newF, localFix);
     newVals.insert(newVals.end(), localFix.begin(), localFix.end());
 
     /* Make sure that the new arguments have correct ConversionInfo */
