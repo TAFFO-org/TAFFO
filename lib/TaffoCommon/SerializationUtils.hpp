@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TransparentType.hpp"
 
 #include <nlohmann/json.hpp>
 #include <sstream>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TaffoCommon/Containers/BiMap.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "ValueInfo.hpp"
 
 #include <llvm/Analysis/LoopInfo.h>

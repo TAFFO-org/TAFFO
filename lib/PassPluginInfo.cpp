@@ -4,7 +4,7 @@
 #include "TaffoMemToReg/MemToRegPass.hpp"
 #include "TaffoTypeDeducer/TypeDeducerPass.hpp"
 #include "TaffoVRA/TaffoVRA/ValueRangeAnalysisPass.hpp"
-#include "TypeDeductionAnalysis/TypeDeductionAnalysis.hpp"
+#include "TypeDeductionAnalysis.hpp"
 
 #include <llvm/IR/PassManager.h>
 #include <llvm/Passes/PassBuilder.h>

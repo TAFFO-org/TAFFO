@@ -1,7 +1,7 @@
 #include "ConversionPass.hpp"
 #include "FixedPointType.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
-#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
+#include "TransparentType.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/Support/Casting.h>

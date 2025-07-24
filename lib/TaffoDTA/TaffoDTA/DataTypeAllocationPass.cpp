@@ -1,11 +1,11 @@
 #include "BufferIDFiles.h"
 #include "DTAConfig.hpp"
 #include "DataTypeAllocationPass.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/NumericInfo.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
-#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
+#include "Utils/PtrCasts.hpp"
 #ifdef TAFFO_BUILD_ILP_DTA
 #include "ILP/MetricBase.h"
 #include "ILP/Optimizer.h"

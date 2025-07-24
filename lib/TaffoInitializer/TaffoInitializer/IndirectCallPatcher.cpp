@@ -1,7 +1,7 @@
+#include "Debug/Logger.hpp"
 #include "IndirectCallPatcher.hpp"
 #include "InitializerPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>

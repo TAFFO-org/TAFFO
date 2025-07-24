@@ -1,8 +1,8 @@
 #include "ConversionPass.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoConversion/TaffoConversion/FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>

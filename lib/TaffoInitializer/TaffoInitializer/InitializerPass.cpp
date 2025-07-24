@@ -1,9 +1,9 @@
 #include "CudaKernelPatcher.hpp"
+#include "Debug/Logger.hpp"
 #include "IndirectCallPatcher.hpp"
 #include "InitializerPass.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/IR/Argument.h>

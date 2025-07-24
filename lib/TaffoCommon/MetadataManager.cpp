@@ -1,6 +1,6 @@
+#include "Debug/Logger.hpp"
 #include "MetadataManager.hpp"
 #include "SerializationUtils.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>

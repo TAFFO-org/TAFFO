@@ -1,9 +1,9 @@
 #pragma once
 
 #include "CodeInterpreter.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
-#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <string>
 

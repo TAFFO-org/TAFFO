@@ -1,11 +1,9 @@
 #pragma once
 
 #include "../FixedPointType.hpp"
-#include "SerializationUtils.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TransparentType.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
-#include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 
 namespace taffo {

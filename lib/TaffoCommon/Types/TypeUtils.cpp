@@ -1,5 +1,5 @@
 #include "../TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
+#include "Debug/Logger.hpp"
 #include "TypeUtils.hpp"
 
 #include <llvm/Support/Debug.h>

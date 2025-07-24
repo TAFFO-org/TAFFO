@@ -1,6 +1,6 @@
 #include "SerializationUtils.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Utils/PrintUtils.hpp"
+#include "Utils/PrintUtils.hpp"
 
 using namespace llvm;
 using namespace tda;

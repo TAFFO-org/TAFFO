@@ -1,7 +1,7 @@
 #include "AnnotationParser.hpp"
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/ValueInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 
 #include <llvm/Support/raw_ostream.h>
 

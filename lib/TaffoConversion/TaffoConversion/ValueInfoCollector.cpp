@@ -1,7 +1,7 @@
 #include "ConversionPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Utils/PtrCasts.hpp"
 #include "Types/TypeUtils.hpp"
+#include "Utils/PtrCasts.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>

@@ -1,7 +1,7 @@
+#include "Debug/Logger.hpp"
 #include "MetadataManager.hpp"
 #include "TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TransparentType.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>

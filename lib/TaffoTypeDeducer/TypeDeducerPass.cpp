@@ -1,8 +1,8 @@
+#include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TransparentType.hpp"
 #include "TypeDeducerPass.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
-#include "TypeDeductionAnalysis/TypeDeductionAnalysis.hpp"
+#include "TypeDeductionAnalysis.hpp"
 
 #define DEBUG_TYPE "taffo-typededucer"
 

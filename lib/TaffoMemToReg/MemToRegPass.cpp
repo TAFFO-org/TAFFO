@@ -1,7 +1,7 @@
+#include "Debug/Logger.hpp"
 #include "MemToRegPass.hpp"
 #include "PromoteMemToReg.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TypeDeductionAnalysis/Debug/Logger.hpp"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/BasicBlock.h>

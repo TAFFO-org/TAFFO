@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TaffoInfo/ValueInfo.hpp"
-#include "TypeDeductionAnalysis/TransparentType.hpp"
+#include "TransparentType.hpp"
 
 #include <string>
 
