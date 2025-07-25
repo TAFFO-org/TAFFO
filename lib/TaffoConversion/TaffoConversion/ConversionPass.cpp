@@ -215,7 +215,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
     return;
   }
 
-  auto type = TaffoInfo::getInstance().getTransparentType(*phi);
+  auto type = taffoInfo.getTransparentType(*phi);
 
   info.placeh_noconv = createPlaceholder(phi->getType(), phi->getParent(), "phi_noconv");
   *(newConversionInfo(info.placeh_noconv)) = *(getConversionInfo(phi));
@@ -366,7 +366,7 @@ bool potentiallyUsesMemory(Value* val) {
     return false;
   if (isa<BitCastInst>(val))
     return false;
-  if (CallInst* call = dyn_cast<CallInst>(val)) {
+  if (auto* call = dyn_cast<CallInst>(val)) {
     Function* f = call->getCalledFunction();
     if (!f)
       return true;
@@ -380,30 +380,30 @@ bool potentiallyUsesMemory(Value* val) {
   return true;
 }
 
-void ConversionPass::cleanup(const std::vector<Value*>& q) {
+void ConversionPass::cleanup(const std::vector<Value*>& queue) {
   std::vector<Value*> roots;
-  for (Value* v : q)
-    if (getConversionInfo(v)->isRoot == true)
-      roots.push_back(v);
+  for (Value* value : queue)
+    if (getConversionInfo(value)->isRoot == true)
+      roots.push_back(value);
 
-  DenseMap<Value*, bool> isrootok;
+  DenseMap<Value*, bool> isRootOk;
   for (Value* root : roots)
-    isrootok[root] = true;
+    isRootOk[root] = true;
 
-  for (Value* qi : q) {
-    Value* cqi = convertedValues.at(qi);
+  for (Value* value : queue) {
+    Value* cqi = convertedValues.at(value);
     assert(cqi && "every value should have been processed at this point!!");
     if (cqi == ConversionError) {
-      if (!potentiallyUsesMemory(qi))
+      if (!potentiallyUsesMemory(value))
         continue;
       LLVM_DEBUG(
-        qi->print(errs());
-        if (Instruction* i = dyn_cast<Instruction>(qi))
-          errs() << " in function " << i->getFunction()->getName();
+        value->print(errs());
+        if (auto* inst = dyn_cast<Instruction>(value))
+          errs() << " in function " << inst->getFunction()->getName();
         errs() << " not converted; invalidates roots ");
-      const auto& rootsaffected = getConversionInfo(qi)->roots;
-      for (Value* root : rootsaffected) {
-        isrootok[root] = false;
+      const auto& rootsAffected = getConversionInfo(value)->roots;
+      for (Value* root : rootsAffected) {
+        isRootOk[root] = false;
         LLVM_DEBUG(root->print(errs()));
       }
       LLVM_DEBUG(errs() << '\n');
@@ -413,56 +413,53 @@ void ConversionPass::cleanup(const std::vector<Value*>& q) {
   std::vector<Instruction*> toErase;
 
   auto clear = [&](bool (*toDelete)(const Instruction& Y)) {
-    for (Value* v : q) {
-      Instruction* i = dyn_cast<Instruction>(v);
-      if (!i || (!toDelete(*i)))
+    for (Value* value : queue) {
+      auto* inst = dyn_cast<Instruction>(value);
+      if (!inst || !toDelete(*inst))
         continue;
-      if (convertedValues.at(v) == v) {
-        LLVM_DEBUG(log() << *i << " not deleted, as it was converted by self-mutation\n");
+      if (convertedValues.at(value) == value) {
+        LLVM_DEBUG(log() << *inst << " not deleted, as it was converted by self-mutation\n");
         continue;
       }
-      const auto& roots = getConversionInfo(v)->roots;
+      const auto& roots = getConversionInfo(value)->roots;
 
-      bool allok = true;
+      bool allOk = true;
       for (Value* root : roots) {
-        if (!isrootok[root]) {
+        if (!isRootOk[root]) {
           LLVM_DEBUG(
-            i->print(errs());
+            inst->print(errs());
             errs() << " not deleted: involves root ";
             root->print(errs());
             errs() << '\n');
-          allok = false;
+          allOk = false;
           break;
         }
       }
-      if (allok) {
-        if (!i->use_empty())
-          i->replaceAllUsesWith(UndefValue::get(i->getType()));
-        toErase.push_back(i);
+      if (allOk) {
+        if (!inst->use_empty())
+          inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
+        toErase.push_back(inst);
       }
     }
   };
 
   clear(isa<StoreInst>);
 
-  /* remove calls manually because DCE does not do it as they may have
-   * side effects */
+  // Remove calls manually because DCE does not do it as they may have side effects
   clear(isa<CallInst>);
   clear(isa<InvokeInst>);
 
   clear(isa<BranchInst>);
 
-  /* remove old phis manually as DCE cannot remove values having a circular
-   * dependence on a phi */
+  // Remove old phis manually as DCE cannot remove values having a circular dependence on a phi
   phiReplacementData.clear();
   clear(isa<PHINode>);
 
-  for (Instruction* v : toErase)
-    TaffoInfo::getInstance().eraseValue(v);
+  for (Instruction* inst : toErase)
+    taffoInfo.eraseValue(inst);
 }
 
 void ConversionPass::cleanUpOriginalFunctions(Module& m) {
-  auto& taffoInfo = TaffoInfo::getInstance();
   for (Function& f : m)
     if (taffoInfo.isOriginalFunction(f))
       f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
@@ -492,18 +489,16 @@ void ConversionPass::propagateCalls(std::vector<Value*>& values, SmallVectorImpl
     LLVM_DEBUG(log() << "Converting function " << oldF->getName() << " : " << *oldF->getType() << " into "
                      << newF->getName() << " : " << *newF->getType() << "\n");
 
-    ValueToValueMapTy origValToCloned; // Create Val2Val mapping and clone function
-    Function::arg_iterator newIt = newF->arg_begin();
-    Function::arg_iterator oldIt = oldF->arg_begin();
-    for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
-      newIt->setName(oldIt->getName());
-      origValToCloned.insert(std::make_pair(oldIt, newIt));
+    // Create Val2Val mapping and clone function
+    ValueToValueMapTy origValToCloned;
+    for (auto&& [oldArg, newArg] : zip(oldF->args(), newF->args())) {
+      newArg.setName(oldArg.getName());
+      origValToCloned.insert({&oldArg, &newArg});
     }
-    SmallVector<ReturnInst*, 100> returns;
+    SmallVector<ReturnInst*, 8> returns;
     CloneFunctionInto(newF, oldF, origValToCloned, CloneFunctionChangeType::GlobalChanges, returns);
-    /* after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments) */
+    // after CloneFunctionInto, valueMap maps all values from the oldF to the newF (not just the arguments)
 
-    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
     for (const auto& [oldValue, newValue] : origValToCloned) {
       if (taffoInfo.hasValueInfo(*oldValue))
         taffoInfo.setValueInfo(*newValue, taffoInfo.getValueInfo(*oldValue));
@@ -514,7 +509,7 @@ void ConversionPass::propagateCalls(std::vector<Value*>& values, SmallVectorImpl
      * This is not exactly what we want for OpenCL kernels because the alignment
      * after the conversion is not defined by us but by the OpenCL runtime.
      * So we need to compensate for this. */
-    // TODO fix soon
+    // TODO fix cuda
     if (newF->getCallingConv() == CallingConv::SPIR_KERNEL /*|| MetadataManager::isCudaKernel(m, oldF)*/) {
       /* OpenCL spec says the alignment is equal to the size of the type */
       SmallVector<AttributeSet, 4> NewAttrs(newF->arg_size());
@@ -534,114 +529,104 @@ void ConversionPass::propagateCalls(std::vector<Value*>& values, SmallVectorImpl
       }
       newF->setAttributes(
         AttributeList::get(newF->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewAttrs));
-      LLVM_DEBUG(log() << "Set new attributes, hopefully without breaking anything\n");
     }
     LLVM_DEBUG(log() << "After CloneFunctionInto, the function now looks like this:\n"
                      << *newF->getFunctionType() << "\n");
 
-    std::vector<Value*> newVals; // propagate fixp conversion
-    oldIt = oldF->arg_begin();
-    newIt = newF->arg_begin();
-    for (int i = 0; oldIt != oldF->arg_end(); oldIt++, newIt++, i++) {
-      if (oldIt->getType() != newIt->getType()) {
+    // propagate conversion
+    std::vector<Value*> newValues;
+    for (auto&& [oldArg, newArg] : zip(oldF->args(), newF->args())) {
+      if (oldArg.getType() != newArg.getType()) {
         // append fixp info to arg name
-        newIt->setName(newIt->getName() + "." + getFixpType(oldIt)->toString());
+        newArg.setName(newArg.getName() + "." + getFixpType(&oldArg)->toString());
 
-        /* Create a fake value to maintain type consistency because
-         * createFixFun has RAUWed all arguments
-         * FIXME: is there a cleaner way to do this? */
+        // Create a fake value to maintain type consistency because
+        // createConvertedFunctionForCall has RAUWed all arguments
+        // FIXME: is there a cleaner way to do this?
         std::string name("placeholder");
-        if (newIt->hasName())
-          name += "." + newIt->getName().str();
-        Value* placehValue = createPlaceholder(oldIt->getType(), &newF->getEntryBlock(), name);
-        /* Reimplement RAUW to defeat the same-type check (which is ironic because
-         * we are attempting to fix a type mismatch here) */
-        while (!newIt->materialized_use_empty()) {
-          Use& U = *(newIt->uses().begin());
-          U.set(placehValue);
+        if (newArg.hasName())
+          name += "." + newArg.getName().str();
+        Value* placeholder = createPlaceholder(oldArg.getType(), &newF->getEntryBlock(), name);
+        // Reimplement RAUW to defeat the same-type check
+        while (!newArg.materialized_use_empty()) {
+          Use& use = *(newArg.uses().begin());
+          use.set(placeholder);
         }
-        *newConversionInfo(placehValue) = *getConversionInfo(oldIt);
-        convertedValues[placehValue] = newIt;
+        *newConversionInfo(placeholder) = *getConversionInfo(&oldArg);
+        convertedValues[placeholder] = &newArg;
 
-        getConversionInfo(placehValue)->isArgumentPlaceholder = true;
-        newVals.push_back(placehValue);
+        getConversionInfo(placeholder)->isArgumentPlaceholder = true;
+        newValues.push_back(placeholder);
 
-        /* Copy input info to the placeholder because it's the only place where ranges are stored */
-        std::shared_ptr<ValueInfo> argInfo = TaffoInfo::getInstance().getValueInfo(*oldIt);
+        // Copy valueInfo to the placeholder because it's the only place where ranges are stored
+        std::shared_ptr<ValueInfo> argInfo = taffoInfo.getValueInfo(oldArg);
         if (std::shared_ptr<ScalarInfo> argScalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(argInfo)) {
           std::shared_ptr<ValueInfo> newInfo = argScalarInfo->clone();
-          TaffoInfo::getInstance().setTransparentType(
-            *placehValue, TaffoInfo::getInstance().getOrCreateTransparentType(*oldIt)->clone());
-          TaffoInfo::getInstance().setValueInfo(*placehValue, newInfo);
+          taffoInfo.setTransparentType(*placeholder, taffoInfo.getOrCreateTransparentType(oldArg)->clone());
+          taffoInfo.setValueInfo(*placeholder, newInfo);
         }
-
-        /* No need to mark the argument itself, readLocalMetadata will
-         * do it in a bit as its metadata has been cloned as well */
+        // No need to mark the argument itself
+        // buildLocalConversionInfo will do it in a bit as its metadata has been cloned as well
       }
     }
 
-    newVals.insert(newVals.end(), global.begin(), global.end());
-    SmallVector<Value*, 32> localFix;
-    buildLocalConversionInfo(*newF, localFix);
-    newVals.insert(newVals.end(), localFix.begin(), localFix.end());
+    newValues.insert(newValues.end(), global.begin(), global.end());
+    SmallVector<Value*, 32> localFixed;
+    buildLocalConversionInfo(*newF, localFixed);
+    newValues.insert(newValues.end(), localFixed.begin(), localFixed.end());
 
-    /* Make sure that the new arguments have correct ConversionInfo */
-    oldIt = oldF->arg_begin();
-    newIt = newF->arg_begin();
-    for (; oldIt != oldF->arg_end(); oldIt++, newIt++) {
-      if (oldIt->getType() != newIt->getType())
-        *getConversionInfo(newIt) = *getConversionInfo(oldIt);
-      if (hasConversionInfo(newIt)) {
-        auto fixpType = getFixpType(newIt);
-        taffoInfo.setTransparentType(*newIt, fixpType->toTransparentType(taffoInfo.getTransparentType(*newIt)));
+    /* Make sure that the new arguments have correct conversionInfo */
+    for (auto&& [oldArg, newArg] : zip(oldF->args(), newF->args())) {
+      if (oldArg.getType() != newArg.getType())
+        *getConversionInfo(&newArg) = *getConversionInfo(&oldArg);
+      if (hasConversionInfo(&newArg)) {
+        auto fixpType = getFixpType(&newArg);
+        taffoInfo.setTransparentType(newArg, fixpType->toTransparentType(taffoInfo.getTransparentType(newArg)));
       }
     }
-    /* Copy the return type on the call instruction to all the return
-     * instructions */
+    // Copy the return type on the call instruction to all the return instructions
     for (ReturnInst* v : returns) {
       if (!hasConversionInfo(call))
         continue;
-      newVals.push_back(v);
+      newValues.push_back(v);
       demandConversionInfo(v)->fixpType = getFixpType(call);
       getConversionInfo(v)->origType = taffoInfo.getOrCreateTransparentType(*v)->clone();
       getConversionInfo(v)->fixpTypeRootDistance = 0;
     }
 
-    LLVM_DEBUG(log() << "Sorting queue of new function " << newF->getName() << "\n");
-    createConversionQueue(newVals);
+    LLVM_DEBUG(log() << "creating conversion queue of new function " << newF->getName() << "\n");
+    createConversionQueue(newValues);
 
     oldFunctions.insert(oldF);
 
-    /* Put the instructions from the new function in */
-    for (Value* val : newVals) {
-      if (auto* inst = dyn_cast<Instruction>(val)) {
+    // Put the instructions from the new function in queue
+    for (Value* newValue : newValues)
+      if (auto* inst = dyn_cast<Instruction>(newValue))
         if (inst->getFunction() == newF && !is_contained(values, inst))
-          values.push_back(val);
-      }
-    }
+          values.push_back(newValue);
   }
 
-  /* Remove instructions of the old functions from the queue */
-  size_t removei, removej;
-  for (removei = 0, removej = 0; removej < values.size(); removej++) {
-    values[removei] = values[removej];
-    Value* val = values[removej];
+  // Remove instructions of the old function from the queue
+  size_t i, j;
+  for (i = 0, j = 0; j < values.size(); j++) {
+    values[i] = values[j];
+    Value* value = values[j];
     bool toDelete = false;
-    if (Instruction* inst = dyn_cast<Instruction>(val)) {
-      if (oldFunctions.count(inst->getFunction())) {
+    if (auto* inst = dyn_cast<Instruction>(value)) {
+      if (oldFunctions.contains(inst->getFunction())) {
         toDelete = true;
-        if (PHINode* phi = dyn_cast_or_null<PHINode>(inst))
+        if (auto* phi = dyn_cast_or_null<PHINode>(inst))
           phiReplacementData.erase(phi);
       }
     }
-    else if (Argument* arg = dyn_cast<Argument>(val)) {
-      if (oldFunctions.count(arg->getParent()))
+    else if (auto* arg = dyn_cast<Argument>(value)) {
+      if (oldFunctions.contains(arg->getParent()))
         toDelete = true;
     }
     if (!toDelete)
-      removei++;
+      i++;
   }
-  values.resize(removei);
+  values.resize(i);
 }
 
 Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* alreadyHandledNewF) {
