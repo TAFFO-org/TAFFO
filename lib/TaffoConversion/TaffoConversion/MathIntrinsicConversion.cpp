@@ -38,7 +38,7 @@ bool ConversionPass::isSupportedMathIntrinsicFunction(Function* F) {
 Value* ConversionPass::convertMathIntrinsicFunction(CallBase* C, const std::shared_ptr<FixedPointScalarType>& fixpt) {
   /* Use the normal fallback path to handle non-converted values */
   auto& taffoInfo = TaffoInfo::getInstance();
-  if (getConversionInfo(C)->noTypeConversion)
+  if (getConversionInfo(C)->isConversionDisabled)
     return Unsupported;
 
   Function* F = C->getCalledFunction();

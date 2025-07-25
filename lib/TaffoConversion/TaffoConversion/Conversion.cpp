@@ -44,7 +44,7 @@ void ConversionPass::performConversion(Module& m, std::vector<Value*>& q) {
              << Logger::Reset << "\n";
       indenter.increaseIndent();
       logger.log("[Value] ", Logger::Bold).logValueln(v);
-      logger << "to convert: " << !getConversionInfo(v)->noTypeConversion << "\n";
+      logger << "to convert: " << !getConversionInfo(v)->isConversionDisabled << "\n";
       logger << "requested type: " << *newType << "\n";);
 
     Value* newv = convertSingleValue(m, v, newType);
@@ -118,7 +118,7 @@ Value* ConversionPass::convertSingleValue(Module& m, Value* val, std::shared_ptr
   }
   else if (Constant* con = dyn_cast<Constant>(val)) {
     /* Since constants never change, there is never anything to substitute in them */
-    if (!getConversionInfo(con)->noTypeConversion) {
+    if (!getConversionInfo(con)->isConversionDisabled) {
       res = convertConstant(con, fixpt, TypeMatchPolicy::RangeOverHintMaxFrac);
       taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
     }
@@ -219,7 +219,7 @@ Value* ConversionPass::translateOrMatchOperand(
                                     ip);
     }
 
-    if (!getConversionInfo(val)->noTypeConversion) {
+    if (!getConversionInfo(val)->isConversionDisabled) {
       /* the value has been successfully converted to fixed point in a previous step */
       iofixpt = getFixpType(res);
       LLVM_DEBUG(
@@ -561,10 +561,10 @@ Value* ConversionPass::genConvertFixToFloat(Value* fixValue,
                                                    : ConstantExpr::getCast(Instruction::UIToFP, cst, TmpTy);
       double twoebits = pow(2.0, scalarFixpt->getFractionalBits());
       Constant* DblRes =
-        ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
+        ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *dataLayout);
       assert(DblRes && "Constant folding failed...");
       LLVM_DEBUG(log() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-      Constant* Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *ModuleDL);
+      Constant* Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *dataLayout);
       assert(Res && "Constant folding failed...");
       LLVM_DEBUG(log() << "ConstantFoldCastInstruction returned " << *Res << "\n");
       return Res;
@@ -630,10 +630,10 @@ Value* ConversionPass::genConvertFixToFloat(Value* fixValue,
                                                  : ConstantExpr::getCast(Instruction::UIToFP, cst, TmpTy);
     double twoebits = pow(2.0, scalarFixpt->getFractionalBits());
     Constant* DblRes =
-      ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *ModuleDL);
+      ConstantFoldBinaryOpOperands(Instruction::FDiv, floattmp, ConstantFP::get(TmpTy, twoebits), *dataLayout);
     assert(DblRes && "ConstantFoldBinaryOpOperands failed...");
     LLVM_DEBUG(log() << "ConstantFoldBinaryOpOperands returned " << *DblRes << "\n");
-    Constant* Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *ModuleDL);
+    Constant* Res = ConstantFoldCastOperand(Instruction::FPTrunc, DblRes, dstLLVMType, *dataLayout);
     assert(Res && "Constant folding failed...");
     LLVM_DEBUG(log() << "ConstantFoldCastInstruction returned " << *Res << "\n");
     return Res;

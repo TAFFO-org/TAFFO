@@ -13,41 +13,32 @@ struct ConversionInfo : tda::Printable {
   bool isRoot;
   llvm::SmallPtrSet<llvm::Value*, 5> roots;
   unsigned fixpTypeRootDistance = UINT_MAX;
-
-  /* Disable type conversion even if the instruction
-   * produces a floating point value */
-  bool noTypeConversion = false;
+  bool isConversionDisabled = false;
   bool isArgumentPlaceholder = false;
 
-  // significant iff origType is a float or a pointer to a float
-  // and if operation == Convert
+  // significant iff origType is a float or a pointer to a float and if operation == Convert
   std::shared_ptr<FixedPointType> fixpType = std::make_shared<FixedPointScalarType>();
   std::shared_ptr<tda::TransparentType> origType = nullptr;
 
   std::string toString() const override {
     std::stringstream ss;
-    ss << "ConversionInfo: { ";
-    ss << "isBacktrackingNode: " << (isBacktrackingNode ? "true" : "false") << ", ";
-    ss << "isRoot: " << (isRoot ? "true" : "false") << ", ";
-    ss << "fixpTypeRootDistance: " << fixpTypeRootDistance << ", ";
-    ss << "noTypeConversion: " << (noTypeConversion ? "true" : "false") << ", ";
-    ss << "isArgumentPlaceholder: " << (isArgumentPlaceholder ? "true" : "false") << ", ";
-    ss << "origType: ";
-    if (origType)
-      ss << origType->toString();
-    else
-      ss << "null";
-    ss << ", fixpType: ";
-    if (fixpType)
-      ss << *fixpType;
-    else
-      ss << "null";
-    ss << ", roots: {";
+    ss << "{ ";
+    ss << (isBacktrackingNode ? "backtracking, " : "");
+    ss << (isRoot ? "root, " : "");
+    ss << "fixpTypeRootDistance: " << (fixpTypeRootDistance == UINT_MAX ? "inf" : std::to_string(fixpTypeRootDistance))
+       << ", ";
+    ss << (isConversionDisabled ? "disabled, " : "");
+    ss << (isArgumentPlaceholder ? "argPlaceholder, " : "");
+    ss << "origType: " << (origType ? origType->toString() : "null") << ", ";
+    ss << "fixpType: " << (fixpType ? fixpType->toString() : "null") << ", ";
+    ss << "roots: {";
     bool first = true;
-    for (llvm::Value* v : roots) {
+    for (llvm::Value* root : roots) {
       if (!first)
         ss << ", ";
-      ss << v;
+      else
+        ss << " ";
+      ss << root;
       first = false;
     }
     ss << "} }";

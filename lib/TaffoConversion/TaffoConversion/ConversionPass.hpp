@@ -61,7 +61,7 @@ struct PHIInfo : tda::Printable {
 
 class ConversionPass : public llvm::PassInfoMixin<ConversionPass> {
 public:
-  llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
+  llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager&);
 
   /** Map from original values to converted values.
    *  Values not to be converted do not appear in the map.
@@ -89,12 +89,12 @@ public:
   void removeNoFloatTy(llvm::SmallVectorImpl<llvm::Value*>& res);
   void openPhiLoop(llvm::PHINode* phi);
   void closePhiLoops();
-  bool isKnownConvertibleWithIncompleteMetadata(llvm::Value* V);
-  void sortQueue(std::vector<llvm::Value*>& vals);
+  bool isKnownConvertibleWithIncompleteMetadata(llvm::Value* value);
+  void createConversionQueue(std::vector<llvm::Value*>& values);
   void cleanup(const std::vector<llvm::Value*>& queue);
   void cleanUpOriginalFunctions(llvm::Module& m);
   void propagateCall(std::vector<llvm::Value*>& vals, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
-  llvm::Function* createFixFun(llvm::CallBase* call, bool* old);
+  llvm::Function* createConvertedFunction(llvm::CallBase* call, bool* old);
   void printConversionQueue(const std::vector<llvm::Value*>& vals);
   void performConversion(llvm::Module& m, std::vector<llvm::Value*>& q);
   llvm::Value* convertSingleValue(llvm::Module& m, llvm::Value* val, std::shared_ptr<FixedPointType>& fixpt);
@@ -315,8 +315,9 @@ public:
     LLVM_DEBUG(tda::log() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
     if (!hasConversionInfo(fallBackValue))
       return fallBackValue;
-    LLVM_DEBUG(tda::log() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->noTypeConversion << "\n";);
-    if (getConversionInfo(fallBackValue)->noTypeConversion)
+    LLVM_DEBUG(tda::log() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->isConversionDisabled
+                          << "\n";);
+    if (getConversionInfo(fallBackValue)->isConversionDisabled)
       return fallBackValue;
 
     if (!insertionPoint) {
@@ -392,15 +393,12 @@ public:
   llvm::Type* getLLVMFixedPointTypeForFloatValue(llvm::Value* val);
 
   std::shared_ptr<ConversionInfo> newConversionInfo(llvm::Value* val) {
-    LLVM_DEBUG(tda::log() << "new conversionInfo for " << *val << "\n");
-    auto vi = conversionInfo.find(val);
-    if (vi == conversionInfo.end()) {
-      conversionInfo[val] = std::make_shared<ConversionInfo>();
-      return conversionInfo[val];
-    }
-    else {
-      assert(false && "value already has info!");
-    }
+    auto iter = conversionInfo.find(val);
+    assert(iter == conversionInfo.end() && "value already has conversion info!");
+    auto newConversionInfo = std::make_shared<ConversionInfo>();
+    conversionInfo[val] = newConversionInfo;
+    LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*newConversionInfo, tda::Logger::Cyan));
+    return newConversionInfo;
   }
 
   std::shared_ptr<ConversionInfo> demandConversionInfo(llvm::Value* val, bool* isNew = nullptr) {
@@ -441,7 +439,7 @@ public:
     if (!hasConversionInfo(val))
       return false;
     std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
-    if (vi->noTypeConversion)
+    if (vi->isConversionDisabled)
       return false;
     if (vi->fixpType->isInvalid())
       return false;
@@ -461,7 +459,7 @@ public:
     if (!hasConversionInfo(val))
       return false;
     std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
-    if (vi->noTypeConversion)
+    if (vi->isConversionDisabled)
       return false;
     if (vi->fixpType->isInvalid())
       return false;
@@ -540,8 +538,7 @@ public:
 
 private:
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-  llvm::ModuleAnalysisManager* MAM = nullptr;
-  const llvm::DataLayout* ModuleDL = nullptr;
+  const llvm::DataLayout* dataLayout = nullptr;
 };
 
 llvm::Value* adjustBufferSize(

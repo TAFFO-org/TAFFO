@@ -17,6 +17,7 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-conversion"
 
 void ConversionPass::buildGlobalConversionInfo(Module& m, SmallVectorImpl<Value*>& values) {
+  LLVM_DEBUG(log().logln("[Building conversion info of global values]", Logger::Blue));
   for (GlobalVariable& gv : m.globals())
     if (taffoInfo.hasValueInfo(gv))
       buildConversionInfo(&values, taffoInfo.getValueInfo(gv), &gv);
@@ -37,6 +38,7 @@ void ConversionPass::buildLocalConversionInfo(Function& f, SmallVectorImpl<Value
 }
 
 void ConversionPass::buildAllLocalConversionInfo(Module& m, SmallVectorImpl<Value*>& values) {
+  LLVM_DEBUG(log().logln("[Building conversion info of local values]", Logger::Blue));
   for (Function& f : m.functions()) {
     bool argsOnly = false;
     if (TaffoInfo::getInstance().isTaffoCloneFunction(f)) {
@@ -56,16 +58,19 @@ void ConversionPass::buildAllLocalConversionInfo(Module& m, SmallVectorImpl<Valu
 bool ConversionPass::buildConversionInfo(SmallVectorImpl<Value*>* values,
                                          std::shared_ptr<ValueInfo> valueInfo,
                                          Value* value) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger.log("[Value] ", Logger::Bold).logValueln(value);
+    indenter.increaseIndent(););
+
   if (hasConversionInfo(value)) {
     auto existing = getConversionInfo(value);
     if (existing->isArgumentPlaceholder) {
-      LLVM_DEBUG(log() << "Skipping valueInfo of " << *value
-                       << " because it's a placeholder and has fake valueInfo anyway\n");
+      LLVM_DEBUG(logger << "value is a placeholder: skipping\n");
       return false;
     }
   }
-
-  LLVM_DEBUG(log().log("Collecting valueInfo of: ").logValueln(value));
 
   ConversionInfo conversionInfo;
   conversionInfo.isBacktrackingNode = false;
@@ -73,21 +78,23 @@ bool ConversionPass::buildConversionInfo(SmallVectorImpl<Value*>* values,
   conversionInfo.origType = taffoInfo.getTransparentType(*value)->clone();
 
   if (std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
-    if (!scalarInfo->isConversionEnabled())
+    if (!scalarInfo->isConversionEnabled()) {
+      LLVM_DEBUG(logger << "conversion disabled: skipping\n");
       return false;
+    }
     if (!value->getType()->isVoidTy()) {
-      if (auto numericTypeInfo = scalarInfo->numericType) {
-        assert(!(getFullyUnwrappedType(value)->isStructTy()) && "input info / actual type mismatch");
+      if (auto numericTypeInfo = scalarInfo->numericType)
         conversionInfo.fixpType = std::make_shared<FixedPointScalarType>(numericTypeInfo.get());
-      }
       else {
-        LLVM_DEBUG(log() << "numericType in valueInfo is null! ");
+        LLVM_DEBUG(logger << Logger::Yellow << "numericType in valueInfo is null: ");
         if (isKnownConvertibleWithIncompleteMetadata(value)) {
-          LLVM_DEBUG(log() << "Since I like this instruction I'm going to give it the benefit of doubt\n");
+          LLVM_DEBUG(log() << "since I like this instruction I'm going to give it the benefit of doubt\n"
+                           << Logger::Reset);
           conversionInfo.fixpType = std::make_shared<FixedPointScalarType>();
         }
         else {
-          LLVM_DEBUG(log() << "Ignoring valueInfo for this instruction.\n");
+          LLVM_DEBUG(log() << "skipping\n"
+                           << Logger::Reset);
           return false;
         }
       }
@@ -99,8 +106,10 @@ bool ConversionPass::buildConversionInfo(SmallVectorImpl<Value*>* values,
     if (!value->getType()->isVoidTy()) {
       bool enableConversion = true;
       conversionInfo.fixpType = std::make_shared<FixedPointStructType>(structInfo, &enableConversion);
-      if (!enableConversion)
+      if (!enableConversion) {
+        LLVM_DEBUG(logger << "conversion disabled: skipping\n");
         return false;
+      }
     }
     else
       conversionInfo.fixpType = std::make_shared<FixedPointScalarType>();
@@ -111,7 +120,5 @@ bool ConversionPass::buildConversionInfo(SmallVectorImpl<Value*>* values,
   if (values && !is_contained(*values, value))
     values->push_back(value);
   *newConversionInfo(value) = conversionInfo;
-
-  LLVM_DEBUG(log() << "Conversion type: " << *conversionInfo.fixpType << "\n");
   return true;
 }

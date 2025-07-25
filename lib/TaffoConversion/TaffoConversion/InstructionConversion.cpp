@@ -72,7 +72,7 @@ Value* ConversionPass::convertInstruction(Module& m, Instruction* val, std::shar
   if (res == Unsupported)
     res = fallback(dyn_cast<Instruction>(val), fixpt);
   if (res && res != Unsupported && !(res->getType()->isVoidTy()) && !hasConversionInfo(res)) {
-    if (getFullyUnwrappedType(val)->isFloatingPointTy() && !getConversionInfo(val)->noTypeConversion) {
+    if (getFullyUnwrappedType(val)->isFloatingPointTy() && !getConversionInfo(val)->isConversionDisabled) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
       if (res->hasName())
@@ -82,7 +82,7 @@ Value* ConversionPass::convertInstruction(Module& m, Instruction* val, std::shar
       tmp << *fixpt;
       res->setName(tmp.str());
     }
-    else if (getConversionInfo(val)->noTypeConversion) {
+    else if (getConversionInfo(val)->isConversionDisabled) {
       std::string tmpstore;
       raw_string_ostream tmp(tmpstore);
       if (res->hasName())
@@ -105,7 +105,7 @@ Value* ConversionPass::convertInstruction(Module& m, Instruction* val, std::shar
 }
 
 Value* ConversionPass::convertAlloca(AllocaInst* alloca, const std::shared_ptr<FixedPointType>& fixpt) {
-  if (getConversionInfo(alloca)->noTypeConversion)
+  if (getConversionInfo(alloca)->isConversionDisabled)
     return alloca;
   std::shared_ptr<TransparentType> prevAllocaType = TaffoInfo::getInstance().getOrCreateTransparentType(*alloca);
   std::shared_ptr<TransparentType> newAllocaType = fixpt->toTransparentType(prevAllocaType);
@@ -138,7 +138,7 @@ Value* ConversionPass::convertLoad(LoadInst* load, std::shared_ptr<FixedPointTyp
     IRBuilder builder(load);
     LoadInst* newinst = builder.CreateLoad(PELType, newptr, load->isVolatile(), Twine());
     newinst->setAlignment(align);
-    if (getConversionInfo(load)->noTypeConversion) {
+    if (getConversionInfo(load)->isConversionDisabled) {
       assert(newinst->getType()->isIntegerTy() && "DTA bug; improperly tagged struct/pointer!");
       return genConvertFixToFloat(newinst, getFixpType(newptr), taffoInfo.getTransparentType(*load));
     }
@@ -233,7 +233,7 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedP
                    << *(gep->getPointerOperand()) << "\nmatchOp return \n"
                    << *newval << "\n");
   if (!newval)
-    return getConversionInfo(gep)->noTypeConversion ? Unsupported : nullptr;
+    return getConversionInfo(gep)->isConversionDisabled ? Unsupported : nullptr;
   if (!isConvertedFixedPoint(newval)) {
     /* just replace the arguments, they should stay the same type */
     return Unsupported;
@@ -244,7 +244,7 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedP
   fixpt = tempFixpt->unwrapIndexList(type, gep->indices());
   /* if conversion is disabled, we can extract values that didn't get a type
    * change, but we cannot extract values that didn't */
-  if (getConversionInfo(gep)->noTypeConversion && !fixpt->isInvalid())
+  if (getConversionInfo(gep)->isConversionDisabled && !fixpt->isInvalid())
     return Unsupported;
   std::vector<Value*> idxlist(gep->indices().begin(), gep->indices().end());
   Value* newGep =
@@ -253,7 +253,7 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep, std::shared_ptr<FixedP
 }
 
 Value* ConversionPass::convertExtractValue(ExtractValueInst* exv, std::shared_ptr<FixedPointType>& fixpt) {
-  if (getConversionInfo(exv)->noTypeConversion)
+  if (getConversionInfo(exv)->isConversionDisabled)
     return Unsupported;
   IRBuilder<NoFolder> builder(exv);
   Value* oldval = exv->getAggregateOperand();
@@ -272,7 +272,7 @@ Value* ConversionPass::convertExtractValue(ExtractValueInst* exv, std::shared_pt
 }
 
 Value* ConversionPass::convertInsertValue(InsertValueInst* inv, std::shared_ptr<FixedPointType>& fixpt) {
-  if (getConversionInfo(inv)->noTypeConversion)
+  if (getConversionInfo(inv)->isConversionDisabled)
     return Unsupported;
   IRBuilder<NoFolder> builder(inv);
   Value* oldAggVal = inv->getAggregateOperand();
@@ -296,7 +296,7 @@ Value* ConversionPass::convertInsertValue(InsertValueInst* inv, std::shared_ptr<
 
 Value* ConversionPass::convertPhi(PHINode* phi, std::shared_ptr<FixedPointType>& fixpt) {
   auto& taffoInfo = TaffoInfo::getInstance();
-  if (!phi->getType()->isFloatingPointTy() || getConversionInfo(phi)->noTypeConversion) {
+  if (!phi->getType()->isFloatingPointTy() || getConversionInfo(phi)->isConversionDisabled) {
     /* in the conversion chain the floating point number was converted to
      * an int at some point; we just upgrade the incoming values in place */
     /* if all of our incoming values were not converted, we want to propagate
@@ -395,7 +395,7 @@ Value* ConversionPass::convertCall(CallBase* call, std::shared_ptr<FixedPointTyp
       else
         thisArgument = fallbackMatchValue(*call_arg, taffoInfo.getTransparentType(*f_arg), call);
     }
-    else if (hasConversionInfo(*call_arg) && getConversionInfo(*call_arg)->noTypeConversion == false) {
+    else if (hasConversionInfo(*call_arg) && getConversionInfo(*call_arg)->isConversionDisabled == false) {
       std::shared_ptr<FixedPointType> callOperandFixpType, argFixpType;
       callOperandFixpType = getFixpType(*call_arg);
       argFixpType = getFixpType(f_arg);
@@ -461,7 +461,7 @@ Value* ConversionPass::convertRet(ReturnInst* ret, std::shared_ptr<FixedPointTyp
   Value* oldv = ret->getReturnValue();
   if (!oldv) // AKA return void
     return ret;
-  if (!isFloatingPointToConvert(ret) || getConversionInfo(ret)->noTypeConversion) {
+  if (!isFloatingPointToConvert(ret) || getConversionInfo(ret)->isConversionDisabled) {
     // if return an int we shouldn't return a fix point, go into fallback
     return Unsupported;
   }
@@ -475,7 +475,7 @@ Value* ConversionPass::convertRet(ReturnInst* ret, std::shared_ptr<FixedPointTyp
 }
 
 Value* ConversionPass::convertUnaryOp(Instruction* instr, const std::shared_ptr<FixedPointType>& fixpt) {
-  if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->noTypeConversion)
+  if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->isConversionDisabled)
     return Unsupported;
 
   unsigned opc = instr->getOpcode();
@@ -508,7 +508,7 @@ Value* ConversionPass::convertUnaryOp(Instruction* instr, const std::shared_ptr<
 Value* ConversionPass::convertBinOp(Instruction* instr, const std::shared_ptr<FixedPointScalarType>& dstType) {
   /* Instruction::[Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor]
    * are handled by the fallback function, not here */
-  if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->noTypeConversion)
+  if (!instr->getType()->isFloatingPointTy() || getConversionInfo(instr)->isConversionDisabled)
     return Unsupported;
 
   int opc = instr->getOpcode();
@@ -926,7 +926,7 @@ Value* ConversionPass::convertCast(CastInst* cast, const std::shared_ptr<FixedPo
 
   IRBuilder<NoFolder> builder(cast->getNextNode());
   Value* operand = cast->getOperand(0);
-  if (getConversionInfo(cast)->noTypeConversion)
+  if (getConversionInfo(cast)->isConversionDisabled)
     return Unsupported;
   if (BitCastInst* bc = dyn_cast<BitCastInst>(cast)) {
     Value* newOperand = convertedValues.at(operand);
@@ -989,7 +989,7 @@ Value* ConversionPass::fallback(Instruction* unsupp, std::shared_ptr<FixedPointT
     }
   }
   Instruction* tmp;
-  if (getConversionInfo(unsupp)->noTypeConversion == false && !unsupp->isTerminator()) {
+  if (getConversionInfo(unsupp)->isConversionDisabled == false && !unsupp->isTerminator()) {
     tmp = unsupp->clone();
     if (!tmp->getType()->isVoidTy())
       tmp->setName(unsupp->getName() + ".flt");
@@ -1002,7 +1002,7 @@ Value* ConversionPass::fallback(Instruction* unsupp, std::shared_ptr<FixedPointT
     tmp->setOperand(i, newops[i]);
   LLVM_DEBUG(log() << "  mutated operands to:\n"
                    << *tmp << "\n");
-  if (tmp->getType()->isFloatingPointTy() && getConversionInfo(unsupp)->noTypeConversion == false) {
+  if (tmp->getType()->isFloatingPointTy() && getConversionInfo(unsupp)->isConversionDisabled == false) {
     Value* fallbackv =
       genConvertFloatToFix(tmp, std::static_ptr_cast<FixedPointScalarType>(fixpt), getFirstInsertionPointAfter(tmp));
     if (tmp->hasName())

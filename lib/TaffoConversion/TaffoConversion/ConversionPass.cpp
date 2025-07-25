@@ -134,11 +134,10 @@ void closeMallocLikeHandler(Module& m, const MLHVec& vec) {
   LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
 }
 
-PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& AM) {
+PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[ConversionPass]", Logger::Magenta));
-  TaffoInfo::getInstance().initializeFromFile("taffo_info_dta.json", m);
-  MAM = &AM;
-  ModuleDL = &(m.getDataLayout());
+  taffoInfo.initializeFromFile("taffo_info_dta.json", m);
+  dataLayout = &m.getDataLayout();
 
   SmallVector<Value*, 32> local;
   SmallVector<Value*, 32> global;
@@ -149,7 +148,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& AM) {
   values.insert(values.begin(), global.begin(), global.end());
   ValueInfoCount = values.size();
 
-  sortQueue(values);
+  createConversionQueue(values);
   propagateCall(values, global, m);
   LLVM_DEBUG(printConversionQueue(values));
   ConversionCount = values.size();
@@ -165,7 +164,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& AM) {
   cleanUpOpenCLKernelTrampolines(&m);
   cleanUpOriginalFunctions(m);
 
-  TaffoInfo::getInstance().dumpToFile("taffo_info_conv.json", m);
+  taffoInfo.dumpToFile("taffo_info_conv.json", m);
   LLVM_DEBUG(log().logln("[End of ConversionPass]", Logger::Magenta));
   return PreservedAnalyses::none();
 }
@@ -263,91 +262,101 @@ void ConversionPass::closePhiLoops() {
   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " end\n");
 }
 
-bool ConversionPass::isKnownConvertibleWithIncompleteMetadata(Value* V) {
-  if (Instruction* I = dyn_cast<Instruction>(V)) {
-    CallBase* Call = dyn_cast<CallBase>(I);
-    if (!Call)
+bool ConversionPass::isKnownConvertibleWithIncompleteMetadata(Value* value) {
+  if (auto* inst = dyn_cast<Instruction>(value)) {
+    auto* call = dyn_cast<CallBase>(inst);
+    if (!call)
       return false;
-    Function* F = Call->getCalledFunction();
-    if (isSupportedOpenCLFunction(F))
+    Function* fun = call->getCalledFunction();
+    if (isSupportedOpenCLFunction(fun))
       return true;
-    if (isSupportedCudaFunction(F))
+    if (isSupportedCudaFunction(fun))
       return true;
   }
   return false;
 }
 
-void ConversionPass::sortQueue(std::vector<Value*>& vals) {
-  size_t next = 0;
-  while (next < vals.size()) {
-    Value* v = vals.at(next);
-    LLVM_DEBUG(log() << "[V] " << *v << "\n");
-    SmallPtrSet<Value*, 5> roots;
-    for (Value* oldroot : getConversionInfo(v)->roots)
-      if (getConversionInfo(oldroot)->roots.empty())
-        roots.insert(oldroot);
-    getConversionInfo(v)->roots.clear();
-    getConversionInfo(v)->roots.insert(roots.begin(), roots.end());
-    if (roots.empty())
-      roots.insert(v);
+void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
+  Logger& logger = log();
+  LLVM_DEBUG(logger.logln("[Creating conversion queue]", Logger::Blue));
+  size_t current = 0;
+  while (current < values.size()) {
+    Value* value = values.at(current);
+    auto indenter = logger.getIndenter();
+    LLVM_DEBUG(
+      logger.log("[Value] ", Logger::Bold).logValueln(value);
+      indenter.increaseIndent());
 
-    if (PHINode* phi = dyn_cast<PHINode>(v))
+    SmallPtrSet<Value*, 8> roots;
+    for (Value* oldRoot : getConversionInfo(value)->roots)
+      if (getConversionInfo(oldRoot)->roots.empty())
+        roots.insert(oldRoot);
+    getConversionInfo(value)->roots.clear();
+    getConversionInfo(value)->roots.insert(roots.begin(), roots.end());
+    if (roots.empty())
+      roots.insert(value);
+
+    if (auto* phi = dyn_cast<PHINode>(value))
       openPhiLoop(phi);
 
-    for (auto* u : v->users()) {
-      if (Instruction* i = dyn_cast<Instruction>(u)) {
-        if (functionPool.find(i->getFunction()) != functionPool.end()) {
-          LLVM_DEBUG(log() << "old function: skipped " << *u << "\n");
+    for (auto* user : value->users()) {
+      auto indenter = logger.getIndenter();
+      LLVM_DEBUG(
+        logger.log("[User] ", Logger::Bold).logValueln(user);
+        indenter.increaseIndent());
+      if (auto* inst = dyn_cast<Instruction>(user))
+        if (functionPool.find(inst->getFunction()) != functionPool.end()) {
+          LLVM_DEBUG(logger.logln("value belongs to an original function: skipping", Logger::Yellow));
           continue;
         }
-      }
 
-      /* Insert u at the end of the queue.
-       * If u exists already in the queue, *move* it to the end instead. */
-      for (size_t i = 0; i < vals.size();) {
-        if (vals[i] == u) {
-          vals.erase(vals.begin() + i);
-          if (i < next)
-            next--;
+      // Insert user at the end of the queue. If user is already in queue, move it to the end instead
+      for (size_t i = 0; i < values.size();) {
+        if (values[i] == user) {
+          values.erase(values.begin() + i);
+          if (i < current)
+            current--;
         }
-        else {
+        else
           i++;
-        }
+      }
+      values.push_back(user);
+
+      if (!hasConversionInfo(user)) {
+        LLVM_DEBUG(logger.logln("value will not be converted because it has no metadata", Logger::Yellow));
+        auto valueConversionInfo = newConversionInfo(user);
+        valueConversionInfo->isConversionDisabled = true;
+        valueConversionInfo->origType = taffoInfo.getOrCreateTransparentType(*user)->clone();
       }
 
-      if (!hasConversionInfo(u)) {
-        auto& taffoInfo = TaffoInfo::getInstance();
-        LLVM_DEBUG(log() << "[WARNING] Value " << *u << " will not be converted because it has no metadata\n");
-        newConversionInfo(u)->noTypeConversion = true;
-        getConversionInfo(u)->origType = taffoInfo.getOrCreateTransparentType(*u)->clone();
-      }
-
-      LLVM_DEBUG(log() << "[U] " << *u << "\n");
-      vals.push_back(u);
-      if (PHINode* phi = dyn_cast<PHINode>(u))
+      if (auto* phi = dyn_cast<PHINode>(user))
         openPhiLoop(phi);
-      getConversionInfo(u)->roots.insert(roots.begin(), roots.end());
+      getConversionInfo(user)->roots.insert(roots.begin(), roots.end());
     }
-    next++;
+    current++;
   }
+  LLVM_DEBUG(logger.logln("[Conversion queue created]", Logger::Blue));
 
-  for (Value* v : vals) {
-    assert(hasConversionInfo(v) && "all values in the queue should have a valueInfo by now");
-    if (getFixpType(v)->isInvalid() && !(v->getType()->isVoidTy() && !isa<ReturnInst>(v))
-        && !isKnownConvertibleWithIncompleteMetadata(v)) {
-      LLVM_DEBUG(log() << "[WARNING] Value " << *v << " will not be converted because its metadata is incomplete\n");
-      LLVM_DEBUG(log() << " (Apparent type of the value: " << *getFixpType(v) << ")\n");
-      getConversionInfo(v)->noTypeConversion = true;
+  for (Value* value : values) {
+    assert(hasConversionInfo(value) && "all values in the queue should have conversionInfo by now");
+    if (getFixpType(value)->isInvalid() && !(value->getType()->isVoidTy() && !isa<ReturnInst>(value))
+        && !isKnownConvertibleWithIncompleteMetadata(value)) {
+      LLVM_DEBUG(
+        logger.log("[Value] ", Logger::Bold).logValueln(value);
+        auto indenter = logger.getIndenter();
+        indenter.increaseIndent();
+        logger.logln("value will not be converted because its metadata is incomplete", Logger::Yellow));
+      getConversionInfo(value)->isConversionDisabled = true;
     }
 
-    SmallPtrSetImpl<Value*>& roots = getConversionInfo(v)->roots;
+    SmallPtrSetImpl<Value*>& roots = getConversionInfo(value)->roots;
     if (roots.empty()) {
-      getConversionInfo(v)->isRoot = true;
-      if (isa<Instruction>(v) && !isa<AllocaInst>(v)) {
-        /* non-alloca roots must have been generated by backtracking */
-        getConversionInfo(v)->isBacktrackingNode = true;
+      getConversionInfo(value)->isRoot = true;
+      if (isa<Instruction>(value) && !isa<AllocaInst>(value)) {
+        // Non-alloca roots must have been generated by backtracking
+        getConversionInfo(value)->isBacktrackingNode = true;
       }
-      roots.insert(v);
+      roots.insert(value);
     }
   }
 }
@@ -471,7 +480,7 @@ void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Va
 
     bool alreadyHandledNewF;
     Function* oldF = call->getCalledFunction();
-    Function* newF = createFixFun(call, &alreadyHandledNewF);
+    Function* newF = createConvertedFunction(call, &alreadyHandledNewF);
     if (!newF) {
       LLVM_DEBUG(log() << "Attempted to clone function " << oldF->getName() << " but failed\n");
       continue;
@@ -600,7 +609,7 @@ void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Va
     }
 
     LLVM_DEBUG(log() << "Sorting queue of new function " << newF->getName() << "\n");
-    sortQueue(newVals);
+    createConversionQueue(newVals);
 
     oldFuncs.insert(oldF);
 
@@ -636,8 +645,8 @@ void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Va
   vals.resize(removei);
 }
 
-Function* ConversionPass::createFixFun(CallBase* call, bool* old) {
-  LLVM_DEBUG(log() << "*********** " << __FUNCTION__ << "\n");
+Function* ConversionPass::createConvertedFunction(CallBase* call, bool* old) {
+  LLVM_DEBUG(log().logln("[Creating converted function]", Logger::Cyan));
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
 
   Function* oldF = call->getCalledFunction();
@@ -691,7 +700,7 @@ Function* ConversionPass::createFixFun(CallBase* call, bool* old) {
   auto oldRetType = taffoInfo.getTransparentType(*oldF);
   auto newRetType = oldRetType;
   if (hasConversionInfo(call))
-    if (!getConversionInfo(call)->noTypeConversion)
+    if (!getConversionInfo(call)->isConversionDisabled)
       newRetType = getFixpType(call)->toTransparentType(taffoInfo.getTransparentType(*call));
 
   FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argsLLVMTypes, oldF->isVarArg());
@@ -720,7 +729,7 @@ void ConversionPass::printConversionQueue(const std::vector<Value*>& vals) {
   LLVM_DEBUG(log() << "conversion queue:\n";);
   for (Value* val : vals) {
     LLVM_DEBUG(log() << "bt=" << getConversionInfo(val)->isBacktrackingNode << " ";);
-    LLVM_DEBUG(log() << "noconv=" << getConversionInfo(val)->noTypeConversion << " ";);
+    LLVM_DEBUG(log() << "noconv=" << getConversionInfo(val)->isConversionDisabled << " ";);
     LLVM_DEBUG(log() << "type=" << *getFixpType(val) << " ";);
     if (Instruction* i = dyn_cast<Instruction>(val))
       LLVM_DEBUG(log() << " fun='" << i->getFunction()->getName() << "' ";);
