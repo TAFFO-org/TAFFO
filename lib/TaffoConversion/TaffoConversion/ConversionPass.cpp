@@ -149,7 +149,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   ValueInfoCount = values.size();
 
   createConversionQueue(values);
-  propagateCall(values, global, m);
+  propagateCalls(values, global, m);
   LLVM_DEBUG(printConversionQueue(values));
   ConversionCount = values.size();
 
@@ -468,25 +468,24 @@ void ConversionPass::cleanUpOriginalFunctions(Module& m) {
       f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
 }
 
-void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Value*>& global, Module& m) {
-  SmallPtrSet<Function*, 16> oldFuncs;
+void ConversionPass::propagateCalls(std::vector<Value*>& values, SmallVectorImpl<Value*>& global, Module& m) {
+  SmallPtrSet<Function*, 16> oldFunctions;
 
-  for (size_t i = 0; i < vals.size(); i++) {
-    Value* valsi = vals[i];
-    CallBase* call = dyn_cast<CallBase>(valsi);
-
-    if (call == nullptr)
+  for (size_t i = 0; i < values.size(); i++) {
+    Value* value = values[i];
+    auto* call = dyn_cast<CallBase>(value);
+    if (!call)
       continue;
-
-    bool alreadyHandledNewF;
     Function* oldF = call->getCalledFunction();
-    Function* newF = createConvertedFunction(call, &alreadyHandledNewF);
-    if (!newF) {
-      LLVM_DEBUG(log() << "Attempted to clone function " << oldF->getName() << " but failed\n");
+    // Bitcasted function pointers and such not handled
+    if (!oldF)
       continue;
-    }
+    bool alreadyHandledNewF;
+    Function* newF = createConvertedFunctionForCall(call, &alreadyHandledNewF);
+    if (!newF)
+      continue;
     if (alreadyHandledNewF) {
-      oldFuncs.insert(oldF);
+      oldFunctions.insert(oldF);
       continue;
     }
 
@@ -611,91 +610,93 @@ void ConversionPass::propagateCall(std::vector<Value*>& vals, SmallVectorImpl<Va
     LLVM_DEBUG(log() << "Sorting queue of new function " << newF->getName() << "\n");
     createConversionQueue(newVals);
 
-    oldFuncs.insert(oldF);
+    oldFunctions.insert(oldF);
 
     /* Put the instructions from the new function in */
     for (Value* val : newVals) {
-      if (Instruction* inst = dyn_cast<Instruction>(val)) {
-        if (inst->getFunction() == newF && !is_contained(vals, inst))
-          vals.push_back(val);
+      if (auto* inst = dyn_cast<Instruction>(val)) {
+        if (inst->getFunction() == newF && !is_contained(values, inst))
+          values.push_back(val);
       }
     }
   }
 
   /* Remove instructions of the old functions from the queue */
   size_t removei, removej;
-  for (removei = 0, removej = 0; removej < vals.size(); removej++) {
-    vals[removei] = vals[removej];
-    Value* val = vals[removej];
+  for (removei = 0, removej = 0; removej < values.size(); removej++) {
+    values[removei] = values[removej];
+    Value* val = values[removej];
     bool toDelete = false;
     if (Instruction* inst = dyn_cast<Instruction>(val)) {
-      if (oldFuncs.count(inst->getFunction())) {
+      if (oldFunctions.count(inst->getFunction())) {
         toDelete = true;
         if (PHINode* phi = dyn_cast_or_null<PHINode>(inst))
           phiReplacementData.erase(phi);
       }
     }
     else if (Argument* arg = dyn_cast<Argument>(val)) {
-      if (oldFuncs.count(arg->getParent()))
+      if (oldFunctions.count(arg->getParent()))
         toDelete = true;
     }
     if (!toDelete)
       removei++;
   }
-  vals.resize(removei);
+  values.resize(removei);
 }
 
-Function* ConversionPass::createConvertedFunction(CallBase* call, bool* old) {
-  LLVM_DEBUG(log().logln("[Creating converted function]", Logger::Cyan));
-  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-
+Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* alreadyHandledNewF) {
   Function* oldF = call->getCalledFunction();
-  assert(oldF && "bitcasted function pointers and such not handled atm");
-  if (isSpecialFunction(oldF))
-    return nullptr;
 
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger.logln("[Creating converted function]", Logger::Blue);
+    indenter.increaseIndent();
+    logger.log("original function: ").logValueln(oldF););
+
+  if (isSpecialFunction(oldF)) {
+    LLVM_DEBUG(logger << "special function: ignoring\n");
+    return nullptr;
+  }
   if (!taffoInfo.isTaffoCloneFunction(*oldF)) {
-    LLVM_DEBUG(log() << "createFixFun: function " << oldF->getName() << " not a clone; ignoring\n");
+    LLVM_DEBUG(logger << "not a function clone: ignoring\n");
     return nullptr;
   }
 
-  std::vector<Type*> argsLLVMTypes;
-  std::vector<std::pair<int, std::shared_ptr<FixedPointType>>>
-    argsFixedPointTypes;                                  // for match already converted function
+  std::vector<Type*> argLLVMTypes;
+  // To match already converted function
+  std::vector<std::pair<int, std::shared_ptr<FixedPointType>>> argFixedPointTypes;
 
   std::string suffix;
-  if (getFullyUnwrappedType(oldF)->isFloatingPointTy()) { // ret value in signature
+  if (getFullyUnwrappedType(oldF)->isFloatingPointTy()) {
     std::shared_ptr<FixedPointType> retValType = getFixpType(call);
     suffix = retValType->toString();
-    argsFixedPointTypes.push_back(std::pair(-1, retValType));
+    argFixedPointTypes.push_back({-1, retValType});
   }
   else
     suffix = "fixp";
 
   int i = 0;
   for (auto arg = oldF->arg_begin(); arg != oldF->arg_end(); arg++, i++) {
-    Value* v = dyn_cast<Value>(arg);
-    Type* newTy;
-    if (hasConversionInfo(v)) {
-      argsFixedPointTypes.push_back(std::pair(i, getFixpType(v)));
-
-      newTy = getLLVMFixedPointTypeForFloatValue(v);
+    Type* newType;
+    if (hasConversionInfo(arg)) {
+      argFixedPointTypes.push_back({i, getFixpType(arg)});
+      newType = getLLVMFixedPointTypeForFloatValue(arg);
     }
     else
-      newTy = v->getType();
-    argsLLVMTypes.push_back(newTy);
+      newType = arg->getType();
+    argLLVMTypes.push_back(newType);
   }
 
-  Function* newF = functionPool[oldF]; // check if is previously converted
+  Function* newF = functionPool[oldF];
   if (newF) {
-    LLVM_DEBUG(log() << *call << " use already converted function : " << newF->getName() << " " << *newF->getType()
-                     << "\n");
-    if (old)
-      *old = true;
+    LLVM_DEBUG(logger << "converted function already exists: " << newF->getName() << " " << *newF->getType() << "\n");
+    if (alreadyHandledNewF)
+      *alreadyHandledNewF = true;
     return newF;
   }
-  if (old)
-    *old = false;
+  if (alreadyHandledNewF)
+    *alreadyHandledNewF = false;
 
   auto oldRetType = taffoInfo.getTransparentType(*oldF);
   auto newRetType = oldRetType;
@@ -703,43 +704,36 @@ Function* ConversionPass::createConvertedFunction(CallBase* call, bool* old) {
     if (!getConversionInfo(call)->isConversionDisabled)
       newRetType = getFixpType(call)->toTransparentType(taffoInfo.getTransparentType(*call));
 
-  FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argsLLVMTypes, oldF->isVarArg());
+  FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argLLVMTypes, oldF->isVarArg());
 
   LLVM_DEBUG(
-    log() << "creating function " << oldF->getName() << "_" << suffix << " with types ";
-    for (auto [argIndex, fixedPointType] : argsFixedPointTypes)
-      log() << "(" << argIndex << ", " << *fixedPointType << ") ";
-    log() << "\n";);
+    logger << "creating function " << oldF->getName() << "_" << suffix << " with types ";
+    for (auto [argIndex, fixedPointType] : argFixedPointTypes)
+      logger << "(" << argIndex << ", " << *fixedPointType << ") ";
+    logger << "\n";);
 
   newF = Function::Create(newFunType, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
   taffoInfo.setTransparentType(*newF, newRetType);
-  LLVM_DEBUG(log() << "created function\n"
-                   << *newF << "\n");
-  functionPool[oldF] = newF; // add to pool
+  LLVM_DEBUG(logger << "created function\n"
+                    << *newF << "\n");
+  functionPool[oldF] = newF;
   FunctionCreated++;
   return newF;
 }
 
-void ConversionPass::printConversionQueue(const std::vector<Value*>& vals) {
-  if (vals.size() > 1000) {
-    LLVM_DEBUG(log() << "not printing the conversion queue because it exceeds 1000 items\n";);
+void ConversionPass::printConversionQueue(const std::vector<Value*>& queue) {
+  Logger& logger = log();
+  if (queue.size() > 1000) {
+    logger << "Not printing the conversion queue because it exceeds 1000 items\n";
     return;
   }
-
-  LLVM_DEBUG(log() << "conversion queue:\n";);
-  for (Value* val : vals) {
-    LLVM_DEBUG(log() << "bt=" << getConversionInfo(val)->isBacktrackingNode << " ";);
-    LLVM_DEBUG(log() << "noconv=" << getConversionInfo(val)->isConversionDisabled << " ";);
-    LLVM_DEBUG(log() << "type=" << *getFixpType(val) << " ";);
-    if (Instruction* i = dyn_cast<Instruction>(val))
-      LLVM_DEBUG(log() << " fun='" << i->getFunction()->getName() << "' ";);
-
-    LLVM_DEBUG(log() << "roots=[";);
-    for (Value* rootv : getConversionInfo(val)->roots)
-      LLVM_DEBUG(log() << *rootv << ", ";);
-    LLVM_DEBUG(log() << "] ";);
-
-    LLVM_DEBUG(log() << *val << "\n";);
+  logger.logln("[Conversion queue]", Logger::Blue);
+  for (Value* value : queue) {
+    auto conversionInfo = getConversionInfo(value);
+    logger.log("[Value] ", Logger::Bold).logValueln(value);
+    auto indenter = logger.getIndenter();
+    indenter.increaseIndent();
+    logger.logln(*conversionInfo, Logger::Cyan);
   }
-  LLVM_DEBUG(log() << "\n\n";);
+  logger << "\n";
 }

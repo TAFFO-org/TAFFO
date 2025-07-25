@@ -1,6 +1,5 @@
 #include "ConversionPass.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "Types/TypeUtils.hpp"
 #include "Utils/PtrCasts.hpp"
 
 #include <llvm/IR/Function.h>
@@ -17,7 +16,7 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-conversion"
 
 void ConversionPass::buildGlobalConversionInfo(Module& m, SmallVectorImpl<Value*>& values) {
-  LLVM_DEBUG(log().logln("[Building conversion info of global values]", Logger::Blue));
+  LLVM_DEBUG(log().logln("[Building conversionInfo of global values]", Logger::Blue));
   for (GlobalVariable& gv : m.globals())
     if (taffoInfo.hasValueInfo(gv))
       buildConversionInfo(&values, taffoInfo.getValueInfo(gv), &gv);
@@ -38,7 +37,7 @@ void ConversionPass::buildLocalConversionInfo(Function& f, SmallVectorImpl<Value
 }
 
 void ConversionPass::buildAllLocalConversionInfo(Module& m, SmallVectorImpl<Value*>& values) {
-  LLVM_DEBUG(log().logln("[Building conversion info of local values]", Logger::Blue));
+  LLVM_DEBUG(log().logln("[Building conversionInfo of local values]", Logger::Blue));
   for (Function& f : m.functions()) {
     bool argsOnly = false;
     if (TaffoInfo::getInstance().isTaffoCloneFunction(f)) {

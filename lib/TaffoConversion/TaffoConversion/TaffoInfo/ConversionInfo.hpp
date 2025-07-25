@@ -31,17 +31,15 @@ struct ConversionInfo : tda::Printable {
     ss << (isArgumentPlaceholder ? "argPlaceholder, " : "");
     ss << "origType: " << (origType ? origType->toString() : "null") << ", ";
     ss << "fixpType: " << (fixpType ? fixpType->toString() : "null") << ", ";
-    ss << "roots: {";
+    ss << "roots: { ";
     bool first = true;
     for (llvm::Value* root : roots) {
       if (!first)
         ss << ", ";
-      else
-        ss << " ";
-      ss << root;
+      ss << root->getNameOrAsOperand();
       first = false;
     }
-    ss << "} }";
+    ss << " } }";
     return ss.str();
   }
 };

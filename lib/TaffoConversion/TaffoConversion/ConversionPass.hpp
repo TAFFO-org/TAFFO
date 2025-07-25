@@ -86,16 +86,15 @@ public:
   bool buildConversionInfo(llvm::SmallVectorImpl<llvm::Value*>* values,
                            std::shared_ptr<ValueInfo> fpInfo,
                            llvm::Value* value);
-  void removeNoFloatTy(llvm::SmallVectorImpl<llvm::Value*>& res);
   void openPhiLoop(llvm::PHINode* phi);
   void closePhiLoops();
   bool isKnownConvertibleWithIncompleteMetadata(llvm::Value* value);
   void createConversionQueue(std::vector<llvm::Value*>& values);
   void cleanup(const std::vector<llvm::Value*>& queue);
   void cleanUpOriginalFunctions(llvm::Module& m);
-  void propagateCall(std::vector<llvm::Value*>& vals, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
-  llvm::Function* createConvertedFunction(llvm::CallBase* call, bool* old);
-  void printConversionQueue(const std::vector<llvm::Value*>& vals);
+  void propagateCalls(std::vector<llvm::Value*>& values, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
+  llvm::Function* createConvertedFunctionForCall(llvm::CallBase* call, bool* alreadyHandledNewF);
+  void printConversionQueue(const std::vector<llvm::Value*>& queue);
   void performConversion(llvm::Module& m, std::vector<llvm::Value*>& q);
   llvm::Value* convertSingleValue(llvm::Module& m, llvm::Value* val, std::shared_ptr<FixedPointType>& fixpt);
 
