@@ -3,13 +3,13 @@
 #include <stdlib.h>
 
 int main(int argc, char* argv[]) {
-  float* test __attribute__((annotate("scalar(range(-1, 1))")));
-  test = malloc(10 * sizeof(float));
+  double* test __attribute__((annotate("scalar(range(-1, 1))")));
+  test = malloc(10 * sizeof(double));
   for (int i = 0; i < 10; i++) {
-    float tmp;
-    scanf("%f", &tmp);
+    double tmp;
+    scanf("%lf", &tmp);
     test[i] = tmp;
-    printf("%a\n", test[i]);
+    printf("%f\n", test[i]);
   }
   return 0;
 }

@@ -62,18 +62,19 @@ Value* ConversionPass::convertOpenCLCall(CallBase* C) {
     NewBufferArg = NewBuffer;
   C->setArgOperand(BufferArgId, NewBufferArg);
 
-  LLVM_DEBUG(log() << "Attempting to adjust buffer size\n");
+  // TODO fix soon
+  /*LLVM_DEBUG(log() << "Attempting to adjust buffer size\n");
   Type* OldTy = TheBuffer->getType();
   Type* NewTy = NewBuffer->getType();
   Value* OldBufSz = C->getArgOperand(BufferSizeArgId);
-  Value* NewBufSz = adjustBufferSize(OldBufSz, OldTy, NewTy, C, true);
+  Value* NewBufSz = adjustMemoryAllocationSize(OldBufSz, OldTy, NewTy, C, true);
   if (OldBufSz != NewBufSz) {
     C->setArgOperand(BufferSizeArgId, NewBufSz);
     LLVM_DEBUG(log() << "Buffer size was adjusted\n");
   }
   else {
     LLVM_DEBUG(log() << "Buffer size did not need any adjustment\n");
-  }
+  }*/
 
   return C;
 }

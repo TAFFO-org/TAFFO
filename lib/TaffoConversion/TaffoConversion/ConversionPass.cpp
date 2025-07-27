@@ -3,6 +3,7 @@
 #include "TaffoConversion/TaffoConversion/FixedPointType.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TransparentType.hpp"
+#include "TypeDeductionAnalysis.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
@@ -40,101 +41,7 @@ cl::opt<unsigned> MinQuotientFrac("minquotientfrac",
                                   cl::desc("minimum number of quotient fractional preserved"),
                                   cl::init(5));
 
-using MLHVec = std::vector<std::pair<User*, Type*>>;
-
-MLHVec collectMallocLikeHandler(Module& m) {
-  LLVM_DEBUG(log() << "#### " << __func__ << " BEGIN ####\n");
-  std::vector<std::string> names {"malloc"};
-  MLHVec tmp;
-
-  for (const auto& name : names) {
-    LLVM_DEBUG(log() << "Searching " << name << " as ");
-    // Mangle name to find the function
-    std::string mangledName;
-    raw_string_ostream mangledNameStream(mangledName);
-    Mangler::getNameWithPrefix(mangledNameStream, name, m.getDataLayout());
-    mangledNameStream.flush();
-    LLVM_DEBUG(log() << mangledName << "\n");
-
-    // Search function
-    auto fun = m.getFunction(mangledName);
-    if (fun == nullptr) {
-      LLVM_DEBUG(log() << "Not Found\n"
-                       << "\n");
-      continue;
-    }
-
-    // cycles Users of the function
-    // TODO FIX SOON!
-    /*for (auto UF : fun->users()) {
-      // cycles Users of return value of the function
-      Type* type = nullptr;
-      for (auto UC : UF->users()) {
-        if (auto bitcast = dyn_cast<BitCastInst>(UC)) {
-          LLVM_DEBUG(log() << "Found bitcast from ");
-          LLVM_DEBUG(UF->dump());
-          LLVM_DEBUG(log() << "to ");
-          LLVM_DEBUG(bitcast->dump());
-          if (type == nullptr) {
-
-            type = bitcast->getType()->isPtrOrPtrVectorTy() ? bitcast->getType()->getPointerElementType() :
-          bitcast->getType()->getScalarType(); while (type->isPtrOrPtrVectorTy()) { type =
-          type->getPointerElementType(); LLVM_DEBUG(log() << "type " << *type << "\n");
-            }
-            LLVM_DEBUG(log() << "Scalar type ");
-            LLVM_DEBUG(type->dump());
-          } else {
-            Type *type_tmp = nullptr;
-            type_tmp = bitcast->getType()->isPtrOrPtrVectorTy() ? bitcast->getType()->getPointerElementType() :
-          bitcast->getType()->getScalarType(); while (type_tmp->isPtrOrPtrVectorTy()) { type_tmp =
-          type_tmp->getPointerElementType();
-            }
-            LLVM_DEBUG(log() << "Scalar type ");
-            LLVM_DEBUG(type_tmp->dump());
-            if (type->getScalarSizeInBits() < type_tmp->getScalarSizeInBits()) {
-              type = type_tmp;
-            }
-          }
-        }
-      }
-      LLVM_DEBUG(log() << "added user " << *UF << "type ptr " << type << "\n");
-      tmp.push_back({UF, type});
-    }*/
-  }
-  LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
-  return tmp;
-}
-
-void closeMallocLikeHandler(Module& m, const MLHVec& vec) {
-  LLVM_DEBUG(log() << "#### " << __func__ << " BEGIN ####\n");
-  auto tmp = collectMallocLikeHandler(m);
-  IRBuilder<> builder(m.getContext());
-
-  for (auto& V : vec) {
-    for (auto& T : tmp) {
-      if (V.first == T.first) {
-        LLVM_DEBUG(log() << "Processing malloc " << *(V.first) << "...\n");
-        if (V.second == T.second && V.second == nullptr) {
-          LLVM_DEBUG(log() << " Both types are null? ok...\n");
-          continue;
-        }
-        Value* OldBufSize = V.first->getOperand(0);
-        Value* NewBufSize = adjustBufferSize(OldBufSize, V.second, T.second, dyn_cast<Instruction>(V.first));
-        if (NewBufSize != OldBufSize) {
-          V.first->setOperand(0, NewBufSize);
-          LLVM_DEBUG(log() << "Converted malloc transformed to " << *(V.first) << "\n");
-        }
-        else {
-          LLVM_DEBUG(log() << "Buffer size did not change; the malloc stays as it is\n");
-        }
-      }
-    }
-  }
-
-  LLVM_DEBUG(log() << "#### " << __func__ << " END ####\n");
-}
-
-PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
+PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& analysisManager) {
   LLVM_DEBUG(log().logln("[ConversionPass]", Logger::Magenta));
   taffoInfo.initializeFromFile("taffo_info_dta.json", m);
   dataLayout = &m.getDataLayout();
@@ -153,9 +60,16 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(printConversionQueue(values));
   ConversionCount = values.size();
 
-  auto mallocLikevec = collectMallocLikeHandler(m);
+  // Collect memory allocations before conversion
+  auto memoryAllocations = collectMemoryAllocations(m);
+
   performConversion(m, values);
-  closeMallocLikeHandler(m, mallocLikevec);
+
+  // Collect memory allocations after conversion
+  MemoryAllocationsVec newMemoryAllocations = collectMemoryAllocations(m);
+  // Adjust size of memory allocations using the info before and after conversion
+  adjustSizeOfMemoryAllocations(m, memoryAllocations, newMemoryAllocations);
+
   closePhiLoops();
   cleanup(values);
 
@@ -169,42 +83,107 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   return PreservedAnalyses::none();
 }
 
-Value* taffo::adjustBufferSize(Value* OrigSize, Type* OldTy, Type* NewTy, Instruction* IP, bool Tight) {
-  assert(
-    IP && "adjustBufferSize requires a valid insertion pointer. Somebody must use this buffer size after all, right?");
+ConversionPass::MemoryAllocationsVec ConversionPass::collectMemoryAllocations(Module& m) {
+  Logger& logger = log();
+  LLVM_DEBUG(logger.logln("[Collecting memory allocations]", Logger::Blue));
+  std::vector<std::string> names {"malloc"};
+  MemoryAllocationsVec memoryAllocations;
 
-  Type* RootOldTy = OldTy;
-  Type* RootNewTy = NewTy;
-  LLVM_DEBUG(log() << "Adjusting buffer size " << OrigSize->getNameOrAsOperand() << ", type change from " << *OldTy
-                   << " to " << *NewTy << "\n");
+  for (const auto& name : names) {
+    // Mangle name to find the function
+    std::string mangledName;
+    raw_string_ostream mangledNameStream(mangledName);
+    Mangler::getNameWithPrefix(mangledNameStream, name, m.getDataLayout());
+    mangledNameStream.flush();
 
-  if (!Tight && RootOldTy->getScalarSizeInBits() >= RootNewTy->getScalarSizeInBits()) {
-    LLVM_DEBUG(log() << "Old type is larger or same size than new type, doing nothing\n");
-    return OrigSize;
+    auto indenter = logger.getIndenter();
+    LLVM_DEBUG(
+      logger << "Searching " << name << " as " << mangledName << "\n";
+      indenter.increaseIndent(););
+
+    // Search function in module
+    auto fun = m.getFunction(mangledName);
+    if (fun == nullptr) {
+      LLVM_DEBUG(log() << "not found\n\n");
+      continue;
+    }
+
+    // Iterate over function users (actual memory allocations, e.g. call to malloc)
+    for (auto* user : fun->users())
+      if (auto* inst = dyn_cast<Instruction>(user)) {
+        if (taffoInfo.hasTransparentType(*inst)) {
+          std::shared_ptr<TransparentType> type = taffoInfo.getTransparentType(*inst);
+          auto indenter = logger.getIndenter();
+          LLVM_DEBUG(
+            logger.log("[Value] ", Logger::Bold).logValueln(inst);
+            indenter.increaseIndent();
+            logger.log("type: ").logln(*type, Logger::Cyan));
+          memoryAllocations.push_back({inst, type});
+        }
+      }
   }
-  if (Tight)
-    LLVM_DEBUG(log() << "Tight flag is set, adjusting size even if it gets reduced\n");
+  return memoryAllocations;
+}
+
+void ConversionPass::adjustSizeOfMemoryAllocations(Module& m,
+                                                   const MemoryAllocationsVec& oldMemoryAllocations,
+                                                   const MemoryAllocationsVec& newMemoryAllocations) {
+  IRBuilder builder(m.getContext());
+
+  Logger& logger = log();
+  LLVM_DEBUG(logger.logln("[Adjusting size of memory allocations]", Logger::Blue));
+
+  for (const auto& [oldUser, oldType] : oldMemoryAllocations)
+    for (auto& [newUser, newType] : newMemoryAllocations)
+      if (newUser == convertedValues[oldUser]) {
+        auto indenter = logger.getIndenter();
+        LLVM_DEBUG(
+          logger.log("[Value] ", Logger::Bold).logValueln(oldUser);
+          indenter.increaseIndent(););
+        Value* oldSizeValue = oldUser->getOperand(0);
+        Value* newSizeValue = adjustMemoryAllocationSize(
+          oldSizeValue, oldType->getPointedType(), newType->getPointedType(), dyn_cast<Instruction>(oldUser));
+        newUser->setOperand(0, newSizeValue);
+      }
+}
+
+Value* ConversionPass::adjustMemoryAllocationSize(Value* oldSizeValue,
+                                                  const std::shared_ptr<TransparentType>& oldAllocatedType,
+                                                  const std::shared_ptr<TransparentType>& newAllocatedType,
+                                                  Instruction* insertionPoint) {
+  Logger& logger = log();
+  LLVM_DEBUG(
+    logger << "size: " << oldSizeValue->getNameOrAsOperand() << "\n";
+    logger.log("old allocated type: ").logln(*oldAllocatedType, Logger::Cyan);
+    logger.log("new allocated type: ").logln(*newAllocatedType, Logger::Cyan););
+
+  unsigned oldSize = dataLayout->getTypeAllocSize(oldAllocatedType->toLLVMType());
+  unsigned newSize = dataLayout->getTypeAllocSize(newAllocatedType->toLLVMType());
+
+  if (oldSize == newSize) {
+    LLVM_DEBUG(logger << "old type is the same size of new type: doing nothing\n");
+    return oldSizeValue;
+  }
+
+  LLVM_DEBUG(logger << "Ratio: " << newSize << " / " << oldSize << "\n");
+
+  auto* constantInt = dyn_cast<ConstantInt>(oldSizeValue);
+  Value* newSizeValue;
+  if (constantInt == nullptr) {
+    IRBuilder builder(insertionPoint);
+    newSizeValue = builder.CreateMul(oldSizeValue, ConstantInt::get(oldSizeValue->getType(), newSize));
+    newSizeValue = builder.CreateAdd(newSizeValue, ConstantInt::get(oldSizeValue->getType(), oldSize - 1));
+    newSizeValue = builder.CreateUDiv(newSizeValue, ConstantInt::get(oldSizeValue->getType(), oldSize));
+  }
   else
-    LLVM_DEBUG(log() << "Old type is smaller than new type, adjusting arguments\n");
+    newSizeValue = ConstantInt::get(oldSizeValue->getType(),
+                                    (constantInt->getUniqueInteger() * newSize + (oldSize - 1)).udiv(oldSize));
 
-  unsigned Num = RootNewTy->getScalarSizeInBits();
-  unsigned Den = RootOldTy->getScalarSizeInBits();
-  LLVM_DEBUG(log() << "Ratio: " << Num << " / " << Den << "\n");
-
-  ConstantInt* int_const = dyn_cast<ConstantInt>(OrigSize);
-  Value* Res;
-  if (int_const == nullptr) {
-    IRBuilder builder(IP);
-    Res = builder.CreateMul(OrigSize, ConstantInt::get(OrigSize->getType(), Num));
-    Res = builder.CreateAdd(Res, ConstantInt::get(OrigSize->getType(), Den - 1));
-    Res = builder.CreateUDiv(Res, ConstantInt::get(OrigSize->getType(), Den));
-  }
-  else {
-    Res = ConstantInt::get(OrigSize->getType(), (int_const->getUniqueInteger() * Num + (Den - 1)).udiv(Den));
-  }
-
-  LLVM_DEBUG(log() << "Buffer size adjusted to " << *Res << "\n");
-  return Res;
+  if (newSize != oldSize)
+    LLVM_DEBUG(logger << "size adjusted from " << oldSizeValue << " to " << newSizeValue << "\n");
+  else
+    LLVM_DEBUG(logger << "size did not change\n");
+  return newSizeValue;
 }
 
 void ConversionPass::openPhiLoop(PHINode* phi) {
@@ -718,7 +697,6 @@ void ConversionPass::printConversionQueue(const std::vector<Value*>& queue) {
     logger.log("[Value] ", Logger::Bold).logValueln(value);
     auto indenter = logger.getIndenter();
     indenter.increaseIndent();
-    logger.logln(*conversionInfo, Logger::Cyan);
+    logger.log("conversionInfo: ").logln(*conversionInfo, Logger::Cyan);
   }
-  logger << "\n";
 }

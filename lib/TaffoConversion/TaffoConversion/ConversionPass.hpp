@@ -6,6 +6,7 @@
 #include "TaffoInfo/ConversionInfo.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TransparentType.hpp"
+#include "TypeDeductionAnalysis.hpp"
 #include "Types/TypeUtils.hpp"
 #include "Utils/PtrCasts.hpp"
 
@@ -95,6 +96,17 @@ public:
   void propagateCalls(std::vector<llvm::Value*>& values, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
   llvm::Function* createConvertedFunctionForCall(llvm::CallBase* call, bool* alreadyHandledNewF);
   void printConversionQueue(const std::vector<llvm::Value*>& queue);
+
+  using MemoryAllocationsVec = std::vector<std::pair<llvm::Instruction*, std::shared_ptr<tda::TransparentType>>>;
+  MemoryAllocationsVec collectMemoryAllocations(llvm::Module& m);
+  void adjustSizeOfMemoryAllocations(llvm::Module& m,
+                                     const MemoryAllocationsVec& oldMemoryAllocations,
+                                     const MemoryAllocationsVec& newMemoryAllocations);
+  llvm::Value* adjustMemoryAllocationSize(llvm::Value* oldSizeValue,
+                                          const std::shared_ptr<tda::TransparentType>& oldAllocatedType,
+                                          const std::shared_ptr<tda::TransparentType>& newAllocatedType,
+                                          llvm::Instruction* insertionPoint);
+
   void performConversion(llvm::Module& m, std::vector<llvm::Value*>& q);
   llvm::Value* convertSingleValue(llvm::Module& m, llvm::Value* val, std::shared_ptr<FixedPointType>& fixpt);
 
@@ -539,9 +551,6 @@ private:
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   const llvm::DataLayout* dataLayout = nullptr;
 };
-
-llvm::Value* adjustBufferSize(
-  llvm::Value* OrigSize, llvm::Type* OldTy, llvm::Type* NewTy, llvm::Instruction* IP, bool Tight = false);
 
 } // namespace taffo
 

@@ -31,7 +31,6 @@ Value* ConversionError = (Value*) (&ConversionError);
 Value* Unsupported = (Value*) (&Unsupported);
 
 void ConversionPass::performConversion(Module& m, std::vector<Value*>& q) {
-  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   Logger& logger = log();
 
   for (auto iter = q.begin(); iter != q.end();) {
@@ -42,7 +41,6 @@ void ConversionPass::performConversion(Module& m, std::vector<Value*>& q) {
     LLVM_DEBUG(
       logger << Logger::Blue << repeatString("▀▄▀▄", 10) << "[Perform conversion]" << repeatString("▄▀▄▀", 10)
              << Logger::Reset << "\n";
-      indenter.increaseIndent();
       logger.log("[Value] ", Logger::Bold).logValueln(v);
       logger << "to convert: " << !getConversionInfo(v)->isConversionDisabled << "\n";
       logger << "requested type: " << *newType << "\n";);

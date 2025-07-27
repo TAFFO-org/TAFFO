@@ -1,4 +1,4 @@
-// This test checks if annotations of classes and structs compile and padding detection works (also on unnamed types)
+// This test checks if annotations of classes and structs compile and if padding detection works (also on unnamed types)
 
 #include <iostream>
 
