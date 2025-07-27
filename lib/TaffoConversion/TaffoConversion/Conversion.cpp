@@ -27,70 +27,70 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conversion"
 
-Value* ConversionError = (Value*) (&ConversionError);
-Value* Unsupported = (Value*) (&Unsupported);
+Value* ConversionError = (Value*) &ConversionError;
+Value* Unsupported = (Value*) &Unsupported;
 
-void ConversionPass::performConversion(Module& m, std::vector<Value*>& q) {
+void ConversionPass::performConversion(Module& m, std::vector<Value*>& queue) {
   Logger& logger = log();
 
-  for (auto iter = q.begin(); iter != q.end();) {
-    Value* v = *iter;
-    std::shared_ptr<FixedPointType> newType = getFixpType(v);
+  for (auto iter = queue.begin(); iter != queue.end();) {
+    Value* value = *iter;
+    std::shared_ptr<FixedPointType> newType = getFixpType(value);
 
     auto indenter = logger.getIndenter();
     LLVM_DEBUG(
       logger << Logger::Blue << repeatString("▀▄▀▄", 10) << "[Perform conversion]" << repeatString("▄▀▄▀", 10)
              << Logger::Reset << "\n";
-      logger.log("[Value] ", Logger::Bold).logValueln(v);
-      logger << "to convert: " << !getConversionInfo(v)->isConversionDisabled << "\n";
+      logger.log("[Value] ", Logger::Bold).logValueln(value);
+      logger << "to convert: " << !getConversionInfo(value)->isConversionDisabled << "\n";
       logger << "requested type: " << *newType << "\n";);
 
-    Value* newv = convertSingleValue(m, v, newType);
-    getConversionInfo(v)->fixpType = newType;
-    if (newv) {
-      convertedValues[v] = newv;
+    Value* newValue = convertSingleValue(m, value, newType);
+    getConversionInfo(value)->fixpType = newType;
+    if (newValue) {
+      convertedValues[value] = newValue;
       LLVM_DEBUG(logger.log("result type: ", Logger::Green).logln(*newType));
     }
 
-    if (newv && newv != ConversionError) {
-      LLVM_DEBUG(log().log("result:      ", Logger::Green).logln(*newv));
+    if (newValue && newValue != ConversionError) {
+      LLVM_DEBUG(log().log("result:      ", Logger::Green).logln(*newValue));
 
-      if (newv != v && isa<Instruction>(newv) && isa<Instruction>(v)) {
-        auto* newinst = dyn_cast<Instruction>(newv);
-        auto* oldinst = dyn_cast<Instruction>(v);
-        newinst->setDebugLoc(oldinst->getDebugLoc());
+      if (newValue != value && isa<Instruction>(newValue) && isa<Instruction>(value)) {
+        auto* newInst = dyn_cast<Instruction>(newValue);
+        auto* oldInst = dyn_cast<Instruction>(value);
+        newInst->setDebugLoc(oldInst->getDebugLoc());
       }
-      if (newv != v) {
-        std::shared_ptr<TransparentType> oldTransparentType = taffoInfo.getTransparentType(*v);
+      if (newValue != value) {
+        std::shared_ptr<TransparentType> oldTransparentType = taffoInfo.getTransparentType(*value);
         std::shared_ptr<TransparentType> newTransparentType;
-        if (!newType->isInvalid() && newType->isFixedPoint() && !isa<CmpInst>(newv))
+        if (!newType->isInvalid() && newType->isFixedPoint() && !isa<CmpInst>(newValue))
           newTransparentType = newType->toTransparentType(oldTransparentType, nullptr);
         else
           newTransparentType = oldTransparentType;
-        copyValueInfo(newv, v, newTransparentType);
+        copyValueInfo(newValue, value, newTransparentType);
 
         LLVM_DEBUG(
           // Check that the transparent type of newv is coherent
-          if (!newv->getType()->isPointerTy()) {
-            auto type = taffoInfo.getTransparentType(*newv);
-            auto expectedType = TransparentTypeFactory::create(newv->getType());
+          if (!newValue->getType()->isPointerTy()) {
+            auto type = taffoInfo.getTransparentType(*newValue);
+            auto expectedType = TransparentTypeFactory::create(newValue->getType());
             assert(*type == *expectedType);
           });
 
-        if (hasConversionInfo(newv)) {
+        if (hasConversionInfo(newValue)) {
           LLVM_DEBUG(logger.log("warning: output has valueInfo already from a previous conversion", Logger::Yellow)
-                     << " (type " << *getFixpType(newv) << ")\n");
-          if (*getFixpType(newv) != *getFixpType(v)) {
+                     << " (type " << *getFixpType(newValue) << ")\n");
+          if (*getFixpType(newValue) != *getFixpType(value)) {
             logger.logln("FATAL ERROR: SAME VALUE INSTANCE HAS TWO DIFFERENT SEMANTICS!", Logger::Red);
             logger.log("New type: ", Logger::Red);
-            logger.log(getFixpType(newv), Logger::Red);
+            logger.log(getFixpType(newValue), Logger::Red);
             logger.log(", old type: ", Logger::Red);
-            logger.logln(getFixpType(v), Logger::Red);
+            logger.logln(getFixpType(value), Logger::Red);
             abort();
           }
         }
         else
-          *newConversionInfo(newv) = *getConversionInfo(v);
+          *newConversionInfo(newValue) = *getConversionInfo(value);
       }
     }
     else
@@ -108,13 +108,10 @@ Value* ConversionPass::createPlaceholder(Type* type, BasicBlock* where, StringRe
 
 /* also inserts the new value in the basic blocks, alongside the old one */
 Value* ConversionPass::convertSingleValue(Module& m, Value* val, std::shared_ptr<FixedPointType>& fixpt) {
-  auto& taffoInfo = TaffoInfo::getInstance();
   Value* res = Unsupported;
-
-  if (getConversionInfo(val)->isArgumentPlaceholder) {
+  if (getConversionInfo(val)->isArgumentPlaceholder)
     return matchOp(val);
-  }
-  else if (Constant* con = dyn_cast<Constant>(val)) {
+  if (auto* con = dyn_cast<Constant>(val)) {
     /* Since constants never change, there is never anything to substitute in them */
     if (!getConversionInfo(con)->isConversionDisabled) {
       res = convertConstant(con, fixpt, TypeMatchPolicy::RangeOverHintMaxFrac);
@@ -123,7 +120,7 @@ Value* ConversionPass::convertSingleValue(Module& m, Value* val, std::shared_ptr
     else
       res = con;
   }
-  else if (Instruction* instr = dyn_cast<Instruction>(val)) {
+  else if (auto* instr = dyn_cast<Instruction>(val)) {
     res = convertInstruction(m, instr, fixpt);
     LLVM_DEBUG(
       // Check that all operands are valid
@@ -131,7 +128,7 @@ Value* ConversionPass::convertSingleValue(Module& m, Value* val, std::shared_ptr
         for (auto& operand : user->operands())
           assert(operand.get() != nullptr););
   }
-  else if (Argument* argument = dyn_cast<Argument>(val)) {
+  else if (auto* argument = dyn_cast<Argument>(val)) {
     if (getFullyUnwrappedType(argument)->isFloatingPointTy())
       res = translateOrMatchOperand(val, fixpt, nullptr);
     else
@@ -143,32 +140,33 @@ Value* ConversionPass::convertSingleValue(Module& m, Value* val, std::shared_ptr
 
 /* do not use on pointer operands */
 /* In iofixpt there is also the source type*/
-Value* ConversionPass::translateOrMatchOperand(
-  Value* val, std::shared_ptr<FixedPointType>& iofixpt, Instruction* ip, TypeMatchPolicy typepol, bool wasHintForced) {
-  auto& taffoInfo = TaffoInfo::getInstance();
-
+Value* ConversionPass::translateOrMatchOperand(Value* value,
+                                               std::shared_ptr<FixedPointType>& iofixpt,
+                                               Instruction* insertionPoint,
+                                               TypeMatchPolicy policy,
+                                               bool wasHintForced) {
   Logger& logger = log();
   auto indenter = logger.getIndenter();
 
   LLVM_DEBUG(
-    logger.log("[TranslateOrMatchOperand of] ", Logger::Bold) << *val << "\n";
+    logger.log("[TranslateOrMatchOperand of] ", Logger::Bold) << *value << "\n";
     indenter.increaseIndent(););
 
   // FIXME: handle all the cases, we need more info about destination!
-  if (typepol == TypeMatchPolicy::ForceHint) {
+  if (policy == TypeMatchPolicy::ForceHint) {
     std::shared_ptr<FixedPointType> origfixpt = iofixpt->clone();
-    Value* tmp = translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::RangeOverHintMaxFrac, true);
+    Value* tmp = translateOrMatchOperand(value, iofixpt, insertionPoint, TypeMatchPolicy::RangeOverHintMaxFrac, true);
     LLVM_DEBUG(log() << "forcing hint as requested!\n");
     return genConvertFixedToFixed(tmp,
                                   std::static_ptr_cast<FixedPointScalarType>(iofixpt),
                                   std::static_ptr_cast<FixedPointScalarType>(origfixpt),
-                                  ip);
+                                  insertionPoint);
   }
 
-  assert(val->getType()->getNumContainedTypes() == 0 && "val is not scalar");
-  Value* res = matchOp(val);
-  std::shared_ptr<TransparentType> valueType = taffoInfo.getTransparentType(*val);
-  if (res != val) { // this means it has been converted, but can also be a floating point!
+  assert(value->getType()->getNumContainedTypes() == 0 && "val is not scalar");
+  Value* res = matchOp(value);
+  std::shared_ptr<TransparentType> valueType = taffoInfo.getTransparentType(*value);
+  if (res != value) { // this means it has been converted, but can also be a floating point!
     if (res == ConversionError)
       /* the value should have been converted but it hasn't; bail out */
       return nullptr;
@@ -179,24 +177,23 @@ Value* ConversionPass::translateOrMatchOperand(
       return genConvertFixedToFixed(res,
                                     std::static_ptr_cast<FixedPointScalarType>(getFixpType(res)),
                                     std::static_ptr_cast<FixedPointScalarType>(iofixpt),
-                                    ip);
+                                    insertionPoint);
     }
 
     // Converting Floating point to whatever
     if (getFixpType(res)->isFloatingPoint()) {
       LLVM_DEBUG(
-        Logger& logger = log();
         logger << "converting floating point to whatever\n";
         logger << "Is floating, calling subroutine, " << *getFixpType(res) << " --> " << *iofixpt << "\n";
         logger << "This value will be converted to fixpoint: ";
-        logger.logln(val););
+        logger.logln(value););
       // The conversion is not forced to a specific type, so let's choose the best type that contains our value
       // Which might NOT be the destination type
       // In fact, if we use the destination type, we risk screwing everything up causing overflows
       if (iofixpt->isFixedPoint()) {
         if (!wasHintForced) {
           // In this case we try to choose the best fixed point type!
-          std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*val);
+          std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*value);
           std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(valueInfo);
           if (!scalarInfo || !scalarInfo->range) {
             LLVM_DEBUG(log() << "no metadata found, rolling with the suggested type and hoping for the best!\n");
@@ -214,10 +211,10 @@ Value* ConversionPass::translateOrMatchOperand(
       return genConvertFixedToFixed(res,
                                     std::static_ptr_cast<FixedPointScalarType>(getFixpType(res)),
                                     std::static_ptr_cast<FixedPointScalarType>(iofixpt),
-                                    ip);
+                                    insertionPoint);
     }
 
-    if (!getConversionInfo(val)->isConversionDisabled) {
+    if (!getConversionInfo(value)->isConversionDisabled) {
       /* the value has been successfully converted to fixed point in a previous step */
       iofixpt = getFixpType(res);
       LLVM_DEBUG(
@@ -234,7 +231,7 @@ Value* ConversionPass::translateOrMatchOperand(
       /* Don't attempt to convert ints/pointers to fixed point */
       return res;
     /* Otherwise convert to fixed point the value */
-    val = res;
+    value = res;
   }
   else if (std::static_ptr_cast<FixedPointScalarType>(iofixpt)->isInvalid()
            || *valueType == *iofixpt->toTransparentType(valueType)) {
@@ -242,7 +239,7 @@ Value* ConversionPass::translateOrMatchOperand(
     return res;
   }
 
-  assert(val->getType()->isFloatingPointTy());
+  assert(value->getType()->isFloatingPointTy());
 
   LLVM_DEBUG(log() << "translateOrMatchOperand: non-converted value, converting now\n");
 
@@ -251,20 +248,20 @@ Value* ConversionPass::translateOrMatchOperand(
    * enter that function iofixpt cannot change anymore
    *   in other words, by duplicating this logic here we potentially avoid a loss
    * of range if the suggested iofixpt is not enough for the value */
-  if (Constant* c = dyn_cast<Constant>(val)) {
-    Value* res = convertConstant(c, iofixpt, typepol);
+  if (auto* c = dyn_cast<Constant>(value)) {
+    Value* res = convertConstant(c, iofixpt, policy);
     taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
     return res;
   }
   else if (iofixpt->isFixedPoint()) {
     // Only try to exclude conversion if we are trying to convert a float variable that has been converted
-    if (SIToFPInst* instr = dyn_cast<SIToFPInst>(val)) {
-      Value* intparam = instr->getOperand(0);
+    if (auto* inst = dyn_cast<SIToFPInst>(value)) {
+      Value* intparam = inst->getOperand(0);
       iofixpt = std::make_shared<FixedPointScalarType>(intparam->getType(), true);
       return intparam;
     }
-    else if (UIToFPInst* instr = dyn_cast<UIToFPInst>(val)) {
-      Value* intparam = instr->getOperand(0);
+    else if (auto* inst = dyn_cast<UIToFPInst>(value)) {
+      Value* intparam = inst->getOperand(0);
       iofixpt = std::make_shared<FixedPointScalarType>(intparam->getType(), true);
       return intparam;
     }
@@ -273,31 +270,31 @@ Value* ConversionPass::translateOrMatchOperand(
   /* not an easy case; check if the value has a range metadata
    * from VRA before giving up and using the suggested type */
   // Do this hack only if the final wanted type is a fixed point, otherwise we can go ahead
-  if (iofixpt->isFixedPoint() && taffoInfo.hasValueInfo(*val)) {
-    std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*val);
-    if (std::shared_ptr<ScalarInfo> ii = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
-      if (ii->range) {
+  if (iofixpt->isFixedPoint() && taffoInfo.hasValueInfo(*value)) {
+    std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*value);
+    if (std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
+      if (scalarInfo->range) {
         FixedPointTypeGenError err;
-        FixedPointInfo fpt =
-          fixedPointTypeFromRange(*ii->range, &err, std::static_ptr_cast<FixedPointScalarType>(iofixpt)->getBits());
+        FixedPointInfo fpt = fixedPointTypeFromRange(
+          *scalarInfo->range, &err, std::static_ptr_cast<FixedPointScalarType>(iofixpt)->getBits());
         if (err != FixedPointTypeGenError::InvalidRange)
           iofixpt = std::make_shared<FixedPointScalarType>(&fpt);
       }
     }
   }
 
-  return genConvertFloatToFix(val, std::static_ptr_cast<FixedPointScalarType>(iofixpt), ip);
+  return genConvertFloatToFix(value, std::static_ptr_cast<FixedPointScalarType>(iofixpt), insertionPoint);
 }
 
 bool ConversionPass::associateFixFormat(const std::shared_ptr<ScalarInfo>& II,
                                         std::shared_ptr<FixedPointType>& iofixpt) {
-  Range* rng = II->range.get();
-  assert(rng && "No range info!");
+  Range* range = II->range.get();
+  assert(range && "No range info!");
 
-  FixedPointTypeGenError fpgerr;
+  FixedPointTypeGenError genError;
   // Using default parameters of DTA
-  FixedPointInfo res = fixedPointTypeFromRange(*rng, &fpgerr, 32, 3, 64, 32);
-  assert(fpgerr != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
+  FixedPointInfo res = fixedPointTypeFromRange(*range, &genError, 32, 3, 64, 32);
+  assert(genError != FixedPointTypeGenError::InvalidRange && "Cannot assign a fixed point type!");
 
   iofixpt = std::make_shared<FixedPointScalarType>(res.isSigned(), res.getBits(), res.getFractionalBits());
 
@@ -307,7 +304,6 @@ bool ConversionPass::associateFixFormat(const std::shared_ptr<ScalarInfo>& II,
 // TODO: rewrite this mess!
 Value*
 ConversionPass::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPointScalarType>& fixpt, Instruction* ip) {
-  auto& taffoInfo = TaffoInfo::getInstance();
   assert(flt->getType()->isFloatingPointTy() && "genConvertFloatToFixed called on a non-float scalar");
   LLVM_DEBUG(
     Logger& logger = log();
@@ -315,7 +311,7 @@ ConversionPass::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPoin
     logger.log(flt->getType(), Logger::Cyan);
     logger.log(" to ").logln(*fixpt, Logger::Cyan););
 
-  if (Constant* c = dyn_cast<Constant>(flt)) {
+  if (auto* c = dyn_cast<Constant>(flt)) {
     std::shared_ptr<FixedPointType> fixptcopy = fixpt->clone();
     Value* res = convertConstant(c, fixptcopy, TypeMatchPolicy::ForceHint);
     taffoInfo.setTransparentType(*res, TransparentTypeFactory::create(res->getType()));
@@ -323,11 +319,11 @@ ConversionPass::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPoin
     return res;
   }
 
-  if (Instruction* i = dyn_cast<Instruction>(flt)) {
+  if (auto* i = dyn_cast<Instruction>(flt)) {
     if (!ip)
       ip = getFirstInsertionPointAfter(i);
   }
-  else if (Argument* arg = dyn_cast<Argument>(flt)) {
+  else if (auto* arg = dyn_cast<Argument>(flt)) {
     Function* fun = arg->getParent();
     BasicBlock& firstbb = fun->getEntryBlock();
     ip = &(*firstbb.getFirstInsertionPt());
@@ -338,17 +334,17 @@ ConversionPass::genConvertFloatToFix(Value* flt, const std::shared_ptr<FixedPoin
 
   IRBuilder<NoFolder> builder(ip);
   Type* SrcTy = flt->getType();
-  Type* destt = getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*flt), fixpt);
+  Type* destt = getLLVMFixedPointTypeForFloatType(taffoInfo.getOrCreateTransparentType(*flt), fixpt);
 
   /* insert new instructions before ip */
   if (!destt->isFloatingPointTy()) {
-    if (SIToFPInst* instr = dyn_cast<SIToFPInst>(flt)) {
+    if (auto* instr = dyn_cast<SIToFPInst>(flt)) {
       Value* intparam = instr->getOperand(0);
       return copyValueInfo(
         builder.CreateShl(copyValueInfo(builder.CreateIntCast(intparam, destt, true), flt), fixpt->getFractionalBits()),
         flt);
     }
-    else if (UIToFPInst* instr = dyn_cast<UIToFPInst>(flt)) {
+    else if (auto* instr = dyn_cast<UIToFPInst>(flt)) {
       Value* intparam = instr->getOperand(0);
       return copyValueInfo(builder.CreateShl(copyValueInfo(builder.CreateIntCast(intparam, destt, false), flt),
                                              fixpt->getFractionalBits()),
@@ -403,7 +399,6 @@ Value* ConversionPass::genConvertFixedToFixed(Value* fix,
                                               const std::shared_ptr<FixedPointScalarType>& srcFixedType,
                                               const std::shared_ptr<FixedPointScalarType>& dstFixedType,
                                               Instruction* ip) {
-  auto& taffoInfo = TaffoInfo::getInstance();
   if (*srcFixedType == *dstFixedType)
     return fix;
 
@@ -463,8 +458,7 @@ Value* ConversionPass::genConvertFixedToFixed(Value* fix,
   auto genSizeChange = [&](Value* fix) -> Value* {
     if (srcFixedType->isSigned())
       return copyValueInfo(builder.CreateSExtOrTrunc(fix, dstLLVMType), fix);
-    else
-      return copyValueInfo(builder.CreateZExtOrTrunc(fix, dstLLVMType), fix);
+    return copyValueInfo(builder.CreateZExtOrTrunc(fix, dstLLVMType), fix);
   };
 
   auto genPointMovement = [&](Value* fix) -> Value* {
@@ -491,7 +485,6 @@ Value* ConversionPass::genConvertFixToFloat(Value* fixValue,
                                             const std::shared_ptr<FixedPointType>& fixpt,
                                             const std::shared_ptr<TransparentType>& dstType) {
   Logger& logger = log();
-  auto& taffoInfo = TaffoInfo::getInstance();
   Type* dstLLVMType = dstType->toLLVMType();
 
   LLVM_DEBUG(
@@ -649,5 +642,5 @@ Type* ConversionPass::getLLVMFixedPointTypeForFloatType(const std::shared_ptr<Tr
 
 Type* ConversionPass::getLLVMFixedPointTypeForFloatValue(Value* val) {
   std::shared_ptr<FixedPointType> fpt = getFixpType(val);
-  return getLLVMFixedPointTypeForFloatType(TaffoInfo::getInstance().getOrCreateTransparentType(*val), fpt);
+  return getLLVMFixedPointTypeForFloatType(taffoInfo.getOrCreateTransparentType(*val), fpt);
 }

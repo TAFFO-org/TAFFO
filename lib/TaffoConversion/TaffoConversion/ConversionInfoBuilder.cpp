@@ -22,13 +22,13 @@ void ConversionPass::buildGlobalConversionInfo(Module& m, SmallVectorImpl<Value*
       buildConversionInfo(&values, taffoInfo.getValueInfo(gv), &gv);
 }
 
-void ConversionPass::buildLocalConversionInfo(Function& f, SmallVectorImpl<Value*>& values, bool argumentsOnly) {
+void ConversionPass::buildLocalConversionInfo(Function& f, SmallVectorImpl<Value*>& values, bool argsOnly) {
   for (Argument& arg : f.args())
     if (taffoInfo.hasValueInfo(arg)) {
       // Don't enqueue function arguments because they will be handled by the function cloning step
       buildConversionInfo(nullptr, taffoInfo.getValueInfo(arg), &arg);
     }
-  if (argumentsOnly)
+  if (argsOnly)
     return;
 
   for (Instruction& inst : instructions(f))
@@ -120,4 +120,18 @@ bool ConversionPass::buildConversionInfo(SmallVectorImpl<Value*>* values,
     values->push_back(value);
   *newConversionInfo(value) = conversionInfo;
   return true;
+}
+
+bool ConversionPass::isKnownConvertibleWithIncompleteMetadata(Value* value) {
+  if (auto* inst = dyn_cast<Instruction>(value)) {
+    auto* call = dyn_cast<CallBase>(inst);
+    if (!call)
+      return false;
+    Function* fun = call->getCalledFunction();
+    if (isSupportedOpenCLFunction(fun))
+      return true;
+    if (isSupportedCudaFunction(fun))
+      return true;
+  }
+  return false;
 }

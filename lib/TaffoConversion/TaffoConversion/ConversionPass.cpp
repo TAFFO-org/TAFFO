@@ -83,178 +83,6 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& analysis
   return PreservedAnalyses::none();
 }
 
-ConversionPass::MemoryAllocationsVec ConversionPass::collectMemoryAllocations(Module& m) {
-  Logger& logger = log();
-  LLVM_DEBUG(logger.logln("[Collecting memory allocations]", Logger::Blue));
-  std::vector<std::string> names {"malloc"};
-  MemoryAllocationsVec memoryAllocations;
-
-  for (const auto& name : names) {
-    // Mangle name to find the function
-    std::string mangledName;
-    raw_string_ostream mangledNameStream(mangledName);
-    Mangler::getNameWithPrefix(mangledNameStream, name, m.getDataLayout());
-    mangledNameStream.flush();
-
-    auto indenter = logger.getIndenter();
-    LLVM_DEBUG(
-      logger << "Searching " << name << " as " << mangledName << "\n";
-      indenter.increaseIndent(););
-
-    // Search function in module
-    auto fun = m.getFunction(mangledName);
-    if (fun == nullptr) {
-      LLVM_DEBUG(log() << "not found\n\n");
-      continue;
-    }
-
-    // Iterate over function users (actual memory allocations, e.g. call to malloc)
-    for (auto* user : fun->users())
-      if (auto* inst = dyn_cast<Instruction>(user)) {
-        if (taffoInfo.hasTransparentType(*inst)) {
-          std::shared_ptr<TransparentType> type = taffoInfo.getTransparentType(*inst);
-          auto indenter = logger.getIndenter();
-          LLVM_DEBUG(
-            logger.log("[Value] ", Logger::Bold).logValueln(inst);
-            indenter.increaseIndent();
-            logger.log("type: ").logln(*type, Logger::Cyan));
-          memoryAllocations.push_back({inst, type});
-        }
-      }
-  }
-  return memoryAllocations;
-}
-
-void ConversionPass::adjustSizeOfMemoryAllocations(Module& m,
-                                                   const MemoryAllocationsVec& oldMemoryAllocations,
-                                                   const MemoryAllocationsVec& newMemoryAllocations) {
-  IRBuilder builder(m.getContext());
-
-  Logger& logger = log();
-  LLVM_DEBUG(logger.logln("[Adjusting size of memory allocations]", Logger::Blue));
-
-  for (const auto& [oldUser, oldType] : oldMemoryAllocations)
-    for (auto& [newUser, newType] : newMemoryAllocations)
-      if (newUser == convertedValues[oldUser]) {
-        auto indenter = logger.getIndenter();
-        LLVM_DEBUG(
-          logger.log("[Value] ", Logger::Bold).logValueln(oldUser);
-          indenter.increaseIndent(););
-        Value* oldSizeValue = oldUser->getOperand(0);
-        Value* newSizeValue = adjustMemoryAllocationSize(
-          oldSizeValue, oldType->getPointedType(), newType->getPointedType(), dyn_cast<Instruction>(oldUser));
-        newUser->setOperand(0, newSizeValue);
-      }
-}
-
-Value* ConversionPass::adjustMemoryAllocationSize(Value* oldSizeValue,
-                                                  const std::shared_ptr<TransparentType>& oldAllocatedType,
-                                                  const std::shared_ptr<TransparentType>& newAllocatedType,
-                                                  Instruction* insertionPoint) {
-  Logger& logger = log();
-  LLVM_DEBUG(
-    logger << "size: " << oldSizeValue->getNameOrAsOperand() << "\n";
-    logger.log("old allocated type: ").logln(*oldAllocatedType, Logger::Cyan);
-    logger.log("new allocated type: ").logln(*newAllocatedType, Logger::Cyan););
-
-  unsigned oldSize = dataLayout->getTypeAllocSize(oldAllocatedType->toLLVMType());
-  unsigned newSize = dataLayout->getTypeAllocSize(newAllocatedType->toLLVMType());
-
-  if (oldSize == newSize) {
-    LLVM_DEBUG(logger << "old type is the same size of new type: doing nothing\n");
-    return oldSizeValue;
-  }
-
-  LLVM_DEBUG(logger << "Ratio: " << newSize << " / " << oldSize << "\n");
-
-  auto* constantInt = dyn_cast<ConstantInt>(oldSizeValue);
-  Value* newSizeValue;
-  if (constantInt == nullptr) {
-    IRBuilder builder(insertionPoint);
-    newSizeValue = builder.CreateMul(oldSizeValue, ConstantInt::get(oldSizeValue->getType(), newSize));
-    newSizeValue = builder.CreateAdd(newSizeValue, ConstantInt::get(oldSizeValue->getType(), oldSize - 1));
-    newSizeValue = builder.CreateUDiv(newSizeValue, ConstantInt::get(oldSizeValue->getType(), oldSize));
-  }
-  else
-    newSizeValue = ConstantInt::get(oldSizeValue->getType(),
-                                    (constantInt->getUniqueInteger() * newSize + (oldSize - 1)).udiv(oldSize));
-
-  if (newSize != oldSize)
-    LLVM_DEBUG(logger << "size adjusted from " << oldSizeValue << " to " << newSizeValue << "\n");
-  else
-    LLVM_DEBUG(logger << "size did not change\n");
-  return newSizeValue;
-}
-
-void ConversionPass::openPhiLoop(PHINode* phi) {
-  PHIInfo info;
-
-  if (phi->materialized_use_empty()) {
-    LLVM_DEBUG(log() << "phi" << *phi << " not currently used by anything; skipping placeholder creation\n");
-    return;
-  }
-
-  auto type = taffoInfo.getTransparentType(*phi);
-
-  info.placeh_noconv = createPlaceholder(phi->getType(), phi->getParent(), "phi_noconv");
-  *(newConversionInfo(info.placeh_noconv)) = *(getConversionInfo(phi));
-  phi->replaceAllUsesWith(info.placeh_noconv);
-  copyValueInfo(info.placeh_noconv, phi, type);
-  if (isFloatingPointToConvert(phi)) {
-    auto newType = getFixpType(phi)->toTransparentType(type);
-    info.placeh_conv = createPlaceholder(newType->toLLVMType(), phi->getParent(), "phi_conv");
-    *newConversionInfo(info.placeh_conv) = *getConversionInfo(phi);
-    copyValueInfo(info.placeh_conv, phi, newType);
-  }
-  else {
-    info.placeh_conv = info.placeh_noconv;
-  }
-  convertedValues[info.placeh_noconv] = info.placeh_conv;
-
-  LLVM_DEBUG(log() << "created placeholder (non-converted=[" << *info.placeh_noconv << "], converted=["
-                   << *info.placeh_conv << "]) for phi " << *phi << "\n");
-
-  phiReplacementData[phi] = info;
-}
-
-void ConversionPass::closePhiLoops() {
-  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " begin\n");
-
-  for (auto data : phiReplacementData) {
-    PHINode* origphi = data.first;
-    PHIInfo& info = data.second;
-    Value* substphi = convertedValues.at(origphi);
-
-    LLVM_DEBUG(log() << "restoring data flow of phi " << *origphi << "\n");
-    if (info.placeh_noconv != info.placeh_conv)
-      info.placeh_noconv->replaceAllUsesWith(origphi);
-    if (!substphi) {
-      LLVM_DEBUG(log() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
-      substphi = translateOrMatchAnyOperandAndType(origphi, getFixpType(origphi));
-      assert(substphi && "phi conversion has failed");
-    }
-
-    info.placeh_conv->replaceAllUsesWith(substphi);
-    LLVM_DEBUG(log() << "restored data flow of original phi " << *origphi << " to new value " << *substphi << "\n");
-  }
-
-  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " end\n");
-}
-
-bool ConversionPass::isKnownConvertibleWithIncompleteMetadata(Value* value) {
-  if (auto* inst = dyn_cast<Instruction>(value)) {
-    auto* call = dyn_cast<CallBase>(inst);
-    if (!call)
-      return false;
-    Function* fun = call->getCalledFunction();
-    if (isSupportedOpenCLFunction(fun))
-      return true;
-    if (isSupportedCudaFunction(fun))
-      return true;
-  }
-  return false;
-}
-
 void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
   Logger& logger = log();
   LLVM_DEBUG(logger.logln("[Creating conversion queue]", Logger::Blue));
@@ -338,110 +166,6 @@ void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
       roots.insert(value);
     }
   }
-}
-
-bool potentiallyUsesMemory(Value* val) {
-  if (!isa<Instruction>(val))
-    return false;
-  if (isa<BitCastInst>(val))
-    return false;
-  if (auto* call = dyn_cast<CallInst>(val)) {
-    Function* f = call->getCalledFunction();
-    if (!f)
-      return true;
-    if (f->isIntrinsic()) {
-      Intrinsic::ID fiid = f->getIntrinsicID();
-      if (fiid == Intrinsic::lifetime_start || fiid == Intrinsic::lifetime_end)
-        return false;
-    }
-    return !f->doesNotAccessMemory();
-  }
-  return true;
-}
-
-void ConversionPass::cleanup(const std::vector<Value*>& queue) {
-  std::vector<Value*> roots;
-  for (Value* value : queue)
-    if (getConversionInfo(value)->isRoot == true)
-      roots.push_back(value);
-
-  DenseMap<Value*, bool> isRootOk;
-  for (Value* root : roots)
-    isRootOk[root] = true;
-
-  for (Value* value : queue) {
-    Value* cqi = convertedValues.at(value);
-    assert(cqi && "every value should have been processed at this point!!");
-    if (cqi == ConversionError) {
-      if (!potentiallyUsesMemory(value))
-        continue;
-      LLVM_DEBUG(
-        value->print(errs());
-        if (auto* inst = dyn_cast<Instruction>(value))
-          errs() << " in function " << inst->getFunction()->getName();
-        errs() << " not converted; invalidates roots ");
-      const auto& rootsAffected = getConversionInfo(value)->roots;
-      for (Value* root : rootsAffected) {
-        isRootOk[root] = false;
-        LLVM_DEBUG(root->print(errs()));
-      }
-      LLVM_DEBUG(errs() << '\n');
-    }
-  }
-
-  std::vector<Instruction*> toErase;
-
-  auto clear = [&](bool (*toDelete)(const Instruction& Y)) {
-    for (Value* value : queue) {
-      auto* inst = dyn_cast<Instruction>(value);
-      if (!inst || !toDelete(*inst))
-        continue;
-      if (convertedValues.at(value) == value) {
-        LLVM_DEBUG(log() << *inst << " not deleted, as it was converted by self-mutation\n");
-        continue;
-      }
-      const auto& roots = getConversionInfo(value)->roots;
-
-      bool allOk = true;
-      for (Value* root : roots) {
-        if (!isRootOk[root]) {
-          LLVM_DEBUG(
-            inst->print(errs());
-            errs() << " not deleted: involves root ";
-            root->print(errs());
-            errs() << '\n');
-          allOk = false;
-          break;
-        }
-      }
-      if (allOk) {
-        if (!inst->use_empty())
-          inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
-        toErase.push_back(inst);
-      }
-    }
-  };
-
-  clear(isa<StoreInst>);
-
-  // Remove calls manually because DCE does not do it as they may have side effects
-  clear(isa<CallInst>);
-  clear(isa<InvokeInst>);
-
-  clear(isa<BranchInst>);
-
-  // Remove old phis manually as DCE cannot remove values having a circular dependence on a phi
-  phiReplacementData.clear();
-  clear(isa<PHINode>);
-
-  for (Instruction* inst : toErase)
-    taffoInfo.eraseValue(inst);
-}
-
-void ConversionPass::cleanUpOriginalFunctions(Module& m) {
-  for (Function& f : m)
-    if (taffoInfo.isOriginalFunction(f))
-      f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
 }
 
 void ConversionPass::propagateCalls(std::vector<Value*>& values, SmallVectorImpl<Value*>& global, Module& m) {
@@ -685,6 +409,61 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
   return newF;
 }
 
+void ConversionPass::openPhiLoop(PHINode* phi) {
+  PHIInfo info;
+
+  if (phi->materialized_use_empty()) {
+    LLVM_DEBUG(log() << "phi" << *phi << " not currently used by anything; skipping placeholder creation\n");
+    return;
+  }
+
+  auto type = taffoInfo.getTransparentType(*phi);
+
+  info.placeh_noconv = createPlaceholder(phi->getType(), phi->getParent(), "phi_noconv");
+  *(newConversionInfo(info.placeh_noconv)) = *(getConversionInfo(phi));
+  phi->replaceAllUsesWith(info.placeh_noconv);
+  copyValueInfo(info.placeh_noconv, phi, type);
+  if (isFloatingPointToConvert(phi)) {
+    auto newType = getFixpType(phi)->toTransparentType(type);
+    info.placeh_conv = createPlaceholder(newType->toLLVMType(), phi->getParent(), "phi_conv");
+    *newConversionInfo(info.placeh_conv) = *getConversionInfo(phi);
+    copyValueInfo(info.placeh_conv, phi, newType);
+  }
+  else {
+    info.placeh_conv = info.placeh_noconv;
+  }
+  convertedValues[info.placeh_noconv] = info.placeh_conv;
+
+  LLVM_DEBUG(log() << "created placeholder (non-converted=[" << *info.placeh_noconv << "], converted=["
+                   << *info.placeh_conv << "]) for phi " << *phi << "\n");
+
+  phiReplacementData[phi] = info;
+}
+
+void ConversionPass::closePhiLoops() {
+  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " begin\n");
+
+  for (auto data : phiReplacementData) {
+    PHINode* origphi = data.first;
+    PHIInfo& info = data.second;
+    Value* substphi = convertedValues.at(origphi);
+
+    LLVM_DEBUG(log() << "restoring data flow of phi " << *origphi << "\n");
+    if (info.placeh_noconv != info.placeh_conv)
+      info.placeh_noconv->replaceAllUsesWith(origphi);
+    if (!substphi) {
+      LLVM_DEBUG(log() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
+      substphi = translateOrMatchAnyOperandAndType(origphi, getFixpType(origphi));
+      assert(substphi && "phi conversion has failed");
+    }
+
+    info.placeh_conv->replaceAllUsesWith(substphi);
+    LLVM_DEBUG(log() << "restored data flow of original phi " << *origphi << " to new value " << *substphi << "\n");
+  }
+
+  LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " end\n");
+}
+
 void ConversionPass::printConversionQueue(const std::vector<Value*>& queue) {
   Logger& logger = log();
   if (queue.size() > 1000) {
@@ -699,4 +478,211 @@ void ConversionPass::printConversionQueue(const std::vector<Value*>& queue) {
     indenter.increaseIndent();
     logger.log("conversionInfo: ").logln(*conversionInfo, Logger::Cyan);
   }
+}
+
+bool potentiallyUsesMemory(Value* val) {
+  if (!isa<Instruction>(val))
+    return false;
+  if (isa<BitCastInst>(val))
+    return false;
+  if (auto* call = dyn_cast<CallInst>(val)) {
+    Function* f = call->getCalledFunction();
+    if (!f)
+      return true;
+    if (f->isIntrinsic()) {
+      Intrinsic::ID fiid = f->getIntrinsicID();
+      if (fiid == Intrinsic::lifetime_start || fiid == Intrinsic::lifetime_end)
+        return false;
+    }
+    return !f->doesNotAccessMemory();
+  }
+  return true;
+}
+
+void ConversionPass::cleanup(const std::vector<Value*>& queue) {
+  std::vector<Value*> roots;
+  for (Value* value : queue)
+    if (getConversionInfo(value)->isRoot == true)
+      roots.push_back(value);
+
+  DenseMap<Value*, bool> isRootOk;
+  for (Value* root : roots)
+    isRootOk[root] = true;
+
+  for (Value* value : queue) {
+    Value* cqi = convertedValues.at(value);
+    assert(cqi && "every value should have been processed at this point!!");
+    if (cqi == ConversionError) {
+      if (!potentiallyUsesMemory(value))
+        continue;
+      LLVM_DEBUG(
+        value->print(errs());
+        if (auto* inst = dyn_cast<Instruction>(value))
+          errs() << " in function " << inst->getFunction()->getName();
+        errs() << " not converted; invalidates roots ");
+      const auto& rootsAffected = getConversionInfo(value)->roots;
+      for (Value* root : rootsAffected) {
+        isRootOk[root] = false;
+        LLVM_DEBUG(root->print(errs()));
+      }
+      LLVM_DEBUG(errs() << '\n');
+    }
+  }
+
+  std::vector<Instruction*> toErase;
+
+  auto clear = [&](bool (*toDelete)(const Instruction& Y)) {
+    for (Value* value : queue) {
+      auto* inst = dyn_cast<Instruction>(value);
+      if (!inst || !toDelete(*inst))
+        continue;
+      if (convertedValues.at(value) == value) {
+        LLVM_DEBUG(log() << *inst << " not deleted, as it was converted by self-mutation\n");
+        continue;
+      }
+      const auto& roots = getConversionInfo(value)->roots;
+
+      bool allOk = true;
+      for (Value* root : roots) {
+        if (!isRootOk[root]) {
+          LLVM_DEBUG(
+            inst->print(errs());
+            errs() << " not deleted: involves root ";
+            root->print(errs());
+            errs() << '\n');
+          allOk = false;
+          break;
+        }
+      }
+      if (allOk) {
+        if (!inst->use_empty())
+          inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
+        toErase.push_back(inst);
+      }
+    }
+  };
+
+  clear(isa<StoreInst>);
+
+  // Remove calls manually because DCE does not do it as they may have side effects
+  clear(isa<CallInst>);
+  clear(isa<InvokeInst>);
+
+  clear(isa<BranchInst>);
+
+  // Remove old phis manually as DCE cannot remove values having a circular dependence on a phi
+  phiReplacementData.clear();
+  clear(isa<PHINode>);
+
+  for (Instruction* inst : toErase)
+    taffoInfo.eraseValue(inst);
+}
+
+void ConversionPass::cleanUpOriginalFunctions(Module& m) {
+  for (Function& f : m)
+    if (taffoInfo.isOriginalFunction(f))
+      f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
+}
+
+ConversionPass::MemoryAllocationsVec ConversionPass::collectMemoryAllocations(Module& m) {
+  Logger& logger = log();
+  LLVM_DEBUG(logger.logln("[Collecting memory allocations]", Logger::Blue));
+  std::vector<std::string> names {"malloc"};
+  MemoryAllocationsVec memoryAllocations;
+
+  for (const auto& name : names) {
+    // Mangle name to find the function
+    std::string mangledName;
+    raw_string_ostream mangledNameStream(mangledName);
+    Mangler::getNameWithPrefix(mangledNameStream, name, m.getDataLayout());
+    mangledNameStream.flush();
+
+    auto indenter = logger.getIndenter();
+    LLVM_DEBUG(
+      logger << "Searching " << name << " as " << mangledName << "\n";
+      indenter.increaseIndent(););
+
+    // Search function in module
+    auto fun = m.getFunction(mangledName);
+    if (fun == nullptr) {
+      LLVM_DEBUG(log() << "not found\n\n");
+      continue;
+    }
+
+    // Iterate over function users (actual memory allocations, e.g. call to malloc)
+    for (auto* user : fun->users())
+      if (auto* inst = dyn_cast<Instruction>(user)) {
+        if (taffoInfo.hasTransparentType(*inst)) {
+          std::shared_ptr<TransparentType> type = taffoInfo.getTransparentType(*inst);
+          auto indenter = logger.getIndenter();
+          LLVM_DEBUG(
+            logger.log("[Value] ", Logger::Bold).logValueln(inst);
+            indenter.increaseIndent();
+            logger.log("type: ").logln(*type, Logger::Cyan));
+          memoryAllocations.push_back({inst, type});
+        }
+      }
+  }
+  return memoryAllocations;
+}
+
+void ConversionPass::adjustSizeOfMemoryAllocations(Module& m,
+                                                   const MemoryAllocationsVec& oldMemoryAllocations,
+                                                   const MemoryAllocationsVec& newMemoryAllocations) {
+  IRBuilder builder(m.getContext());
+
+  Logger& logger = log();
+  LLVM_DEBUG(logger.logln("[Adjusting size of memory allocations]", Logger::Blue));
+
+  for (const auto& [oldUser, oldType] : oldMemoryAllocations)
+    for (auto& [newUser, newType] : newMemoryAllocations)
+      if (newUser == convertedValues[oldUser]) {
+        auto indenter = logger.getIndenter();
+        LLVM_DEBUG(
+          logger.log("[Value] ", Logger::Bold).logValueln(oldUser);
+          indenter.increaseIndent(););
+        Value* oldSizeValue = oldUser->getOperand(0);
+        Value* newSizeValue = adjustMemoryAllocationSize(
+          oldSizeValue, oldType->getPointedType(), newType->getPointedType(), dyn_cast<Instruction>(oldUser));
+        newUser->setOperand(0, newSizeValue);
+      }
+}
+
+Value* ConversionPass::adjustMemoryAllocationSize(Value* oldSizeValue,
+                                                  const std::shared_ptr<TransparentType>& oldAllocatedType,
+                                                  const std::shared_ptr<TransparentType>& newAllocatedType,
+                                                  Instruction* insertionPoint) {
+  Logger& logger = log();
+  LLVM_DEBUG(
+    logger << "size: " << oldSizeValue->getNameOrAsOperand() << "\n";
+    logger.log("old allocated type: ").logln(*oldAllocatedType, Logger::Cyan);
+    logger.log("new allocated type: ").logln(*newAllocatedType, Logger::Cyan););
+
+  unsigned oldSize = dataLayout->getTypeAllocSize(oldAllocatedType->toLLVMType());
+  unsigned newSize = dataLayout->getTypeAllocSize(newAllocatedType->toLLVMType());
+
+  if (oldSize == newSize) {
+    LLVM_DEBUG(logger << "old type is the same size of new type: doing nothing\n");
+    return oldSizeValue;
+  }
+
+  LLVM_DEBUG(logger << "Ratio: " << newSize << " / " << oldSize << "\n");
+
+  auto* constantInt = dyn_cast<ConstantInt>(oldSizeValue);
+  Value* newSizeValue;
+  if (constantInt == nullptr) {
+    IRBuilder builder(insertionPoint);
+    newSizeValue = builder.CreateMul(oldSizeValue, ConstantInt::get(oldSizeValue->getType(), newSize));
+    newSizeValue = builder.CreateAdd(newSizeValue, ConstantInt::get(oldSizeValue->getType(), oldSize - 1));
+    newSizeValue = builder.CreateUDiv(newSizeValue, ConstantInt::get(oldSizeValue->getType(), oldSize));
+  }
+  else
+    newSizeValue = ConstantInt::get(oldSizeValue->getType(),
+                                    (constantInt->getUniqueInteger() * newSize + (oldSize - 1)).udiv(oldSize));
+
+  if (newSize != oldSize)
+    LLVM_DEBUG(logger << "size adjusted from " << oldSizeValue << " to " << newSizeValue << "\n");
+  else
+    LLVM_DEBUG(logger << "size did not change\n");
+  return newSizeValue;
 }

@@ -81,21 +81,22 @@ public:
   llvm::DenseMap<llvm::PHINode*, PHIInfo> phiReplacementData;
 
   void buildGlobalConversionInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
-  void
-  buildLocalConversionInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argumentsOnly = false);
+  void buildLocalConversionInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argsOnly = false);
   void buildAllLocalConversionInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
   bool buildConversionInfo(llvm::SmallVectorImpl<llvm::Value*>* values,
                            std::shared_ptr<ValueInfo> fpInfo,
                            llvm::Value* value);
-  void openPhiLoop(llvm::PHINode* phi);
-  void closePhiLoops();
   bool isKnownConvertibleWithIncompleteMetadata(llvm::Value* value);
+
   void createConversionQueue(std::vector<llvm::Value*>& values);
-  void cleanup(const std::vector<llvm::Value*>& queue);
-  void cleanUpOriginalFunctions(llvm::Module& m);
   void propagateCalls(std::vector<llvm::Value*>& values, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
   llvm::Function* createConvertedFunctionForCall(llvm::CallBase* call, bool* alreadyHandledNewF);
+  void openPhiLoop(llvm::PHINode* phi);
+  void closePhiLoops();
+
   void printConversionQueue(const std::vector<llvm::Value*>& queue);
+  void cleanup(const std::vector<llvm::Value*>& queue);
+  void cleanUpOriginalFunctions(llvm::Module& m);
 
   using MemoryAllocationsVec = std::vector<std::pair<llvm::Instruction*, std::shared_ptr<tda::TransparentType>>>;
   MemoryAllocationsVec collectMemoryAllocations(llvm::Module& m);
@@ -107,48 +108,56 @@ public:
                                           const std::shared_ptr<tda::TransparentType>& newAllocatedType,
                                           llvm::Instruction* insertionPoint);
 
-  void performConversion(llvm::Module& m, std::vector<llvm::Value*>& q);
+  void performConversion(llvm::Module& m, std::vector<llvm::Value*>& queue);
   llvm::Value* convertSingleValue(llvm::Module& m, llvm::Value* val, std::shared_ptr<FixedPointType>& fixpt);
 
   llvm::Value* createPlaceholder(llvm::Type* type, llvm::BasicBlock* where, llvm::StringRef name);
 
-  enum class TypeMatchPolicy {
-    RangeOverHintMaxFrac = 0, /// Minimize extra conversions
-    RangeOverHintMaxInt,
-    HintOverRangeMaxFrac,     /// Create new type different than the hint if hint
-                              /// does not fit value
-    HintOverRangeMaxInt,
-    ForceHint                 /// Always use the hint for the type
+  class TypeMatchPolicy {
+  public:
+    enum Policy {
+      RangeOverHintMaxFrac = 0, // Minimize extra conversions
+      RangeOverHintMaxInt,
+      HintOverRangeMaxFrac,     // Create new type different from the hint if hint does not fit value
+      HintOverRangeMaxInt,
+      ForceHint                 // Always use the hint for the type
+    };
+
+    TypeMatchPolicy(const Policy p)
+    : policy(p) {}
+
+    bool isMaxFracPolicy() { return policy == RangeOverHintMaxFrac || policy == HintOverRangeMaxFrac; }
+    bool isMaxIntPolicy() { return policy == RangeOverHintMaxInt || policy == HintOverRangeMaxInt; }
+    bool isHintPreferredPolicy() {
+      return policy == HintOverRangeMaxInt || policy == HintOverRangeMaxFrac || policy == ForceHint;
+    }
+
+    bool operator==(const TypeMatchPolicy& other) const { return policy == other.policy; }
+
+  private:
+    Policy policy;
   };
 
-  bool isMaxFracPolicy(TypeMatchPolicy tmp) {
-    return tmp == TypeMatchPolicy::RangeOverHintMaxFrac || tmp == TypeMatchPolicy::HintOverRangeMaxFrac;
-  }
+  // Convert functions return:
+  // - nullptr if the conversion cannot be recovered
+  // - Unsupported to trigger the fallback behavior
 
-  bool isMaxIntPolicy(TypeMatchPolicy tmp) {
-    return tmp == TypeMatchPolicy::RangeOverHintMaxInt || tmp == TypeMatchPolicy::HintOverRangeMaxInt;
-  }
-
-  bool isHintPreferredPolicy(TypeMatchPolicy tmp) {
-    return tmp == TypeMatchPolicy::HintOverRangeMaxInt || tmp == TypeMatchPolicy::HintOverRangeMaxFrac
-        || tmp == TypeMatchPolicy::ForceHint;
-  }
-
-  /* convert* functions return nullptr if the conversion cannot be
-   * recovered, and Unsupported to trigger the fallback behavior */
-  llvm::Constant* convertConstant(llvm::Constant* flt, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy typepol);
-  llvm::Constant* convertGlobalVariable(llvm::GlobalVariable* glob, std::shared_ptr<FixedPointType>& fixpt);
   llvm::Constant*
-  convertConstantExpr(llvm::ConstantExpr* cexp, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy typepol);
-  llvm::Constant* convertConstantAggregate(llvm::ConstantAggregate* cag,
+  convertConstant(llvm::Constant* constant, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy policy);
+  llvm::Constant* convertGlobalVariable(llvm::GlobalVariable* globalVariable, std::shared_ptr<FixedPointType>& fixpt);
+  llvm::Constant*
+  convertConstantExpr(llvm::ConstantExpr* constantExpr, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy policy);
+  llvm::Constant* convertConstantAggregate(llvm::ConstantAggregate* constantAggregate,
                                            std::shared_ptr<FixedPointType>& fixpt,
-                                           TypeMatchPolicy typepol);
+                                           TypeMatchPolicy policy);
   llvm::Constant* convertConstantDataSequential(llvm::ConstantDataSequential*,
                                                 const std::shared_ptr<FixedPointScalarType>&);
   template <class T>
   llvm::Constant* createConstantDataSequential(llvm::ConstantDataSequential*, const std::shared_ptr<FixedPointType>&);
-  llvm::Constant*
-  convertLiteral(llvm::ConstantFP* flt, llvm::Instruction*, std::shared_ptr<FixedPointType>&, TypeMatchPolicy typepol);
+  llvm::Constant* convertLiteral(llvm::ConstantFP* constantFloat,
+                                 llvm::Instruction* context,
+                                 std::shared_ptr<FixedPointType>& fixpt,
+                                 TypeMatchPolicy policy);
   bool convertAPFloat(llvm::APFloat, llvm::APSInt&, llvm::Instruction*, const std::shared_ptr<FixedPointScalarType>&);
   llvm::Value* convertInstruction(llvm::Module& m, llvm::Instruction* val, std::shared_ptr<FixedPointType>& fixpt);
   llvm::Value* convertAlloca(llvm::AllocaInst* alloca, const std::shared_ptr<FixedPointType>& fixpt);
@@ -161,11 +170,11 @@ public:
   llvm::Value* convertSelect(llvm::SelectInst* sel, std::shared_ptr<FixedPointType>& fixpt);
   llvm::Value* convertCall(llvm::CallBase* call, std::shared_ptr<FixedPointType>& fixpt);
   llvm::Value* convertRet(llvm::ReturnInst* ret, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertBinOp(llvm::Instruction* instr, const std::shared_ptr<FixedPointScalarType>& fixpt);
-  llvm::Value* convertUnaryOp(llvm::Instruction* instr, const std::shared_ptr<FixedPointType>& fixpt);
+  llvm::Value* convertBinOp(llvm::Instruction* inst, const std::shared_ptr<FixedPointScalarType>& fixpt);
+  llvm::Value* convertUnaryOp(llvm::Instruction* inst, const std::shared_ptr<FixedPointType>& fixpt);
   llvm::Value* convertCmp(llvm::FCmpInst* fcmp);
   llvm::Value* convertCast(llvm::CastInst* cast, const std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* fallback(llvm::Instruction* unsupp, std::shared_ptr<FixedPointType>& fixpt);
+  llvm::Value* fallback(llvm::Instruction* unsupported, std::shared_ptr<FixedPointType>& fixpt);
 
   /* OpenCL support */
   bool isSupportedOpenCLFunction(llvm::Function* F);
@@ -202,7 +211,7 @@ public:
 
   /** Returns a fixed point Value from any Value, whether it should be
    *  converted or not.
-   *  @param val The non-converted value. Must be of a primitive floating-point
+   *  @param value The non-converted value. Must be of a primitive floating-point
    *    non-reference LLVM type (in other words, ints, pointers, arrays, struct
    * are not allowed); use matchOp() for values of those types.
    *  @param iofixpt A reference to a fixed point type. On input,
@@ -210,16 +219,16 @@ public:
    *    for the returned Value. On output, it will contain the
    *    actual fixed point type of the returned Value (which may or
    *    may not be different than the input type).
-   *  @param ip The instruction which will use the returned value.
+   *  @param insertionPoint The instruction which will use the returned value.
    *    Used for placing generated fixed point runtime conversion code in
    *    case val was not to be converted statically. Not required if val
    *    is an instruction or a constant.
    *  @returns A fixed point value corresponding to val or nullptr if
    *    val was to be converted but its conversion failed. */
-  llvm::Value* translateOrMatchOperand(llvm::Value* val,
+  llvm::Value* translateOrMatchOperand(llvm::Value* value,
                                        std::shared_ptr<FixedPointType>& iofixpt,
-                                       llvm::Instruction* ip = nullptr,
-                                       TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac,
+                                       llvm::Instruction* insertionPoint = nullptr,
+                                       TypeMatchPolicy policy = TypeMatchPolicy::RangeOverHintMaxFrac,
                                        bool wasHintForced = false);
 
   /** Returns a fixed point Value from any Value, whether it should be
@@ -229,7 +238,7 @@ public:
    *    it must contain the preferred fixed point type required
    *    for the returned Value. On output, it will contain the
    *    actual fixed point type of the returned Value (which may or
-   *    may not be different than the input type).
+   *    may not be different from the input type).
    *  @param ip The instruction which will use the returned value.
    *    Used for placing generated fixed point runtime conversion code in
    *    case val was not to be converted statically. Not required if val
