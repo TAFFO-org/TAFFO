@@ -158,7 +158,7 @@ public:
   void attachFunctionMetaData(llvm::Module& m);
 
   std::shared_ptr<DtaValueInfo> createDtaValueInfo(llvm::Value* val) {
-    LLVM_DEBUG(tda::log() << "new valueinfo for " << *val << "\n");
+    LLVM_DEBUG(tda::log() << "new dtaValueInfo for " << *val << "\n");
     info[val] = std::make_shared<DtaValueInfo>(DtaValueInfo());
     return info[val];
   }
@@ -175,7 +175,7 @@ public:
     return createDtaValueInfo(val);
   }
 
-  bool hasTunerInfo(llvm::Value* val) { return info.find(val) != info.end(); }
+  bool hasDtaInfo(llvm::Value* val) { return info.find(val) != info.end(); }
 
   bool isConversionDisabled(llvm::Value* val) {
     if (llvm::isa<llvm::Constant>(val))
@@ -230,7 +230,7 @@ public:
 private:
   taffo::TaffoInfo& taffoInfo = taffo::TaffoInfo::getInstance();
   llvm::ModuleAnalysisManager* MAM = nullptr;
-  dataTypeAllocationStrategy* strategy;
+  dataTypeAllocationStrategy* strategy = nullptr;
 };
 
 } // namespace tuner

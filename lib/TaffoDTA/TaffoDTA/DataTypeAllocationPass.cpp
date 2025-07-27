@@ -41,7 +41,7 @@ std::map<DtaStrategyType, std::function<dataTypeAllocationStrategy*()>> strategy
 
 PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& AM) {
   LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", Logger::Magenta));
-  TaffoInfo::getInstance().initializeFromFile("taffo_info_vra.json", m);
+  taffoInfo.initializeFromFile("taffo_info_vra.json", m);
 
   MAM = &AM;
 
@@ -78,9 +78,9 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
   attachFunctionMetaData(m);
 
   for (Function* f : toDel)
-    TaffoInfo::getInstance().eraseValue(f);
+    taffoInfo.eraseValue(f);
 
-  TaffoInfo::getInstance().dumpToFile("taffo_info_dta.json", m);
+  taffoInfo.dumpToFile("taffo_info_dta.json", m);
   LLVM_DEBUG(log().logln("[End of DataTypeAllocationPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
@@ -452,8 +452,6 @@ void DataTypeAllocationPass::dataTypeAllocationOfInstructions(Function& f, std::
 }
 
 void DataTypeAllocationPass::dataTypeAllocationOfFunctions(Module& m, std::vector<Value*>& vals) {
-  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-
   for (Function& f : m.functions()) {
     if (f.isIntrinsic())
       continue;
@@ -495,13 +493,13 @@ void DataTypeAllocationPass::dataTypeAllocation(Module& m, std::vector<Value*>& 
  */
 void DataTypeAllocationPass::retrieveBufferID(Value* V) {
   LLVM_DEBUG(log() << "Looking up buffer id of " << *V << "\n");
-  auto MaybeBID = TaffoInfo::getInstance().getValueInfo(*V)->getBufferId();
+  auto MaybeBID = taffoInfo.getValueInfo(*V)->getBufferId();
   if (MaybeBID.has_value()) {
     std::string Tag = *MaybeBID;
     auto& Set = bufferIDSets[Tag];
     Set.insert(V);
     LLVM_DEBUG(log() << "Found buffer ID '" << Tag << "' for " << *V << "\n");
-    if (hasTunerInfo(V))
+    if (hasDtaInfo(V))
       getDtaValueInfo(V)->bufferID = Tag;
   }
   else {
@@ -561,7 +559,6 @@ void DataTypeAllocationPass::associateMetadata(Value* v, std::shared_ptr<ValueIn
 }
 
 bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
-  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   std::shared_ptr<ValueInfo> valueInfo;
   if (taffoInfo.hasValueInfo(*v))
     valueInfo = taffoInfo.getValueInfo(*v);
@@ -586,7 +583,7 @@ bool DataTypeAllocationPass::processMetadataOfValue(Value* v) {
     forceEnableConv = true;
 
   bool skippedAll = true;
-  std::shared_ptr<TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*v);
+  std::shared_ptr<TransparentType> transparentType = taffoInfo.getOrCreateTransparentType(*v);
   SmallVector<std::pair<std::shared_ptr<ValueInfo>, std::shared_ptr<TransparentType>>, 8> queue(
     {std::make_pair(newValueInfo, transparentType)});
 
@@ -633,12 +630,12 @@ void DataTypeAllocationPass::sortQueue(std::vector<Value*>& vals, SmallPtrSetImp
             continue;
 
           if (isConversionDisabled(u)) {
-            LLVM_DEBUG(log() << "[WARNING] Skipping " << *u << " without TAFFO info!\n");
+            LLVM_DEBUG(log() << "[WARNING] Skipping " << *u << " because its conversion is disabled!\n");
             continue;
           }
 
           stack.push_back(u);
-          if (!hasTunerInfo(u)) {
+          if (!hasDtaInfo(u)) {
             LLVM_DEBUG(log() << "[WARNING] Found Value " << *u << " without dtaValueInfo! (uses " << *c << ")\n");
             Type* utype = getFullyUnwrappedType(u);
             Type* ctype = getFullyUnwrappedType(c);
@@ -653,12 +650,12 @@ void DataTypeAllocationPass::sortQueue(std::vector<Value*>& vals, SmallPtrSetImp
             else if (utype->isStructTy() && ctype->isStructTy() && ctype->canLosslesslyBitCastTo(utype)) {
               taffoInfo.setValueInfo(*u, taffoInfo.getValueInfo(*c)->clone());
             }
+            else if (auto userStructType =
+                       std::dynamic_ptr_cast<TransparentStructType>(taffoInfo.getOrCreateTransparentType(*u))) {
+              taffoInfo.setValueInfo(*u, ValueInfoFactory::create(userStructType));
+            }
             else {
-              if (auto userStructType = std::dynamic_ptr_cast<TransparentStructType>(
-                    TaffoInfo::getInstance().getOrCreateTransparentType(*u)))
-                taffoInfo.setValueInfo(*u, ValueInfoFactory::create(userStructType));
-              else
-                taffoInfo.setValueInfo(*u, std::make_shared<ScalarInfo>());
+              taffoInfo.setValueInfo(*u, std::make_shared<ScalarInfo>());
               LLVM_DEBUG(log() << "not copying metadata of " << *c << " to " << *u
                                << " because one value has struct typing and the other has not.\n");
             }
@@ -822,7 +819,7 @@ nextSet:
 
 void DataTypeAllocationPass::restoreTypesAcrossFunctionCall(Value* v) {
   LLVM_DEBUG(log() << "restoreTypesAcrossFunctionCall(" << *v << ")\n");
-  if (!hasTunerInfo(v)) {
+  if (!hasDtaInfo(v)) {
     LLVM_DEBUG(log() << " --> skipping restoring types because value is not converted\n");
     return;
   }
@@ -862,7 +859,7 @@ void DataTypeAllocationPass::setTypesOnFunctionArgumentFromCallArgument(Value* v
 
     assert(fun->arg_size() > use.getOperandNo() && "invalid call to function; operandNo > numOperands");
     Argument* arg = fun->arg_begin() + use.getOperandNo();
-    if (hasTunerInfo(arg)) {
+    if (hasDtaInfo(arg)) {
       taffoInfo.setValueInfo(*arg, finalMd->clone());
       setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
       LLVM_DEBUG(log() << " --> set new metadata, now checking uses of the argument... (hope there's no recursion!)\n");
@@ -886,7 +883,7 @@ void DataTypeAllocationPass::setTypesOnCallArgumentFromFunctionArgument(Argument
       Value* callarg = it->getOperand(n);
       LLVM_DEBUG(log() << " --> target " << *callarg << ", CallBase " << **it << "\n");
 
-      if (!hasTunerInfo(callarg)) {
+      if (!hasDtaInfo(callarg)) {
         if (!isa<Argument>(callarg)) {
           LLVM_DEBUG(log() << " --> actual argument doesn't get converted; skipping\n");
           continue;
@@ -913,7 +910,7 @@ std::vector<Function*> DataTypeAllocationPass::collapseFunction(Module& m) {
     LLVM_DEBUG(log() << "Analyzing original function " << f.getName() << "\n");
 
     SmallPtrSet<Function*, 2> taffoFunctions;
-    TaffoInfo::getInstance().getTaffoCloneFunctions(f, taffoFunctions);
+    taffoInfo.getTaffoCloneFunctions(f, taffoFunctions);
     for (Function* cloneF : taffoFunctions) {
       LLVM_DEBUG(log() << "\t Clone: " << *cloneF << "\n");
       if (cloneF->user_empty()) {
@@ -971,7 +968,7 @@ Function* DataTypeAllocationPass::findEqFunction(Function* fun, Function* origin
 
   LLVM_DEBUG(log() << "\t\t Search eq function for " << fun->getName() << " in " << origin->getName() << " pool\n";);
 
-  if (getFullyUnwrappedType(fun)->isFloatingPointTy() && hasTunerInfo(*fun->user_begin())) {
+  if (getFullyUnwrappedType(fun)->isFloatingPointTy() && hasDtaInfo(*fun->user_begin())) {
     if (taffoInfo.hasValueInfo(**fun->user_begin())) {
       std::shared_ptr<ValueInfo> retval = taffoInfo.getValueInfo(**fun->user_begin());
       fixSign.push_back(std::pair(-1, retval)); // ret value in signature
@@ -981,7 +978,7 @@ Function* DataTypeAllocationPass::findEqFunction(Function* fun, Function* origin
 
   int i = 0;
   for (Argument& arg : fun->args()) {
-    if (hasTunerInfo(&arg) && taffoInfo.hasValueInfo(arg)) {
+    if (hasDtaInfo(&arg) && taffoInfo.hasValueInfo(arg)) {
       fixSign.push_back(std::pair(i, taffoInfo.getValueInfo(arg)));
       LLVM_DEBUG(log() << "\t\t Arg " << i << " type : " << *taffoInfo.getValueInfo(arg) << "\n";);
     }
@@ -1026,8 +1023,8 @@ void DataTypeAllocationPass::attachFunctionMetaData(Module& m) {
     if (f.isIntrinsic())
       continue;
     // for (Argument& arg : f.args())
-    //   if (TaffoInfo::getInstance().hasValueInfo(arg) && hasTunerInfo(&arg))
-    //     TaffoInfo::getInstance().setValueInfo(arg, getDtaValueInfo(&arg)->metadata);
+    //   if (taffoInfo.hasValueInfo(arg) && hasTunerInfo(&arg))
+    //     taffoInfo.setValueInfo(arg, getDtaValueInfo(&arg)->metadata);
     //  TODO remove this function
   }
 }
