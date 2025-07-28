@@ -389,7 +389,7 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
   auto oldRetType = taffoInfo.getTransparentType(*oldF);
   auto newRetType = oldRetType;
   if (hasConversionInfo(call))
-    if (!getConversionInfo(call)->isConversionDisabled)
+    if (!getConversionInfo(call)->isConversionDisabled && !getFixpType(call)->isInvalid())
       newRetType = getFixpType(call)->toTransparentType(taffoInfo.getTransparentType(*call));
 
   FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argLLVMTypes, oldF->isVarArg());
