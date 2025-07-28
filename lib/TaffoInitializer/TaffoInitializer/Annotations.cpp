@@ -127,6 +127,20 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
   if (isStartingPoint)
     *isStartingPoint = parser.startingPoint;
 
+  bool containsFloatingPoint = taffoInfo.getOrCreateTransparentType(*annotatedValue)->containsFloatingPointType();
+  if (!containsFloatingPoint) {
+    LLVM_DEBUG(
+      Logger& logger = log();
+      logger.log("[Value] ", Logger::Bold).logValueln(annotatedValue);
+      auto indenter = logger.getIndenter();
+      indenter.increaseIndent();
+      logger.logln("disabling conversion because not a float", Logger::Yellow););
+    // TODO manage disabling conversion of structs
+    if (auto scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*annotatedValue)))
+      scalarInfo->conversionEnabled = false;
+    return;
+  }
+
   // parseAnnotationAndGenValueInfo has generated the valueInfo: we need to generate also the valueInitInfo.
   // For functions, valueInitInfo is generated only for call sites, not for the function itself.
   if (auto* annotatedFun = dyn_cast<Function>(annotatedValue)) {
@@ -141,19 +155,5 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
   else {
     infoPropagationQueue.push_back(annotatedValue);
     taffoInitInfo.createValueInitInfo(annotatedValue, 0, parser.backtracking ? parser.backtrackingDepth : 0);
-  }
-}
-
-void InitializerPass::removeNotFloats() {
-  for (auto val : make_early_inc_range(infoPropagationQueue)) {
-    bool containsFloatingPoint = taffoInfo.getOrCreateTransparentType(*val)->containsFloatingPointType();
-    if (!containsFloatingPoint) {
-      LLVM_DEBUG(
-        Logger& logger = log();
-        logger.log("Removing ", Logger::Yellow);
-        logger.log(val, Logger::Yellow);
-        logger.logln(" from infoPropagationQueue as it is not float", Logger::Yellow););
-      infoPropagationQueue.remove(val);
-    }
   }
 }

@@ -81,7 +81,7 @@ bool ConversionPass::buildConversionInfo(SmallVectorImpl<Value*>* values,
       LLVM_DEBUG(logger << "conversion disabled: skipping\n");
       return false;
     }
-    if (!value->getType()->isVoidTy()) {
+    if (taffoInfo.getTransparentType(*value)->containsFloatingPointType()) {
       if (auto numericTypeInfo = scalarInfo->numericType)
         conversionInfo.fixpType = std::make_shared<FixedPointScalarType>(numericTypeInfo.get());
       else {

@@ -34,7 +34,6 @@ private:
   void readAndRemoveLocalAnnotations(llvm::Function& f);
   void readAndRemoveLocalAnnotations(llvm::Module& m);
   void parseAnnotation(llvm::Value* annotatedValue, llvm::Value* annotationValue, bool* isStartingPoint = nullptr);
-  void removeNotFloats();
 
   void propagateInfo();
   void propagateInfo(llvm::Value* src, llvm::Value* dst);

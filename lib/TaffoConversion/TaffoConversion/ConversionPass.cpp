@@ -130,7 +130,7 @@ void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
       values.push_back(user);
 
       if (!hasConversionInfo(user)) {
-        LLVM_DEBUG(logger.logln("value will not be converted because it has no metadata", Logger::Yellow));
+        LLVM_DEBUG(logger.logln("value will not be converted because it has no conversionInfo", Logger::Yellow));
         auto valueConversionInfo = newConversionInfo(user);
         valueConversionInfo->isConversionDisabled = true;
         valueConversionInfo->origType = taffoInfo.getOrCreateTransparentType(*user)->clone();
@@ -146,13 +146,13 @@ void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
 
   for (Value* value : values) {
     assert(hasConversionInfo(value) && "all values in the queue should have conversionInfo by now");
-    if (getFixpType(value)->isInvalid() && !(value->getType()->isVoidTy() && !isa<ReturnInst>(value))
+    if (getFixpType(value)->isInvalid() && taffoInfo.getTransparentType(*value)->containsFloatingPointType()
         && !isKnownConvertibleWithIncompleteMetadata(value)) {
       LLVM_DEBUG(
         logger.log("[Value] ", Logger::Bold).logValueln(value);
         auto indenter = logger.getIndenter();
         indenter.increaseIndent();
-        logger.logln("value will not be converted because its metadata is incomplete", Logger::Yellow));
+        logger.logln("value will not be converted because its conversionInfo is incomplete", Logger::Yellow));
       getConversionInfo(value)->isConversionDisabled = true;
     }
 

@@ -38,10 +38,13 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
   }
 
   manageIndirectCalls(m);
+
+  LLVM_DEBUG(log().logln("[Parsing annotations]", Logger::Blue));
   readAndRemoveGlobalAnnotations(m);
   readAndRemoveLocalAnnotations(m);
   AnnotationCount = infoPropagationQueue.size();
-  removeNotFloats();
+  LLVM_DEBUG(log() << Logger::Green << "Found " << AnnotationCount << " valid annotations\n"
+                   << Logger::Reset);
 
   if (Function* startingPoint = findStartingPointFunctionGlobal(m)) {
     LLVM_DEBUG(
