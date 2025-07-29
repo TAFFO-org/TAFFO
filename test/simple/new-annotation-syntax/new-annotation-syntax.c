@@ -1,4 +1,5 @@
 /// TAFFO_TEST_ARGS
+#include <stdio.h>
 
 typedef struct {
   float g;
@@ -26,5 +27,8 @@ int main(int argc, char* argv[]) {
   __attribute__((annotate("scalar(error(0.5))"))) float t6 = 123.0;
   __attribute__((annotate("scalar(error(0.5) range(-200, 200) type(signed 0x1F 07))"))) float t7 = 123.0;
   __attribute__((annotate("struct[scalar(range(-200, 200)), void, struct[scalar(range(-200, 200)), void]]"))) abc t8;
+  printf("Values Begin\n");
+  printf("1\n"); // Dummy: this test only needs to compile
+  printf("Values End\n");
   return 0;
 }

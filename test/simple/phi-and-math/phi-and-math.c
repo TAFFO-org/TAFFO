@@ -27,12 +27,14 @@ int main() {
   scanf("%d", &cb);
 
   RGB pixels[5];
+
+  printf("Values Begin\n");
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j < 5; ++j) {
       r = y + 1.402 * cr + 128;
       g = y - 0.34414 * cb - 0.71414 * cr + 128;
       b = y + 1.772 * cb + 128;
-      printf("Pixel: %f %f %f\n", r, g, b);
+      printf("%f\n%f\n%f\n", r, g, b);
 
       r = clip_rgb(r);
       g = clip_rgb(g);
@@ -41,9 +43,9 @@ int main() {
       pixels[i].r = (int) r;
       pixels[i].g = (int) g;
       pixels[i].b = (int) b;
-      printf("Pixel: %d %d %d\n", pixels[i].r, pixels[i].g, pixels[i].b);
+      printf("%d\n%d\n%d\n", pixels[i].r, pixels[i].g, pixels[i].b);
     }
   }
-
+  printf("Values End\n");
   return 0;
 }

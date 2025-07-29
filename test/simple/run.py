@@ -16,7 +16,6 @@ if __name__ == "__main__":
         sys.executable,
         str(runner_path),
         "-tests-dir", str(test_dir),
-        "-diff_only",
         *sys.argv[1:]
     ]
     result = subprocess.run(cmd)

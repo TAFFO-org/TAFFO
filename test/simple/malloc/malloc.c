@@ -9,7 +9,10 @@ int main(int argc, char* argv[]) {
     double tmp;
     scanf("%lf", &tmp);
     test[i] = tmp;
+
+    printf("Values Begin\n");
     printf("%f\n", test[i]);
+    printf("Values End\n");
   }
   return 0;
 }

@@ -45,16 +45,15 @@ int main(int argc, char* argv[]) {
     p3 = tmp;
   }
 
-  printf("Peak average: ");
+  printf("Values Begin\n");
   if (cPeak > 0)
     printf("%f\n", sPeak / cPeak);
   else
-    printf("-\n");
-  printf("Global average: ");
+    printf("-1\n");
   if (cAll > 0)
     printf("%f\n", sAll / cAll);
   else
-    printf("-\n");
-
+    printf("-1\n");
+  printf("Values End\n");
   return 0;
 }

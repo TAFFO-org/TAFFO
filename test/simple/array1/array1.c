@@ -27,6 +27,11 @@ int main(int argc, char* argv[]) {
     mul *= numbers[i];
   }
 
-  printf("add: %f\nsub: %f\ndiv: %f\nmul: %f\n", add, sub, div, mul);
+  printf("Values Begin\n");
+  printf("%f\n", add);
+  printf("%f\n", sub);
+  printf("%f\n", div);
+  printf("%f\n", mul);
+  printf("Values End\n");
   return 0;
 }

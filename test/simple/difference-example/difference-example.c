@@ -10,6 +10,8 @@ double test(void) {
 }
 
 int main(int argc, char* argv[]) {
+  printf("Values Begin\n");
   printf("%lf\n", test());
+  printf("Values End\n");
   return 0;
 }

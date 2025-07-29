@@ -16,6 +16,7 @@ int main(int argc, char* argv[]) {
   float __attribute__((annotate("scalar(range(-3000, +3000))"))) stack[32];
   int sp = 0;
 
+  printf("Values Begin\n");
   while (1) {
     scanf("%s", buffer);
     int n = sscanf(buffer, "%f", &tmp);
@@ -24,15 +25,9 @@ int main(int argc, char* argv[]) {
     }
     else {
       switch (buffer[0]) {
-      case '+':
-        DO(+);
-        break;
-      case '-':
-        DO(-);
-        break;
-      case '*':
-        DO(*);
-        break;
+      case '+': DO(+); break;
+      case '-': DO(-); break;
+      case '*': DO(*); break;
       case '/':
         DO(/);
         break;
@@ -41,13 +36,11 @@ int main(int argc, char* argv[]) {
         stack[sp-2] = stack[sp-1] % stack[sp-2];
         sp--;
         break;*/
-      case '=':
-        printf("%f\n", stack[--sp]);
-        break;
-      case 'q':
-        return 0;
+      case '=': printf("%f\n", stack[--sp]); break;
+      case 'q': printf("Values End\n"); return 0;
       }
     }
   }
+  printf("Values End\n");
   return 0;
 }

@@ -20,9 +20,11 @@ void function_2_1(float* __attribute((annotate("scalar()"))) y) {
 int main(int argc, char* argv[]) {
   float x __attribute((annotate("target('x') scalar()"))) = 5.0;
   int y = 2.0;
+  printf("Values Begin\n");
   function_1_1(&x, y);
   printf("%f\n", x);
   function_2_1(&x);
   printf("%f\n", x);
+  printf("Values End\n");
   return 0;
 }

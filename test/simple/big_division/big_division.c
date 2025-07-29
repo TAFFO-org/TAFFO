@@ -57,6 +57,7 @@ void u_same_bigger_float() {
 }
 
 int main(int argc, char* argv[]) {
+  printf("Values Begin\n");
   u_first_bigger();
   u_second_bigger();
   s_first_bigger();
@@ -64,6 +65,7 @@ int main(int argc, char* argv[]) {
   u_same();
   u_same_bigger_float();
   u_normal();
+  printf("Values End\n");
 
   return 0;
 }

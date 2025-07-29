@@ -8,6 +8,9 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < 10; i++)
     test[i] = 123.0;
   hello(test);
-  printf("%a\n", test[5]);
+
+  printf("Values Begin\n");
+  printf("%f\n", test[5]);
+  printf("Values End\n");
   return 0;
 }

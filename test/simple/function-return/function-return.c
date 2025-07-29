@@ -9,6 +9,8 @@ float fun(void) __attribute((annotate("scalar(range(-10, 10))"))) {
 
 int main() {
   float x = fun();
+  printf("Values Begin\n");
   printf("%f\n", x);
+  printf("Values End\n");
   return 0;
 }

@@ -8,7 +8,10 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < 10; i++)
     vec[i] = i / 2.0;
   scal = 5.0;
+
+  printf("Values Begin\n");
   for (int i = 0; i < 10; i++)
     printf("%f\n", vec[i] * scal);
+  printf("Values End\n");
   return 0;
 }

@@ -250,7 +250,7 @@ def getData(files):
     for idx, text in enumerate(files):
         match = re.search(r"Values Begin\n([\s\S]*?)\nValues End", text)
         if match is None:
-            raise ValueError(f"Missing 'Values Begin ... Values End' block in test output ")
+            raise ValueError(f"Missing 'Values Begin ... Values End' block in test output")
         blocks.append(match.group(1))
     fblock = blocks[0]
     tblock = blocks[1]
@@ -311,14 +311,15 @@ def validate(path: Path, compute_speedup=True):
     results = []
     files_dict = retrieveFiles(path)
     for suffix, (f_txt, t_txt) in files_dict.items():
+        print("Validating:", path.name)
         ftime, ttime = getTime([f_txt, t_txt])
-        datas = getData([f_txt, t_txt])
+        data = getData([f_txt, t_txt])
         speedup = (ftime/ttime) if compute_speedup else None
         results.append({
             "name": path.name + suffix,
             "speedup": speedup,
             "compile_time": compile_time,
-            **datas
+            **data
         })
     return results
 
@@ -480,6 +481,7 @@ if __name__ == '__main__':
                and not p.is_relative_to(ignore_dir)
                and ((p/f"{p.name}.c").exists() or (p/f"{p.name}.cpp").exists())
         ]
+    only = sorted(only)
 
     # compute padding for aligned status output
     labels = []

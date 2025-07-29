@@ -20,7 +20,10 @@ int main() {
   d = b + c;
 
   out = d;
+
+  printf("Values Begin\n");
   printf("%f\n", out);
+  printf("Values End\n");
 
   return 0;
 }

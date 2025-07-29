@@ -23,6 +23,8 @@ int main() {
   float __attribute((annotate("target('b') scalar()"))) b = 10.1024;
   int c = 2;
 
+  printf("Values Begin\n");
+
   a = fun(b, a);
   printf("%f\n", a);
 
@@ -69,7 +71,7 @@ int main() {
 
   // ------------------ //
 
-  printf("*******************\n");
+  printf("\n");
 
   a = 10.05;
 
@@ -114,6 +116,6 @@ int main() {
   c = funInt(b, a);
   printf("%d\n", c);
 
-  printf("-------------------\n");
+  printf("Values End\n");
   return 0;
 }

@@ -14,6 +14,9 @@ int main(int argc, char* argv[]) {
   z.a = a;
   z.b = b;
   z.c = c;
-  printf("%a\n%d\n%a\n", z.a, z.b, z.c);
+
+  printf("Values Begin\n");
+  printf("%f\n%d\n%f\n", z.a, z.b, z.c);
+  printf("Values End\n");
   return 0;
 }

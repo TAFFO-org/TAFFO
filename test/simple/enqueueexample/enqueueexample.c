@@ -9,4 +9,8 @@ float example(float a, float b, float c, float d) {
   return (x * (y / z)) * x;
 }
 
-int main(int argc, char* argv[]) { printf("%f\n", example(1, 2, 3, 4)); }
+int main(int argc, char* argv[]) {
+  printf("Values Begin\n");
+  printf("%f\n", example(1, 2, 3, 4));
+  printf("Values End\n");
+}
