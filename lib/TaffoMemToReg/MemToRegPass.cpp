@@ -45,14 +45,14 @@ bool MemToRegPass::promoteMemoryToRegister(Function& f,
 }
 
 PreservedAnalyses MemToRegPass::run(Function& f, FunctionAnalysisManager& analysisManager) {
-  static bool initializedTaffoInfo = false;
+  static bool taffoInfoInitialized = false;
 
   LLVM_DEBUG(log().setContextTag(logContextTag));
 
   Module& m = *f.getParent();
-  if (!initializedTaffoInfo) {
-    TaffoInfo::getInstance().initializeFromFile("taffo_info_init.json", m);
-    initializedTaffoInfo = true;
+  if (!taffoInfoInitialized) {
+    TaffoInfo::getInstance().initializeFromFile(INITIALIZER_TAFFO_INFO, m);
+    taffoInfoInitialized = true;
   }
 
   auto& dominatorTree = analysisManager.getResult<DominatorTreeAnalysis>(f);

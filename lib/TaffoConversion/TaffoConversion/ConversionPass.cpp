@@ -41,9 +41,9 @@ cl::opt<unsigned> MinQuotientFrac("minquotientfrac",
                                   cl::desc("minimum number of quotient fractional preserved"),
                                   cl::init(5));
 
-PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& analysisManager) {
+PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[ConversionPass]", Logger::Magenta));
-  taffoInfo.initializeFromFile("taffo_info_dta.json", m);
+  taffoInfo.initializeFromFile(DTA_TAFFO_INFO, m);
   dataLayout = &m.getDataLayout();
 
   SmallVector<Value*, 32> local;
@@ -78,7 +78,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager& analysis
   cleanUpOpenCLKernelTrampolines(&m);
   cleanUpOriginalFunctions(m);
 
-  taffoInfo.dumpToFile("taffo_info_conv.json", m);
+  taffoInfo.dumpToFile(CONVERSION_TAFFO_INFO, m);
   LLVM_DEBUG(log().logln("[End of ConversionPass]", Logger::Magenta));
   return PreservedAnalyses::none();
 }

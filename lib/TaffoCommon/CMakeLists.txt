@@ -1,6 +1,6 @@
 set(SELF TaffoCommon)
 
-add_library(${SELF} STATIC
+add_llvm_library(${SELF} STATIC
   TaffoInfo/TaffoInfo.hpp
   TaffoInfo/TaffoInfo.cpp
   TaffoInfo/ValueInfo.hpp

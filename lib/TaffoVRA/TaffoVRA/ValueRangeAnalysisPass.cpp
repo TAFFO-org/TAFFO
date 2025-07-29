@@ -47,7 +47,7 @@ PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& 
   LLVM_DEBUG(log() << "saving results...\n");
   GlobalStore->saveResults(M);
 
-  TaffoInfo::getInstance().dumpToFile("taffo_info_vra.json", M);
+  TaffoInfo::getInstance().dumpToFile(VRA_TAFFO_INFO, M);
   LLVM_DEBUG(log().logln("[End of ValueRangeAnalysisPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }

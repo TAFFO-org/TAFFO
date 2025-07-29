@@ -501,6 +501,7 @@ append_time_string "type_deduction_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,typededucer' \
+  -temp-dir=$temporary_dir \
   ${typededucer_flags} \
   -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 
@@ -511,6 +512,7 @@ append_time_string "init_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
+  -temp-dir=$temporary_dir \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
 
@@ -523,6 +525,7 @@ if [[ $disable_vra -eq 0 ]]; then
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,${mem2reg}taffovra" \
     $compat_flags_opt ${vra_flags} \
+    -temp-dir=$temporary_dir \
     -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
 else
   cp "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll";
@@ -543,6 +546,7 @@ while [[ $feedback_stop -eq 0 ]]; do
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,taffodta,globaldce" \
     $compat_flags_opt ${dta_flags} ${dta_inst_set} \
+    -temp-dir=$temporary_dir \
     -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
     
   ###
@@ -553,6 +557,7 @@ while [[ $feedback_stop -eq 0 ]]; do
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoconv,globaldce,dce' \
     $compat_flags_opt ${conversion_flags} \
+    -temp-dir=$temporary_dir \
     -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" "${temporary_dir}/${output_basename}.4.taffotmp.ll" || exit $?
     
   ###
@@ -563,6 +568,7 @@ while [[ $feedback_stop -eq 0 ]]; do
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
       --passes='no-op-module,taffoerr' \
       $compat_flags_opt ${errorprop_flags} \
+      -temp-dir=$temporary_dir \
       -S -o "${temporary_dir}/${output_basename}.6.taffotmp.ll" "${temporary_dir}/${output_basename}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
     if [[ ! ( -z "$errorprop_out" ) ]]; then
       cp "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" "$errorprop_out"

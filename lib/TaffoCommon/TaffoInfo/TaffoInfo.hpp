@@ -8,6 +8,13 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalValue.h>
 
+extern llvm::cl::opt<std::string> tempDir;
+#define TYPE_DEDUCER_TAFFO_INFO (tempDir + "/taffo_info_typededucer.json")
+#define INITIALIZER_TAFFO_INFO (tempDir + "/taffo_info_init.json")
+#define VRA_TAFFO_INFO (tempDir + "/taffo_info_vra.json")
+#define DTA_TAFFO_INFO (tempDir + "/taffo_info_dta.json")
+#define CONVERSION_TAFFO_INFO (tempDir + "/taffo_info_conv.json")
+
 namespace taffo {
 
 /**

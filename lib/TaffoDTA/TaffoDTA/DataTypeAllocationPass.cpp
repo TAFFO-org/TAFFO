@@ -41,7 +41,7 @@ std::map<DtaStrategyType, std::function<dataTypeAllocationStrategy*()>> strategy
 
 PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& AM) {
   LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", Logger::Magenta));
-  taffoInfo.initializeFromFile("taffo_info_vra.json", m);
+  taffoInfo.initializeFromFile(VRA_TAFFO_INFO, m);
 
   MAM = &AM;
 
@@ -78,7 +78,7 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
   for (Function* f : toDelete)
     taffoInfo.eraseValue(f);
 
-  taffoInfo.dumpToFile("taffo_info_dta.json", m);
+  taffoInfo.dumpToFile(DTA_TAFFO_INFO, m);
   LLVM_DEBUG(log().logln("[End of DataTypeAllocationPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }

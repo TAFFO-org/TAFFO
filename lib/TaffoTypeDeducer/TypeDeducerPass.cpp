@@ -19,9 +19,9 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager& analysi
   // Save deduced transparent types
   for (const auto& [value, deducedType] : result.transparentTypes)
     if (deducedType)
-      TaffoInfo::getInstance().setTransparentType(*value, deducedType);
+      taffoInfo.setTransparentType(*value, deducedType);
 
-  TaffoInfo::getInstance().dumpToFile("taffo_typededucer.json", m);
+  taffoInfo.dumpToFile(TYPE_DEDUCER_TAFFO_INFO, m);
   LLVM_DEBUG(log().logln("[End of TypeDeducerPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }

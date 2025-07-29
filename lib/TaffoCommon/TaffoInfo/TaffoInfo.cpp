@@ -26,6 +26,8 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
+cl::opt<std::string> tempDir("temp-dir", cl::desc("Directory for temporary files"), cl::init("/tmp"));
+
 TaffoInfo& TaffoInfo::getInstance() {
   static TaffoInfo instance;
   return instance;

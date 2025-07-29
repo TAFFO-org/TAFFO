@@ -26,7 +26,7 @@ cl::opt<bool> cudaKernelMode("cudakern", cl::desc("Allows cloning of Cuda kernel
 
 PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[InitializerPass]", Logger::Magenta));
-  taffoInfo.initializeFromFile("taffo_typededucer.json", m);
+  taffoInfo.initializeFromFile(TYPE_DEDUCER_TAFFO_INFO, m);
 
   if (openCLKernelMode) {
     LLVM_DEBUG(log() << "OpenCLKernelMode == true!\n");
@@ -64,7 +64,7 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
     logInfoPropagationQueue(););
   saveValueWeights();
 
-  taffoInfo.dumpToFile("taffo_info_init.json", m);
+  taffoInfo.dumpToFile(INITIALIZER_TAFFO_INFO, m);
   LLVM_DEBUG(log().logln("[End of InitializerPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
