@@ -2,9 +2,9 @@
 #include <math.h>
 #include <stdio.h>
 
-float __attribute((annotate("scalar()"))) global = 33.333;
+float __attribute__((annotate("scalar()"))) global = 33.333;
 
-float fun(float x __attribute((annotate("scalar()"))), float y __attribute((annotate("scalar()")))) {
+float fun(float x __attribute__((annotate("scalar()"))), float y __attribute__((annotate("scalar()")))) {
   float local;
   local = x * y + global;
   global++;

@@ -2,8 +2,8 @@
 #include <stdio.h>
 
 int main(int argc, char* argv[]) {
-  int a __attribute((annotate("scalar(disabled)")));
-  float b __attribute((annotate("scalar(range(-2,2) final disabled)")));
+  int a __attribute__((annotate("scalar(disabled)")));
+  float b __attribute((annotate("scalar(range(-2,2) disabled)")));
   a = 1;
   b = 1234;
   printf("Values Begin\n");

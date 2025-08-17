@@ -17,7 +17,7 @@ typedef struct RGB {
 } RGB;
 
 int main() {
-  double r __attribute((annotate("scalar(range(0,256)) target('r')")));
+  double r __attribute__((annotate("scalar(range(0,256)) target('r')")));
   double g __attribute((annotate("scalar(range(0,256))")));
   double b __attribute((annotate("scalar(range(0,256))")));
 

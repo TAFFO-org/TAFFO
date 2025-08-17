@@ -4,9 +4,9 @@
 #define MAX_N (30)
 
 int main(int argc, char* argv[]) {
-  float numbers[MAX_N] __attribute((annotate("scalar()")));
+  float numbers[MAX_N] __attribute__((annotate("scalar()")));
   int n = 0;
-  float tmp __attribute((annotate("scalar(disabled range(-3000, 3000))")));
+  float tmp __attribute__((annotate("scalar(disabled range(-3000, 3000))")));
 
   for (int i = 0; i < MAX_N; i++) {
     if (scanf("%f", &tmp) < 1)
@@ -14,9 +14,9 @@ int main(int argc, char* argv[]) {
     numbers[n++] = tmp;
   }
 
-  float add __attribute((annotate("scalar()"))) = 0.0;
+  float add __attribute__((annotate("scalar()"))) = 0.0;
   float sub __attribute((annotate("scalar()"))) = 0.0;
-  float div __attribute((annotate("scalar(range(-3000, 3000) final)"))) = 1.0;
+  float div __attribute((annotate("scalar(range(-3000, 3000))"))) = 1.0;
   float mul __attribute((annotate("scalar()"))) = 1.0;
 
   for (int i = 0; i < n; i++) {

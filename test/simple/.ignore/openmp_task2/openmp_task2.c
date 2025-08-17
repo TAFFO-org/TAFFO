@@ -16,8 +16,8 @@ void nested_task_invocation(int index) {
 void compute_result(int index) { nested_task_invocation(index); }
 
 int main(int argc, char* argv[]) {
-  float array[MAX_N] __attribute__((annotate("target('array') scalar(range(0,1000) final)")));
-  float result __attribute__((annotate("target('result') scalar(range(0,5000) final)"))) = 0;
+  float array[MAX_N] __attribute__((annotate("target('array') scalar(range(0,1000))")));
+  float result __attribute__((annotate("target('result') scalar(range(0,5000))"))) = 0;
 
   int i;
 

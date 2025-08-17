@@ -19,7 +19,7 @@ public:
 };
 
 int main() {
-  __attribute((
+  __attribute__((
     annotate("struct[void, scalar(range(0, 100)), void, struct[void, scalar(range(0, 0)), void]]"))) MyClass myObj;
   std::cout << "Values Begin\n";
   while (myObj.d < 100) {

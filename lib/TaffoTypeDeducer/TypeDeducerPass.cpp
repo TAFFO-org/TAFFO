@@ -14,12 +14,12 @@ PreservedAnalyses TypeDeducerPass::run(Module& m, ModuleAnalysisManager& analysi
   LLVM_DEBUG(log().logln("[TypeDeducerPass]", Logger::Magenta));
   taffoInfo.initialize(m);
 
-  TypeDeductionAnalysis::Result result = analysisManager.getResult<TypeDeductionAnalysis>(m);
+  TypeDeductionAnalysis::Result& result = analysisManager.getResult<TypeDeductionAnalysis>(m);
 
   // Save deduced transparent types
-  for (const auto& [value, deducedType] : result.transparentTypes)
+  for (auto& [value, deducedType] : result.transparentTypes)
     if (deducedType)
-      taffoInfo.setTransparentType(*value, deducedType);
+      taffoInfo.setTransparentType(*value, std::move(deducedType));
 
   taffoInfo.dumpToFile(TYPE_DEDUCER_TAFFO_INFO, m);
   LLVM_DEBUG(log().logln("[End of TypeDeducerPass]", Logger::Magenta));

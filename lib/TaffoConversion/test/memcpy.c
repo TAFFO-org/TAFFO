@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-float source[5] __attribute((annotate("scalar(range(1, 1000000))")));
+float source[5] __attribute__((annotate("scalar(range(1, 1000000))")));
 float dest[5] __attribute((annotate("scalar(range(1, 1))")));
 
 float* destPtr = dest;

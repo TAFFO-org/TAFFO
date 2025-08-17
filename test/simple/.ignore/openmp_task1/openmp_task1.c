@@ -4,9 +4,9 @@
 #define N (100)
 
 int main(int argc, char* argv[]) {
-  float first_task_var __attribute((annotate("target('first_task_var') scalar(range(0,10) final)"))) = 1.0f;
-  float second_task_var __attribute((annotate("target('second_task_var') scalar(range(0,2000) final)"))) = 363;
-  float result __attribute((annotate("target('result') scalar(range(0,2000) final)"))) = 0.0;
+  float first_task_var __attribute__((annotate("target('first_task_var') scalar(range(0,10))"))) = 1.0f;
+  float second_task_var __attribute((annotate("target('second_task_var') scalar(range(0,2000))"))) = 363;
+  float result __attribute((annotate("target('result') scalar(range(0,2000))"))) = 0.0;
 
 #pragma omp parallel num_threads(4)
   {

@@ -55,7 +55,7 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         DerivedRanges[&v] = structInfo;
       }
     }
-    else if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(taffoInfo.getOrCreateTransparentType(v))) {
+    else if (auto* structType = dyn_cast<TransparentStructType>(taffoInfo.getOrCreateTransparentType(v))) {
       DerivedRanges[&v] = ValueInfoFactory::create(structType);
     }
     else {

@@ -73,7 +73,7 @@ public:
     NewText +=
       Lexer::getSourceText(CharSourceRange::getTokenRange(Old), Context.getSourceManager(), Context.getLangOpts());
 
-    NewText += " __attribute((annotate(\"" + ann + "\"))) ";
+    NewText += " __attribute__((annotate(\"" + ann + "\"))) ";
 
     tooling::Replacement R(
       Context.getSourceManager(), CharSourceRange::getTokenRange(Old), NewText, Context.getLangOpts());

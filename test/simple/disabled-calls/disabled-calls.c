@@ -4,7 +4,7 @@
 float test(float a) { return a * 2; }
 
 int main(int argc, char* argv[]) {
-  float a __attribute((annotate("target('a') scalar(range(-128, 128) disabled)")));
+  float a __attribute__((annotate("target('a') scalar(range(-128, 128) disabled)")));
   scanf("%f", &a);
 
   printf("Values Begin\n");

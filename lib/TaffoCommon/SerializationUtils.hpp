@@ -52,6 +52,6 @@ double deserializeDouble(const json& j);
 json serialize(const tda::TransparentType& t);
 json serialize(const tda::TransparentArrayType& t);
 json serialize(const tda::TransparentStructType& t);
-std::shared_ptr<tda::TransparentType> deserialize(const json& j);
+std::unique_ptr<tda::TransparentType> deserialize(const json& j);
 
 } // namespace taffo

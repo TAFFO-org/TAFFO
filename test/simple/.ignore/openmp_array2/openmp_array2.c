@@ -7,13 +7,13 @@
 float compute_thread_result(int index, float private_multiplier) { return index * private_multiplier; }
 
 int main(int argc, char* argv[]) {
-  float result_container[MAX_N] __attribute((annotate("target('array') scalar(range(0,10000) final)")));
+  float result_container[MAX_N] __attribute__((annotate("target('array') scalar(range(0,10000))")));
   float multipliers_container[MAX_N]
-    __attribute__((annotate("target('multipliers_container') scalar(range(0,10000) final)")));
-  float result __attribute__((annotate("target('result') scalar(range(0,1000000) final)"))) = 0;
+    __attribute__((annotate("target('multipliers_container') scalar(range(0,10000))")));
+  float result __attribute__((annotate("target('result') scalar(range(0,1000000))"))) = 0;
 
-  int __attribute__((annotate("scalar(range(0,100) final)"))) i = 0;
-  float private_multiplier __attribute__((annotate("target('private_multiplier') scalar(range(0,25) final)")));
+  int __attribute__((annotate("scalar(range(0,100))"))) i = 0;
+  float private_multiplier __attribute__((annotate("target('private_multiplier') scalar(range(0,25))")));
 
 #pragma omp parallel for private(private_multiplier) num_threads(4) schedule(static)
   {

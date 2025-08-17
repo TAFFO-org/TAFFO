@@ -148,7 +148,6 @@ void InitializerPass::propagateInfo() {
 
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
-          Logger& logger = log();
           logger.log("[User] ", Logger::Bold).logValueln(user);
           indenter.increaseIndent(););
 
@@ -162,7 +161,6 @@ void InitializerPass::propagateInfo() {
             Value* storedValue = storeUser->getValueOperand();
             if (getFullyUnwrappedType(storedValue)->isFloatingPointTy()) {
               LLVM_DEBUG(
-                Logger& logger = log();
                 logger.log("will backtrack to stored value: ", Logger::Cyan);
                 logger.logValueln(storedValue););
               newUserBtDepth = 1;
@@ -196,7 +194,6 @@ void InitializerPass::propagateInfo() {
 
       auto indenter = logger.getIndenter();
       LLVM_DEBUG(
-        Logger& logger = log();
         logger.log("[Backtracking] ", Logger::Bold).logValueln(value);
         indenter.increaseIndent();
         logger << "depth left = " << backtrackingDepth << "\n";);
@@ -205,7 +202,6 @@ void InitializerPass::propagateInfo() {
       for (Value* operand : inst->operands()) {
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
-          Logger& logger = log();
           logger.log("[Operand] ", Logger::Bold).logValueln(operand);
           indenter.increaseIndent(););
         // Skip operands that are not a User or an Argument
@@ -278,8 +274,8 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
   /* Propagate info only if the path to a root is shorter than the current */
   else if (newDstRootDistance < dstRootDistance) {
     dstInitInfo.setRootDistance(newDstRootDistance);
-    std::shared_ptr<TransparentType> srcType = taffoInfo.getOrCreateTransparentType(*src);
-    std::shared_ptr<TransparentType> dstType = taffoInfo.getOrCreateTransparentType(*dst);
+    TransparentType* srcType = taffoInfo.getOrCreateTransparentType(*src);
+    TransparentType* dstType = taffoInfo.getOrCreateTransparentType(*dst);
 
     LLVM_DEBUG(
       Logger& logger = log();
@@ -293,7 +289,7 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
       logger.log(*dstType, Logger::Cyan);
       logger << ", ";);
 
-    if (!srcType->isStructType() && !dstType->isStructType())
+    if (!srcType->isStructTT() && !dstType->isStructTT())
       dstInfo->copyFrom(*srcInfo);
     // TODO Manage structs (conversionEnabled of fields)
     if (dstInfo->isConversionEnabled() || srcInfo->isConversionEnabled())
@@ -367,7 +363,7 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
   // Lambda to copy TransparentType and ValueInitInfo from src value to dst value
   auto copyInfo = [this](const Value* src, Value* dst) {
     if (taffoInfo.hasTransparentType(*src))
-      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src));
+      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src)->clone());
     if (taffoInfo.hasValueInfo(*src))
       taffoInfo.setValueInfo(*dst, taffoInfo.getValueInfo(*src)->clone());
     if (taffoInitInfo.hasValueInitInfo(src)) {

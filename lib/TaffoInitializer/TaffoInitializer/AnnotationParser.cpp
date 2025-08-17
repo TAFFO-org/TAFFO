@@ -22,7 +22,7 @@ void AnnotationParser::reset() {
 
 bool AnnotationParser::parseAnnotationAndGenValueInfo(const std::string& annotationStr, Value* annotatedValue) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-  std::shared_ptr<TransparentType> type = taffoInfo.getTransparentType(*annotatedValue);
+  TransparentType* type = taffoInfo.getTransparentType(*annotatedValue);
   reset();
   stringStream = std::istringstream(annotationStr);
 
@@ -36,7 +36,7 @@ bool AnnotationParser::parseAnnotationAndGenValueInfo(const std::string& annotat
 
 StringRef AnnotationParser::getLastError() { return error; }
 
-bool AnnotationParser::parseSyntax(const std::shared_ptr<TransparentType>& type) {
+bool AnnotationParser::parseSyntax(const TransparentType* type) {
   stringStream.unsetf(std::ios_base::skipws);
   char next = skipWhitespace();
   stringStream.putback(next);
@@ -88,7 +88,7 @@ bool AnnotationParser::parseSyntax(const std::shared_ptr<TransparentType>& type)
         return false;
     }
     else if (peek("scalar")) {
-      if (!parseScalar(valueInfoBuild, type))
+      if (!parseScalar(valueInfoBuild))
         return false;
     }
     else if (peek("bufferid")) {
@@ -120,8 +120,7 @@ bool AnnotationParser::parseSyntax(const std::shared_ptr<TransparentType>& type)
   return true;
 }
 
-bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo,
-                                   const std::shared_ptr<TransparentType>& type) {
+bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo) {
   if (!expect("("))
     return false;
 
@@ -190,9 +189,8 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo,
   return true;
 }
 
-bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo,
-                                   const std::shared_ptr<TransparentType>& type) {
-  auto structType = std::dynamic_ptr_cast<TransparentStructType>(type);
+bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, const TransparentType* type) {
+  auto structType = cast<TransparentStructType>(type);
   if (!structType) {
     std::string errStr;
     raw_string_ostream ss(errStr);
@@ -241,7 +239,7 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo,
 
     if (peek("scalar")) {
       std::shared_ptr<ValueInfo> tmp;
-      if (!parseScalar(tmp, structType->getFieldType(currentFieldIdx)))
+      if (!parseScalar(tmp))
         return false;
       fields.push_back(tmp);
       currentFieldIdx = nextFieldIdx(currentFieldIdx);

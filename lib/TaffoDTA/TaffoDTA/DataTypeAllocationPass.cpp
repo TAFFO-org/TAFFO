@@ -66,6 +66,7 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
 #else
   mergeFixFormat(values, valueSet);
 #endif
+  propagateStructFieldTypes(values);
 
   mergeBufferIDSets();
 
@@ -109,9 +110,9 @@ bool fixedPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Valu
   FixedPointTypeGenError fpgerr;
 
   /* Testing maximum type for operands, not deciding type yet */
-  fixedPointTypeFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+  fixedPointInfoFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
   if (fpgerr == FixedPointTypeGenError::NoError) {
-    FixedPointInfo res = fixedPointTypeFromRange(*range, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    FixedPointInfo res = fixedPointInfoFromRange(*range, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
     if (fpgerr == FixedPointTypeGenError::NoError) {
       LLVM_DEBUG(log().log("converting to ").logln(res, Logger::Green));
       scalarInfo->numericType = res.clone();
@@ -301,9 +302,9 @@ bool fixedFloatingPointStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, 
     FixedPointTypeGenError fpgerr;
 
     /* Testing maximum type for operands, not deciding type yet */
-    fixedPointTypeFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    fixedPointInfoFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
     if (fpgerr == FixedPointTypeGenError::NoError) {
-      FixedPointInfo res = fixedPointTypeFromRange(*rng, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+      FixedPointInfo res = fixedPointInfoFromRange(*rng, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
       if (fpgerr == FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(log().log("converting to ").logln(res, Logger::Green));
         scalarInfo->numericType = res.clone();
@@ -492,7 +493,7 @@ void DataTypeAllocationPass::retrieveBufferID(Value* V) {
 
 bool DataTypeAllocationPass::processScalarInfo(std::shared_ptr<ScalarInfo>& scalarInfo,
                                                Value* value,
-                                               const std::shared_ptr<TransparentType>& transparentType,
+                                               const TransparentType* transparentType,
                                                bool forceEnable) {
   if (forceEnable)
     scalarInfo->conversionEnabled = true;
@@ -515,9 +516,9 @@ bool DataTypeAllocationPass::processScalarInfo(std::shared_ptr<ScalarInfo>& scal
 void DataTypeAllocationPass::processStructInfo(
   std::shared_ptr<StructInfo>& structInfo,
   Value* value,
-  const std::shared_ptr<TransparentType>& transparentType,
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, std::shared_ptr<TransparentType>>, 8> queue) {
-  if (!transparentType->isStructType()) {
+  const TransparentType* transparentType,
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8> queue) {
+  if (!transparentType->isStructTT()) {
     LLVM_DEBUG(log() << "[ERROR] found non conforming structInfo " << structInfo->toString() << " on value " << *value
                      << "\n");
     LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
@@ -526,8 +527,7 @@ void DataTypeAllocationPass::processStructInfo(
   }
   for (unsigned i = 0; i < structInfo->getNumFields(); i++)
     if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
-      queue.push_back(
-        std::make_pair(field, std::static_ptr_cast<TransparentStructType>(transparentType)->getFieldType(i)));
+      queue.push_back(std::make_pair(field, cast<TransparentStructType>(transparentType)->getFieldType(i)));
 }
 
 bool DataTypeAllocationPass::processValueInfo(Value* value) {
@@ -561,8 +561,8 @@ bool DataTypeAllocationPass::processValueInfo(Value* value) {
     forceEnableConv = true;
 
   bool skippedAll = true;
-  std::shared_ptr<TransparentType> transparentType = taffoInfo.getOrCreateTransparentType(*value);
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, std::shared_ptr<TransparentType>>, 8> queue(
+  TransparentType* transparentType = taffoInfo.getOrCreateTransparentType(*value);
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8> queue(
     {std::make_pair(newValueInfo, transparentType)});
 
   while (!queue.empty()) {
@@ -984,6 +984,67 @@ void DataTypeAllocationPass::attachFunctionMetaData(Module& m) {
     //   if (taffoInfo.hasValueInfo(arg) && hasTunerInfo(&arg))
     //     taffoInfo.setValueInfo(arg, getDtaValueInfo(&arg)->metadata);
     //  TODO remove this function
+  }
+}
+
+std::shared_ptr<ValueInfo>
+DataTypeAllocationPass::getStructFieldValueInfo(std::shared_ptr<StructInfo> structInfo,
+                                                const iterator_range<const Use*> gepIndices) {
+  SmallVector<unsigned, 4> indices;
+  for (Value* value : gepIndices) {
+    auto constantIndex = cast<ConstantInt>(value);
+    indices.push_back(constantIndex->getZExtValue());
+  }
+
+  std::shared_ptr<ValueInfo> curr = structInfo;
+  bool first = true;
+  for (unsigned index : indices) {
+    if (first) {
+      assert(index == 0);
+      first = false;
+      continue;
+    }
+    auto currStructInfo = std::dynamic_ptr_cast_or_null<StructInfo>(curr);
+    if (!currStructInfo)
+      return nullptr; // Field not found in structInfo
+    curr = currStructInfo->getField(index);
+  }
+  return curr;
+}
+
+void DataTypeAllocationPass::attachStructFieldType(GetElementPtrInst* gep, const NumericTypeInfo& numericType) {
+  Value* ptrOperand = gep->getPointerOperand();
+  if (!taffoInfo.hasValueInfo(*ptrOperand))
+    return;
+
+  auto structInfo = std::static_ptr_cast<StructInfo>(taffoInfo.getValueInfo(*ptrOperand));
+  auto fieldInfo = getStructFieldValueInfo(structInfo, gep->indices());
+  if (!fieldInfo)
+    return;
+
+  auto fieldScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(fieldInfo);
+  if (!fieldScalarInfo || (fieldScalarInfo->numericType && *fieldScalarInfo->numericType == numericType))
+    return;
+
+  if (!fieldScalarInfo->numericType)
+    fieldScalarInfo->numericType = numericType.clone();
+  else
+    llvm_unreachable("Struct field already has a different numericType");
+}
+
+void DataTypeAllocationPass::propagateStructFieldTypes(const std::vector<Value*>& queue) {
+  for (Value* value : queue) {
+    if (!taffoInfo.hasValueInfo(*value))
+      continue;
+    if (auto* gepInst = dyn_cast<GetElementPtrInst>(value)) {
+      Value* ptrOperand = gepInst->getPointerOperand();
+      if (taffoInfo.hasTransparentType(*ptrOperand) && taffoInfo.getTransparentType(*ptrOperand)->isStructTT()) {
+        std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*gepInst);
+        std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
+        if (scalarInfo && scalarInfo->numericType)
+          attachStructFieldType(gepInst, *scalarInfo->numericType);
+      }
+    }
   }
 }
 

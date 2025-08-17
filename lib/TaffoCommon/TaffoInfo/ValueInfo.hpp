@@ -21,11 +21,11 @@ public:
 
   static std::shared_ptr<ValueInfo> create(llvm::Value* value);
 
-  static std::shared_ptr<ValueInfo> create(const std::shared_ptr<tda::TransparentType>& type);
+  static std::shared_ptr<ValueInfo> create(const tda::TransparentType* type);
 
   static std::shared_ptr<ValueInfo>
-  create(const std::shared_ptr<tda::TransparentType>& type,
-         std::unordered_map<std::shared_ptr<tda::TransparentType>, std::shared_ptr<StructInfo>>& recursionMap);
+  create(const tda::TransparentType* type,
+         std::unordered_map<const tda::TransparentType*, std::shared_ptr<StructInfo>>& recursionMap);
 };
 
 class InitializerPass; // TODO remove

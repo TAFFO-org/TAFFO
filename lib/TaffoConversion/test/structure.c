@@ -5,7 +5,7 @@ struct astruct {
   double b;
 };
 
-struct astruct a __attribute((annotate("target('a') struct[scalar(range(-7,7)),scalar(range(-8,8))]")));
+struct astruct a __attribute__((annotate("target('a') struct[scalar(range(-7,7)),scalar(range(-8,8))]")));
 struct astruct b __attribute((annotate("target('a') struct[scalar(range(-7,7)),scalar(range(-8,8))]")));
 struct astruct z[2] __attribute((annotate("target('z') struct[scalar(range(-7,7)),scalar(range(-8,8))]")));
 

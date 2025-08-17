@@ -4,9 +4,9 @@
 #define N (100)
 
 int main(int argc, char* argv[]) {
-  float result __attribute__((annotate("target('result') scalar(range(0,20000) final)"))) = 0.0;
-  float container[N] __attribute__((annotate("target('container') scalar(range(0,20000) final)")));
-  float container_result __attribute__((annotate("target('container_result') scalar(range(0,20000) final)"))) = 0.0;
+  float result __attribute__((annotate("target('result') scalar(range(0,20000))"))) = 0.0;
+  float container[N] __attribute__((annotate("target('container') scalar(range(0,20000))")));
+  float container_result __attribute__((annotate("target('container_result') scalar(range(0,20000))"))) = 0.0;
   int i = 0;
 
 #pragma omp parallel for

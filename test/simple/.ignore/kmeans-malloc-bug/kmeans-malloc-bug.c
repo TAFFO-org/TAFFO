@@ -22,7 +22,7 @@ typedef struct {
 } RgbImage;
 
 int main(int argc, const char* argv[]) {
-  RgbImage __attribute((annotate(ANNOTATION_RGBIMAGE))) image;
+  RgbImage __attribute__((annotate(ANNOTATION_RGBIMAGE))) image;
 
   image.w = 10;
   image.h = 20;

@@ -2,15 +2,15 @@
 #include <math.h>
 #include <stdio.h>
 
-void function_1_2(float* __attribute((annotate("scalar()"))) x, int y) { *x = (*x) * y; }
+void function_1_2(float* __attribute__((annotate("scalar()"))) x, int y) { *x = (*x) * y; }
 
-void function_1_1(float* __attribute((annotate("scalar()"))) x, int y) { function_1_2(x, y); }
+void function_1_1(float* __attribute__((annotate("scalar()"))) x, int y) { function_1_2(x, y); }
 
-void function_2_2(float* __attribute((annotate("scalar()"))) x) { *x = (*x) * (*x); }
+void function_2_2(float* __attribute__((annotate("scalar()"))) x) { *x = (*x) * (*x); }
 
-void function_2_1(float* __attribute((annotate("scalar()"))) y) {
-  float __attribute((annotate("scalar(range(0, 10) disabled)"))) x;
-  float __attribute((annotate("scalar()"))) x2;
+void function_2_1(float* __attribute__((annotate("scalar()"))) y) {
+  float __attribute__((annotate("scalar(range(0, 10) disabled)"))) x;
+  float __attribute__((annotate("scalar()"))) x2;
   scanf("%f", &x);
   x2 = x;
   function_2_2(&x2);
@@ -18,7 +18,7 @@ void function_2_1(float* __attribute((annotate("scalar()"))) y) {
 }
 
 int main(int argc, char* argv[]) {
-  float x __attribute((annotate("target('x') scalar()"))) = 5.0;
+  float x __attribute__((annotate("target('x') scalar()"))) = 5.0;
   int y = 2.0;
   printf("Values Begin\n");
   function_1_1(&x, y);

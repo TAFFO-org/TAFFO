@@ -32,19 +32,19 @@ Value* ConversionPass::convertCudaCall(CallBase* C) {
   }
   else {
     llvm_unreachable("Wait why are we handling a Cuda call that we don't know about?");
-    return Unsupported;
+    return unsupported;
   }
 
   Value* TheBuffer = C->getArgOperand(BufferArgId);
   if (auto* BC = dyn_cast<BitCastOperator>(TheBuffer))
     TheBuffer = BC->getOperand(0);
-  Value* NewBuffer = matchOp(TheBuffer);
-  if (!NewBuffer || !hasConversionInfo(NewBuffer)) {
+  Value* NewBuffer = convertedValues.at(TheBuffer);
+  if (!NewBuffer || !taffoConvInfo.hasValueConvInfo(NewBuffer)) {
     LLVM_DEBUG(log() << "Buffer argument not converted; trying fallback.");
-    return Unsupported;
+    return unsupported;
   }
   LLVM_DEBUG(log() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(log() << "Buffer fixp type is: " << *getFixpType(NewBuffer) << "\n");
+  LLVM_DEBUG(log() << "Buffer convType is: " << *taffoConvInfo.getNewType(NewBuffer) << "\n");
   Type* VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value* NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy)

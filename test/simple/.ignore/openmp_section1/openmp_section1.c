@@ -4,10 +4,10 @@
 #define N (100)
 
 int main(int argc, char* argv[]) {
-  float first_section __attribute((annotate("target('first_section') scalar(range(0,10) final)"))) = 1.0f;
-  float second_section __attribute((annotate("target('second_section') scalar(range(0,2000) final)"))) = 363;
+  float first_section __attribute__((annotate("target('first_section') scalar(range(0,10))"))) = 1.0f;
+  float second_section __attribute__((annotate("target('second_section') scalar(range(0,2000))"))) = 363;
   // float result
-  //     __attribute((annotate("target('result') scalar(range(0,2000)) final)"))) =
+  //     __attribute__((annotate("target('result') scalar(range(0,2000)))"))) =
   //         0;
   //  TODO: restore the annotation and retest
   float result = 0;

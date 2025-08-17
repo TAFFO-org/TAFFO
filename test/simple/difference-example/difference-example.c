@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 double test(void) {
-  double a __attribute((annotate("scalar()")));
+  double a __attribute__((annotate("scalar()")));
   double b = 98.0, c = 77.0;
   b = b - c;
   a = b * 2.0;

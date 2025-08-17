@@ -1,5 +1,5 @@
 #include <stdio.h>
-double a __attribute((annotate("scalar(range(1, 2))")));
+double a __attribute__((annotate("scalar(range(1, 2))")));
 double b __attribute((annotate("scalar(range(102400, 102400))")));
 double* pointer;
 double result;

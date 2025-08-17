@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-float __attribute((annotate("scalar()"))) global = 3.333;
+float __attribute__((annotate("scalar()"))) global = 3.333;
 
 float** fun(float** x, float* y) {
   float local;
@@ -13,16 +13,16 @@ float** fun(float** x, float* y) {
 }
 
 int main() {
-  float __attribute((annotate("target('a') scalar()"))) * a;
+  float __attribute__((annotate("target('a') scalar()"))) * a;
 
-  float __attribute((annotate("scalar()"))) b = 10.10;
+  float __attribute__((annotate("scalar()"))) b = 10.10;
   float c = 2.2;
 
   a = &b; // TODO  bug if i42* != i42*
 
-  float** __attribute((annotate("scalar()"))) k;
+  float** __attribute__((annotate("scalar()"))) k;
 
-  float* __attribute((annotate("scalar()"))) mall = (float*) malloc(5 * (sizeof(float) + 1));
+  float* __attribute__((annotate("scalar()"))) mall = (float*) malloc(5 * (sizeof(float) + 1));
 
   mall[0] = 0.1;
   *(mall + 1) = 1.1;

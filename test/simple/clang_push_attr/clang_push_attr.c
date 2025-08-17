@@ -4,12 +4,12 @@
 
 int main() {
   float out;
-#pragma clang attribute push(__attribute__((annotate("scalar(range(-3000, 3000) final)"))), apply_to = variable)
+#pragma clang attribute push(__attribute__((annotate("scalar(range(-3000, 3000))"))), apply_to = variable)
   float a = 10;
   float b;
 #pragma clang attribute pop
 
-#pragma clang attribute push(__attribute__((annotate("scalar(range(-255, 255) final)"))), apply_to = variable)
+#pragma clang attribute push(__attribute__((annotate("scalar(range(-255, 255))"))), apply_to = variable)
   float c = 2.1024;
   float d;
 #pragma clang attribute pop

@@ -22,7 +22,7 @@ int main() {
   double angle;
   scanf("%lf", &angle);
 
-  double taffo_angle __attribute((annotate("scalar(range(-20, 20))"))) = angle;
+  double taffo_angle __attribute__((annotate("scalar(range(-20, 20))"))) = angle;
 
   printf("%lf\n", cos2(taffo_angle));
 

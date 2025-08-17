@@ -11,42 +11,42 @@ using namespace tda;
 using namespace taffo;
 
 Type* taffo::getFullyUnwrappedType(Value* value) {
-  std::shared_ptr<tda::TransparentType> transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
-  return transparentType->getFullyUnwrappedType();
+  TransparentType* transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+  return transparentType->getFullyUnwrappedLLVMType();
 }
 
-FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
-                                              FixedPointTypeGenError* outerr,
+FixedPointInfo taffo::fixedPointInfoFromRange(const Range& range,
+                                              FixedPointTypeGenError* outErr,
                                               int totalBits,
                                               int fracThreshold,
                                               int maxTotalBits,
                                               int totalBitsIncrement) {
-  if (outerr)
-    *outerr = FixedPointTypeGenError::NoError;
+  if (outErr)
+    *outErr = FixedPointTypeGenError::NoError;
 
-  if (std::isnan(rng.min) || std::isnan(rng.max)) {
-    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " contains NaN\n");
-    if (outerr)
-      *outerr = FixedPointTypeGenError::InvalidRange;
+  if (std::isnan(range.min) || std::isnan(range.max)) {
+    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << range.toString() << " contains NaN\n");
+    if (outErr)
+      *outErr = FixedPointTypeGenError::InvalidRange;
     return FixedPointInfo(true, totalBits, 0);
   }
 
-  bool isSigned = rng.min < 0;
+  bool isSigned = range.min < 0;
 
-  if (std::isinf(rng.min) || std::isinf(rng.max)) {
-    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
+  if (std::isinf(range.min) || std::isinf(range.max)) {
+    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << range.toString()
                      << " contains +/-inf. Overflow may occur!\n");
-    if (outerr)
-      *outerr = FixedPointTypeGenError::UnboundedRange;
+    if (outErr)
+      *outErr = FixedPointTypeGenError::UnboundedRange;
     return FixedPointInfo(isSigned, totalBits, 0);
   }
 
-  double max = std::max(std::abs(rng.min), std::abs(rng.max));
+  double max = std::max(std::abs(range.min), std::abs(range.max));
   int intBit = std::lround(std::ceil(std::log2(max + 1.0))) + (isSigned ? 1 : 0);
   int bits = totalBits;
 
   int maxFracBitsAmt;
-  if (rng.min == rng.max && fracThreshold < 0) {
+  if (range.min == range.max && fracThreshold < 0) {
     /* The range has size of zero, value is a constant.
      * Keep the value shifted as far right as possible without losing digits.
      *   TODO: This makes precision worse in the specific case where
@@ -79,22 +79,23 @@ FixedPointInfo taffo::fixedPointTypeFromRange(const Range& rng,
 
   while ((fractionalBits - negIntBitsAmt) < fracThreshold && bits < maxTotalBits) {
     bits += totalBitsIncrement;
+    bits = std::min(bits, maxTotalBits);
     fractionalBits = bits - intBit;
   }
 
   // Check dimension
   if (fractionalBits < fracThreshold) {
-    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString()
+    LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << range.toString()
                      << " Fractional part is too small!\n");
     fractionalBits = 0;
     if (intBit > bits) {
-      LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << rng.toString() << " Overflow may occur!\n");
-      if (outerr)
-        *outerr = FixedPointTypeGenError::NotEnoughIntAndFracBits;
+      LLVM_DEBUG(log() << "[" << __PRETTY_FUNCTION__ << "] range=" << range.toString() << " Overflow may occur!\n");
+      if (outErr)
+        *outErr = FixedPointTypeGenError::NotEnoughIntAndFracBits;
     }
     else {
-      if (outerr)
-        *outerr = FixedPointTypeGenError::NotEnoughFracBits;
+      if (outErr)
+        *outErr = FixedPointTypeGenError::NotEnoughFracBits;
     }
   }
 

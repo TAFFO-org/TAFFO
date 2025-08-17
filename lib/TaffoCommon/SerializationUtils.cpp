@@ -37,8 +37,8 @@ json serializeCommon(const TransparentType& type) {
   json j;
   j["kind"] = "Scalar";
   j["repr"] = type.toString();
-  j["unwrappedType"] = toString(type.unwrappedType);
-  j["indirections"] = type.indirections;
+  j["unwrappedType"] = toString(type.getUnwrappedLLVMType());
+  j["indirections"] = type.getIndirections();
   return j;
 }
 
@@ -53,7 +53,7 @@ json taffo::serialize(const TransparentType& type) {
 json taffo::serialize(const TransparentArrayType& arrayType) {
   json j = serializeCommon(arrayType);
   j["kind"] = "Array";
-  j["elementType"] = arrayType.elementType ? serialize(*arrayType.elementType) : nullptr;
+  j["elementType"] = arrayType.getArrayElementType() ? serialize(*arrayType.getArrayElementType()) : nullptr;
   return j;
 }
 
@@ -61,40 +61,40 @@ json taffo::serialize(const TransparentStructType& structType) {
   json j = serializeCommon(structType);
   j["kind"] = "Struct";
   j["fieldTypes"] = json::array();
-  for (auto& f : structType.fieldTypes)
-    j["fieldTypes"].push_back(f ? serialize(*f) : nullptr);
-  j["paddingFields"] = structType.paddingFields;
+  for (const TransparentType* field : structType.getFieldTypes())
+    j["fieldTypes"].push_back(field ? serialize(*field) : nullptr);
+  j["paddingFields"] = structType.getPaddingFields();
   return j;
 }
 
 void deserializeCommon(const json& j, TransparentType& type) {
-  type.unwrappedType = TaffoInfo::getInstance().getType(j["unwrappedType"]);
-  type.indirections = j["indirections"];
+  type.setUnwrappedLLVMType(TaffoInfo::getInstance().getType(j["unwrappedType"]));
+  type.setIndirections(j["indirections"]);
 }
 
-std::shared_ptr<TransparentType> taffo::deserialize(const json& j) {
-  std::shared_ptr<TransparentType> type;
+std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {
+  std::unique_ptr<TransparentType> type;
   const std::string kind = j["kind"];
   if (kind == "Struct")
-    type = std::make_shared<TransparentStructType>();
+    type = std::make_unique<TransparentStructType>();
   else if (kind == "Array")
-    type = std::make_shared<TransparentArrayType>();
+    type = std::make_unique<TransparentArrayType>();
   else
-    type = std::make_shared<TransparentType>();
+    type = std::make_unique<TransparentType>();
 
   deserializeCommon(j, *type);
 
   if (kind == "Struct") {
-    auto structType = std::static_ptr_cast<TransparentStructType>(type);
+    auto* structType = cast<TransparentStructType>(type.get());
     for (auto& field_j : j["fieldTypes"])
-      structType->fieldTypes.push_back(deserialize(field_j));
+      structType->addFieldType(deserialize(field_j));
     if (j.contains("paddingFields"))
       for (unsigned padding : j["paddingFields"])
-        structType->paddingFields.push_back(padding);
+        structType->addFieldPadding(padding);
   }
   else if (kind == "Array") {
-    auto arrayType = std::static_ptr_cast<TransparentArrayType>(type);
-    arrayType->elementType = deserialize(j["elementType"]);
+    auto* arrayType = cast<TransparentArrayType>(type.get());
+    arrayType->setArrayElementType(deserialize(j["elementType"]));
   }
 
   return type;

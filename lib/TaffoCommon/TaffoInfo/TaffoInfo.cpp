@@ -33,19 +33,21 @@ TaffoInfo& TaffoInfo::getInstance() {
   return instance;
 }
 
-void TaffoInfo::setTransparentType(Value& v, const std::shared_ptr<TransparentType>& t) { transparentTypes[&v] = t; }
-
-std::shared_ptr<TransparentType> TaffoInfo::getTransparentType(const Value& v) const {
-  auto iter = transparentTypes.find(&v);
-  assert(iter != transparentTypes.end() && "TransparentType not present");
-  return iter->second;
+void TaffoInfo::setTransparentType(Value& v, std::unique_ptr<TransparentType> t) {
+  transparentTypes[&v] = std::move(t);
 }
 
-std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value& v) {
+TransparentType* TaffoInfo::getTransparentType(const Value& v) const {
+  auto iter = transparentTypes.find(&v);
+  assert(iter != transparentTypes.end() && "TransparentType not present");
+  return iter->second.get();
+}
+
+TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())
-    return iter->second;
-  std::shared_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
+    return iter->second.get();
+  std::unique_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
   LLVM_DEBUG(
     Logger& logger = log();
     logger.setContextTag(logContextTag);
@@ -56,7 +58,7 @@ std::shared_ptr<TransparentType> TaffoInfo::getOrCreateTransparentType(Value& v)
     if (type->isOpaquePointer())
       logger.logln("Warning: the newly created transparentType is opaque", Logger::Red);
     logger.restorePrevContextTag(););
-  return transparentTypes[&v] = type;
+  return (transparentTypes[&v] = std::move(type)).get();
 }
 
 bool TaffoInfo::hasTransparentType(const Value& v) {
@@ -111,7 +113,7 @@ void TaffoInfo::setValueInfo(Value& v, std::shared_ptr<ValueInfo>&& vi) { valueI
 
 std::shared_ptr<ValueInfo> TaffoInfo::getValueInfo(const Value& v) const {
   auto iter = valueInfo.find(&v);
-  assert(iter != valueInfo.end() && "ValueInfo not present");
+  assert(iter != valueInfo.end() && "valueInfo not present");
   return iter->second;
 }
 
@@ -196,6 +198,9 @@ void TaffoInfo::eraseValue(Value* v) {
     for (Value* child : childValues)
       eraseValue(child);
   }
+  if (auto* gv = dyn_cast<GlobalVariable>(v))
+    if (Constant* initializer = gv->getInitializer())
+      eraseValue(initializer);
 
   if (auto* i = dyn_cast<Instruction>(v))
     i->removeFromParent();
@@ -274,16 +279,21 @@ void TaffoInfo::eraseLoop(Loop* l) {
 }
 
 void TaffoInfo::deleteErasedValues() {
-  for (Value* val : erasedValues)
-    if (auto* gv = dyn_cast<GlobalVariable>(val))
+  for (Value* value : erasedValues)
+    if (auto* gv = dyn_cast<GlobalVariable>(value))
       delete gv; // For some unexplained reason GlobalVariable can only be deleted via direct destructor
                  // NB Only the direct destructor of GlobalVariable is public all the others destructors are private
-    else if (auto* f = dyn_cast<Function>(val))
+    else if (auto* f = dyn_cast<Function>(value))
       delete f;  // Same for functions (see above)
-    else if (isa<Argument>(val)) { /*Arguments are deleted when their function is deleted*/
+    else if (isa<Argument>(value)) {
+      // Arguments are deleted when their function is deleted
+    }
+    else if (auto* constant = dyn_cast<Constant>(value)) {
+      if (!constant->use_empty())
+        constant->replaceAllUsesWith(UndefValue::get(constant->getType()));
     }
     else
-      val->deleteValue();
+      value->deleteValue();
   erasedValues.clear();
 }
 
@@ -384,7 +394,7 @@ void TaffoInfo::generateTaffoIds() {
   for (Value* value : valueSet) {
     generateTaffoId(value);
 
-    SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedTypes();
+    SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedLLVMTypes();
     for (Type* type : types)
       idTypeMapping[toString(type)] = type;
   }
@@ -771,7 +781,7 @@ void TaffoInfo::deserialize(const json& j) {
     }
   }
 
-  // Deserialize values (valueInfo, transparentTypes, valueWeights, constantUsers, error, cmpError)
+  // Deserialize values (valueInfo, transparentTypes, valueWeights, error, cmpError)
   for (auto& item : j["values"].items()) {
     const std::string& id = item.key();
     auto iter = idValueMapping.find(id);

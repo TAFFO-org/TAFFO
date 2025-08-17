@@ -1,12 +1,14 @@
 #pragma once
 
 #include "Debug/Logger.hpp"
-#include "FixedPointType.hpp"
 #include "SerializationUtils.hpp"
-#include "TaffoInfo/ConversionInfo.hpp"
+#include "TaffoInfo/PhiInfo.hpp"
+#include "TaffoInfo/TaffoConvInfo.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TaffoInfo/ValueConvInfo.hpp"
 #include "TransparentType.hpp"
 #include "TypeDeductionAnalysis.hpp"
+#include "Types/ConversionType.hpp"
 #include "Types/TypeUtils.hpp"
 #include "Utils/PtrCasts.hpp"
 
@@ -23,46 +25,29 @@
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
-#include <llvm/Support/raw_ostream.h>
 
 #include <memory>
 #include <sstream>
 
 #define DEBUG_TYPE "taffo-conversion"
-extern llvm::cl::opt<unsigned> MaxTotalBitsConv;
-extern llvm::cl::opt<unsigned> MinQuotientFrac;
+extern llvm::cl::opt<unsigned> maxTotalBitsConv;
+extern llvm::cl::opt<unsigned> minQuotientFrac;
 
-STATISTIC(FixToFloatCount, "Number of generic fixed point to floating point value conversion operations inserted");
-STATISTIC(FloatToFixCount, "Number of generic floating point to fixed point value conversion operations inserted");
-STATISTIC(FallbackCount, "Number of instructions not replaced by a fixed-point-native equivalent");
-STATISTIC(ConversionCount, "Number of instructions affected by taffo");
-STATISTIC(ValueInfoCount, "Number of valid valueInfo found");
-STATISTIC(FunctionCreated, "Number of fixed point function inserted");
+STATISTIC(fixToFloatCount, "Number of generic fixed point to floating point value conversion operations inserted");
+STATISTIC(floatToFixCount, "Number of generic floating point to fixed point value conversion operations inserted");
+STATISTIC(fallbackCount, "Number of instructions not replaced by a fixed-point-native equivalent");
+STATISTIC(conversionCount, "Number of instructions affected by taffo");
+STATISTIC(valueInfoCount, "Number of valid valueInfo found");
+STATISTIC(functionCreated, "Number of fixed point function inserted");
 
-/* flags in conversionPool; actually not valid LLVM values but dummy pointers */
-extern llvm::Value* ConversionError;
-extern llvm::Value* Unsupported;
+// Not valid LLVM values but dummy pointer
+extern llvm::Value* unsupported;
 
 namespace taffo {
 
-struct PHIInfo : tda::Printable {
-  llvm::Value* placeh_noconv = nullptr;
-  llvm::Value* placeh_conv = nullptr;
-
-  std::string toString() const override {
-    std::string buff;
-    llvm::raw_string_ostream os(buff);
-    os << "Place Holder NO Conversion ";
-    os << *placeh_noconv;
-    os << "\n Place Holder Conversion ";
-    os << *placeh_conv;
-    return buff;
-  }
-};
-
 class ConversionPass : public llvm::PassInfoMixin<ConversionPass> {
 public:
-  llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager&);
+  llvm::PreservedAnalyses run(llvm::Module& m, llvm::ModuleAnalysisManager&);
 
   /** Map from original values to converted values.
    *  Values not to be converted do not appear in the map.
@@ -75,21 +60,20 @@ public:
    *  and return values */
   llvm::DenseMap<llvm::Function*, llvm::Function*> functionPool;
 
-  /* to not be accessed directly, use valueInfo() */
-  llvm::DenseMap<llvm::Value*, std::shared_ptr<ConversionInfo>> conversionInfo;
+  llvm::DenseMap<llvm::PHINode*, PhiInfo> phiNodeInfo;
 
-  llvm::DenseMap<llvm::PHINode*, PHIInfo> phiReplacementData;
-
-  void buildGlobalConversionInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
-  void buildLocalConversionInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argsOnly = false);
-  void buildAllLocalConversionInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
-  bool buildConversionInfo(llvm::SmallVectorImpl<llvm::Value*>* values,
-                           std::shared_ptr<ValueInfo> fpInfo,
-                           llvm::Value* value);
-  bool isKnownConvertibleWithIncompleteMetadata(llvm::Value* value);
+  void buildGlobalConvInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
+  void buildLocalConvInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argsOnly = false);
+  void buildAllLocalConvInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
+  bool buildConvInfo(llvm::SmallVectorImpl<llvm::Value*>* convQueue,
+                     const std::shared_ptr<ValueInfo>& fpInfo,
+                     llvm::Value* value);
+  bool isAlwaysConvertible(llvm::Value* value);
 
   void createConversionQueue(std::vector<llvm::Value*>& values);
-  void propagateCalls(std::vector<llvm::Value*>& values, llvm::SmallVectorImpl<llvm::Value*>& global, llvm::Module& m);
+  void propagateCalls(std::vector<llvm::Value*>& convQueue,
+                      const llvm::SmallVectorImpl<llvm::Value*>& globalValues,
+                      llvm::Module& m);
   llvm::Function* createConvertedFunctionForCall(llvm::CallBase* call, bool* alreadyHandledNewF);
   void openPhiLoop(llvm::PHINode* phi);
   void closePhiLoops();
@@ -98,7 +82,7 @@ public:
   void cleanup(const std::vector<llvm::Value*>& queue);
   void cleanUpOriginalFunctions(llvm::Module& m);
 
-  using MemoryAllocationsVec = std::vector<std::pair<llvm::Instruction*, std::shared_ptr<tda::TransparentType>>>;
+  using MemoryAllocationsVec = std::vector<std::pair<llvm::Instruction*, tda::TransparentType*>>;
   MemoryAllocationsVec collectMemoryAllocations(llvm::Module& m);
   void adjustSizeOfMemoryAllocations(llvm::Module& m,
                                      const MemoryAllocationsVec& oldMemoryAllocations,
@@ -108,31 +92,30 @@ public:
                                           const std::shared_ptr<tda::TransparentType>& newAllocatedType,
                                           llvm::Instruction* insertionPoint);
 
-  void performConversion(llvm::Module& m, std::vector<llvm::Value*>& queue);
-  llvm::Value* convertSingleValue(llvm::Module& m, llvm::Value* val, std::shared_ptr<FixedPointType>& fixpt);
+  void performConversion(llvm::Module& m, const std::vector<llvm::Value*>& queue);
+  llvm::Value* convertSingleValue(llvm::Value* value, llvm::Module& m);
 
   llvm::Value* createPlaceholder(llvm::Type* type, llvm::BasicBlock* where, llvm::StringRef name);
 
-  class TypeMatchPolicy {
+  class ConvTypePolicy : tda::Printable {
   public:
     enum Policy {
-      RangeOverHintMaxFrac = 0, // Minimize extra conversions
-      RangeOverHintMaxInt,
-      HintOverRangeMaxFrac,     // Create new type different from the hint if hint does not fit value
-      HintOverRangeMaxInt,
-      ForceHint                 // Always use the hint for the type
+      RangeOverHint = 0, // Convert based on value range when needed/possible
+      ForceHint          // Always convert to the hint type
     };
 
-    TypeMatchPolicy(const Policy p)
+    ConvTypePolicy(const Policy p)
     : policy(p) {}
 
-    bool isMaxFracPolicy() { return policy == RangeOverHintMaxFrac || policy == HintOverRangeMaxFrac; }
-    bool isMaxIntPolicy() { return policy == RangeOverHintMaxInt || policy == HintOverRangeMaxInt; }
-    bool isHintPreferredPolicy() {
-      return policy == HintOverRangeMaxInt || policy == HintOverRangeMaxFrac || policy == ForceHint;
-    }
+    bool operator==(const ConvTypePolicy& other) const { return policy == other.policy; }
 
-    bool operator==(const TypeMatchPolicy& other) const { return policy == other.policy; }
+    std::string toString() const override {
+      switch (policy) {
+      case RangeOverHint: return "RangeOverHint";
+      case ForceHint:     return "ForceHint";
+      default:            llvm_unreachable("Invalid policy");
+      }
+    }
 
   private:
     Policy policy;
@@ -142,52 +125,89 @@ public:
   // - nullptr if the conversion cannot be recovered
   // - Unsupported to trigger the fallback behavior
 
-  llvm::Constant*
-  convertConstant(llvm::Constant* constant, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy policy);
-  llvm::Constant* convertGlobalVariable(llvm::GlobalVariable* globalVariable, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Constant*
-  convertConstantExpr(llvm::ConstantExpr* constantExpr, std::shared_ptr<FixedPointType>& fixpt, TypeMatchPolicy policy);
-  llvm::Constant* convertConstantAggregate(llvm::ConstantAggregate* constantAggregate,
-                                           std::shared_ptr<FixedPointType>& fixpt,
-                                           TypeMatchPolicy policy);
-  llvm::Constant* convertConstantDataSequential(llvm::ConstantDataSequential*,
-                                                const std::shared_ptr<FixedPointScalarType>&);
-  template <class T>
-  llvm::Constant* createConstantDataSequential(llvm::ConstantDataSequential*, const std::shared_ptr<FixedPointType>&);
-  llvm::Constant* convertLiteral(llvm::ConstantFP* constantFloat,
-                                 llvm::Instruction* context,
-                                 std::shared_ptr<FixedPointType>& fixpt,
-                                 TypeMatchPolicy policy);
-  bool convertAPFloat(llvm::APFloat, llvm::APSInt&, llvm::Instruction*, const std::shared_ptr<FixedPointScalarType>&);
-  llvm::Value* convertInstruction(llvm::Module& m, llvm::Instruction* val, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertAlloca(llvm::AllocaInst* alloca, const std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertLoad(llvm::LoadInst* load, std::shared_ptr<FixedPointType>& fixpt, llvm::Module& m);
-  llvm::Value* convertStore(llvm::StoreInst* load, llvm::Module& m);
-  llvm::Value* convertGep(llvm::GetElementPtrInst* gep, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertExtractValue(llvm::ExtractValueInst* exv, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertInsertValue(llvm::InsertValueInst* inv, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertPhi(llvm::PHINode* load, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertSelect(llvm::SelectInst* sel, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertCall(llvm::CallBase* call, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertRet(llvm::ReturnInst* ret, std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertBinOp(llvm::Instruction* inst, const std::shared_ptr<FixedPointScalarType>& fixpt);
-  llvm::Value* convertUnaryOp(llvm::Instruction* inst, const std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* convertCmp(llvm::FCmpInst* fcmp);
-  llvm::Value* convertCast(llvm::CastInst* cast, const std::shared_ptr<FixedPointType>& fixpt);
-  llvm::Value* fallback(llvm::Instruction* unsupported, std::shared_ptr<FixedPointType>& fixpt);
+  // Constants
 
-  /* OpenCL support */
+  llvm::Constant* convertConstant(llvm::Constant* constant, const ConversionType& convType, ConvTypePolicy policy);
+  bool convertAPFloat(llvm::APFloat floatValue,
+                      llvm::APSInt& fixedPointValue,
+                      const ConversionScalarType& convType,
+                      llvm::Instruction* inst = nullptr);
+  llvm::Constant* convertGlobalVariable(llvm::GlobalVariable* globalVariable, const ConversionType& convType);
+  llvm::Constant* convertConstantFloat(llvm::ConstantFP* floatConst,
+                                       llvm::Instruction* inst,
+                                       const ConversionScalarType& convType,
+                                       ConvTypePolicy policy);
+  llvm::Constant* convertConstantAggregate(llvm::ConstantAggregate* constantAggregate, const ConversionType& convType);
+  llvm::Constant* convertConstantDataSequential(llvm::ConstantDataSequential*, const ConversionScalarType& convType);
+  template <class T>
+  llvm::Constant* createConstantDataSequentialFixedPoint(llvm::ConstantDataSequential* cds,
+                                                         const ConversionScalarType& convType);
+  template <class T>
+  llvm::Constant* createConstantDataSequentialFloat(llvm::ConstantDataSequential* cds,
+                                                    const ConversionScalarType& convType);
+  llvm::Constant*
+  convertConstantExpr(llvm::ConstantExpr* constantExpr, const ConversionType& convType, ConvTypePolicy policy);
+
+  // Instructions
+
+  llvm::Value* convertInstruction(llvm::Instruction* inst);
+  llvm::Value* convertAlloca(llvm::AllocaInst* alloca);
+  llvm::Value* convertLoad(llvm::LoadInst* load);
+  llvm::Value* convertStore(llvm::StoreInst* load);
+  llvm::Value* convertGep(llvm::GetElementPtrInst* gep);
+  llvm::Value* convertExtractValue(llvm::ExtractValueInst* extractValue);
+  llvm::Value* convertInsertValue(llvm::InsertValueInst* insertValue);
+  llvm::Value* convertPhi(llvm::PHINode* phi);
+  llvm::Value* convertSelect(llvm::SelectInst* select);
+  llvm::Value* convertCall(llvm::CallBase* call);
+  llvm::Value* convertRet(llvm::ReturnInst* ret);
+  llvm::Value* convertBinOp(llvm::Instruction* inst, const ConversionScalarType& convType);
+  llvm::Value* convertFAdd(llvm::Instruction* inst, const ConversionScalarType& convType);
+  llvm::Value* convertFSub(llvm::Instruction* inst, const ConversionScalarType& convType);
+  llvm::Value* convertFRem(llvm::Instruction* inst, const ConversionScalarType& convType);
+  llvm::Value* convertFMul(llvm::Instruction* inst, const ConversionScalarType& convType);
+  llvm::Value* convertFDiv(llvm::Instruction* inst, const ConversionScalarType& convType);
+  llvm::Value* convertUnaryOp(llvm::Instruction* inst);
+  llvm::Value* convertCmp(llvm::FCmpInst* fcmp);
+  llvm::Value* convertCast(llvm::CastInst* cast);
+  llvm::Value* fallback(llvm::Instruction* inst);
+
+  // OpenCL support
+
   bool isSupportedOpenCLFunction(llvm::Function* F);
   llvm::Value* convertOpenCLCall(llvm::CallBase* C);
   void cleanUpOpenCLKernelTrampolines(llvm::Module* M);
 
-  /*Cuda support */
+  // Cuda support
+
   bool isSupportedCudaFunction(llvm::Function* F);
   llvm::Value* convertCudaCall(llvm::CallBase* C);
 
-  /* Math intrinsic support */
+  // Math intrinsic support
+
   bool isSupportedMathIntrinsicFunction(llvm::Function* F);
-  llvm::Value* convertMathIntrinsicFunction(llvm::CallBase* C, const std::shared_ptr<FixedPointScalarType>& fixpt);
+  llvm::Value* convertMathIntrinsicFunction(llvm::CallBase* call);
+
+  void setConversionResultInfo(llvm::Value* resultValue,
+                               llvm::Value* oldValue = nullptr,
+                               const ConversionType* newConvType = nullptr) {
+    ValueConvInfo* valueConvInfo;
+    if (!oldValue)
+      oldValue = resultValue;
+    ConversionType* oldConvType = taffoConvInfo.getOrCreateCurrentType(oldValue);
+    if (!newConvType)
+      newConvType = oldConvType;
+    if (oldValue != resultValue) {
+      if (taffoInfo.hasValueInfo(*oldValue))
+        taffoInfo.setValueInfo(*resultValue, taffoInfo.getValueInfo(*oldValue));
+      taffoInfo.setTransparentType(*resultValue, newConvType->toTransparentType()->clone());
+      valueConvInfo = taffoConvInfo.getOrCreateValueConvInfo(resultValue, oldConvType);
+    }
+    else
+      valueConvInfo = taffoConvInfo.getOrCreateValueConvInfo(resultValue);
+    valueConvInfo->setNewType(newConvType->clone());
+    valueConvInfo->isConverted = true;
+  }
 
   /** Returns if a function is a library function which shall not
    *  be cloned.
@@ -197,24 +217,12 @@ public:
     return fName.starts_with("llvm.") || f->empty();
   }
 
-  /** Returns the converted Value matching a non-converted Value.
-   *  @param val The non-converted value to match.
-   *  @returns ConversionError if the value has not been converted properly,
-   *    the converted value if the original value was converted,
-   *    or the original value itself if it does not require conversion. */
-  llvm::Value* matchOp(llvm::Value* val) {
-    auto iter = convertedValues.find(val);
-    if (iter != convertedValues.end())
-      return iter->second;
-    return val;
-  }
-
   /** Returns a fixed point Value from any Value, whether it should be
    *  converted or not.
    *  @param value The non-converted value. Must be of a primitive floating-point
    *    non-reference LLVM type (in other words, ints, pointers, arrays, struct
-   * are not allowed); use matchOp() for values of those types.
-   *  @param iofixpt A reference to a fixed point type. On input,
+   * are not allowed); use convertedValues.at() for values of those types.
+   *  @param convType A reference to a fixed point type. On input,
    *    it must contain the preferred fixed point type required
    *    for the returned Value. On output, it will contain the
    *    actual fixed point type of the returned Value (which may or
@@ -225,16 +233,15 @@ public:
    *    is an instruction or a constant.
    *  @returns A fixed point value corresponding to val or nullptr if
    *    val was to be converted but its conversion failed. */
-  llvm::Value* translateOrMatchOperand(llvm::Value* value,
-                                       std::shared_ptr<FixedPointType>& iofixpt,
-                                       llvm::Instruction* insertionPoint = nullptr,
-                                       TypeMatchPolicy policy = TypeMatchPolicy::RangeOverHintMaxFrac,
-                                       bool wasHintForced = false);
+  llvm::Value* getConvertedOperand(llvm::Value* value,
+                                   const ConversionType& convType,
+                                   llvm::Instruction* insertionPoint = nullptr,
+                                   ConvTypePolicy policy = ConvTypePolicy::RangeOverHint);
 
   /** Returns a fixed point Value from any Value, whether it should be
    *  converted or not, if possible.
    *  @param val The non-converted value.
-   *  @param iofixpt A reference to a fixed point type. On input,
+   *  @param convType A reference to a fixed point type. On input,
    *    it must contain the preferred fixed point type required
    *    for the returned Value. On output, it will contain the
    *    actual fixed point type of the returned Value (which may or
@@ -246,262 +253,130 @@ public:
    *  @returns A fixed point value corresponding to val or nullptr if
    *    val was to be converted but its conversion failed. */
   llvm::Value* translateOrMatchAnyOperand(llvm::Value* val,
-                                          std::shared_ptr<FixedPointType>& iofixpt,
+                                          const ConversionScalarType& convType,
                                           llvm::Instruction* ip = nullptr,
-                                          TypeMatchPolicy typepol = TypeMatchPolicy::RangeOverHintMaxFrac) {
-    auto& taffoInfo = TaffoInfo::getInstance();
+                                          ConvTypePolicy policy = ConvTypePolicy::RangeOverHint) {
     llvm::Value* res;
     if (val->getType()->getNumContainedTypes() > 0) {
-      if (llvm::Constant* cst = llvm::dyn_cast<llvm::Constant>(val)) {
-        res = convertConstant(cst, iofixpt, typepol);
-        taffoInfo.setTransparentType(*res, tda::TransparentTypeFactory::create(res->getType()));
-      }
+      if (auto* constant = llvm::dyn_cast<llvm::Constant>(val))
+        res = convertConstant(constant, convType, policy);
       else {
-        res = matchOp(val);
-        if (res) {
-          if (typepol == TypeMatchPolicy::ForceHint)
-            assert(*iofixpt == *getFixpType(res) && "type mismatch on reference Value");
-          else
-            *iofixpt = *getFixpType(res);
-        }
+        res = convertedValues.at(val);
+        if (policy == ConvTypePolicy::ForceHint)
+          assert(convType == *taffoConvInfo.getNewType(res) && "type mismatch on reference Value");
       }
     }
-    else {
-      res = translateOrMatchOperand(val, iofixpt, ip, typepol);
-    }
+    else
+      res = getConvertedOperand(val, convType, ip, policy);
     return res;
-  }
-
-  /** Returns a fixed point Value of a specified fixed point type from any
-   *  Value, whether it should be converted or not.
-   *  @param val The non-converted value. Must be of a primitive floating-point
-   *    non-reference LLVM type (in other words, ints, pointers, arrays, struct
-   * are not allowed); use matchOp() for values of those types.
-   *  @param fixpt The fixed point type of the value returned.
-   *  @param ip The instruction which will use the returned value.
-   *    Used for placing generated fixed point runtime conversion code in
-   *    case val was not to be converted statically. Not required if val
-   *    is an instruction or a constant.
-   *  @returns A fixed point value corresponding to val of type fixpt
-   *    or nullptr if val was to be converted but its conversion failed.  */
-  llvm::Value* translateOrMatchOperandAndType(llvm::Value* val,
-                                              const std::shared_ptr<FixedPointType>& fixpt,
-                                              llvm::Instruction* ip = nullptr) {
-    std::shared_ptr<FixedPointType> iofixpt = fixpt->clone();
-    return translateOrMatchOperand(val, iofixpt, ip, TypeMatchPolicy::ForceHint);
   }
 
   /** Returns a fixed point Value of a specified fixed point type from any
    *  Value, whether it should be converted or not, if possible.
    *  @param val The non-converted value.
-   *  @param fixpt The fixed point type of the value returned.
+   *  @param convType The fixed point type of the value returned.
    *  @param ip The instruction which will use the returned value.
    *    Used for placing generated fixed point runtime conversion code in
    *    case val was not to be converted statically. Not required if val
    *    is an instruction or a constant.
-   *  @returns A fixed point value corresponding to val of type fixpt
+   *  @returns A fixed point value corresponding to val of type convType
    *    or nullptr if val was to be converted but its conversion failed.
    *    An assertion is raised if the value cannot be converted to
    *    the specified type (for example if it is a pointer)  */
   llvm::Value* translateOrMatchAnyOperandAndType(llvm::Value* val,
-                                                 const std::shared_ptr<FixedPointType>& fixpt,
+                                                 const ConversionScalarType& convType,
                                                  llvm::Instruction* ip = nullptr) {
-    std::shared_ptr<FixedPointType> iofixpt = fixpt->clone();
-    return translateOrMatchAnyOperand(val, iofixpt, ip, TypeMatchPolicy::ForceHint);
+    return translateOrMatchAnyOperand(val, convType, ip, ConvTypePolicy::ForceHint);
   }
 
   bool hasConvertedValue(llvm::Value* value) { return convertedValues.contains(value); }
-
-  llvm::Value* fallbackMatchValue(llvm::Value* value,
-                                  const std::shared_ptr<tda::TransparentType>& origType,
-                                  llvm::Instruction* insertionPoint = nullptr) {
-    tda::Logger& logger = tda::log();
-
-    llvm::Value* fallBackValue = matchOp(value);
-    assert(fallBackValue != ConversionError);
-
-    LLVM_DEBUG(
-      auto indenter = logger.getIndenter();
-      indenter.increaseIndent();
-      logger << "[FallbackMatchingValue] ";
-      if (fallBackValue != nullptr)
-        logger << *value << " was converted to " << *fallBackValue << "\n";);
-
-    if (fallBackValue == ConversionError) {
-      LLVM_DEBUG(tda::log() << "error: bail out reverse match of " << *value << "\n");
-      return nullptr;
-    }
-
-    LLVM_DEBUG(tda::log() << "hasInfo " << hasConversionInfo(fallBackValue) << "\n";);
-    if (!hasConversionInfo(fallBackValue))
-      return fallBackValue;
-    LLVM_DEBUG(tda::log() << "Info noTypeConversion " << getConversionInfo(fallBackValue)->isConversionDisabled
-                          << "\n";);
-    if (getConversionInfo(fallBackValue)->isConversionDisabled)
-      return fallBackValue;
-
-    if (!insertionPoint) {
-      // argument is not an instruction, insert it's convertion in the first basic block
-      if (insertionPoint == nullptr && llvm::isa<llvm::Argument>(fallBackValue)) {
-        auto arg = llvm::cast<llvm::Argument>(fallBackValue);
-        insertionPoint = (&*(arg->getParent()->begin()->getFirstInsertionPt()));
-      }
-
-      assert(insertionPoint && "ip mandatory for non-instruction values");
-    }
-
-    if (origType->isFloatingPointType() && !origType->isPointerType())
-      return genConvertFixToFloat(fallBackValue, getFixpType(fallBackValue), origType);
-    return fallBackValue;
-  }
-
-  /** Generate code for converting the value of a scalar from floating point to
-   *  fixed point.
-   *  @param flt A floating point scalar value.
-   *  @param fixpt The fixed point type of the output
-   *  @param ip The instruction which will use the returned value.
-   *    Used for placing generated fixed point runtime conversion code in
-   *    case val was not to be converted statically. Not required if val
-   *    is an instruction or a constant.
-   *  @returns The converted value. */
-  llvm::Value* genConvertFloatToFix(llvm::Value* flt,
-                                    const std::shared_ptr<FixedPointScalarType>& fixpt,
-                                    llvm::Instruction* ip = nullptr);
-
-  llvm::Value* genConvertFixToFloat(llvm::Value* fix,
-                                    const std::shared_ptr<FixedPointType>& fixpt,
-                                    const std::shared_ptr<tda::TransparentType>& destt);
 
   /** Generate code for converting between two fixed point formats.
    *  @param flt A fixed point scalar value.
    *  @param scrt The fixed point type of the input
    *  @param destt The fixed point type of the output
-   *  @param ip The instruction which will use the returned value.
+   *  @param insertionPoint The instruction which will use the returned value.
    *    Used for placing generated fixed point runtime conversion code in
    *    case val was not to be converted statically. Not required if val
    *    is an instruction or a constant.
    *  @returns The converted value. */
-  llvm::Value* genConvertFixedToFixed(llvm::Value* fix,
-                                      const std::shared_ptr<FixedPointScalarType>& srct,
-                                      const std::shared_ptr<FixedPointScalarType>& destt,
-                                      llvm::Instruction* ip = nullptr);
+  llvm::Value* genConvertConvToConv(llvm::Value* src,
+                                    const ConversionScalarType& srcConvType,
+                                    const ConversionScalarType& dstConvType,
+                                    const ConvTypePolicy& policy,
+                                    llvm::Instruction* insertionPoint = nullptr);
 
-  /** Transforms a pre-existing LLVM type to a new LLVM
-   *  type with integers instead of floating point depending on a
-   *  fixed point type specification.
-   *  @param fptype The original type
-   *  @param baset The fixed point type
-   *  @param hasfloats If non-null, points to a bool which, on return,
-   *    will be true if at least one floating point type to transform to
-   *    fixed point was encountered.
-   *  @returns The new LLVM type.  */
-  llvm::Type* getLLVMFixedPointTypeForFloatType(const std::shared_ptr<tda::TransparentType>& srcType,
-                                                const std::shared_ptr<FixedPointType>& baset,
-                                                bool* hasfloats = nullptr);
+  /** Generate code for converting the value of a scalar from floating point to fixed point.
+   *  @param src A floating point scalar value.
+   *  @param dstConvType The fixed point type of the output
+   *  @param insertionPoint The instruction which will use the returned value.
+   *    Used for placing generated fixed point runtime conversion code in
+   *    case val was not to be converted statically. Not required if val
+   *    is an instruction or a constant.
+   *  @returns The converted value. */
+  llvm::Value* genConvertFloatToConv(llvm::Value* src,
+                                     const ConversionScalarType& dstConvType,
+                                     llvm::Instruction* insertionPoint = nullptr);
 
-  llvm::Instruction* getFirstInsertionPointAfter(llvm::Instruction* i) {
-    llvm::Instruction* ip = i->getNextNode();
-    if (!ip) {
-      LLVM_DEBUG(tda::log() << "warning: getFirstInsertionPointAfter on a BB-terminating inst\n");
-      return nullptr;
+  llvm::Value* genConvertConvToFloat(llvm::Value* src,
+                                     const ConversionScalarType& srcConvType,
+                                     const ConversionScalarType& dstConvType);
+
+  llvm::Instruction* getFirstInsertionPointAfter(llvm::Value* value) {
+    if (auto* arg = llvm::dyn_cast<llvm::Argument>(value))
+      return &*arg->getParent()->getEntryBlock().getFirstInsertionPt();
+    if (auto* inst = llvm::dyn_cast<llvm::Instruction>(value)) {
+      llvm::Instruction* insertionPoint = inst->getNextNode();
+      if (!insertionPoint) {
+        LLVM_DEBUG(tda::log() << __FUNCTION__ << " called on a BB-terminating inst\n");
+        return nullptr;
+      }
+      if (llvm::isa<llvm::PHINode>(insertionPoint))
+        insertionPoint = insertionPoint->getParent()->getFirstNonPHI();
+      return insertionPoint;
     }
-    if (llvm::isa<llvm::PHINode>(ip))
-      ip = ip->getParent()->getFirstNonPHI();
-    return ip;
+    return nullptr;
   }
 
-  llvm::Type* getLLVMFixedPointTypeForFloatValue(llvm::Value* val);
-
-  std::shared_ptr<ConversionInfo> newConversionInfo(llvm::Value* val) {
-    auto iter = conversionInfo.find(val);
-    assert(iter == conversionInfo.end() && "value already has conversion info!");
-    auto newConversionInfo = std::make_shared<ConversionInfo>();
-    conversionInfo[val] = newConversionInfo;
-    LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*newConversionInfo, tda::Logger::Cyan));
-    return newConversionInfo;
-  }
-
-  std::shared_ptr<ConversionInfo> demandConversionInfo(llvm::Value* val, bool* isNew = nullptr) {
-    LLVM_DEBUG(tda::log() << "new conversionInfo for " << *val << "\n");
-    auto vi = conversionInfo.find(val);
-    if (vi == conversionInfo.end()) {
-      if (isNew)
-        *isNew = true;
-      conversionInfo[val] = std::make_shared<ConversionInfo>();
-      return conversionInfo[val];
-    }
-    else {
-      if (isNew)
-        *isNew = false;
-      return vi->getSecond();
-    }
-  }
-
-  std::shared_ptr<ConversionInfo> getConversionInfo(llvm::Value* val) {
-    auto vi = conversionInfo.find(val);
-    if (vi == conversionInfo.end()) {
-      LLVM_DEBUG(tda::log() << "Requested info for " << *val << " which doesn't have it!!! ABORT\n");
-      llvm_unreachable("PAAAANIC!! VALUE WITH NO INFO");
-    }
-    return vi->getSecond();
-  }
-
-  std::shared_ptr<FixedPointType> getFixpType(const llvm::Value* val) {
-    auto vi = conversionInfo.find(val);
-    assert(vi != conversionInfo.end() && "value with no info");
-    return vi->getSecond()->fixpType->clone();
-  }
-
-  bool hasConversionInfo(const llvm::Value* val) const { return conversionInfo.find(val) != conversionInfo.end(); }
-
-  bool isConvertedFixedPoint(llvm::Value* val) {
-    auto& taffoInfo = TaffoInfo::getInstance();
-    if (!hasConversionInfo(val))
+  bool isConvertedFixedPoint(llvm::Value* value) {
+    if (!taffoConvInfo.hasValueConvInfo(value))
       return false;
-    std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
-    if (vi->isConversionDisabled)
+    ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
+    if (valueConvInfo->isConversionDisabled)
       return false;
-    if (vi->fixpType->isInvalid())
-      return false;
-    if (*taffoInfo.getTransparentType(*val) == *vi->origType)
+    ConversionType* convType = valueConvInfo->getNewType();
+    if (*taffoInfo.getTransparentType(*value) == *convType->toTransparentType())
       return false;
     return true;
   }
 
-  bool isFloatingPointToConvert(llvm::Value* val) {
-    if (llvm::isa<llvm::Argument>(val))
-      // function arguments to be converted are substituted by placeholder
-      // values in the function cloning stage.
-      // Besides, they cannot be replaced without recreating the
-      // function, thus they never fit the requirements for being
-      // converted.
+  bool isFloatingPointToConvert(llvm::Value* value) {
+    if (llvm::isa<llvm::Argument>(value))
+      // Function arguments to be converted are substituted by placeholder values in the function cloning stage
+      // Moreover, they cannot be replaced without recreating the function, thus never requiring conversion
       return false;
-    if (!hasConversionInfo(val))
+    if (!taffoConvInfo.hasValueConvInfo(value))
       return false;
-    std::shared_ptr<ConversionInfo> vi = getConversionInfo(val);
-    if (vi->isConversionDisabled)
+    ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
+    if (valueConvInfo->isConversionDisabled)
       return false;
-    if (vi->fixpType->isInvalid())
-      return false;
-    if (llvm::ReturnInst* ret = llvm::dyn_cast<llvm::ReturnInst>(val))
-      val = ret->getReturnValue();
-    llvm::Type* ty = getFullyUnwrappedType(val);
-    if (!ty->isStructTy() && !ty->isFloatingPointTy())
+    if (auto* ret = llvm::dyn_cast<llvm::ReturnInst>(value))
+      value = ret->getReturnValue();
+    llvm::Type* type = getFullyUnwrappedType(value);
+    if (!type->isStructTy() && !type->isFloatingPointTy())
       return false;
     return true;
   }
 
-  llvm::Value*
-  copyValueInfo(llvm::Value* dst, llvm::Value* src, std::shared_ptr<tda::TransparentType> dstType = nullptr) {
+  llvm::Value* copyValueInfo(llvm::Value* dst, llvm::Value* src, tda::TransparentType* dstType = nullptr) {
     using namespace llvm;
     using namespace taffo;
-    auto& taffoInfo = TaffoInfo::getInstance();
     if (taffoInfo.hasValueInfo(*src)) {
       std::shared_ptr<ValueInfo> dstInfo = taffoInfo.getValueInfo(*src)->clone();
       taffoInfo.setValueInfo(*dst, dstInfo);
     }
     if (dstType)
-      taffoInfo.setTransparentType(*dst, dstType);
+      taffoInfo.setTransparentType(*dst, dstType->clone());
     else
       taffoInfo.setTransparentType(*dst, tda::TransparentTypeFactory::create(dst->getType()));
 
@@ -515,42 +390,23 @@ public:
     return dst;
   }
 
-  void updateFPTypeMetadata(llvm::Value* v, bool isSigned, int fractionalBits, int bits) {
-    using namespace taffo;
-    std::shared_ptr<ValueInfo> valueInfo = TaffoInfo::getInstance().getValueInfo(*v);
-    std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(valueInfo);
-    if (!scalarInfo)
-      return;
-    std::shared_ptr<ScalarInfo> newScalarInfo = std::static_ptr_cast<ScalarInfo>(scalarInfo->clone());
-    newScalarInfo->numericType.reset(new FixedPointInfo(isSigned, bits, fractionalBits));
-    TaffoInfo::getInstance().setValueInfo(*v, newScalarInfo);
-  }
-
-  void updateConstTypeMetadata(llvm::Value* v, unsigned opIdx, const std::shared_ptr<FixedPointType>& type) {
+  void updateNumericTypeInfo(llvm::Value* value, bool isSigned, int fractionalBits, int bits) {
     using namespace llvm;
     using namespace taffo;
-    Instruction* i = dyn_cast<Instruction>(v);
-    // TODO: handle case when IRBuilder does constant folding, and v is a constant.
-    if (!i)
-      return;
-    Value* op = i->getOperand(opIdx);
-    if (!isa<Constant>(op))
-      return;
-    TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-    if (!taffoInfo.hasValueInfo(*op))
-      return;
-    if (std::shared_ptr<ScalarInfo> opScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*op))) {
-      std::shared_ptr<FixedPointScalarType> scalarType = std::static_ptr_cast<FixedPointScalarType>(type);
-      opScalarInfo->numericType = std::make_shared<FixedPointInfo>(
-        scalarType->isSigned(), scalarType->getBits(), scalarType->getFractionalBits());
+    assert(!taffoInfo.getTransparentType(*value)->isStructTT());
+    std::shared_ptr<ScalarInfo> scalarInfo;
+    if (taffoInfo.hasValueInfo(*value))
+      scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*value));
+    else {
+      scalarInfo = std::make_shared<ScalarInfo>();
+      taffoInfo.setValueInfo(*value, scalarInfo);
     }
+    scalarInfo->numericType = std::make_shared<FixedPointInfo>(isSigned, bits, fractionalBits);
   }
 
-  template <class T>
-  llvm::Constant* createConstantDataSequentialFP(llvm::ConstantDataSequential* cds,
-                                                 const std::shared_ptr<FixedPointType>& fixpt);
-
-  bool associateFixFormat(const std::shared_ptr<ScalarInfo>& II, std::shared_ptr<FixedPointType>& iofixpt);
+  void updateNumericTypeInfo(llvm::Value* value, const ConversionScalarType& convType) {
+    updateNumericTypeInfo(value, convType.isSigned(), convType.getFractionalBits(), convType.getBits());
+  }
 
   void convertIndirectCalls(llvm::Module& m);
 
@@ -558,6 +414,7 @@ public:
 
 private:
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  TaffoConvInfo taffoConvInfo;
   const llvm::DataLayout* dataLayout = nullptr;
 };
 

@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 
-double __attribute((annotate("range 7 20000"))) global = 33.333;
+double __attribute__((annotate("range 7 20000"))) global = 33.333;
 
 double fun(double x, double y) {
   float local;

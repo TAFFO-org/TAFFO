@@ -28,9 +28,9 @@ public:
 
   static TaffoInfo& getInstance();
 
-  void setTransparentType(llvm::Value& v, const std::shared_ptr<tda::TransparentType>& t);
-  std::shared_ptr<tda::TransparentType> getOrCreateTransparentType(llvm::Value& v);
-  std::shared_ptr<tda::TransparentType> getTransparentType(const llvm::Value& v) const;
+  void setTransparentType(llvm::Value& v, std::unique_ptr<tda::TransparentType> t);
+  tda::TransparentType* getOrCreateTransparentType(llvm::Value& v);
+  tda::TransparentType* getTransparentType(const llvm::Value& v) const;
   bool hasTransparentType(const llvm::Value& v);
 
   void addStartingPoint(llvm::Function& f);
@@ -90,7 +90,7 @@ public:
   void initializeFromFile(const std::string& filePath, llvm::Module& m);
 
 private:
-  llvm::DenseMap<llvm::Value*, std::shared_ptr<tda::TransparentType>> transparentTypes;
+  llvm::DenseMap<llvm::Value*, std::unique_ptr<tda::TransparentType>> transparentTypes;
 
   llvm::SmallVector<llvm::Function*> startingPoints;
   llvm::SmallDenseMap<llvm::CallInst*, llvm::Function*> indirectFunctions;

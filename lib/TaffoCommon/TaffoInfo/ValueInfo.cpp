@@ -6,23 +6,23 @@ using namespace tda;
 using namespace taffo;
 
 std::shared_ptr<ValueInfo> ValueInfoFactory::create(Value* value) {
-  std::shared_ptr<TransparentType> type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+  TransparentType* type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return create(type);
 }
 
-std::shared_ptr<ValueInfo> ValueInfoFactory::create(const std::shared_ptr<TransparentType>& type) {
-  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>> recursionMap;
+std::shared_ptr<ValueInfo> ValueInfoFactory::create(const TransparentType* type) {
+  std::unordered_map<const TransparentType*, std::shared_ptr<StructInfo>> recursionMap;
   return create(type, recursionMap);
 }
 
-std::shared_ptr<ValueInfo> ValueInfoFactory::create(
-  const std::shared_ptr<TransparentType>& type,
-  std::unordered_map<std::shared_ptr<TransparentType>, std::shared_ptr<StructInfo>>& recursionMap) {
+std::shared_ptr<ValueInfo>
+ValueInfoFactory::create(const TransparentType* type,
+                         std::unordered_map<const TransparentType*, std::shared_ptr<StructInfo>>& recursionMap) {
   auto iter = recursionMap.find(type);
   if (iter != recursionMap.end())
     return iter->second;
 
-  if (auto structType = std::dynamic_ptr_cast<TransparentStructType>(type)) {
+  if (auto* structType = dyn_cast<TransparentStructType>(type)) {
     unsigned numFields = structType->getNumFieldTypes();
     SmallVector<std::shared_ptr<ValueInfo>, 4> fields;
     auto res = std::make_shared<StructInfo>(StructInfo(numFields));

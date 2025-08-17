@@ -19,7 +19,7 @@ enum class FixedPointTypeGenError {
 /** Generate a fixed point type appropriate for storing values
  *  contained in a given range
  *  @param range The range of values for which the type will be used
- *  @param outerr Pointer to a FixedPointTypeGenError which will be set
+ *  @param outErr Pointer to a FixedPointTypeGenError which will be set
  *    to a value depending on the outcome of the type assignment.
  *    Optionally can be nullptr.
  *  @param totalBits The minimum amount of bits in the type
@@ -32,8 +32,8 @@ enum class FixedPointTypeGenError {
  *    amount of allocated bits to use when the range is too large for
  *    the minimum amount of bits.
  *  @returns A fixed point type. */
-FixedPointInfo fixedPointTypeFromRange(const Range& range,
-                                       FixedPointTypeGenError* outerr = nullptr,
+FixedPointInfo fixedPointInfoFromRange(const Range& range,
+                                       FixedPointTypeGenError* outErr = nullptr,
                                        int totalBits = 32,
                                        int fracThreshold = 3,
                                        int maxTotalBits = 64,

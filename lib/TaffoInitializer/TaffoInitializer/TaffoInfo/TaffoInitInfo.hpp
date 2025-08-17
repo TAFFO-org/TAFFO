@@ -7,7 +7,6 @@ namespace taffo {
 class InitializerPass;
 
 class TaffoInitInfo {
-private:
   friend class InitializerPass;
 
   llvm::DenseMap<llvm::Value*, ValueInitInfo> valueInitInfo;

@@ -112,18 +112,16 @@ public:
 
   bool processScalarInfo(std::shared_ptr<taffo::ScalarInfo>& scalarInfo,
                          llvm::Value* value,
-                         const std::shared_ptr<tda::TransparentType>& transparentType,
+                         const tda::TransparentType* transparentType,
                          bool forceEnable);
 
-  void processStructInfo(
-    std::shared_ptr<taffo::StructInfo>& structInfo,
-    llvm::Value* value,
-    const std::shared_ptr<tda::TransparentType>& transparentType,
-    llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, std::shared_ptr<tda::TransparentType>>, 8> queue);
+  void
+  processStructInfo(std::shared_ptr<taffo::StructInfo>& structInfo,
+                    llvm::Value* value,
+                    const tda::TransparentType* transparentType,
+                    llvm::SmallVector<std::pair<std::shared_ptr<taffo::ValueInfo>, tda::TransparentType*>, 8> queue);
 
   bool processValueInfo(llvm::Value* value);
-
-  bool associateFixFormat(std::shared_ptr<taffo::ScalarInfo>& scalarInfo, llvm::Value* value);
 
   void sortQueue(std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
 
@@ -138,8 +136,6 @@ public:
 #endif // TAFFO_BUILD_ILP_DTA
 
   bool mergeFixFormat(llvm::Value* v, llvm::Value* u);
-
-  bool mergeFixFormatIterative(llvm::Value* v, llvm::Value* u);
 
   void mergeBufferIDSets();
 
@@ -200,9 +196,7 @@ public:
       }
       return disabled;
     }
-    else {
-      return true;
-    }
+    return true;
   }
 
 #ifdef TAFFO_BUILD_ILP_DTA
@@ -229,6 +223,13 @@ private:
   taffo::TaffoInfo& taffoInfo = taffo::TaffoInfo::getInstance();
   llvm::ModuleAnalysisManager* MAM = nullptr;
   dataTypeAllocationStrategy* strategy = nullptr;
+
+  std::shared_ptr<taffo::ValueInfo> getStructFieldValueInfo(std::shared_ptr<taffo::StructInfo> structInfo,
+                                                            const llvm::iterator_range<const llvm::Use*> gepIndices);
+
+  void attachStructFieldType(llvm::GetElementPtrInst* gep, const taffo::NumericTypeInfo& numericType);
+
+  void propagateStructFieldTypes(const std::vector<llvm::Value*>& queue);
 };
 
 } // namespace tuner

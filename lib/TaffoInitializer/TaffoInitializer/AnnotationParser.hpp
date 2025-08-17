@@ -27,9 +27,9 @@ private:
   std::shared_ptr<ValueInfo> valueInfoBuild;
 
   void reset();
-  bool parseSyntax(const std::shared_ptr<tda::TransparentType>& type);
-  bool parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo, const std::shared_ptr<tda::TransparentType>& type);
-  bool parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, const std::shared_ptr<tda::TransparentType>& type);
+  bool parseSyntax(const tda::TransparentType* type);
+  bool parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo);
+  bool parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, const tda::TransparentType* type);
   char skipWhitespace();
   bool expectString(std::string& res);
   bool peek(std::string kw);

@@ -26,7 +26,7 @@ void cconv(FLOAT_TYPE xn[], FLOAT_TYPE h[], FLOAT_TYPE res[], int elem) {
 }
 
 int main() {
-  FLOAT_TYPE xn[N] __attribute((annotate("scalar(range(1, 20))")));
+  FLOAT_TYPE xn[N] __attribute__((annotate("scalar(range(1, 20))")));
   FLOAT_TYPE h[N] __attribute((annotate("scalar(range(1, 20))")));
 
   FLOAT_TYPE res[N];

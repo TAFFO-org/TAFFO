@@ -4,7 +4,7 @@
 FPDATATYPE result;
 FPDATATYPE* result_ptr;
 int main() {
-  FPDATATYPE x __attribute((annotate("target('x') scalar(range(1,25))")));
+  FPDATATYPE x __attribute__((annotate("target('x') scalar(range(1,25))")));
   FPDATATYPE y __attribute((annotate("target('y') scalar(range(7,14))")));
 
   scanf("%lf", &x);

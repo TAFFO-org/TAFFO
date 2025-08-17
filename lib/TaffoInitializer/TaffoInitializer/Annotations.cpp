@@ -57,15 +57,8 @@ void InitializerPass::readAndRemoveGlobalAnnotations(Module& m) {
     if (auto* annotations = dyn_cast<ConstantArray>(annotationsGlobalVar->getInitializer()))
       for (unsigned i = 0, n = annotations->getNumOperands(); i < n; i++)
         if (auto* annotation = dyn_cast<ConstantStruct>(annotations->getOperand(i))) {
-          // Structure of the expression (ConstantStruct operand #0 is the expression):
-          // [OpType] operand,
-          // [BitCast] *function,
-          // [GetElementPtr] *annotation,
-          // [GetElementPtr] *filename,
-          // [Int] source code line
-          if (auto* expr = dyn_cast<ConstantExpr>(annotation->getOperand(0)))
-            if (expr->getOpcode() == Instruction::BitCast)
-              parseAnnotation(cast<ConstantExpr>(annotation->getOperand(1)), expr->getOperand(0));
+          parseAnnotation(annotation->getOperand(0), annotation->getOperand(1));
+          taffoInfo.eraseValue(annotation);
         }
     taffoInfo.eraseValue(annotationsGlobalVar);
   }
@@ -142,13 +135,16 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
   }
 
   // parseAnnotationAndGenValueInfo has generated the valueInfo: we need to generate also the valueInitInfo.
-  // For functions, valueInitInfo is generated only for call sites, not for the function itself.
+  // For functions, valueInfo needs to be copied from the function to its call sites,
+  // and valueInitInfo is generated only for call sites, not for the function itself.
   if (auto* annotatedFun = dyn_cast<Function>(annotatedValue)) {
     annotatedFunctions.insert(annotatedFun);
+    std::shared_ptr<ValueInfo> funInfo = taffoInfo.getValueInfo(*annotatedFun);
     for (User* user : annotatedFun->users()) {
       if (!isa<CallInst>(user) && !isa<InvokeInst>(user))
         continue;
       infoPropagationQueue.push_back(user);
+      taffoInfo.setValueInfo(*user, funInfo);
       taffoInitInfo.createValueInitInfo(user, 0, parser.backtracking ? parser.backtrackingDepth : 0);
     }
   }

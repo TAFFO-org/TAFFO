@@ -16,7 +16,7 @@ The source below describes a simple OpenMP example program:
 #include <stdio.h>
 
 int main() {
-  float container[16] __attribute((annotate("target('container') scalar()")));
+  float container[16] __attribute__((annotate("target('container') scalar()")));
   // container is a shared variable between the OpenMP threads
   #pragma omp parallel for shared(container)
   for (int i = 0; i < 16; i++) {
