@@ -56,7 +56,6 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
 
   LLVM_DEBUG(log().logln("[Propagating info from roots]", Logger::Blue));
   propagateInfo();
-  generateFunctionClones();
   LLVM_DEBUG(log().logln("[Propagating info after function cloning]", Logger::Blue));
   propagateInfo();
   LLVM_DEBUG(
@@ -136,7 +135,12 @@ void InitializerPass::propagateInfo() {
       LLVM_DEBUG(
         logger.log("[Value] ", Logger::Bold).logValueln(value);
         indenter.increaseIndent();
-        logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";
+        logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";);
+
+      if (auto* call = dyn_cast<CallBase>(value))
+        cloneFunctionForCall(call);
+
+      LLVM_DEBUG(
         if (value->user_empty())
           logger.logln("value has no users: continuing"););
 
@@ -311,45 +315,46 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
     dstInfo->bufferId = srcInfo->bufferId;
 }
 
-void InitializerPass::generateFunctionClones() {
-  LLVM_DEBUG(log().logln("[Function cloning]", Logger::Blue));
-  for (Value* value : infoPropagationQueue) {
-    auto* call = dyn_cast<CallBase>(value);
-    if (!call)
-      continue;
+void InitializerPass::cloneFunctionForCall(CallBase* call) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(logger << "[" << __FUNCTION__ << "]\n");
+  indenter.increaseIndent();
 
-    Function* oldF = call->getCalledFunction();
-    if (!oldF) {
-      LLVM_DEBUG(log().log("Skipping indirect function invoked by: ", Logger::Yellow).logValueln(value));
-      continue;
-    }
-    if (isSpecialFunction(oldF)) {
-      LLVM_DEBUG(log().log("Skipping special function invoked by: ", Logger::Yellow).logValueln(value));
-      continue;
-    }
-    if (manualFunctionCloning) {
-      if (!annotatedFunctions.contains(oldF)) {
-        LLVM_DEBUG(log().log("Skipping disabled function invoked by: ", Logger::Yellow).logValueln(value));
-        continue;
-      }
-    }
-
-    Function* newF = cloneFunction(call);
-    call->setCalledFunction(newF);
-    annotatedFunctions.insert(newF);
-
-    // Setting oldF as weak  to avoid globalDCE and preserve the mapping between old function and cloned function
-    taffoInfo.setOriginalFunctionLinkage(*oldF, oldF->getLinkage());
-    oldF->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
-
-    taffoInfo.setTaffoFunction(*oldF, *newF);
-  }
-  LLVM_DEBUG(log().logln("[Function cloning completed]", Logger::Blue));
-}
-
-Function* InitializerPass::cloneFunction(const CallBase* call) {
   Function* oldF = call->getCalledFunction();
+  if (!oldF) {
+    LLVM_DEBUG(logger.logln("call to indirect function: skipping"));
+    return;
+  }
+  if (isSpecialFunction(oldF)) {
+    LLVM_DEBUG(logger.logln("call to special function: skipping"));
+    return;
+  }
+  if (manualFunctionCloning) {
+    if (!annotatedFunctions.contains(oldF)) {
+      LLVM_DEBUG(logger.logln("call to disabled function: skipping"));
+      return;
+    }
+  }
+
+  auto iter = clonedFunctionsForCalls.find(call);
+  if (iter != clonedFunctionsForCalls.end()) {
+    Function* clonedFunction = iter->second;
+    call->setCalledFunction(clonedFunction);
+    LLVM_DEBUG(logger.logln("function already cloned for this call: ").logValueln(clonedFunction));
+    return;
+  }
+
   Function* newF = Function::Create(oldF->getFunctionType(), oldF->getLinkage(), oldF->getName(), oldF->getParent());
+  call->setCalledFunction(newF);
+
+  // Setting oldF as weak to avoid globalDCE and preserve the mapping between old function and cloned function
+  taffoInfo.setOriginalFunctionLinkage(*oldF, oldF->getLinkage());
+  oldF->setLinkage(GlobalValue::WeakAnyLinkage);
+
+  annotatedFunctions.insert(newF);
+  clonedFunctionsForCalls[call] = newF;
+  taffoInfo.setTaffoFunction(*oldF, *newF);
 
   // Create Val2Val mapping and clone function
   ValueToValueMapTy valueMap;
@@ -384,13 +389,9 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
 
   FunctionCloned++;
 
-  Logger& logger = log();
-  auto indenter = logger.getIndenter();
   LLVM_DEBUG(
-    logger.log("[Cloning of] ", Logger::Bold).logValueln(oldF);
-    indenter.increaseIndent();
+    logger.log("old function: ").logValueln(oldF);
     logger.log("new function: ").logValueln(newF);
-    logger.log("for call: ").logValueln(call);
     logger.logln("[Propagating info from call arguments to clone function arguments]", Logger::Bold);
     indenter.increaseIndent();
     if (newF->arg_empty())
@@ -446,7 +447,6 @@ Function* InitializerPass::cloneFunction(const CallBase* call) {
         logger.logln(*argAlloca);
       });
   }
-  return newF;
 }
 
 void InitializerPass::logInfoPropagationQueue() {

@@ -27,6 +27,7 @@ private:
   TaffoInitInfo taffoInitInfo;
   std::list<llvm::Value*> infoPropagationQueue;
   llvm::SmallPtrSet<llvm::Function*, 2> annotatedFunctions;
+  llvm::DenseMap<llvm::CallBase*, llvm::Function*> clonedFunctionsForCalls;
 
   llvm::Function* findStartingPointFunctionGlobal(llvm::Module& m);
 
@@ -37,8 +38,7 @@ private:
 
   void propagateInfo();
   void propagateInfo(llvm::Value* src, llvm::Value* dst);
-  void generateFunctionClones();
-  llvm::Function* cloneFunction(const llvm::CallBase* call);
+  void cloneFunctionForCall(llvm::CallBase* call);
   void saveValueWeights();
   void logInfoPropagationQueue();
 
