@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+exec 1>&2
+
+function glutenFree {
+  gluten=`grep -r  -i "pizza" lib`
+  res=1
+  if [[ $gluten != "" ]] ; then
+  res=0
+	cat <<\EOF
+Error: Your code is not #gluten-free pls remove pizzas
+EOF
+  echo $gluten
+  fi
+  return $res
+}
+
+echo "Scanning For Pizza"
+glutenFree
+res=$?
+if [[ $res == 0 ]] ; then
+  exit 1
+fi
+
+# Get number of cores for parallel processing
+NPROC=
+if [[ "$(uname)" == "Darwin" ]]; then
+  NPROC="$(sysctl -n hw.ncpu)";
+else
+  NPROC="$(nproc || echo 1)";
+fi
+
+# Only operate on C/C++ files that are staged for commit
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(c|cpp|h|hpp)$' || true)
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# 1) Replace #include "llvm/…" with <llvm/...> in each staged file
+echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$NPROC" \
+      perl -pi -e 's|#include\s*"llvm/([^"]*)"|#include <llvm/$1>|g'
+
+# 2) Run clang-format on each staged file
+echo "$STAGED" | tr '\n' '\0' | xargs -0 -P"$NPROC" \
+      clang-format -i -style=file
+
+# 3) Restage any changes made by the above
+echo "$STAGED" | xargs git add
+
+# Let the commit proceed
+exit 0

@@ -9,43 +9,43 @@
  */
 
 #ifndef GEMVER_H
-# define GEMVER_H
+#define GEMVER_H
 
 /* Default to STANDARD_DATASET. */
-# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
-#  define STANDARD_DATASET
-# endif
+#if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+#define STANDARD_DATASET
+#endif
 
 /* Do not define anything if the user manually defines the size. */
-# if !defined(N)
+#if !defined(N)
 /* Define the possible dataset sizes. */
-#  ifdef MINI_DATASET
+#ifdef MINI_DATASET
 #define N 1024
-#  endif
+#endif
 
-#  ifdef SMALL_DATASET
+#ifdef SMALL_DATASET
 #define N 2048
-#  endif
+#endif
 
-#  ifdef STANDARD_DATASET /* Default if unspecified. */
+#ifdef STANDARD_DATASET /* Default if unspecified. */
 #define N 4096
-#  endif
+#endif
 
-#  ifdef LARGE_DATASET
+#ifdef LARGE_DATASET
 #define N 8192
-#  endif
+#endif
 
-#  ifdef EXTRALARGE_DATASET
+#ifdef EXTRALARGE_DATASET
 #define N 16384
-#  endif
-# endif /* !N */
+#endif
+#endif /* !N */
 
-# define _PB_N POLYBENCH_LOOP_BOUND(N,n)
+#define _PB_N POLYBENCH_LOOP_BOUND(N, n)
 
-# ifndef DATA_TYPE
-#  define DATA_TYPE float
-#  define DATA_PRINTF_MODIFIER "%e "
-# endif
+#ifndef DATA_TYPE
+#define DATA_TYPE float
+#define DATA_PRINTF_MODIFIER "%e "
+#endif
 
 /* Thread block dimensions for kernel 1*/
 #define DIM_LOCAL_WORK_GROUP_KERNEL_1_X 32
@@ -58,6 +58,5 @@
 /* Thread block dimensions for kernel 3*/
 #define DIM_LOCAL_WORK_GROUP_KERNEL_3_X 256
 #define DIM_LOCAL_WORK_GROUP_KERNEL_3_Y 1
-
 
 #endif /* !TWODCONV*/

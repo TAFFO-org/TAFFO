@@ -74,7 +74,7 @@ llvm_ver_maj=${llvm_ver%%.*}
 
 compat_flags_clang=
 compat_flags_opt=
-if [[ $llvm_ver_maj -ge 15 ]]; then
+if [[ $llvm_ver_maj -eq 15 ]]; then
   compat_flags_clang='-Xclang -no-opaque-pointers'
   compat_flags_opt='-opaque-pointers=0'
 fi
@@ -89,6 +89,7 @@ emit_source=
 optimization=
 opts=
 float_opts=
+typededucer_flags=
 init_flags=
 vra_flags=
 disable_vra=0
@@ -112,24 +113,50 @@ for opt in $raw_opts; do
   case $parse_state in
     0)
       case $opt in
-        -Xinit)
+        -Xtypededucer)
           parse_state=2;
           ;;
-        -Xvra)
-          parse_state=5;
-          ;;
-        -Xdta)
+        -Xinit)
           parse_state=3;
           ;;
-        -Xconversion)
+        -Xvra)
           parse_state=4;
           ;;
+        -Xdta)
+          parse_state=5;
+          ;;
+        -Xconversion)
+          parse_state=6;
+          ;;
         -Xerr)
-          enable_errorprop=1
+          enable_errorprop=1;
+          parse_state=7;
+          ;;
+        -float-output)
           parse_state=8;
           ;;
         -Xfloat)
+          parse_state=9;
+          ;;
+        -pe-model)
+          parse_state=10;
+          ;;
+        -temp-dir)
+          del_temporary_dir=0;
+          parse_state=11;
+          ;;
+        -err-out)
+          enable_errorprop=1;
           parse_state=12;
+          ;;
+        -costmodel)
+          parse_state=13
+          ;;
+        -instructionset)
+          parse_state=14
+          ;;
+        -time-profile-file)
+          parse_state=15
           ;;
         -oclkern)
           init_flags="$init_flags -oclkern"
@@ -145,9 +172,6 @@ for opt in $raw_opts; do
             output_file=`echo "$opt" | cut -b 2`;
           fi;
           ;;
-        -float-output)
-          parse_state=6;
-          ;;
         -O*)
           optimization=$opt;
           ;;
@@ -159,21 +183,12 @@ for opt in $raw_opts; do
           ;;
         -debug)
           if [[ $llvm_debug -ne 0 ]]; then
-            init_flags="$init_flags -debug --stats";
-            dta_flags="$dta_flags -debug --stats";
-            conversion_flags="$conversion_flags -debug --stats";
-            vra_flags="$vra_flags -debug --stats";
-            errorprop_flags="$errorprop_flags -debug --stats";
-          fi
-          LOG=/dev/stderr
-          ;;
-        -debug-taffo)
-          if [[ $llvm_debug -ne 0 ]]; then
-            init_flags="$init_flags --debug-only=taffo-init";
-            dta_flags="$dta_flags --debug-only=taffo-dta";
-            conversion_flags="$conversion_flags --debug-only=taffo-conversion";
-            vra_flags="$vra_flags --debug-only=taffo-vra --debug-only=taffo-mem2reg";
-            errorprop_flags="$errorprop_flags --debug-only=errorprop";
+            typededucer_flags="$typededucer_flags --stats --debug-only=tda,taffo-common,taffo-typededucer";
+            init_flags="$init_flags --stats --debug-only=taffo-common,taffo-init";
+            vra_flags="$vra_flags --stats --debug-only=taffo-common,taffo-mem2reg,taffo-vra";
+            dta_flags="$dta_flags --stats --debug-only=taffo-common,taffo-dta";
+            conversion_flags="$conversion_flags --stats --debug-only=taffo-common,taffo-conv";
+            errorprop_flags="$errorprop_flags --stats";
           fi
           LOG=/dev/stderr
           ;;
@@ -186,17 +201,6 @@ for opt in $raw_opts; do
         -feedback)
           feedback=1
           ;;
-        -pe-model)
-          parse_state=7
-          ;;
-        -temp-dir)
-          del_temporary_dir=0
-          parse_state=9
-          ;;
-        -err-out)
-          enable_errorprop=1
-          parse_state=10
-          ;;
         -no-mem2reg)
           mem2reg=
           ;;
@@ -205,15 +209,6 @@ for opt in $raw_opts; do
           if [[ -z "$dta_inst_set" ]]; then
             dta_inst_set="-instructionsetfile=$TAFFO_PREFIX/share/ILP/constrain/fix"
           fi
-          ;;
-        -costmodel)
-          parse_state=11
-          ;;
-        -instructionset)
-          parse_state=13
-          ;;
-        -time-profile-file)
-          parse_state=14
           ;;
         -costmodelfilename*)
           dta_flags="$dta_flags $opt"
@@ -264,42 +259,50 @@ for opt in $raw_opts; do
       parse_state=0;
       ;;
     2)
-      init_flags="$init_flags $opt";
+      typededucer_flags="$typededucer_flags $opt";
       parse_state=0;
       ;;
     3)
-      dta_flags="$dta_flags $opt";
+      init_flags="$init_flags $opt";
       parse_state=0;
       ;;
     4)
-      conversion_flags="$conversion_flags $opt";
-      parse_state=0;
-      ;;
-    5)
       vra_flags="$vra_flags $opt";
       parse_state=0;
       ;;
+    5)
+      dta_flags="$dta_flags $opt";
+      parse_state=0;
+      ;;
     6)
-      float_output_file="$opt";
+      conversion_flags="$conversion_flags $opt";
       parse_state=0;
       ;;
     7)
-      pe_model_file="$opt";
-      parse_state=0;
-      ;;
-    8)
       errorprop_flags="$errorprop_flags $opt";
       parse_state=0;
       ;;
+    8)
+      float_output_file="$opt";
+      parse_state=0;
+      ;;
     9)
-      temporary_dir="$opt";
+      float_opts="$float_opts $opt";
       parse_state=0;
       ;;
     10)
-      errorprop_out="$opt";
+      pe_model_file="$opt";
       parse_state=0;
       ;;
     11)
+      temporary_dir="$opt";
+      parse_state=0;
+      ;;
+    12)
+      errorprop_out="$opt";
+      parse_state=0;
+      ;;
+    13)
       f="$TAFFO_PREFIX"/share/ILP/cost/"$opt".csv
       if [[ -e "$f" ]]; then
         dta_flags="$dta_flags -costmodelfilename=$f"
@@ -309,11 +312,7 @@ for opt in $raw_opts; do
       fi
       parse_state=0
       ;;
-    12)
-      float_opts="$float_opts $opt";
-      parse_state=0;
-      ;;
-    13)
+    14)
       f="$TAFFO_PREFIX"/share/ILP/constrain/"$opt"
       if [[ -e "$f" ]]; then
         dta_inst_set="-instructionsetfile=$f"
@@ -323,7 +322,7 @@ for opt in $raw_opts; do
       fi
       parse_state=0
       ;;
-    14)
+    15)
       time_profile_file="$opt";
       parse_state=0;
       ;;
@@ -389,7 +388,6 @@ Options:
                         of TAFFO
   -debug                Enable LLVM and TAFFO debug logging during the
                         compilation.
-  -debug-taffo          Enable TAFFO-only debug logging during the compilation.
   -temp-dir <dir>       Store various temporary files related to the execution
                         of TAFFO to the specified directory.
 
@@ -445,13 +443,18 @@ append_time_string "taffo_start"
 ###
 ###  Produce base .ll
 ###
+
+if [[ ! -d $temporary_dir ]]; then
+  mkdir $temporary_dir
+fi
+
 if [[ ${#input_files[@]} -eq 1 ]]; then
   # one input file
   ${CLANG} \
-    $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
+    $opts -D__TAFFO__ -O0 -g -Xclang -disable-O0-optnone $compat_flags_clang \
     -c -emit-llvm \
     ${input_files} \
-    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?       
+    -S -o "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 else
   # > 1 input files
   tmp=()
@@ -461,23 +464,34 @@ else
     thisfn="${temporary_dir}/${output_basename}.${thisfn}.0.taffotmp.ll"
     tmp+=( $thisfn )
     ${CLANG} \
-      $opts -D__TAFFO__ -O0 -Xclang -disable-O0-optnone $compat_flags_clang \
+      $opts -D__TAFFO__ -O0 -g -Xclang -disable-O0-optnone $compat_flags_clang \
       -c -emit-llvm \
       ${input_file} \
       -S -o "${thisfn}" || exit $?
   done
   ${LLVM_LINK} \
     ${tmp[@]} \
-    -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
+    -S -o "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 fi
 
 # precompute clang invocation for compiling float version
-build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}.1.taffotmp.ll"
+build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_clang ${temporary_dir}/${output_basename}.0.taffotmp.ll"
 
 # Note: in the following we load the plugin both with -load and --load-pass-plugin
 # because the latter does not load the .so until later in the game after command
 # line args are all parsed, and because -load does not register new pass manager
 # passes at all.
+
+###
+###  TAFFO Type deduction
+###
+append_time_string "type_deduction_start"
+${OPT} \
+  -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
+  --passes='no-op-module,typededucer' \
+  -temp-dir=$temporary_dir \
+  ${typededucer_flags} \
+  -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 
 ###
 ###  TAFFO initialization
@@ -486,6 +500,7 @@ append_time_string "init_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
+  -temp-dir=$temporary_dir \
   ${init_flags} \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
 
@@ -498,6 +513,7 @@ if [[ $disable_vra -eq 0 ]]; then
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,${mem2reg}taffovra" \
     $compat_flags_opt ${vra_flags} \
+    -temp-dir=$temporary_dir \
     -S -o "${temporary_dir}/${output_basename}.3.taffotmp.ll" "${temporary_dir}/${output_basename}.2.taffotmp.ll" || exit $?;
 else
   cp "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll";
@@ -518,6 +534,7 @@ while [[ $feedback_stop -eq 0 ]]; do
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes="no-op-module,taffodta,globaldce" \
     $compat_flags_opt ${dta_flags} ${dta_inst_set} \
+    -temp-dir=$temporary_dir \
     -S -o "${temporary_dir}/${output_basename}.4.taffotmp.ll" "${temporary_dir}/${output_basename}.3.taffotmp.ll" || exit $?
     
   ###
@@ -528,6 +545,7 @@ while [[ $feedback_stop -eq 0 ]]; do
     -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
     --passes='no-op-module,taffoconv,globaldce,dce' \
     $compat_flags_opt ${conversion_flags} \
+    -temp-dir=$temporary_dir \
     -S -o "${temporary_dir}/${output_basename}.5.taffotmp.ll" "${temporary_dir}/${output_basename}.4.taffotmp.ll" || exit $?
     
   ###
@@ -538,6 +556,7 @@ while [[ $feedback_stop -eq 0 ]]; do
       -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
       --passes='no-op-module,taffoerr' \
       $compat_flags_opt ${errorprop_flags} \
+      -temp-dir=$temporary_dir \
       -S -o "${temporary_dir}/${output_basename}.6.taffotmp.ll" "${temporary_dir}/${output_basename}.5.taffotmp.ll" 2> "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" || exit $?
     if [[ ! ( -z "$errorprop_out" ) ]]; then
       cp "${temporary_dir}/${output_basename}.errorprop.taffotmp.txt" "$errorprop_out"

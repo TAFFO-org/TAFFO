@@ -26,14 +26,15 @@
 namespace llvm_gtest {
 // StreamSwitch is a trait that tells us how to stream a T into a std::ostream.
 // By default, we just stream the T directly. We'll specialize this later.
-template <typename T, typename Enable = void> struct StreamSwitch {
+template <typename T, typename Enable = void>
+struct StreamSwitch {
   static const T& printable(const T& V) { return V; }
 };
 
 // printable() returns a version of its argument that can be streamed into a
 // std::ostream. This may be the argument itself, or some other representation.
 template <typename T>
-auto printable(const T &V) -> decltype(StreamSwitch<T>::printable(V)) {
+auto printable(const T& V) -> decltype(StreamSwitch<T>::printable(V)) {
   // We delegate to the trait, to allow partial specialization.
   return StreamSwitch<T>::printable(V);
 }
@@ -42,8 +43,9 @@ auto printable(const T &V) -> decltype(StreamSwitch<T>::printable(V)) {
 // If raw_ostream support is enabled, we specialize for types with operator<<
 // that takes a raw_ostream.
 #if !GTEST_NO_LLVM_RAW_OSTREAM
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/raw_os_ostream.h"
+#include <llvm/Support/raw_os_ostream.h>
+#include <llvm/Support/raw_ostream.h>
+
 #include <ostream>
 namespace llvm_gtest {
 
@@ -52,7 +54,7 @@ namespace llvm_gtest {
 template <typename T>
 struct RawStreamProxy {
   const T& V;
-  friend std::ostream &operator<<(std::ostream &S, const RawStreamProxy<T> &V) {
+  friend std::ostream& operator<<(std::ostream& S, const RawStreamProxy<T>& V) {
     llvm::raw_os_ostream OS(S);
     OS << V.V;
     return S;
@@ -62,13 +64,15 @@ struct RawStreamProxy {
 // We enable raw_ostream treatment if `(raw_ostream&) << (const T&)` is valid.
 // We don't want implicit conversions on the RHS (e.g. to bool!), so "consume"
 // the possible conversion by passing something convertible to const T& instead.
-template <typename T> struct ConvertibleTo { operator T(); };
 template <typename T>
-struct StreamSwitch<T, decltype((void)(std::declval<llvm::raw_ostream &>()
-                                       << ConvertibleTo<const T &>()))> {
-  static const RawStreamProxy<T> printable(const T &V) { return {V}; }
+struct ConvertibleTo {
+  operator T();
+};
+template <typename T>
+struct StreamSwitch<T, decltype((void) (std::declval<llvm::raw_ostream&>() << ConvertibleTo<const T&>()))> {
+  static const RawStreamProxy<T> printable(const T& V) { return {V}; }
 };
 } // namespace llvm_gtest
-#endif  // !GTEST_NO_LLVM_RAW_OSTREAM
+#endif // !GTEST_NO_LLVM_RAW_OSTREAM
 
 #endif // GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_RAW_OSTREAM_H_

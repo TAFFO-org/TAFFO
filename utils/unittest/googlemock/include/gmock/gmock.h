@@ -59,8 +59,8 @@
 #include "gmock/gmock-cardinalities.h"
 #include "gmock/gmock-generated-actions.h"
 #include "gmock/gmock-generated-function-mockers.h"
-#include "gmock/gmock-generated-nice-strict.h"
 #include "gmock/gmock-generated-matchers.h"
+#include "gmock/gmock-generated-nice-strict.h"
 #include "gmock/gmock-matchers.h"
 #include "gmock/gmock-more-actions.h"
 #include "gmock/gmock-more-matchers.h"
@@ -89,6 +89,6 @@ GTEST_API_ void InitGoogleMock(int* argc, char** argv);
 // UNICODE mode.
 GTEST_API_ void InitGoogleMock(int* argc, wchar_t** argv);
 
-}  // namespace testing
+} // namespace testing
 
-#endif  // GMOCK_INCLUDE_GMOCK_GMOCK_H_
+#endif // GMOCK_INCLUDE_GMOCK_GMOCK_H_

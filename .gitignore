@@ -1,25 +1,16 @@
-build*
+# IDE directories
 .idea
-cmake-build-*/
-build.log
-*.zip
-dist*
-*.magiclangtmp.ll
-*.magiclangtmp.s
 .vscode*
-*.out
-*.log
-working-dist
-test/simple-test-cases-FOR-REGRESSION
-working-dist-llvm6
-*~
-test/jpeg-decoder-no-external-fft
-.cache
-.envrc
-tool/taffo-costmodel-embedded/obj*
-*.bin
-*.elf
-*.map
-compile.sh
-test/axbench/jmeint/log_*
-lcov*
+# build directories
+build*
+cmake-build-*/
+# test executables, results and temp files
+test/**/*-float
+test/**/*-taffo
+test/**/*res-float*
+test/**/*res-taffo*
+test/**/*.log
+test/**/*.csv
+test/**/*.json
+test/**/taffo_temp
+test/**/*.taffotmp.ll

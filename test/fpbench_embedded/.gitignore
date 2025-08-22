@@ -1,9 +1,0 @@
-*
-!/**/
-!*.*
-!Makefile
-/**/*.csv
-/**/*.log
-*.png
-.env
-stub.h

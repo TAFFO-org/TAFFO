@@ -1,35 +1,30 @@
-#include "TestUtils.h"
-
 #include "TaffoVRA/Range.hpp"
 #include "TaffoVRA/VRAGlobalStore.hpp"
+#include "TestUtils.h"
 
-namespace
-{
+namespace {
 
 using namespace llvm;
 using namespace taffo;
 using namespace taffo_test;
 
-class VRAStoreStub : public VRAStore
-{
+class VRAStoreStub : public VRAStore {
 public:
   VRAStoreStub()
-      : VRAStore(VRASK_VRAGlobalStore, std::make_shared<VRALogger>()) {}
+  : VRAStore(VRASK_VRAGlobalStore, std::make_shared<VRALogger>()) {}
 };
 
-class VRAStoreTest : public taffo_test::Test
-{
+class VRAStoreTest : public taffo_test::Test {
 protected:
   VRAStoreStub VRAs;
 };
 
-TEST_F(VRAStoreTest, convexMerge_sameScalar)
-{
+TEST_F(VRAStoreTest, convexMerge_sameScalar) {
   VRAStoreStub other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRAs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   other.setNode(V1, std::make_shared<VRAScalarNode>(*N2));
 
@@ -44,14 +39,13 @@ TEST_F(VRAStoreTest, convexMerge_sameScalar)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, convexMerge_distinctScalars)
-{
+TEST_F(VRAStoreTest, convexMerge_distinctScalars) {
   VRAStoreStub other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto V2 = ConstantInt::get(Type::getInt32Ty(Context), 2);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
-  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
+  auto N2 = new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, false}));
   VRAs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
   other.setNode(V2, std::make_shared<VRAScalarNode>(*N2));
 
@@ -73,15 +67,14 @@ TEST_F(VRAStoreTest, convexMerge_distinctScalars)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, convexMerge_sameStruct)
-{
+TEST_F(VRAStoreTest, convexMerge_sameStruct) {
   VRAStoreStub other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAStructNode();
-  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
   auto N2 = new VRAStructNode();
-  N2->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, false})));
+  N2->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {3, 4, false})));
   VRAs.setNode(V1, std::make_shared<VRAStructNode>(*N1));
   other.setNode(V1, std::make_shared<VRAStructNode>(*N2));
 
@@ -96,16 +89,15 @@ TEST_F(VRAStoreTest, convexMerge_sameStruct)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, convexMerge_distinctStruct)
-{
+TEST_F(VRAStoreTest, convexMerge_distinctStruct) {
   VRAStoreStub other;
 
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto V2 = ConstantInt::get(Type::getInt32Ty(Context), 2);
   auto N1 = new VRAStructNode();
-  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
   auto N2 = new VRAStructNode();
-  N2->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, false})));
+  N2->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {3, 4, false})));
   VRAs.setNode(V1, std::make_shared<VRAStructNode>(*N1));
   other.setNode(V2, std::make_shared<VRAStructNode>(*N2));
 
@@ -128,10 +120,9 @@ TEST_F(VRAStoreTest, convexMerge_distinctStruct)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, fetchRange_scalar)
-{
+TEST_F(VRAStoreTest, fetchRange_scalar) {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
   VRAs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
 
   auto range = VRAs.fetchRange(V1);
@@ -141,21 +132,19 @@ TEST_F(VRAStoreTest, fetchRange_scalar)
   EXPECT_FALSE(range->isFinal());
 }
 
-TEST_F(VRAStoreTest, fetchRange_struct)
-{
+TEST_F(VRAStoreTest, fetchRange_struct) {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAStructNode();
-  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
   VRAs.setNode(V1, std::make_shared<VRAStructNode>(*N1));
 
   auto range = VRAs.fetchRange(V1);
   ASSERT_EQ(range, nullptr);
 }
 
-TEST_F(VRAStoreTest, fetchRangeNode_scalar)
-{
+TEST_F(VRAStoreTest, fetchRangeNode_scalar) {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
+  auto N1 = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
   VRAs.setNode(V1, std::make_shared<VRAScalarNode>(*N1));
 
   auto node = VRAs.fetchRangeNode(V1);
@@ -167,14 +156,13 @@ TEST_F(VRAStoreTest, fetchRangeNode_scalar)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, fetchRangeNode_scalarPtr)
-{
+TEST_F(VRAStoreTest, fetchRangeNode_scalarPtr) {
   // yep, I couldn't find a better way to create a Value of pointer type
   auto F = genFunction(*M, "malloc", PointerType::get(Type::getInt32Ty(Context), 0), {Type::getInt32Ty(Context)});
   auto BB = BasicBlock::Create(Context, "BB", F);
   auto V1 = InvokeInst::Create(F, BB, BB, {ConstantInt::get(Type::getInt32Ty(Context), 1)}, "", BB);
 
-  auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, false}));
+  auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, false}));
   auto N1 = new VRAPtrNode(std::make_shared<VRAScalarNode>(*parent));
   VRAs.setNode(V1, std::make_shared<VRAPtrNode>(*N1));
 
@@ -187,21 +175,19 @@ TEST_F(VRAStoreTest, fetchRangeNode_scalarPtr)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, fetchRangeNode_struct)
-{
+TEST_F(VRAStoreTest, fetchRangeNode_struct) {
   auto V1 = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto N1 = new VRAStructNode();
-  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  N1->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
   VRAs.setNode(V1, std::make_shared<VRAStructNode>(*N1));
 
   auto node = VRAs.fetchRangeNode(V1);
   ASSERT_EQ(node, nullptr);
 }
 
-TEST_F(VRAStoreTest, saveValueRange_new)
-{
+TEST_F(VRAStoreTest, saveValueRange_new) {
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto range = std::make_shared<range_t>(range_t{1, 2, false});
+  auto range = std::make_shared<range_t>(range_t {1, 2, false});
   VRAs.saveValueRange(V, range);
 
   auto node = VRAs.fetchRangeNode(V);
@@ -213,12 +199,11 @@ TEST_F(VRAStoreTest, saveValueRange_new)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, saveValueRange_union)
-{
+TEST_F(VRAStoreTest, saveValueRange_union) {
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
-  auto range = std::make_shared<range_t>(range_t{1, 2, false});
+  auto range = std::make_shared<range_t>(range_t {1, 2, false});
   VRAs.saveValueRange(V, range);
-  range = std::make_shared<range_t>(range_t{3, 4, false});
+  range = std::make_shared<range_t>(range_t {3, 4, false});
   VRAs.saveValueRange(V, range);
 
   auto node = VRAs.fetchRangeNode(V);
@@ -230,21 +215,19 @@ TEST_F(VRAStoreTest, saveValueRange_union)
   EXPECT_FALSE(scalar->isFinal());
 }
 
-TEST_F(VRAStoreTest, saveValueRange_struct)
-{
+TEST_F(VRAStoreTest, saveValueRange_struct) {
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 1);
   auto range = new VRAStructNode();
-  range->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  range->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
   VRAs.saveValueRange(V, std::make_shared<VRAStructNode>(*range));
 
   auto node = VRAs.fetchRangeNode(V);
   ASSERT_EQ(node, nullptr);
 }
 
-TEST_F(VRAStoreTest, setNode)
-{
+TEST_F(VRAStoreTest, setNode) {
   auto V = ConstantInt::get(Type::getInt32Ty(Context), 0);
-  auto N = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+  auto N = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
   VRAs.setNode(V, std::make_shared<VRAScalarNode>(*N));
 
   auto retval = VRAs.getNode(V);
@@ -254,9 +237,8 @@ TEST_F(VRAStoreTest, setNode)
   EXPECT_EQ(retnode->getRange(), N->getRange());
 }
 
-TEST_F(VRAStoreTest, loadNode_scalar)
-{
-  auto node = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+TEST_F(VRAStoreTest, loadNode_scalar) {
+  auto node = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
 
   auto ret = VRAs.loadNode(std::make_shared<VRAScalarNode>(*node));
   ASSERT_NE(ret, nullptr);
@@ -267,10 +249,9 @@ TEST_F(VRAStoreTest, loadNode_scalar)
   EXPECT_TRUE(retnode->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, loadNode_struct)
-{
+TEST_F(VRAStoreTest, loadNode_struct) {
   auto node = new VRAStructNode();
-  node->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, true})));
+  node->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, true})));
 
   auto ret = VRAs.loadNode(std::make_shared<VRAStructNode>(*node));
   ASSERT_NE(ret, nullptr);
@@ -283,12 +264,11 @@ TEST_F(VRAStoreTest, loadNode_struct)
   EXPECT_TRUE(scalar->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, loadNode_GEP)
-{
+TEST_F(VRAStoreTest, loadNode_GEP) {
   auto parent = new VRAStructNode();
-  parent->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, true})));
-  parent->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, true})));
-  parent->setNodeAt(2, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{5, 6, true})));
+  parent->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, true})));
+  parent->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {3, 4, true})));
+  parent->setNodeAt(2, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {5, 6, true})));
   unsigned int offset[2] = {1, 2};
   auto node = new VRAGEPNode(std::make_shared<VRAStructNode>(*parent), offset);
 
@@ -302,9 +282,8 @@ TEST_F(VRAStoreTest, loadNode_GEP)
   EXPECT_TRUE(retnode->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, loadNode_ptr)
-{
-  auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+TEST_F(VRAStoreTest, loadNode_ptr) {
+  auto parent = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
   auto node = new VRAPtrNode(std::make_shared<VRAScalarNode>(*parent));
 
   auto ret = VRAs.loadNode(std::make_shared<VRAPtrNode>(*node));
@@ -316,9 +295,8 @@ TEST_F(VRAStoreTest, loadNode_ptr)
   EXPECT_TRUE(retnode->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_GEP)
-{
-  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+TEST_F(VRAStoreTest, storeNode_GEP) {
+  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
   auto dst = std::make_shared<VRAGEPNode>(*new VRAGEPNode(std::make_shared<VRAStructNode>(), {0}));
 
   VRAs.storeNode(dst, std::make_shared<VRAScalarNode>(*src));
@@ -333,13 +311,12 @@ TEST_F(VRAStoreTest, storeNode_GEP)
   EXPECT_TRUE(scalar->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_simpleStruct)
-{
+TEST_F(VRAStoreTest, storeNode_simpleStruct) {
   auto src = std::make_shared<VRAStructNode>();
-  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
 
   auto dst = std::make_shared<VRAStructNode>();
-  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 0, false})));
 
   VRAs.storeNode(dst, src);
 
@@ -351,14 +328,13 @@ TEST_F(VRAStoreTest, storeNode_simpleStruct)
   EXPECT_FALSE(field->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_nestedStruct)
-{
+TEST_F(VRAStoreTest, storeNode_nestedStruct) {
   auto src_inner = std::make_shared<VRAStructNode>();
-  src_inner->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
+  src_inner->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
   auto src = std::make_shared<VRAStructNode>();
   src->setNodeAt(0, src_inner);
   auto dst_inner = std::make_shared<VRAStructNode>();
-  dst_inner->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+  dst_inner->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 0, false})));
   auto dst = std::make_shared<VRAStructNode>();
   dst->setNodeAt(0, dst_inner);
 
@@ -375,13 +351,12 @@ TEST_F(VRAStoreTest, storeNode_nestedStruct)
   EXPECT_FALSE(field_inner->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_structLargerSrc)
-{
+TEST_F(VRAStoreTest, storeNode_structLargerSrc) {
   auto src = std::make_shared<VRAStructNode>();
-  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
-  src->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, false})));
+  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
+  src->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {3, 4, false})));
   auto dst = std::make_shared<VRAStructNode>();
-  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 0, false})));
 
   VRAs.storeNode(dst, src);
 
@@ -398,13 +373,12 @@ TEST_F(VRAStoreTest, storeNode_structLargerSrc)
   EXPECT_FALSE(field->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_structLargerDst)
-{
+TEST_F(VRAStoreTest, storeNode_structLargerDst) {
   auto src = std::make_shared<VRAStructNode>();
-  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{0, 0, false})));
+  src->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {0, 0, false})));
   auto dst = std::make_shared<VRAStructNode>();
-  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{1, 2, false})));
-  src->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t{3, 4, false})));
+  dst->setNodeAt(0, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {1, 2, false})));
+  src->setNodeAt(1, std::make_shared<VRAScalarNode>(std::make_shared<range_t>(range_t {3, 4, false})));
 
   VRAs.storeNode(dst, src);
 
@@ -421,10 +395,9 @@ TEST_F(VRAStoreTest, storeNode_structLargerDst)
   EXPECT_FALSE(field->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_scalarPtr)
-{
-  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
-  auto dst = new VRAScalarNode(std::make_shared<range_t>(range_t{0, 0, false}));
+TEST_F(VRAStoreTest, storeNode_scalarPtr) {
+  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
+  auto dst = new VRAScalarNode(std::make_shared<range_t>(range_t {0, 0, false}));
   auto dst_ptr = std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(*dst));
 
   VRAs.storeNode(dst_ptr, std::make_shared<VRAScalarNode>(*src));
@@ -437,10 +410,9 @@ TEST_F(VRAStoreTest, storeNode_scalarPtr)
   EXPECT_FALSE(retnode->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_scalarPtrFinalDst)
-{
-  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
-  auto dst = new VRAScalarNode(std::make_shared<range_t>(range_t{0, 0, true}));
+TEST_F(VRAStoreTest, storeNode_scalarPtrFinalDst) {
+  auto src = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
+  auto dst = new VRAScalarNode(std::make_shared<range_t>(range_t {0, 0, true}));
   auto dst_ptr = std::make_shared<VRAPtrNode>(std::make_shared<VRAScalarNode>(*dst));
 
   VRAs.storeNode(dst_ptr, std::make_shared<VRAScalarNode>(*src));
@@ -453,8 +425,7 @@ TEST_F(VRAStoreTest, storeNode_scalarPtrFinalDst)
   EXPECT_TRUE(retnode->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, storeNode_genericPtr)
-{
+TEST_F(VRAStoreTest, storeNode_genericPtr) {
   auto src = std::make_shared<VRAStructNode>(*new VRAStructNode());
   auto dst = new VRAStructNode();
   auto dst_ptr = std::make_shared<VRAPtrNode>(std::make_shared<VRAStructNode>(*dst));
@@ -465,14 +436,12 @@ TEST_F(VRAStoreTest, storeNode_genericPtr)
   EXPECT_EQ(ret, src);
 }
 
-TEST_F(VRAStoreTest, storeNode_structOffset)
-{
+TEST_F(VRAStoreTest, storeNode_structOffset) {
   // TODO: implement
 }
 
-TEST_F(VRAStoreTest, fetchRange_NodePtr_scalar)
-{
-  auto node = new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}));
+TEST_F(VRAStoreTest, fetchRange_NodePtr_scalar) {
+  auto node = new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}));
 
   auto ret = VRAs.fetchRange(std::make_shared<VRAScalarNode>(*node));
   auto range = std::dynamic_ptr_cast_or_null<VRAScalarNode>(ret);
@@ -482,10 +451,10 @@ TEST_F(VRAStoreTest, fetchRange_NodePtr_scalar)
   EXPECT_TRUE(range->isFinal());
 }
 
-TEST_F(VRAStoreTest, fetchRange_NodePtr_struct)
-{
+TEST_F(VRAStoreTest, fetchRange_NodePtr_struct) {
   auto node = new VRAStructNode();
-  node->setNodeAt(0, std::make_shared<VRAScalarNode>(*new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}))));
+  node->setNodeAt(0,
+                  std::make_shared<VRAScalarNode>(*new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}))));
 
   auto ret = VRAs.fetchRange(std::make_shared<VRAStructNode>(*node));
   auto range = std::dynamic_ptr_cast_or_null<VRAStructNode>(ret);
@@ -498,11 +467,12 @@ TEST_F(VRAStoreTest, fetchRange_NodePtr_struct)
   EXPECT_TRUE(field->getRange()->isFinal());
 }
 
-TEST_F(VRAStoreTest, fetchRange_NodePtr_GEP)
-{
+TEST_F(VRAStoreTest, fetchRange_NodePtr_GEP) {
   auto node = new VRAStructNode();
-  node->setNodeAt(0, std::make_shared<VRAScalarNode>(*new VRAScalarNode(std::make_shared<range_t>(range_t{1, 2, true}))));
-  node->setNodeAt(1, std::make_shared<VRAScalarNode>(*new VRAScalarNode(std::make_shared<range_t>(range_t{3, 4, true}))));
+  node->setNodeAt(0,
+                  std::make_shared<VRAScalarNode>(*new VRAScalarNode(std::make_shared<range_t>(range_t {1, 2, true}))));
+  node->setNodeAt(1,
+                  std::make_shared<VRAScalarNode>(*new VRAScalarNode(std::make_shared<range_t>(range_t {3, 4, true}))));
   unsigned offset[2] = {1, 1};
   auto GEP = new VRAGEPNode(std::make_shared<VRAStructNode>(*node), offset);
 

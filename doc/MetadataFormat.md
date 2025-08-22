@@ -375,7 +375,7 @@ Related functions:
 ```cpp
 #include "MDUtils/Metadata.h"
 static void MetadataManager::setLoopUnrollCountMetadata(llvm::Loop &L, unsigned UnrollCount);
-static llvm::Optional<unsigned> MetadataManager::retrieveLoopUnrollCount(const llvm::Loop &L);
+static std::Optional<unsigned> MetadataManager::retrieveLoopUnrollCount(const llvm::Loop &L);
 ```
 
 #### Max Recursion Count

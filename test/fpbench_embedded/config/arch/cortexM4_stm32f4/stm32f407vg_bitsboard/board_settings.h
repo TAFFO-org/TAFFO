@@ -43,22 +43,22 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1KB) but the
 /// STM32F407VG only has 192KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-const unsigned int defaultSerial=3;
-const unsigned int defaultSerialSpeed=19200;
-const bool defaultSerialFlowctrl=false;
-//#define SERIAL_1_DMA //Serial 1 is not used, so not enabling DMA
-//#define SERIAL_2_DMA //Serial 2 DMA conflicts with I2S driver in the examples
+const unsigned int defaultSerial = 3;
+const unsigned int defaultSerialSpeed = 19200;
+const bool defaultSerialFlowctrl = false;
+// #define SERIAL_1_DMA //Serial 1 is not used, so not enabling DMA
+// #define SERIAL_2_DMA //Serial 2 DMA conflicts with I2S driver in the examples
 #define SERIAL_3_DMA
 
-//SD card driver
-static const unsigned char sdVoltage=30; //Board powered @ 3.0V
-#define SD_ONE_BIT_DATABUS //Can't use 4 bit databus due to pin conflicts
+// SD card driver
+static const unsigned char sdVoltage = 30; // Board powered @ 3.0V
+#define SD_ONE_BIT_DATABUS                 // Can't use 4 bit databus due to pin conflicts
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

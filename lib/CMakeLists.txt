@@ -1,25 +1,26 @@
+add_subdirectory(TypeDeductionAnalysis)
 add_subdirectory(InstructionMix)
-add_subdirectory(TaffoUtils)
 
-add_subdirectory(Initializer)
-add_subdirectory(RangeAnalysis)
-add_subdirectory(DataTypeAlloc)
-add_subdirectory(Conversion)
-add_subdirectory(ErrorAnalysis)
-add_subdirectory(TaffoMem2Reg)
+add_subdirectory(TaffoCommon)
+add_subdirectory(TaffoTypeDeducer)
+add_subdirectory(TaffoInitializer)
+add_subdirectory(TaffoVRA)
+add_subdirectory(TaffoDTA)
+add_subdirectory(TaffoConversion)
+add_subdirectory(TaffoMemToReg)
 
 add_llvm_library(Taffo MODULE
+  $<TARGET_OBJECTS:obj.TaffoTypeDeducer>
   $<TARGET_OBJECTS:obj.TaffoInitializer>
   $<TARGET_OBJECTS:obj.TaffoVRA>
   $<TARGET_OBJECTS:obj.TaffoDTA>
-  $<TARGET_OBJECTS:obj.LLVMFloatToFixed>
-  $<TARGET_OBJECTS:obj.LLVMErrorPropagator>
-  $<TARGET_OBJECTS:obj.TaffoMem2Reg>
+  $<TARGET_OBJECTS:obj.TaffoConversion>
+  $<TARGET_OBJECTS:obj.TaffoMemToReg>
   PassPluginInfo.cpp
   ../cmake/dummy.cpp
 
   LINK_LIBS
-  TaffoUtils
+  TaffoCommon
   stdc++
   m
 
@@ -30,6 +31,8 @@ add_llvm_library(Taffo MODULE
 if (TAFFO_BUILD_ILP_DTA)
   target_link_libraries(Taffo PRIVATE ortools::ortools)
 endif ()
+
+target_link_libraries(Taffo PRIVATE nlohmann_json::nlohmann_json)
 
 if (TAFFO_UNITTESTS)
   target_compile_definitions(obj.TaffoInitializer PUBLIC UNITTESTS)

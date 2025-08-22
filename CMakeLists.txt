@@ -9,6 +9,7 @@ set(BUILD_SHARED_LIBS OFF)
 
 include(TaffoOptions)
 include(TaffoFetchDeps)
+include(FindClangFormat)
 
 find_package(LLVM REQUIRED CONFIG)
 
@@ -19,12 +20,15 @@ include(AddLLVM)
 include(LLVMConfig)
 include(HandleLLVMOptions)
 
-if ((${LLVM_VERSION_MAJOR} LESS 14) OR (${LLVM_VERSION_MAJOR} GREATER 15))
-  message(FATAL_ERROR "LLVM version ${LLVM_VERSION_MAJOR} is not supported!")
-endif ()
+if((${LLVM_VERSION_MAJOR} LESS 18) OR (${LLVM_VERSION_MAJOR} GREATER 18))
+  message(FATAL_ERROR
+    " LLVM version ${LLVM_VERSION_MAJOR} is not supported!\n"
+    " LLVM found at path: ${LLVM_DIR}")
+endif()
+message("LLVM found at path: ${LLVM_DIR}")
 
 # to be kept in sync with LLVM!
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy-10;")
 add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-covered-switch-default)
@@ -49,3 +53,13 @@ if (TAFFO_UNITTESTS)
   add_subdirectory(unittests)
 endif()
 
+# Set project git hooks
+set(PROJECT_GIT_HOOKS_DIR "${CMAKE_SOURCE_DIR}/.githooks")
+execute_process(
+  COMMAND git config --local core.hooksPath "${PROJECT_GIT_HOOKS_DIR}"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  RESULT_VARIABLE _git_cfg_res
+)
+if(NOT _git_cfg_res EQUAL 0)
+  message(WARNING "Failed to set core.hooksPath (exit code ${_git_cfg_res})")
+endif()

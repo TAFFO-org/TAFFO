@@ -4,13 +4,13 @@
  *
  * Contact:
  * William Killian <killian@udel.edu>
- * 
+ *
  * Copyright 2013, The University of Delaware
  */
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -19,14 +19,12 @@
 /* Default data type is double, default size is 4000. */
 #include "bicg.h"
 
-
 /* Array initialization. */
-static
-void init_array (int nx, int ny,
-		 DATA_TYPE POLYBENCH_2D(A,NX,NY,nx,ny),
-		 DATA_TYPE POLYBENCH_1D(r,NX,nx),
-		 DATA_TYPE POLYBENCH_1D(p,NY,ny))
-{
+static void init_array(int nx,
+                       int ny,
+                       DATA_TYPE POLYBENCH_2D(A, NX, NY, nx, ny),
+                       DATA_TYPE POLYBENCH_1D(r, NX, nx),
+                       DATA_TYPE POLYBENCH_1D(p, NY, ny)) {
   int i, j;
 
   for (i = 0; i < ny; i++)
@@ -34,67 +32,59 @@ void init_array (int nx, int ny,
   for (i = 0; i < nx; i++) {
     r[i] = i * M_PI;
     for (j = 0; j < ny; j++)
-      A[i][j] = ((DATA_TYPE) i*(j+1))/nx;
+      A[i][j] = ((DATA_TYPE) i * (j + 1)) / nx;
   }
 }
 
-
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
-static
-void print_array(int nx, int ny,
-		 DATA_TYPE POLYBENCH_1D(s,NY,ny),
-		 DATA_TYPE POLYBENCH_1D(q,NX,nx))
+static void print_array(int nx, int ny, DATA_TYPE POLYBENCH_1D(s, NY, ny), DATA_TYPE POLYBENCH_1D(q, NX, nx))
 
 {
   int i;
 
   for (i = 0; i < ny; i++) {
-    fprintf (stderr, DATA_PRINTF_MODIFIER, s[i]);
-    if (i % 20 == 0) fprintf (stderr, "\n");
+    fprintf(stderr, DATA_PRINTF_MODIFIER, s[i]);
+    if (i % 20 == 0)
+      fprintf(stderr, "\n");
   }
   for (i = 0; i < nx; i++) {
-    fprintf (stderr, DATA_PRINTF_MODIFIER, q[i]);
-    if (i % 20 == 0) fprintf (stderr, "\n");
+    fprintf(stderr, DATA_PRINTF_MODIFIER, q[i]);
+    if (i % 20 == 0)
+      fprintf(stderr, "\n");
   }
-  fprintf (stderr, "\n");
+  fprintf(stderr, "\n");
 }
-
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
-static
-void kernel_bicg(int nx, int ny,
-		 DATA_TYPE POLYBENCH_2D(A,NX,NY,nx,ny),
-		 DATA_TYPE POLYBENCH_1D(s,NY,ny),
-		 DATA_TYPE POLYBENCH_1D(q,NX,nx),
-		 DATA_TYPE POLYBENCH_1D(p,NY,ny),
-		 DATA_TYPE POLYBENCH_1D(r,NX,nx))
-{
+static void kernel_bicg(int nx,
+                        int ny,
+                        DATA_TYPE POLYBENCH_2D(A, NX, NY, nx, ny),
+                        DATA_TYPE POLYBENCH_1D(s, NY, ny),
+                        DATA_TYPE POLYBENCH_1D(q, NX, nx),
+                        DATA_TYPE POLYBENCH_1D(p, NY, ny),
+                        DATA_TYPE POLYBENCH_1D(r, NX, nx)) {
   int i, j;
-  #pragma scop
-  #pragma omp parallel
+#pragma scop
+#pragma omp parallel
   {
-    #pragma omp for
+#pragma omp for
     for (i = 0; i < _PB_NY; i++)
       s[i] = 0;
-    #pragma omp for private (j)
-    for (i = 0; i < _PB_NX; i++)
-      {
-        q[i] = 0;
-	for (j = 0; j < _PB_NY; j++)
-	  {
-            s[j] = s[j] + r[i] * A[i][j];
-	    q[i] = q[i] + A[i][j] * p[j];
-	  }
+#pragma omp for private(j)
+    for (i = 0; i < _PB_NX; i++) {
+      q[i] = 0;
+      for (j = 0; j < _PB_NY; j++) {
+        s[j] = s[j] + r[i] * A[i][j];
+        q[i] = q[i] + A[i][j] * p[j];
       }
+    }
   }
-  #pragma endscop
+#pragma endscop
 }
 
-
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   /* Retrieve problem size. */
   int nx = NX;
   int ny = NY;
@@ -107,21 +97,14 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE, NX, nx);
 
   /* Initialize array(s). */
-  init_array (nx, ny,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(r),
-	      POLYBENCH_ARRAY(p));
+  init_array(nx, ny, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(r), POLYBENCH_ARRAY(p));
 
   /* Start timer. */
   polybench_start_instruments;
 
   /* Run kernel. */
-  kernel_bicg (nx, ny,
-	       POLYBENCH_ARRAY(A),
-	       POLYBENCH_ARRAY(s),
-	       POLYBENCH_ARRAY(q),
-	       POLYBENCH_ARRAY(p),
-	       POLYBENCH_ARRAY(r));
+  kernel_bicg(
+    nx, ny, POLYBENCH_ARRAY(A), POLYBENCH_ARRAY(s), POLYBENCH_ARRAY(q), POLYBENCH_ARRAY(p), POLYBENCH_ARRAY(r));
 
   /* Stop and print timer. */
   polybench_stop_instruments;

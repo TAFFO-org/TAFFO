@@ -44,22 +44,22 @@ namespace miosix {
 /// Size of stack for main().
 /// The C standard library is stack-heavy (iprintf requires 1.5KB) and the
 /// STM32F205RC has 128KB of RAM so there is room for a big 4K stack.
-const unsigned int MAIN_STACK_SIZE=4*1024;
+const unsigned int MAIN_STACK_SIZE = 4 * 1024;
 
 /// Serial port
-const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
-const bool defaultSerialFlowctrl=false;
-//#define SERIAL_1_DMA //Serial 1 has no DMA as it would conflict with SPI6
-// #define SERIAL_2_DMA   //Serial 2 is used by the piksi GPS, enable DMA
-//#define SERIAL_3_DMA //Serial 3 is not used
+const unsigned int defaultSerial = 1;
+const unsigned int defaultSerialSpeed = 19200;
+const bool defaultSerialFlowctrl = false;
+// #define SERIAL_1_DMA //Serial 1 has no DMA as it would conflict with SPI6
+//  #define SERIAL_2_DMA   //Serial 2 is used by the piksi GPS, enable DMA
+// #define SERIAL_3_DMA //Serial 3 is not used
 
-//STM32Serial class supports only USART1, for USART2 and USART3 low-level
-//access is needed to write modbus RTU driver properly
+// STM32Serial class supports only USART1, for USART2 and USART3 low-level
+// access is needed to write modbus RTU driver properly
 #define STM32_NO_SERIAL_2_3
 
 /**
  * \}
  */
 
-} //namespace miosix
+} // namespace miosix

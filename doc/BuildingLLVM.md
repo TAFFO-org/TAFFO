@@ -42,12 +42,12 @@ released for unstable versions of LLVM. However TAFFO never requires unstable
 versions of LLVM, so we can use the tarball without worry.
 
 ```
-wget https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/llvm-project-15.0.7.src.tar.xz
-tar xvf llvm-project-15.0.7.src.tar.xz
+wget https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-18.1.8.tar.gz
+tar xvf llvmorg-18.1.8.tar.gz
 ```
 
 These commands will expand the entire LLVM project source code into the
-directory `llvm-project-15.0.7.src`.
+directory `llvmorg-18.1.8`.
 
 ### 2: Configure LLVM with CMake
 
@@ -66,16 +66,16 @@ options. Here is the suggested command.
 ```
 cmake ../llvm \
   -GNinja \
-  -DCMAKE_INSTALL_PREFIX=/opt/llvm-15-d \
+  -DCMAKE_INSTALL_PREFIX=/opt/llvm-18-d \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DLLVM_ENABLE_PROJECTS='clang;compiler-rt;libcxx;libcxxabi;openmp' \
+  -DLLVM_ENABLE_PROJECTS='clang;openmp' \
+  -DLLVM_ENABLE_RUNTIMES='libcxx;libcxxabi' \
   -DLLVM_ENABLE_LIBCXX=ON \
   -DLLVM_INSTALL_UTILS=ON \
   -DLLVM_INCLUDE_EXAMPLES=OFF \
   -DLLVM_BUILD_LLVM_DYLIB=ON \
   -DLLVM_LINK_LLVM_DYLIB=ON \
   -DLLVM_OPTIMIZED_TABLEGEN=ON \
-  -DLLVM_TARGETS_TO_BUILD='X86;ARM;AArch64' \
 ```
 
 Additional options to add at the end **only for Linux**:

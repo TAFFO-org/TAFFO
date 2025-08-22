@@ -1,0 +1,141 @@
+#pragma once
+
+#include "TaffoCommon/Containers/BiMap.hpp"
+#include "TransparentType.hpp"
+#include "ValueInfo.hpp"
+
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+
+extern llvm::cl::opt<std::string> tempDir;
+#define TYPE_DEDUCER_TAFFO_INFO (tempDir + "/taffo_info_typededucer.json")
+#define INITIALIZER_TAFFO_INFO (tempDir + "/taffo_info_init.json")
+#define VRA_TAFFO_INFO (tempDir + "/taffo_info_vra.json")
+#define DTA_TAFFO_INFO (tempDir + "/taffo_info_dta.json")
+#define CONVERSION_TAFFO_INFO (tempDir + "/taffo_info_conv.json")
+
+namespace taffo {
+
+/**
+ * Singleton class to maintain Taffo analysis information.
+ * Supports serialization/deserialization to/from JSON for debug purposes.
+ */
+class TaffoInfo : public Serializable {
+public:
+  TaffoInfo(const TaffoInfo&) = delete;
+  TaffoInfo& operator=(const TaffoInfo&) = delete;
+
+  static TaffoInfo& getInstance();
+
+  void setTransparentType(llvm::Value& v, std::unique_ptr<tda::TransparentType> t);
+  tda::TransparentType* getOrCreateTransparentType(llvm::Value& v);
+  tda::TransparentType* getTransparentType(const llvm::Value& v) const;
+  bool hasTransparentType(const llvm::Value& v);
+
+  void addStartingPoint(llvm::Function& f);
+  void addDefaultStartingPoint(llvm::Module& m);
+  bool isStartingPoint(llvm::Function& f) const;
+  bool hasStartingPoint(llvm::Module& m) const;
+
+  void setIndirectFunction(llvm::CallInst& call, llvm::Function& f);
+  llvm::Function* getIndirectFunction(const llvm::CallInst& call) const;
+  bool isIndirectFunction(const llvm::CallInst& call) const;
+
+  void setOpenCLTrampoline(llvm::Function& f, llvm::Function& kernF);
+  llvm::Function* getOpenCLTrampoline(const llvm::Function& f) const;
+  bool isOpenCLTrampoline(const llvm::Function& f) const;
+
+  void disableConversion(llvm::Instruction& i);
+  bool isConversionDisabled(llvm::Instruction& i) const;
+
+  void createValueInfo(llvm::Value& v);
+  void setValueInfo(llvm::Value& v, const std::shared_ptr<ValueInfo>& vi);
+  void setValueInfo(llvm::Value& v, std::shared_ptr<ValueInfo>&& vi);
+
+  std::shared_ptr<ValueInfo> getValueInfo(const llvm::Value& v) const;
+  bool hasValueInfo(const llvm::Value& v) const;
+
+  void setValueWeight(llvm::Value& v, int weight);
+  int getValueWeight(const llvm::Value& v) const;
+
+  void addCloneFunction(llvm::Function& originalF, llvm::Function& cloneF);
+  void getCloneFunctions(const llvm::Function& originalF, llvm::SmallPtrSetImpl<llvm::Function*>& cloneFunctions) const;
+  unsigned getNumCloneFunctions(const llvm::Function& originalF) const;
+  bool isOriginalFunction(const llvm::Function& f) const;
+  bool isCloneFunction(llvm::Function& f) const;
+  void setOriginalFunctionLinkage(llvm::Function& originalF, llvm::GlobalValue::LinkageTypes linkage);
+  llvm::GlobalValue::LinkageTypes getOriginalFunctionLinkage(const llvm::Function& originalF) const;
+
+  void setMaxRecursionCount(llvm::Function& f, unsigned maxRecursion);
+  unsigned getMaxRecursionCount(const llvm::Function& f) const;
+
+  void setLoopUnrollCount(llvm::Loop& l, unsigned unrollCount);
+  unsigned getLoopUnrollCount(const llvm::Loop& l) const;
+
+  void setError(llvm::Instruction& i, double error);
+  double getError(llvm::Instruction& i) const;
+
+  void setCmpErrorMetadata(llvm::Instruction& i, CmpErrorInfo& compErrorInfo);
+  std::shared_ptr<CmpErrorInfo> getCmpError(const llvm::Instruction& i) const;
+
+  llvm::Type* getType(const std::string& typeId) const;
+  const llvm::DataLayout* getDataLayout() const { return dataLayout; }
+
+  void eraseValue(llvm::Value* v);
+  void eraseLoop(llvm::Loop* l);
+
+  void dumpToFile(const std::string& filePath, llvm::Module& m);
+  void initialize(llvm::Module& m);
+  void initializeFromFile(const std::string& filePath, llvm::Module& m);
+
+private:
+  llvm::DenseMap<llvm::Value*, std::unique_ptr<tda::TransparentType>> transparentTypes;
+
+  llvm::SmallVector<llvm::Function*> startingPoints;
+  llvm::SmallDenseMap<llvm::CallInst*, llvm::Function*> indirectFunctions;
+  llvm::SmallDenseMap<llvm::Function*, llvm::Function*> oclTrampolines;
+  llvm::SmallVector<llvm::Instruction*> disabledConversion;
+
+  llvm::DenseMap<llvm::Function*, llvm::Function*> cloneToOriginalFunction;
+  llvm::DenseMap<llvm::Function*, llvm::SmallPtrSet<llvm::Function*, 2>> originalToCloneFunctions;
+  llvm::DenseMap<llvm::Function*, llvm::GlobalValue::LinkageTypes> originalFunctionLinkage;
+
+  llvm::DenseMap<llvm::Value*, std::shared_ptr<ValueInfo>> valueInfo;
+  llvm::DenseMap<llvm::Value*, int> valueWeights;
+
+  llvm::DenseMap<llvm::Function*, unsigned> maxRecursionCount;
+  llvm::DenseMap<llvm::Loop*, unsigned> loopUnrollCount;
+  llvm::DenseMap<llvm::Instruction*, double> error;
+  llvm::DenseMap<llvm::Instruction*, std::shared_ptr<CmpErrorInfo>> cmpError;
+
+  llvm::SmallVector<llvm::Value*, 32> erasedValues;
+  llvm::SmallPtrSet<llvm::Loop*, 4> erasedLoops;
+
+  BiMap<std::string, llvm::Value*> idValueMapping;
+  BiMap<std::string, llvm::Loop*> idLoopMapping;
+  BiMap<std::string, llvm::Type*> idTypeMapping;
+
+  const llvm::DataLayout* dataLayout;
+
+  unsigned idCounter;
+  unsigned idDigits;
+  json jsonRepresentation;
+  std::string logContextTag = "TaffoInfo";
+
+  TaffoInfo()
+  : dataLayout(nullptr), idCounter(0), idDigits(1) {}
+
+  void generateTaffoIds();
+  void generateTaffoId(llvm::Value* v);
+  void generateTaffoId(llvm::Loop* l);
+  std::string generateValueId(const llvm::Value* v);
+  std::string generateLoopId(const llvm::Loop* l);
+  void updateIdDigits();
+  void deleteErasedValues();
+
+  json serialize() const override;
+  void deserialize(const json& j) override;
+};
+
+} // namespace taffo

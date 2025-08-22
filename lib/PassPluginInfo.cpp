@@ -1,50 +1,55 @@
-#include "llvm/IR/PassManager.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
-#include "Initializer/TaffoInitializer/TaffoInitializerPass.h"
-#include "RangeAnalysis/TaffoVRA/ValueRangeAnalysis.hpp"
-#include "DataTypeAlloc/TaffoDTA/TaffoDTA.h"
-#include "Conversion/LLVMFloatToFixed/LLVMFloatToFixedPass.h"
-#include "ErrorAnalysis/ErrorPropagator/ErrorPropagator.h"
-#include "TaffoMem2Reg/Mem2Reg.h"
+#include "TaffoConversion/TaffoConversion/ConversionPass.hpp"
+#include "TaffoDTA/TaffoDTA/DataTypeAllocationPass.hpp"
+#include "TaffoInitializer/TaffoInitializer/InitializerPass.hpp"
+#include "TaffoMemToReg/MemToRegPass.hpp"
+#include "TaffoTypeDeducer/TypeDeducerPass.hpp"
+#include "TaffoVRA/TaffoVRA/ValueRangeAnalysisPass.hpp"
+#include "TypeDeductionAnalysis.hpp"
+
+#include <llvm/IR/PassManager.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/PassPlugin.h>
 
 using namespace llvm;
+using namespace tda;
 using namespace taffo;
 
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
-{
-  return {
-      LLVM_PLUGIN_API_VERSION,
-      "Taffo",
-      "0.3",
-      [](PassBuilder &PB) {
-        PB.registerPipelineParsingCallback(
-            [](StringRef Name, ModulePassManager &PM, ArrayRef<PassBuilder::PipelineElement>) {
-              if (Name == "taffoinit") {
-                PM.addPass(TaffoInitializer());
-                return true;
-              } else if (Name == "taffovra") {
-                PM.addPass(ValueRangeAnalysis());
-                return true;
-              } else if (Name == "taffodta") {
-                PM.addPass(tuner::TaffoTuner());
-                return true;
-              } else if (Name == "taffoconv") {
-                PM.addPass(flttofix::Conversion());
-                return true;
-              } else if (Name == "taffoerr") {
-                PM.addPass(ErrorProp::ErrorPropagator());
-                return true;
-              }
-              return false;
+extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
+  return {LLVM_PLUGIN_API_VERSION, "Taffo", "1.0", [](PassBuilder& passBuilder) {
+            passBuilder.registerPipelineParsingCallback(
+              [](StringRef name, ModulePassManager& passManager, ArrayRef<PassBuilder::PipelineElement>) {
+                if (name == "typededucer") {
+                  passManager.addPass(TypeDeducerPass());
+                  return true;
+                }
+                if (name == "taffoinit") {
+                  passManager.addPass(InitializerPass());
+                  return true;
+                }
+                if (name == "taffovra") {
+                  passManager.addPass(ValueRangeAnalysisPass());
+                  return true;
+                }
+                if (name == "taffodta") {
+                  passManager.addPass(taffo::DataTypeAllocationPass());
+                  return true;
+                }
+                if (name == "taffoconv") {
+                  passManager.addPass(ConversionPass());
+                  return true;
+                }
+                return false;
+              });
+            passBuilder.registerPipelineParsingCallback(
+              [](StringRef name, FunctionPassManager& passManager, ArrayRef<PassBuilder::PipelineElement>) {
+                if (name == "taffomem2reg") {
+                  passManager.addPass(MemToRegPass());
+                  return true;
+                }
+                return false;
+              });
+            passBuilder.registerAnalysisRegistrationCallback([](ModuleAnalysisManager& moduleAnalysisManager) {
+              moduleAnalysisManager.registerPass([] { return TypeDeductionAnalysis(); });
             });
-        PB.registerPipelineParsingCallback(
-            [](StringRef Name, FunctionPassManager &PM, ArrayRef<PassBuilder::PipelineElement>) {
-              if (Name == "taffomem2reg") {
-                PM.addPass(taffo::TaffoMem2Reg());
-                return true;
-              }
-              return false;
-            });
-      }};
+          }};
 }

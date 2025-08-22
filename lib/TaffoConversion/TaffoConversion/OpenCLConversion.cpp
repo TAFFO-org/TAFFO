@@ -1,0 +1,124 @@
+#include "ConversionPass.hpp"
+
+#include <llvm/IR/Metadata.h>
+#include <llvm/IR/Operator.h>
+
+using namespace llvm;
+using namespace tda;
+using namespace taffo;
+
+#define DEBUG_TYPE "taffo-conv"
+
+bool ConversionPass::isSupportedOpenCLFunction(Function* F) {
+  if (F->getName() == "clCreateBuffer")
+    return true;
+  if (F->getName() == "clEnqueueReadBuffer")
+    return true;
+  if (F->getName() == "clEnqueueWriteBuffer")
+    return true;
+  if (F->getName() == "clSetKernelArg")
+    return true;
+  return false;
+}
+
+Value* ConversionPass::convertOpenCLCall(CallBase* C) {
+  Function* F = C->getCalledFunction();
+
+  unsigned BufferArgId;
+  unsigned BufferSizeArgId;
+  LLVM_DEBUG(log() << F->getName() << " detected, attempting to convert\n");
+  if (F->getName() == "clCreateBuffer") {
+    BufferArgId = 3;
+    BufferSizeArgId = 2;
+  }
+  else if (F->getName() == "clEnqueueReadBuffer" || F->getName() == "clEnqueueWriteBuffer") {
+    BufferArgId = 5;
+    BufferSizeArgId = 4;
+  }
+  else if (F->getName() == "clSetKernelArg") {
+    BufferArgId = 3;
+    BufferSizeArgId = 2;
+  }
+  else {
+    llvm_unreachable("Wait why are we handling an OpenCL call that we don't know about?");
+    return unsupported;
+  }
+
+  Value* TheBuffer = C->getArgOperand(BufferArgId);
+  if (auto* BC = dyn_cast<BitCastOperator>(TheBuffer))
+    TheBuffer = BC->getOperand(0);
+  Value* NewBuffer = convertedValues.at(TheBuffer);
+  if (!NewBuffer || !taffoConvInfo.hasValueConvInfo(NewBuffer)) {
+    LLVM_DEBUG(log() << "Buffer argument not converted; trying fallback.");
+    return unsupported;
+  }
+  LLVM_DEBUG(log() << "Found converted buffer: " << *NewBuffer << "\n");
+  LLVM_DEBUG(log() << "Buffer convType is: " << *taffoConvInfo.getNewType(NewBuffer) << "\n");
+  Type* VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
+  Value* NewBufferArg;
+  if (NewBuffer->getType() != VoidPtrTy)
+    NewBufferArg = new BitCastInst(NewBuffer, VoidPtrTy, "", C);
+  else
+    NewBufferArg = NewBuffer;
+  C->setArgOperand(BufferArgId, NewBufferArg);
+
+  // TODO fix soon
+  /*LLVM_DEBUG(log() << "Attempting to adjust buffer size\n");
+  Type* OldTy = TheBuffer->getType();
+  Type* NewTy = NewBuffer->getType();
+  Value* OldBufSz = C->getArgOperand(BufferSizeArgId);
+  Value* NewBufSz = adjustMemoryAllocationSize(OldBufSz, OldTy, NewTy, C, true);
+  if (OldBufSz != NewBufSz) {
+    C->setArgOperand(BufferSizeArgId, NewBufSz);
+    LLVM_DEBUG(log() << "Buffer size was adjusted\n");
+  }
+  else {
+    LLVM_DEBUG(log() << "Buffer size did not need any adjustment\n");
+  }*/
+
+  return C;
+}
+
+void ConversionPass::cleanUpOpenCLKernelTrampolines(Module* M) {
+  LLVM_DEBUG(log() << "Cleaning up OpenCL trampolines inserted by Initializer...\n");
+  SmallVector<Function*, 4> FuncsToDelete;
+
+  for (Function& F : M->functions()) {
+    Function* KernF = TaffoInfo::getInstance().getOpenCLTrampoline(F);
+    if (!KernF)
+      continue;
+
+    // TODO check: there may be more clones
+    SmallPtrSet<Function*, 2> clone;
+    TaffoInfo::getInstance().getCloneFunctions(*KernF, clone);
+    Function* NewKernF = *clone.begin();
+    assert(NewKernF && "OpenCL kernel function with trampoline but no cloned function??");
+    Function* NewFixpKernF = functionPool[NewKernF];
+    assert(NewFixpKernF && "OpenCL kernel function cloned but not converted????");
+
+    LLVM_DEBUG(log() << "Processing trampoline " << F.getName() << ", KernF=" << KernF->getName()
+                     << ", NewKernF=" << NewKernF->getName() << ", NewFixpKernF=" << NewFixpKernF->getName() << "\n");
+
+    FuncsToDelete.append({&F, KernF, NewKernF});
+    std::string KernFunName = std::string(KernF->getName());
+    KernF->setName("");
+    NewFixpKernF->setName(KernFunName);
+
+    NamedMDNode* NVVMM = M->getNamedMetadata("nvvm.annotations");
+    unsigned I = 0U;
+    for (MDNode* NVVMNode : NVVMM->operands()) {
+      ValueAsMetadata* MDKF = dyn_cast<ValueAsMetadata>(NVVMNode->getOperand(0U));
+      if (MDKF->getValue() == KernF) {
+        LLVM_DEBUG(log() << "Found NVVM annotation " << *NVVMNode << "\n");
+        MDNode* NewNVVMNode = MDNode::get(
+          M->getContext(), {ValueAsMetadata::get(NewFixpKernF), NVVMNode->getOperand(1U), NVVMNode->getOperand(2U)});
+        NVVMM->setOperand(I, NewNVVMNode);
+      }
+      I++;
+    }
+  }
+
+  for (Function* f : FuncsToDelete)
+    TaffoInfo::getInstance().eraseValue(f);
+  LLVM_DEBUG(log() << "Finished!\n");
+}

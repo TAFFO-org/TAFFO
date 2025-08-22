@@ -1,22 +1,16 @@
+#include "TaffoInitializer/IndirectCallPatcher.h"
 #include "TestUtils.h"
 
-#include "TaffoInitializer/IndirectCallPatcher.h"
-
-namespace
-{
+namespace {
 using namespace llvm;
 using namespace taffo;
 using namespace taffo_test;
 
-
-class IndirectCallPatcherTest : public taffo_test::Test
-{
-  protected:
-    Function *F0;
-    BasicBlock *BB0;
-    const std::vector<std::string> prefixBlocklist{"__kmpc_omp_task",
-                                                    "__kmpc_reduce"};
-
+class IndirectCallPatcherTest : public taffo_test::Test {
+protected:
+  Function* F0;
+  BasicBlock* BB0;
+  const std::vector<std::string> prefixBlocklist {"__kmpc_omp_task", "__kmpc_reduce"};
 
   IndirectCallPatcherTest() {
     F0 = genFunction(*M, "caller", Type::getVoidTy(Context), {});
@@ -24,8 +18,7 @@ class IndirectCallPatcherTest : public taffo_test::Test
   }
 };
 
-TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_lastFunction)
-{
+TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_lastFunction) {
   for (auto prefix : prefixBlocklist) {
     auto F1 = genFunction(*M, prefix, Type::getVoidTy(Context), {});
     CallInst::Create(F1, {}, "", BB0);
@@ -33,8 +26,7 @@ TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_lastFunction)
   }
 }
 
-TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_traversed)
-{
+TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_traversed) {
   /*x
    * F0: entry
    * F1: supportedFunction
@@ -53,10 +45,9 @@ TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_traversed)
   }
 }
 
-TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_no)
-{
+TEST_F(IndirectCallPatcherTest, containsUnsupportedFunction_no) {
   CallInst::Create(F0, {}, "", BB0);
   ASSERT_FALSE(containsUnsupportedFunctions(F0, {}));
 }
 
-}
+} // namespace
