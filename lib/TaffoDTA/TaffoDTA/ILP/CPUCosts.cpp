@@ -19,7 +19,7 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-using namespace tuner;
+using namespace taffo;
 using namespace std;
 
 extern std::string InstructionSet;
@@ -295,8 +295,7 @@ void CPUCosts::ApplyAttribute(string& attr) {
       }
     }
     break;
-  default:
-    llvm_unreachable("Attribute not found instruction file invalid");
+  default: llvm_unreachable("Attribute not found instruction file invalid");
   }
 }
 

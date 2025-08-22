@@ -15,7 +15,7 @@ using namespace tda;
 using namespace taffo;
 
 extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "Taffo", "0.4", [](PassBuilder& passBuilder) {
+  return {LLVM_PLUGIN_API_VERSION, "Taffo", "1.0", [](PassBuilder& passBuilder) {
             passBuilder.registerPipelineParsingCallback(
               [](StringRef name, ModulePassManager& passManager, ArrayRef<PassBuilder::PipelineElement>) {
                 if (name == "typededucer") {
@@ -31,7 +31,7 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
                   return true;
                 }
                 if (name == "taffodta") {
-                  passManager.addPass(tuner::DataTypeAllocationPass());
+                  passManager.addPass(taffo::DataTypeAllocationPass());
                   return true;
                 }
                 if (name == "taffoconv") {

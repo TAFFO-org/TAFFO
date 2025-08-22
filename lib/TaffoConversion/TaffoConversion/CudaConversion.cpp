@@ -6,7 +6,7 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 bool ConversionPass::isSupportedCudaFunction(Function* F) {
   if (F->getName() == "cuMemcpyHtoD_v2")

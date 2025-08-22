@@ -34,6 +34,7 @@ public:
 
   virtual ~ConversionType() = default;
 
+  virtual bool isVoid() const { return false; }
   virtual bool isFixedPoint() const { return false; }
   virtual bool isFloatingPoint() const { return false; }
 
@@ -97,6 +98,7 @@ public:
   int getIntegerBits() const { return bits - fractionalBits; }
   FloatStandard getFloatStandard() const { return floatStandard; }
 
+  bool isVoid() const override { return floatStandard == NotFloat && bits == 0; }
   bool isFixedPoint() const override { return floatStandard == NotFloat; }
   bool isFloatingPoint() const override { return floatStandard != NotFloat; }
   llvm::Type* toScalarLLVMType(llvm::LLVMContext& context) const;
@@ -104,6 +106,7 @@ public:
   ConversionScalarType& operator=(const ConversionScalarType& other);
   bool operator==(const ConversionType& other) const override;
 
+  using ConversionType::clone;
   std::unique_ptr<ConversionType> clone(const tda::TransparentType& type) const override;
   std::string toString() const override;
 
@@ -146,6 +149,7 @@ public:
   ConversionStructType& operator=(const ConversionStructType& other);
   bool operator==(const ConversionType& other) const override;
 
+  using ConversionType::clone;
   std::unique_ptr<ConversionType> clone(const tda::TransparentType& type) const override;
   std::string toString() const override;
 

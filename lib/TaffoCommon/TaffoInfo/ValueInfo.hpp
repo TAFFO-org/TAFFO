@@ -14,7 +14,7 @@ class StructInfo;
 class TaffoInfo;
 
 class ValueInfoFactory {
-private: // TODO Make all of this private and accessible by TaffoInfo only
+private: // TODO Make all of this private and accessible by TaffoInfo only?
 
 public:
   friend class TaffoInfo;
@@ -28,13 +28,13 @@ public:
          std::unordered_map<const tda::TransparentType*, std::shared_ptr<StructInfo>>& recursionMap);
 };
 
-class InitializerPass; // TODO remove
+class InitializerPass;
 class AnnotationParser;
 
 class ValueInfo : public Serializable,
                   public tda::Printable {
 public:
-  friend class InitializerPass; // TODO remove
+  friend class InitializerPass;
   friend class AnnotationParser;
 
   enum ValueInfoKind {
@@ -58,6 +58,8 @@ public:
   }
 
   virtual void copyFrom(const ValueInfo& other);
+  virtual void mergeConversionEnabled(const ValueInfo& other) {}
+
   json serialize() const override;
   void deserialize(const json& j) override;
 
@@ -100,6 +102,8 @@ public:
   ScalarInfo& operator=(const ScalarInfo& other);
 
   void copyFrom(const ValueInfo& other) override;
+  void mergeConversionEnabled(const ValueInfo& other) override;
+
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json& j) override;
@@ -127,12 +131,16 @@ public:
   std::shared_ptr<ValueInfo> getField(unsigned i) { return Fields[i]; }
   void setField(unsigned i, std::shared_ptr<ValueInfo> field) { Fields[i] = std::move(field); }
 
+  ValueInfo* getField(llvm::iterator_range<const llvm::Use*> gepIndices);
+
   ValueInfoKind getKind() const override { return K_Struct; }
   bool isConversionEnabled() const override;
 
   std::shared_ptr<ValueInfo> resolveFromIndexList(llvm::Type* type, llvm::ArrayRef<unsigned> indices) const;
 
   void copyFrom(const ValueInfo& other) override;
+  void mergeConversionEnabled(const ValueInfo& other) override;
+
   std::string toString() const override;
   json serialize() const override;
   void deserialize(const json& j) override;

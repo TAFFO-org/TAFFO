@@ -13,7 +13,6 @@ extern llvm::cl::opt<int> FracThreshold;
 using namespace std;
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -442,9 +441,7 @@ void MetricBase::handleCall(Instruction* instruction, shared_ptr<TunerInfo> valu
         //  their counterpart in all the versions, so they can be treated in some other ways
 
         break;
-      default:
-        emitError("skipping intrinsic " + calledFunctionName);
-        return;
+      default: emitError("skipping intrinsic " + calledFunctionName); return;
       }
     }
     LLVM_DEBUG(log() << "Handling external function call, we will convert all to original parameters.\n";);
@@ -564,8 +561,7 @@ void MetricBase::handleCall(Instruction* instruction, shared_ptr<TunerInfo> valu
         // handleMemCpyIntrinsics(call_i);
         llvm_unreachable("Memcpy not handled atm!");
         break;
-      default:
-        emitError("skipping intrinsic " + calledFunctionName);
+      default: emitError("skipping intrinsic " + calledFunctionName);
       }
       // TODO handle case of llvm intrinsics function call
     }

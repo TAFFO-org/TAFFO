@@ -11,7 +11,6 @@
 using namespace std;
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
@@ -679,8 +678,7 @@ int MetricPerf::getENOBFromRange(const shared_ptr<Range>& range, FloatingPointIn
     fractionalDigits = llvm::APFloat::semanticsPrecision(llvm::APFloat::x87DoubleExtended()) - 1;
     minExponentPower = llvm::APFloat::semanticsMinExponent(llvm::APFloat::x87DoubleExtended());
     break;
-  default:
-    llvm_unreachable("Unsupported type here!");
+  default: llvm_unreachable("Unsupported type here!");
   }
 
   // We explore the range in order to understand where to compute the number of bits

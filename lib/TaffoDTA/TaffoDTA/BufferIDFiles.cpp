@@ -8,7 +8,6 @@
 
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
 static std::unique_ptr<NumericTypeInfo> ReadTypeFromYAMLNode(SourceMgr& SM, yaml::Node* Node) {
   yaml::MappingNode* MapNode = dyn_cast<yaml::MappingNode>(Node);
@@ -96,7 +95,7 @@ static bool ReadBufferIDFileImpl(std::string Fn, BufferIDTypeMap& OutMap) {
   return true;
 }
 
-void tuner::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap) {
+void taffo::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap) {
   // TODO: "replace most of report_fatal_error with llvm::Error and propagate them correctly"
   // Not my todo, it's a quote from a comment to Phabricator patchset D67847 :)
   // Is llvm::Error used anywhere btw?
@@ -104,7 +103,7 @@ void tuner::ReadBufferIDFile(std::string Fn, BufferIDTypeMap& OutMap) {
     report_fatal_error("Error reading bufferID file!");
 }
 
-void tuner::WriteBufferIDFile(std::string Fn, BufferIDTypeMap& Map) {
+void taffo::WriteBufferIDFile(std::string Fn, BufferIDTypeMap& Map) {
   std::ofstream Stm(Fn);
   Stm << "---" << std::endl;
   for (auto& Pair : Map) {

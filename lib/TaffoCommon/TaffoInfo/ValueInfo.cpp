@@ -1,6 +1,8 @@
 #include "TaffoInfo.hpp"
 #include "ValueInfo.hpp"
 
+#include <llvm/IR/Constants.h>
+
 using namespace llvm;
 using namespace tda;
 using namespace taffo;
@@ -77,6 +79,11 @@ void ScalarInfo::copyFrom(const ValueInfo& other) {
   error = otherScalar.error ? std::make_shared<double>(*otherScalar.error) : nullptr;
   conversionEnabled = otherScalar.conversionEnabled;
   final = otherScalar.final;
+}
+
+void ScalarInfo::mergeConversionEnabled(const ValueInfo& other) {
+  const ScalarInfo& otherScalar = cast<ScalarInfo>(other);
+  conversionEnabled |= otherScalar.conversionEnabled;
 }
 
 std::shared_ptr<ValueInfo> ScalarInfo::cloneImpl() const {
@@ -210,6 +217,37 @@ void StructInfo::copyFrom(const ValueInfo& other) {
     else
       field = nullptr;
   }
+}
+
+void StructInfo::mergeConversionEnabled(const ValueInfo& other) {
+  const StructInfo& otherStruct = cast<StructInfo>(other);
+  assert(getNumFields() == otherStruct.getNumFields() && "Different number of fields");
+  for (auto&& [field, otherField] : zip(*this, otherStruct))
+    if (field && otherField)
+      field->mergeConversionEnabled(*otherField);
+}
+
+ValueInfo* StructInfo::getField(const iterator_range<const Use*> gepIndices) {
+  SmallVector<unsigned, 4> indices;
+  for (Value* value : gepIndices) {
+    auto constantIndex = cast<ConstantInt>(value);
+    indices.push_back(constantIndex->getZExtValue());
+  }
+
+  ValueInfo* curr = this;
+  bool first = true;
+  for (unsigned index : indices) {
+    if (first) {
+      assert(index == 0);
+      first = false;
+      continue;
+    }
+    auto currStructInfo = dyn_cast_or_null<StructInfo>(curr);
+    if (!currStructInfo)
+      return nullptr; // Field not found in structInfo
+    curr = currStructInfo->getField(index).get();
+  }
+  return curr;
 }
 
 std::shared_ptr<ValueInfo> StructInfo::cloneImpl() const {

@@ -59,11 +59,11 @@ public:
   void setValueWeight(llvm::Value& v, int weight);
   int getValueWeight(const llvm::Value& v) const;
 
-  void setTaffoFunction(llvm::Function& originalF, llvm::Function& taffoF);
-  void getTaffoCloneFunctions(const llvm::Function& originalF,
-                              llvm::SmallPtrSetImpl<llvm::Function*>& taffoFunctions) const;
-  bool isOriginalFunction(const llvm::Function& originalF) const;
-  bool isTaffoCloneFunction(llvm::Function& f) const;
+  void addCloneFunction(llvm::Function& originalF, llvm::Function& cloneF);
+  void getCloneFunctions(const llvm::Function& originalF, llvm::SmallPtrSetImpl<llvm::Function*>& cloneFunctions) const;
+  unsigned getNumCloneFunctions(const llvm::Function& originalF) const;
+  bool isOriginalFunction(const llvm::Function& f) const;
+  bool isCloneFunction(llvm::Function& f) const;
   void setOriginalFunctionLinkage(llvm::Function& originalF, llvm::GlobalValue::LinkageTypes linkage);
   llvm::GlobalValue::LinkageTypes getOriginalFunctionLinkage(const llvm::Function& originalF) const;
 
@@ -97,8 +97,8 @@ private:
   llvm::SmallDenseMap<llvm::Function*, llvm::Function*> oclTrampolines;
   llvm::SmallVector<llvm::Instruction*> disabledConversion;
 
-  BiMap<llvm::Function*, llvm::Function*> taffoCloneToOriginalFunction;
-  llvm::DenseMap<llvm::Function*, llvm::SmallPtrSet<llvm::Function*, 2>> originalToTaffoCloneFunctions;
+  llvm::DenseMap<llvm::Function*, llvm::Function*> cloneToOriginalFunction;
+  llvm::DenseMap<llvm::Function*, llvm::SmallPtrSet<llvm::Function*, 2>> originalToCloneFunctions;
   llvm::DenseMap<llvm::Function*, llvm::GlobalValue::LinkageTypes> originalFunctionLinkage;
 
   llvm::DenseMap<llvm::Value*, std::shared_ptr<ValueInfo>> valueInfo;

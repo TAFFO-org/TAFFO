@@ -57,8 +57,8 @@ static void propagateTaffoInfo(Value& src, Value& dst) {
       auto indenter = logger.getIndenter();
       logger.logln("[Copied valueInfo]", Logger::Bold);
       indenter.increaseIndent();
-      logger << "from: " << src << "\n";
-      logger << "to:  " << dst << "\n";);
+      logger.log("from: ").logValueln(&src);
+      logger.log("to:   ").logValueln(&dst););
   }
   if (taffoInfo.hasTransparentType(src)) {
     TransparentType* srcType = taffoInfo.getTransparentType(src);
@@ -71,8 +71,8 @@ static void propagateTaffoInfo(Value& src, Value& dst) {
       auto indenter = logger.getIndenter();
       logger.logln("[Copied transparentType]", Logger::Bold);
       indenter.increaseIndent();
-      logger << "from: " << src << "\n";
-      logger << "to:  " << dst << "\n";);
+      logger.log("from: ").logValueln(&src);
+      logger.log("to:   ").logValueln(&dst););
   }
 }
 

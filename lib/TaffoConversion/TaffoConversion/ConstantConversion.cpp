@@ -15,68 +15,41 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
-Constant* ConversionPass::convertConstant(Constant* constant, const ConversionType& convType, ConvTypePolicy policy) {
+Constant* ConversionPass::convertConstant(Constant* constant,
+                                          const ConversionType& convType,
+                                          const ConvTypePolicy& policy,
+                                          std::unique_ptr<ConversionType>* resConvType) {
   if (isa<UndefValue>(constant)) {
     TransparentType* newType = convType.toTransparentType();
     auto* res = UndefValue::get(newType->toLLVMType());
-    setConversionResultInfo(res, constant, &convType);
+    setConstantConversionResultInfo(res, constant, &convType, resConvType);
     return res;
   }
   if (isa<ConstantAggregateZero>(constant)) {
     TransparentType* newType = convType.toTransparentType();
     auto* res = ConstantAggregateZero::get(newType->toLLVMType());
-    setConversionResultInfo(res, constant, &convType);
+    setConstantConversionResultInfo(res, constant, &convType, resConvType);
     return res;
   }
 
   if (auto* globalVariable = dyn_cast<GlobalVariable>(constant))
-    return convertGlobalVariable(globalVariable, convType);
+    return convertGlobalVariable(globalVariable, convType, resConvType);
   if (auto* constantFloat = dyn_cast<ConstantFP>(constant))
-    return convertConstantFloat(constantFloat, nullptr, cast<ConversionScalarType>(convType), policy);
+    return convertConstantFloat(constantFloat, cast<ConversionScalarType>(convType), policy, resConvType);
   if (auto* constantAggregate = dyn_cast<ConstantAggregate>(constant))
-    return convertConstantAggregate(constantAggregate, convType);
+    return convertConstantAggregate(constantAggregate, convType, resConvType);
   if (auto* constantDataSequential = dyn_cast<ConstantDataSequential>(constant))
-    return convertConstantDataSequential(constantDataSequential, cast<ConversionScalarType>(convType));
+    return convertConstantDataSequential(constantDataSequential, cast<ConversionScalarType>(convType), resConvType);
   if (auto* constantExpr = dyn_cast<ConstantExpr>(constant))
-    return convertConstantExpr(constantExpr, convType, policy);
-
-  return nullptr;
+    return convertConstantExpr(constantExpr, convType, policy, resConvType);
+  llvm_unreachable("Constant conversion failed");
 }
 
-bool ConversionPass::convertAPFloat(APFloat floatValue,
-                                    APSInt& fixedPointValue,
-                                    const ConversionScalarType& convType,
-                                    Instruction* inst) {
-  bool precise = false;
-
-  APFloat exp(pow(2.0, convType.getFractionalBits()));
-  exp.convert(floatValue.getSemantics(), APFloat::rmTowardNegative, &precise);
-  floatValue.multiply(exp, APFloat::rmTowardNegative);
-
-  fixedPointValue = APSInt(convType.getBits(), !convType.isSigned());
-  APFloat::opStatus res = floatValue.convertToInteger(fixedPointValue, APFloat::rmTowardNegative, &precise);
-
-  if (res != APFloat::opStatus::opOK) {
-    if (res != APFloat::opStatus::opInexact) {
-      if (inst) {
-        OptimizationRemarkEmitter emitter(inst->getFunction());
-        emitter.emit(OptimizationRemark(DEBUG_TYPE, "ConstConversionFailed", inst)
-                     << "impossible to convert constant " << toString(floatValue) << " to fixed point\n");
-      }
-      return false;
-    }
-    if (inst) {
-      OptimizationRemarkEmitter emitter(inst->getFunction());
-      emitter.emit(OptimizationRemark(DEBUG_TYPE, "ImpreciseConstConversion", inst)
-                   << "fixed point conversion of constant " << toString(floatValue) << " is not precise\n");
-    }
-  }
-  return true;
-}
-
-Constant* ConversionPass::convertGlobalVariable(GlobalVariable* globalVariable, const ConversionType& convType) {
+Constant* ConversionPass::convertGlobalVariable(GlobalVariable* globalVariable,
+                                                const ConversionType& convType,
+                                                std::unique_ptr<ConversionType>* resConvType) {
   std::unique_ptr<TransparentType> newType = convType.toTransparentType()->getPointedType();
   Type* newLLVMType = newType->toLLVMType();
 
@@ -96,19 +69,19 @@ Constant* ConversionPass::convertGlobalVariable(GlobalVariable* globalVariable, 
                                  newInitializer);
   res->setAlignment(MaybeAlign(globalVariable->getAlignment()));
   res->setName(globalVariable->getName() + ".fixp");
-  setConversionResultInfo(res, globalVariable, &convType);
+  setConstantConversionResultInfo(res, globalVariable, &convType, resConvType);
   return res;
 }
 
 Constant* ConversionPass::convertConstantFloat(ConstantFP* floatConst,
-                                               Instruction* inst,
                                                const ConversionScalarType& convType,
-                                               ConvTypePolicy policy) {
+                                               const ConvTypePolicy& policy,
+                                               std::unique_ptr<ConversionType>* resConvType) {
   APFloat floatConstantValue = floatConst->getValueAPF();
 
   if (convType.isFixedPoint()) {
     APSInt fixedPointConstantValue;
-    ConversionScalarType resConvType = convType;
+    ConversionScalarType newConvType = convType;
 
     if (policy != ConvTypePolicy::ForceHint) {
       bool precise = false;
@@ -117,17 +90,15 @@ Constant* ConversionPass::convertConstantFloat(ConstantFP* floatConst,
       double doubleValue = doubleConstantValue.convertToDouble();
       FixedPointInfo fixedPointInfo =
         fixedPointInfoFromRange(Range(doubleValue, doubleValue), nullptr, convType.getBits(), 0);
-      resConvType = ConversionScalarType(*resConvType.toTransparentType(), &fixedPointInfo);
+      newConvType = ConversionScalarType(*newConvType.toTransparentType(), &fixedPointInfo);
     }
 
-    if (convertAPFloat(floatConstantValue, fixedPointConstantValue, resConvType, inst)) {
-      TransparentType* newType = resConvType.toTransparentType();
-      Type* newLLVMType = newType->toLLVMType();
-      auto* res = ConstantInt::get(newLLVMType, fixedPointConstantValue);
-      setConversionResultInfo(res, floatConst, &resConvType);
-      return res;
-    }
-    return nullptr;
+    convertAPFloat(floatConstantValue, fixedPointConstantValue, newConvType);
+    TransparentType* newType = newConvType.toTransparentType();
+    Type* newLLVMType = newType->toLLVMType();
+    auto* res = ConstantInt::get(newLLVMType, fixedPointConstantValue);
+    setConstantConversionResultInfo(res, floatConst, &newConvType, resConvType);
+    return res;
   }
   if (convType.isFloatingPoint()) {
     TransparentType* newType = convType.toTransparentType();
@@ -135,14 +106,15 @@ Constant* ConversionPass::convertConstantFloat(ConstantFP* floatConst,
     bool loosesInfo;
     floatConstantValue.convert(newLLVMType->getFltSemantics(), APFloatBase::rmTowardPositive, &loosesInfo);
     auto* res = ConstantFP::get(newLLVMType, floatConstantValue);
-    setConversionResultInfo(res, floatConst, &convType);
+    setConstantConversionResultInfo(res, floatConst, &convType, resConvType);
     return res;
   }
   llvm_unreachable("ConversionType not handled");
 }
 
 Constant* ConversionPass::convertConstantAggregate(ConstantAggregate* constantAggregate,
-                                                   const ConversionType& convType) {
+                                                   const ConversionType& convType,
+                                                   std::unique_ptr<ConversionType>* resConvType) {
   unsigned numOperands = constantAggregate->getNumOperands();
   std::vector<Constant*> constants;
   constants.reserve(numOperands);
@@ -153,8 +125,6 @@ Constant* ConversionPass::convertConstantAggregate(ConstantAggregate* constantAg
       TransparentType* oldType = taffoInfo.getOrCreateTransparentType(*oldConst);
       std::unique_ptr<ConversionType> constConvType = convType.clone(*oldType);
       newConst = convertConstant(constantAggregate->getOperand(i), *constConvType, ConvTypePolicy::ForceHint);
-      if (!newConst)
-        return nullptr;
     }
     else
       newConst = oldConst;
@@ -180,51 +150,53 @@ Constant* ConversionPass::convertConstantAggregate(ConstantAggregate* constantAg
   else
     llvm_unreachable("ConstantAggregate not handled");
 
-  setConversionResultInfo(res, constantAggregate, &convType);
+  setConstantConversionResultInfo(res, constantAggregate, &convType, resConvType);
   return res;
 }
 
 Constant* ConversionPass::convertConstantDataSequential(ConstantDataSequential* cds,
-                                                        const ConversionScalarType& convType) {
+                                                        const ConversionScalarType& convType,
+                                                        std::unique_ptr<ConversionType>* resConvType) {
   if (!getFullyUnwrappedType(cds)->isFloatingPointTy())
     return cds;
 
   if (convType.isFixedPoint()) {
     if (convType.getBits() <= 8)
-      return createConstantDataSequentialFixedPoint<uint8_t>(cds, convType);
+      return createConstantDataSequentialFixedPoint<uint8_t>(cds, convType, resConvType);
     if (convType.getBits() <= 16)
-      return createConstantDataSequentialFixedPoint<uint16_t>(cds, convType);
+      return createConstantDataSequentialFixedPoint<uint16_t>(cds, convType, resConvType);
     if (convType.getBits() <= 32)
-      return createConstantDataSequentialFixedPoint<uint32_t>(cds, convType);
+      return createConstantDataSequentialFixedPoint<uint32_t>(cds, convType, resConvType);
     if (convType.getBits() <= 64)
-      return createConstantDataSequentialFixedPoint<uint64_t>(cds, convType);
+      return createConstantDataSequentialFixedPoint<uint64_t>(cds, convType, resConvType);
   }
 
   if (convType.isFloatingPoint()) {
     if (convType.getFloatStandard() == ConversionScalarType::Float_float)
-      return createConstantDataSequentialFloat<float>(cds, convType);
+      return createConstantDataSequentialFloat<float>(cds, convType, resConvType);
     if (convType.getFloatStandard() == ConversionScalarType::Float_double)
-      return createConstantDataSequentialFloat<double>(cds, convType);
+      return createConstantDataSequentialFloat<double>(cds, convType, resConvType);
     // As the sequential data does not accept anything different from float or double, we are doomed.
     // It's better to crash, so we see this kind of error. Maybe we can modify something at program source code level?
     llvm_unreachable("Only float or double supported in constantDataSequential");
   }
 
-  LLVM_DEBUG(log() << convType << " too big for ConstantDataArray/Vector; 64 bit max\n");
-  return nullptr;
+  LLVM_DEBUG(log() << Logger::Red << convType << " too big for ConstantDataArray/Vector; 64 bit max\n"
+                   << Logger::Reset);
+  llvm_unreachable("Constant conversion failed");
 }
 
 template <class T>
 Constant* ConversionPass::createConstantDataSequentialFixedPoint(ConstantDataSequential* cds,
-                                                                 const ConversionScalarType& convType) {
+                                                                 const ConversionScalarType& convType,
+                                                                 std::unique_ptr<ConversionType>* resConvType) {
   unsigned numElements = cds->getNumElements();
   std::vector<T> newElements;
   newElements.reserve(numElements);
   for (unsigned i = 0; i < numElements; i++) {
     APFloat oldElem = cds->getElementAsAPFloat(i);
     APSInt newElem;
-    if (!convertAPFloat(oldElem, newElem, convType))
-      return nullptr;
+    convertAPFloat(oldElem, newElem, convType);
     newElements.push_back(newElem.getExtValue());
   }
 
@@ -234,13 +206,14 @@ Constant* ConversionPass::createConstantDataSequentialFixedPoint(ConstantDataSeq
   else if (isa<ConstantDataVector>(cds))
     res = ConstantDataVector::get(cds->getContext(), newElements);
   assert(res);
-  setConversionResultInfo(res, cds, &convType);
+  setConstantConversionResultInfo(res, cds, &convType, resConvType);
   return res;
 }
 
 template <class T>
 Constant* ConversionPass::createConstantDataSequentialFloat(ConstantDataSequential* cds,
-                                                            const ConversionScalarType& convType) {
+                                                            const ConversionScalarType& convType,
+                                                            std::unique_ptr<ConversionType>* resConvType) {
   unsigned numElements = cds->getNumElements();
   std::vector<T> newElements;
   newElements.reserve(numElements);
@@ -257,36 +230,52 @@ Constant* ConversionPass::createConstantDataSequentialFloat(ConstantDataSequenti
   else if (isa<ConstantDataVector>(cds))
     res = ConstantDataVector::get(cds->getContext(), newElements);
   assert(res);
-  setConversionResultInfo(res, cds, &convType);
+  setConstantConversionResultInfo(res, cds, &convType, resConvType);
   return res;
 }
 
-Constant*
-ConversionPass::convertConstantExpr(ConstantExpr* constantExpr, const ConversionType& convType, ConvTypePolicy policy) {
+Constant* ConversionPass::convertConstantExpr(ConstantExpr* constantExpr,
+                                              const ConversionType& convType,
+                                              const ConvTypePolicy& policy,
+                                              std::unique_ptr<ConversionType>* resConvType) {
   if (isa<GEPOperator>(constantExpr)) {
     Value* newValue = convertedValues.at(constantExpr->getOperand(0));
 
     auto* newConstant = dyn_cast<Constant>(newValue);
     if (!newConstant)
-      return nullptr;
+      llvm_unreachable("ConstantExpr conversion failed");
 
-    std::unique_ptr<ConversionType> resConvType = convType.clone();
+    std::unique_ptr<ConversionType> newConvType = convType.clone();
     if (policy == ConvTypePolicy::ForceHint)
-      assert(*resConvType == *taffoConvInfo.getNewType(newValue) && "type adjustment forbidden");
+      assert(*newConvType == *taffoConvInfo.getNewType(newValue) && "Cannot force hint type");
     else
-      *resConvType = *taffoConvInfo.getNewType(newValue);
+      *newConvType = *taffoConvInfo.getNewType(newValue);
 
     SmallVector<Constant*, 4> indices;
     for (unsigned i = 1; i < constantExpr->getNumOperands(); i++)
       indices.push_back(constantExpr->getOperand(i));
 
-    TransparentType* newType = resConvType->toTransparentType();
+    TransparentType* newType = newConvType->toTransparentType();
     auto* res = ConstantExpr::getInBoundsGetElementPtr(newType->toLLVMType(), newConstant, indices);
-    setConversionResultInfo(res, constantExpr, resConvType.get());
+    setConstantConversionResultInfo(res, constantExpr, newConvType.get(), resConvType);
     return res;
   }
+  llvm_unreachable("ConstantExpr not handled");
+}
 
-  LLVM_DEBUG(log() << Logger::Yellow << "ConstantExpr not handled: " << *constantExpr << "\n"
-                   << Logger::Reset);
-  return nullptr;
+void ConversionPass::convertAPFloat(APFloat floatValue, APSInt& fixedPointValue, const ConversionScalarType& convType) {
+  bool precise = false;
+
+  APFloat exp(pow(2.0, convType.getFractionalBits()));
+  exp.convert(floatValue.getSemantics(), APFloat::rmTowardNegative, &precise);
+  floatValue.multiply(exp, APFloat::rmTowardNegative);
+
+  fixedPointValue = APSInt(convType.getBits(), !convType.isSigned());
+  APFloat::opStatus res = floatValue.convertToInteger(fixedPointValue, APFloat::rmTowardNegative, &precise);
+
+  if (res != APFloat::opStatus::opOK) {
+    if (res != APFloat::opStatus::opInexact)
+      llvm_unreachable("APFloat conversion failed");
+    log() << Logger::Yellow << "imprecise conversion of APFloat\n" << Logger::Reset;
+  }
 }

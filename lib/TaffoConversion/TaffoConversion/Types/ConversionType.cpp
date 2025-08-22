@@ -9,7 +9,7 @@
 #include <memory>
 #include <sstream>
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 using namespace llvm;
 using namespace tda;
@@ -161,6 +161,8 @@ ConversionScalarType::ConversionScalarType(const TransparentType& type, NumericT
 }
 
 Type* ConversionScalarType::toScalarLLVMType(LLVMContext& context) const {
+  if (isVoid())
+    return Type::getVoidTy(context);
   if (floatStandard == NotFloat)
     return Type::getIntNTy(context, bits);
   switch (floatStandard) {
@@ -229,7 +231,9 @@ std::unique_ptr<ConversionType> ConversionScalarType::clone(const TransparentTyp
 
 std::string ConversionScalarType::toString() const {
   std::stringstream ss;
-  if (floatStandard == NotFloat)
+  if (isVoid())
+    ss << "void";
+  else if (floatStandard == NotFloat)
     ss << (sign ? "s" : "u") << (bits - fractionalBits) << "_" << fractionalBits << "fixp";
   else
     ss << floatStandard << "flp";
@@ -240,25 +244,30 @@ ConversionStructType::ConversionStructType(const TransparentStructType& type,
                                            const std::shared_ptr<StructInfo>& structInfo,
                                            bool* conversionEnabled)
 : ConversionType(type) {
+  if (conversionEnabled)
+    *conversionEnabled = false;
   for (const auto&& [fieldType, fieldInfo] : zip(type.getFieldTypes(), *structInfo)) {
     if (!fieldInfo)
-      fieldTypes.push_back(nullptr);
+      fieldTypes.push_back(ConversionTypeFactory::create(*fieldType));
     else if (std::shared_ptr<ScalarInfo> scalarFieldInfo = std::dynamic_ptr_cast<ScalarInfo>(fieldInfo)) {
-      if (scalarFieldInfo->isConversionEnabled())
-        fieldTypes.push_back(std::make_unique<ConversionScalarType>(*fieldType, scalarFieldInfo->numericType.get()));
-      else {
+      if (scalarFieldInfo->isConversionEnabled() && scalarFieldInfo->numericType) {
         if (conversionEnabled)
-          *conversionEnabled = false;
-        fieldTypes.push_back(nullptr);
+          *conversionEnabled = true;
+        fieldTypes.push_back(std::make_unique<ConversionScalarType>(*fieldType, scalarFieldInfo->numericType.get()));
       }
+      else
+        fieldTypes.push_back(ConversionTypeFactory::create(*fieldType));
     }
     else if (std::shared_ptr<StructInfo> structFieldInfo = std::dynamic_ptr_cast<StructInfo>(fieldInfo)) {
       auto* structFieldType = cast<TransparentStructType>(fieldType);
+      bool structFieldConversionEnabled;
       fieldTypes.push_back(
-        std::make_unique<ConversionStructType>(*structFieldType, structFieldInfo, conversionEnabled));
+        std::make_unique<ConversionStructType>(*structFieldType, structFieldInfo, &structFieldConversionEnabled));
+      if (conversionEnabled && structFieldConversionEnabled)
+        *conversionEnabled = true;
     }
     else
-      llvm_unreachable("unknown type of ValueInfo");
+      llvm_unreachable("unknown type of valueInfo");
   }
 }
 
@@ -271,9 +280,10 @@ bool ConversionStructType::toTransparentTypeHelper(TransparentType& newType) con
   for (unsigned i = 0; i < getNumFieldTypes(); i++) {
     TransparentType* fieldTransparentType = newStructType.getFieldType(i);
     ConversionType* fieldType = getFieldType(i);
+    if (fieldType)
+      if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTT())
+        hasFloats |= fieldType->toTransparentTypeHelper(*fieldTransparentType);
     fieldsLLVMTypes.push_back(fieldTransparentType->getUnwrappedLLVMType());
-    if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTT())
-      hasFloats |= fieldType->toTransparentTypeHelper(*fieldTransparentType);
   }
   if (hasFloats) {
     newStructType.setUnwrappedLLVMType(
@@ -301,9 +311,14 @@ bool ConversionStructType::operator==(const ConversionType& other) const {
   auto& otherStruct = cast<ConversionStructType>(other);
   if (fieldTypes.size() != otherStruct.fieldTypes.size())
     return false;
-  for (size_t i = 0; i < fieldTypes.size(); i++)
-    if (*fieldTypes[i] != *otherStruct.fieldTypes[i])
+  for (size_t i = 0; i < fieldTypes.size(); i++) {
+    ConversionType* fieldType = fieldTypes[i].get();
+    ConversionType* otherFieldType = otherStruct.fieldTypes[i].get();
+    if ((!fieldType && otherFieldType) || (!otherFieldType && fieldType))
       return false;
+    if (fieldType && otherFieldType && *fieldType != *otherFieldType)
+      return false;
+  }
   return true;
 }
 
@@ -317,8 +332,7 @@ std::string ConversionStructType::toString() const {
   std::stringstream ss;
   ss << '<';
   for (size_t i = 0; i < fieldTypes.size(); i++) {
-    ConversionType* fieldType = fieldTypes[i].get();
-    ss << (fieldType ? fieldType->toString() : "void");
+    ss << fieldTypes[i]->toString();
     if (i != fieldTypes.size() - 1)
       ss << ',';
   }

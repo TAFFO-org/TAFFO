@@ -9,7 +9,7 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 enum MathIntrinsicFamily : unsigned {
   Unrecognized = 0,
@@ -35,7 +35,7 @@ bool ConversionPass::isSupportedMathIntrinsicFunction(Function* F) { return getM
 
 Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(call);
-  if (valueConvInfo->isConversionDisabled)
+  if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
   TransparentType* type = taffoInfo.getOrCreateTransparentType(*call);

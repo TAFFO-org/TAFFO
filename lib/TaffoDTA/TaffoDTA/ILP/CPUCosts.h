@@ -10,7 +10,7 @@
 
 using namespace std;
 
-namespace tuner {
+namespace taffo {
 /// This class will manage data about the costs in a cpu model
 /// These data are loaded from a file!
 class CPUCosts {
@@ -210,6 +210,6 @@ public:
   }
 };
 
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE

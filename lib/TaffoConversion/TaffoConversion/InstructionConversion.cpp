@@ -22,7 +22,7 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 Value* ConversionPass::convertInstruction(Instruction* inst) {
   auto sanitizeValueName = [](const Value* value) {
@@ -109,13 +109,13 @@ Value* ConversionPass::convertInstruction(Instruction* inst) {
 
 Value* ConversionPass::convertAlloca(AllocaInst* alloca) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(alloca);
-  if (valueConvInfo->isConversionDisabled)
+  if (valueConvInfo->isConversionDisabled())
     return alloca;
 
-  ConversionType* newConvType = valueConvInfo->getNewType();
+  ConversionType* convType = valueConvInfo->getNewType();
 
   Type* allocatedLLVMType = alloca->getAllocatedType();
-  Type* newAllocatedLLVMType = newConvType->toTransparentType()->getPointedType()->toLLVMType();
+  Type* newAllocatedLLVMType = convType->toTransparentType()->getPointedType()->toLLVMType();
   if (newAllocatedLLVMType == allocatedLLVMType)
     return alloca;
 
@@ -125,7 +125,7 @@ Value* ConversionPass::convertAlloca(AllocaInst* alloca) {
   res->setUsedWithInAlloca(alloca->isUsedWithInAlloca());
   res->setSwiftError(alloca->isSwiftError());
   res->insertAfter(alloca);
-  setConversionResultInfo(res, alloca, newConvType);
+  setConversionResultInfo(res, alloca, convType);
   return res;
 }
 
@@ -144,22 +144,23 @@ Value* ConversionPass::convertLoad(LoadInst* load) {
     return load;
   }
 
-  if (valueConvInfo->isConversionDisabled)
+  if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
   ConversionType* newPtrOperandConvType = taffoConvInfo.getNewType(newPtrOperand);
   std::unique_ptr<TransparentType> newType = newPtrOperandConvType->toTransparentType()->getPointedType();
+  Type* newLLVMType = newType->toLLVMType();
   std::unique_ptr<ConversionType> newConvType = newPtrOperandConvType->clone(*newType);
 
   /*if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || MetadataManager::isCudaKernel(m,
   load->getFunction())) { align = Align(fullyUnwrapPointerOrArrayType(PELType)->getScalarSizeInBits() / 8); } else*/
-  Align align = load->getAlign();
+  Align align = load->getAlign(); // dataLayout->getABITypeAlign(newLLVMType);
   IRBuilder builder(load);
-  LoadInst* res = builder.CreateLoad(newType->toLLVMType(), newPtrOperand, load->isVolatile());
+  LoadInst* res = builder.CreateLoad(newLLVMType, newPtrOperand, load->isVolatile());
   res->setAlignment(align);
   setConversionResultInfo(res, load, newConvType.get());
 
-  if (valueConvInfo->isConversionDisabled) {
+  if (valueConvInfo->isConversionDisabled()) {
     assert(res->getType()->isIntegerTy() && "DTA bug; improperly tagged struct/pointer!");
     return genConvertConvToFloat(
       res, *taffoConvInfo.getNewType<ConversionScalarType>(newPtrOperand), cast<ConversionScalarType>(*newConvType));
@@ -190,7 +191,7 @@ Value* ConversionPass::convertStore(StoreInst* store) {
     return store;
   }
 
-  if (valueConvInfo->isConversionDisabled)
+  if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
   TransparentType* valueOperandType = taffoInfo.getTransparentType(*valueOperand);
@@ -199,7 +200,7 @@ Value* ConversionPass::convertStore(StoreInst* store) {
 
   /*if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m,
   store->getFunction())) { align = Align(fullyUnwrapPointerOrArrayType(peltype)->getScalarSizeInBits() / 8); } else */
-  Align align = store->getAlign();
+  Align align = store->getAlign(); // dataLayout->getABITypeAlign(valueOperandConvType->toLLVMType());
   IRBuilder builder(store);
   StoreInst* res = builder.CreateStore(newValueOperand, newPointerOperand, store->isVolatile());
   res->setAlignment(align);
@@ -209,8 +210,6 @@ Value* ConversionPass::convertStore(StoreInst* store) {
 }
 
 Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
-  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(gep);
-
   Value* pointerOperand = gep->getPointerOperand();
   Value* newPointerOperand = nullptr;
 
@@ -223,7 +222,7 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
     return gep;
   }
 
-  if (taffoConvInfo.getValueConvInfo(gep)->isConversionDisabled)
+  if (taffoConvInfo.getValueConvInfo(gep)->isConversionDisabled())
     return unsupported;
 
   ConversionType* newPointerOperandConvType = taffoConvInfo.getNewType(newPointerOperand);
@@ -239,7 +238,7 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
 }
 
 Value* ConversionPass::convertExtractValue(ExtractValueInst* extractValue) {
-  if (taffoConvInfo.getValueConvInfo(extractValue)->isConversionDisabled)
+  if (taffoConvInfo.getValueConvInfo(extractValue)->isConversionDisabled())
     return unsupported;
   IRBuilder<NoFolder> builder(extractValue);
   Value* oldval = extractValue->getAggregateOperand();
@@ -255,7 +254,7 @@ Value* ConversionPass::convertExtractValue(ExtractValueInst* extractValue) {
 }
 
 Value* ConversionPass::convertInsertValue(InsertValueInst* insertValue) {
-  if (taffoConvInfo.getValueConvInfo(insertValue)->isConversionDisabled)
+  if (taffoConvInfo.getValueConvInfo(insertValue)->isConversionDisabled())
     return unsupported;
   IRBuilder<NoFolder> builder(insertValue);
   Value* oldAggVal = insertValue->getAggregateOperand();
@@ -278,7 +277,7 @@ Value* ConversionPass::convertPhi(PHINode* phi) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(phi);
   ConversionType* newConvType = valueConvInfo->getNewType();
 
-  if (!phi->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled) {
+  if (!phi->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled()) {
     /* in the conversion chain the floating point number was converted to
      * an int at some point; we just upgrade the incoming values in place */
     /* if all of our incoming values were not converted, we want to propagate
@@ -353,7 +352,11 @@ Value* ConversionPass::convertCall(CallBase* call) {
     LLVM_DEBUG(log().logln("no function clone: engaging fallback", Logger::Yellow));
     return unsupported;
   }
-  LLVM_DEBUG(log() << "will use converted function " << newF->getName() << " " << *newF->getFunctionType() << "\n";);
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger << "will use converted function: ";
+    logFunctionSignature(newF);
+    logger << "\n";);
 
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(call);
   ConversionType* newConvType = valueConvInfo->getNewType();
@@ -402,7 +405,7 @@ Value* ConversionPass::convertUnaryOp(Instruction* inst) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(inst);
   auto* newConvType = valueConvInfo->getNewType<ConversionScalarType>();
 
-  if (!inst->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled)
+  if (!inst->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled())
     return unsupported;
 
   unsigned opc = inst->getOpcode();
@@ -434,7 +437,7 @@ Value* ConversionPass::convertBinOp(Instruction* inst, const ConversionScalarTyp
   // Instructions [Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor] are handled by the fallback function
 
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(inst);
-  if (!inst->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled)
+  if (!inst->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled())
     return unsupported;
 
   unsigned opcode = inst->getOpcode();
@@ -524,27 +527,30 @@ Value* ConversionPass::convertFRem(Instruction* inst, const ConversionScalarType
 
 Value* ConversionPass::convertFMul(Instruction* inst, const ConversionScalarType& convType) {
   Logger& logger = log();
-  TransparentType* type = taffoInfo.getTransparentType(*inst);
 
   if (convType.isFixedPoint()) {
-    Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::RangeOverHint);
-    Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::RangeOverHint);
+    Value* operand1 = inst->getOperand(0);
+    Value* operand2 = inst->getOperand(1);
+    std::unique_ptr<ConversionType> convType1 = nullptr;
+    std::unique_ptr<ConversionType> convType2 = nullptr;
+    Value* newOperand1 = getConvertedOperand(operand1, convType, inst, ConvTypePolicy::RangeOverHint, &convType1);
+    Value* newOperand2 = getConvertedOperand(operand2, convType, inst, ConvTypePolicy::RangeOverHint, &convType2);
     if (!newOperand1 || !newOperand2)
       return nullptr;
 
-    const ConversionScalarType& convType1 = *taffoConvInfo.getNewType<ConversionScalarType>(newOperand1);
-    const ConversionScalarType& convType2 = *taffoConvInfo.getNewType<ConversionScalarType>(newOperand2);
+    const ConversionScalarType& scalarConvType1 = cast<ConversionScalarType>(*convType1);
+    const ConversionScalarType& scalarConvType2 = cast<ConversionScalarType>(*convType2);
     auto resConvType = ConversionScalarType(*convType.toTransparentType(),
                                             convType.isSigned(),
-                                            convType1.getBits() + convType2.getBits(),
-                                            convType1.getFractionalBits() + convType2.getFractionalBits());
+                                            scalarConvType1.getBits() + scalarConvType2.getBits(),
+                                            scalarConvType1.getFractionalBits() + scalarConvType2.getFractionalBits());
     Type* resLLVMType = resConvType.toScalarLLVMType(inst->getContext());
 
     IRBuilder<NoFolder> builder(inst);
     Value* extOperand1 = newOperand1;
     Value* extOperand2 = newOperand2;
-    ConversionScalarType extConvType1 = convType1;
-    ConversionScalarType extConvType2 = convType2;
+    ConversionScalarType extConvType1 = scalarConvType1;
+    ConversionScalarType extConvType2 = scalarConvType2;
     Value* res = nullptr;
     if (resLLVMType->getScalarSizeInBits() > maxTotalBitsConv) {
       auto extendValueSize = [&](Value* src,
@@ -569,10 +575,10 @@ Value* ConversionPass::convertFMul(Instruction* inst, const ConversionScalarType
       };
 
       // Adjust to the same size
-      if (convType1.getBits() > convType2.getBits())
-        std::tie(extOperand2, extConvType2) = extendValueSize(newOperand2, convType2, convType1);
-      else if (convType1.getBits() < convType2.getBits())
-        std::tie(extOperand1, extConvType1) = extendValueSize(newOperand1, convType1, convType2);
+      if (scalarConvType1.getBits() > scalarConvType2.getBits())
+        std::tie(extOperand2, extConvType2) = extendValueSize(newOperand2, scalarConvType2, scalarConvType1);
+      else if (scalarConvType1.getBits() < scalarConvType2.getBits())
+        std::tie(extOperand1, extConvType1) = extendValueSize(newOperand1, scalarConvType1, scalarConvType2);
 
       resLLVMType = convType.toScalarLLVMType(inst->getContext());
 
@@ -679,30 +685,34 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
 
   // TODO: fix by using HintOverRange when it is actually implemented
   if (convType.isFixedPoint()) {
-    Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::RangeOverHint);
-    Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::RangeOverHint);
+    Value* operand1 = inst->getOperand(0);
+    Value* operand2 = inst->getOperand(1);
+    std::unique_ptr<ConversionType> convType1 = nullptr;
+    std::unique_ptr<ConversionType> convType2 = nullptr;
+    Value* newOperand1 = getConvertedOperand(operand1, convType, inst, ConvTypePolicy::RangeOverHint, &convType1);
+    Value* newOperand2 = getConvertedOperand(operand2, convType, inst, ConvTypePolicy::RangeOverHint, &convType2);
     if (!newOperand1 || !newOperand2)
       return nullptr;
 
-    const ConversionScalarType& convType1 = *taffoConvInfo.getNewType<ConversionScalarType>(newOperand1);
-    const ConversionScalarType& convType2 = *taffoConvInfo.getNewType<ConversionScalarType>(newOperand2);
+    const ConversionScalarType& scalarConvType1 = cast<ConversionScalarType>(*convType1);
+    const ConversionScalarType& scalarConvType2 = cast<ConversionScalarType>(*convType2);
     LLVM_DEBUG(
       logger << "div operand1 of type ";
-      logger.log(convType1, Logger::Cyan) << ": " << *newOperand1 << "\n";
+      logger.log(scalarConvType1, Logger::Cyan) << ": " << *newOperand1 << "\n";
       logger << "div operand2 of type ";
-      logger.log(convType2, Logger::Cyan) << ": " << *newOperand2 << "\n");
+      logger.log(scalarConvType2, Logger::Cyan) << ": " << *newOperand2 << "\n");
 
     // Compute types of the intermediates
     bool signedRes = convType.isSigned();
     unsigned extOperand2FracBits =
-      std::max(0, convType2.getFractionalBits() - (signedRes && !convType2.isSigned() ? 1 : 0));
+      std::max(0, scalarConvType2.getFractionalBits() - (signedRes && !scalarConvType2.isSigned() ? 1 : 0));
     unsigned extOperand1FracBits = convType.getFractionalBits() + extOperand2FracBits;
-    unsigned bits = std::max(convType1.getBits(), convType2.getBits());
-    if (extOperand1FracBits + convType1.getIntegerBits() > bits)
-      bits = convType1.getBits() + convType2.getBits();
+    unsigned bits = std::max(scalarConvType1.getBits(), scalarConvType2.getBits());
+    if (extOperand1FracBits + scalarConvType1.getIntegerBits() > bits)
+      bits = scalarConvType1.getBits() + scalarConvType2.getBits();
 
     if (bits > maxTotalBitsConv) {
-      extOperand1FracBits = convType1.getFractionalBits();
+      extOperand1FracBits = scalarConvType1.getFractionalBits();
       bits = convType.getBits();
       unsigned requiredFracBits = convType.getFractionalBits();
 
@@ -717,12 +727,16 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
     }
 
     // Extend first operand
-    auto extConvType1 = ConversionScalarType(*convType1.toTransparentType(), signedRes, bits, extOperand1FracBits);
-    Value* extOperand1 = genConvertConvToConv(newOperand1, convType1, extConvType1, ConvTypePolicy::ForceHint, inst);
+    auto extConvType1 =
+      ConversionScalarType(*scalarConvType1.toTransparentType(), signedRes, bits, extOperand1FracBits);
+    Value* extOperand1 =
+      genConvertConvToConv(newOperand1, scalarConvType1, extConvType1, ConvTypePolicy::ForceHint, inst);
 
     // Extend second operand
-    auto extConvType2 = ConversionScalarType(*convType2.toTransparentType(), signedRes, bits, extOperand2FracBits);
-    Value* extOperand2 = genConvertConvToConv(newOperand2, convType2, extConvType2, ConvTypePolicy::ForceHint, inst);
+    auto extConvType2 =
+      ConversionScalarType(*scalarConvType2.toTransparentType(), signedRes, bits, extOperand2FracBits);
+    Value* extOperand2 =
+      genConvertConvToConv(newOperand2, scalarConvType2, extConvType2, ConvTypePolicy::ForceHint, inst);
 
     // Generate division
     IRBuilder<NoFolder> builder(inst);
@@ -748,13 +762,13 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
     return genConvertConvToConv(res, resConvType, convType, ConvTypePolicy::ForceHint, inst);
   }
   if (convType.isFloatingPoint()) {
-    Value* val1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
-    Value* val2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
-    if (!val1 || !val2)
+    Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
+    Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
+    if (!newOperand1 || !newOperand2)
       return nullptr;
 
     IRBuilder<NoFolder> builder(inst);
-    Value* res = builder.CreateFDiv(val1, val2);
+    Value* res = builder.CreateFDiv(newOperand1, newOperand2);
     setConversionResultInfo(res, inst, &convType);
     return res;
   }
@@ -764,35 +778,35 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
 Value* ConversionPass::convertCmp(FCmpInst* fcmp) {
   Value* operand1 = fcmp->getOperand(0);
   Value* operand2 = fcmp->getOperand(1);
-  ConversionScalarType* newConvType1 = nullptr;
-  ConversionScalarType* newConvType2 = nullptr;
-  if (taffoConvInfo.hasValueConvInfo(operand1) && !taffoConvInfo.getValueConvInfo(operand1)->isConversionDisabled)
-    newConvType1 = taffoConvInfo.getNewType<ConversionScalarType>(operand1);
-  if (taffoConvInfo.hasValueConvInfo(operand2) && !taffoConvInfo.getValueConvInfo(operand2)->isConversionDisabled)
-    newConvType2 = taffoConvInfo.getNewType<ConversionScalarType>(operand2);
+  ConversionScalarType* convType1 = nullptr;
+  ConversionScalarType* convType2 = nullptr;
+  if (taffoConvInfo.hasValueConvInfo(operand1)) {
+    ValueConvInfo* valueConvInfo1 = taffoConvInfo.getValueConvInfo(operand1);
+    if (!valueConvInfo1->isConstant() && !valueConvInfo1->isConversionDisabled())
+      convType1 = valueConvInfo1->getNewType<ConversionScalarType>();
+  }
+  if (taffoConvInfo.hasValueConvInfo(operand2)) {
+    ValueConvInfo* valueConvInfo2 = taffoConvInfo.getValueConvInfo(operand2);
+    if (!valueConvInfo2->isConstant() && !valueConvInfo2->isConversionDisabled())
+      convType2 = valueConvInfo2->getNewType<ConversionScalarType>();
+  }
 
-  if (!newConvType1 && !newConvType2)
+  if (!convType1 && !convType2)
     return fcmp;
 
-  if (!newConvType2) {
-    newConvType2 = newConvType1;
-    newConvType2->setSigned(true);
-  }
-  else if (!newConvType1) {
-    newConvType1 = newConvType2;
-    newConvType1->setSigned(true);
-  }
-  bool isOneFloat = newConvType1->isFloatingPoint() || newConvType2->isFloatingPoint();
+  if (!convType2)
+    convType2 = convType1;
+  else if (!convType1)
+    convType1 = convType2;
+  bool isOneFloat = convType1->isFloatingPoint() || convType2->isFloatingPoint();
 
-  ConversionScalarType convType = ConversionScalarType(*newConvType1->toTransparentType());
+  ConversionScalarType convType = ConversionScalarType(*convType1->toTransparentType());
   if (!isOneFloat) {
-    bool mixedSign = newConvType1->isSigned() != newConvType2->isSigned();
-    int intBits1 =
-      newConvType1->getBits() - newConvType1->getFractionalBits() + (mixedSign ? newConvType1->isSigned() : 0);
-    int intBits2 =
-      newConvType2->getBits() - newConvType2->getFractionalBits() + (mixedSign ? newConvType2->isSigned() : 0);
-    convType.setSigned(newConvType1->isSigned() || newConvType2->isSigned());
-    convType.setFractionalBits(std::max(newConvType1->getFractionalBits(), newConvType2->getFractionalBits()));
+    bool mixedSign = convType1->isSigned() != convType2->isSigned();
+    int intBits1 = convType1->getBits() - convType1->getFractionalBits() + (mixedSign ? convType1->isSigned() : 0);
+    int intBits2 = convType2->getBits() - convType2->getFractionalBits() + (mixedSign ? convType2->isSigned() : 0);
+    convType.setSigned(convType1->isSigned() || convType2->isSigned());
+    convType.setFractionalBits(std::max(convType1->getFractionalBits(), convType2->getFractionalBits()));
     convType.setBits(std::max(intBits1, intBits2) + convType.getFractionalBits());
     Value* convertedOperand1 = getConvertedOperand(operand1, convType, fcmp, ConvTypePolicy::ForceHint);
     Value* convertedOperand2 = getConvertedOperand(operand2, convType, fcmp, ConvTypePolicy::ForceHint);
@@ -838,37 +852,35 @@ Value* ConversionPass::convertCmp(FCmpInst* fcmp) {
 
     if (swapped)
       newPred = CmpInst::getInversePredicate(newPred);
-    auto* res = convertedOperand1 && convertedOperand2
-                ? builder.CreateICmp(newPred, convertedOperand1, convertedOperand2)
-                : nullptr;
+    auto* res = builder.CreateICmp(newPred, convertedOperand1, convertedOperand2);
     setConversionResultInfo(res);
     return res;
   }
 
   // Handling the presence of at least one float:
   // Converting all to the biggest float, then comparing as before
-  if (newConvType1->isFloatingPoint() && newConvType2->isFloatingPoint()) {
+  if (convType1->isFloatingPoint() && convType2->isFloatingPoint()) {
     // take the biggest floating point
-    if (newConvType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
-        > newConvType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
+    if (convType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
+        > convType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
       // t1 is "more precise"
-      convType = *newConvType1;
+      convType = *convType1;
     }
-    else if (newConvType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
-             < newConvType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
+    else if (convType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
+             < convType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
       // t2 is "more precise"
-      convType = *newConvType2;
+      convType = *convType2;
     }
     else {
       // they are equal, yeah!
-      convType = *newConvType1; // or t2, they are equal
+      convType = *convType1; // or t2, they are equal
       // FIXME: what if bfloat16 (for now unsupported) and half???
     }
   }
-  else if (newConvType1->isFloatingPoint())
-    convType = *newConvType1;
-  else if (newConvType2->isFloatingPoint())
-    convType = *newConvType2;
+  else if (convType1->isFloatingPoint())
+    convType = *convType1;
+  else if (convType2->isFloatingPoint())
+    convType = *convType2;
   else
     llvm_unreachable("There should be at least one floating point");
 
@@ -900,7 +912,7 @@ Value* ConversionPass::convertCast(CastInst* cast) {
     return cast;
   }
 
-  if (valueConvInfo->isConversionDisabled)
+  if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
   auto* convType = valueConvInfo->getNewType<ConversionScalarType>();
@@ -951,19 +963,17 @@ Value* ConversionPass::fallback(Instruction* inst) {
   fallbackCount++;
 
   std::vector<Value*> newOperands;
-  unsigned i = 0;
   bool anyReplaced = false;
   for (Value* operand : inst->operands()) {
-    if (taffoConvInfo.hasValueConvInfo(operand) && !taffoConvInfo.getValueConvInfo(operand)->isConversionDisabled) {
+    Value* newOperand = operand;
+    if (taffoConvInfo.hasValueConvInfo(operand)) {
       TransparentType* operandType = taffoInfo.getTransparentType(*operand);
-      auto operandConvType = cast<ConversionScalarType>(*ConversionTypeFactory::create(*operandType));
-      Value* newOperand = getConvertedOperand(operand, operandConvType, inst, ConvTypePolicy::ForceHint);
-      anyReplaced = true;
-      newOperands.push_back(newOperand);
+      std::unique_ptr<ConversionType> operandConvType = ConversionTypeFactory::create(*operandType);
+      newOperand = getConvertedOperand(operand, *operandConvType, inst, ConvTypePolicy::ForceHint);
+      if (newOperand != operand)
+        anyReplaced = true;
     }
-    else
-      newOperands.push_back(operand);
-    i++;
+    newOperands.push_back(newOperand);
   }
 
   Instruction* res;
@@ -974,7 +984,7 @@ Value* ConversionPass::fallback(Instruction* inst) {
   else
     res = inst;
 
-  for (i = 0; i < res->getNumOperands(); i++)
+  for (unsigned i = 0; i < res->getNumOperands(); i++)
     res->setOperand(i, newOperands[i]);
   LLVM_DEBUG(
     if (anyReplaced)

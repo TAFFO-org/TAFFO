@@ -8,7 +8,7 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner {
+namespace taffo {
 
 class MemWatcher {
 private:
@@ -24,6 +24,6 @@ public:
   void dumpState();
 };
 
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE

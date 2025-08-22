@@ -2,28 +2,28 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-llvm::cl::opt<int> FracThreshold("minfractbits",
+llvm::cl::opt<int> fracThreshold("minfractbits",
                                  llvm::cl::value_desc("bits"),
                                  llvm::cl::desc("Threshold of fractional bits in fixed point numbers"),
                                  llvm::cl::init(3));
 llvm::cl::opt<int>
-  TotalBits("totalbits",
+  totalBits("totalbits",
             llvm::cl::value_desc("bits"),
             llvm::cl::desc("Minimum amount of bits in fixed point numbers. Can grow automatically in case there are "
                            "not enough bits available for representing all values in range."),
             llvm::cl::init(32));
-llvm::cl::opt<int> MaxTotalBits("maxtotalbits",
+llvm::cl::opt<int> maxTotalBits("maxtotalbits",
                                 llvm::cl::value_desc("bits"),
                                 llvm::cl::desc("Maximum amount of bits in fixed point numbers."),
                                 llvm::cl::init(64));
-llvm::cl::opt<int> SimilarBits("similarbits",
+llvm::cl::opt<int> similarBits("similarbits",
                                llvm::cl::value_desc("bits"),
                                llvm::cl::desc("Maximum number of difference bits that leads two fixp formats to merge"),
                                llvm::cl::init(2));
 llvm::cl::opt<bool>
-  DisableTypeMerging("notypemerge", llvm::cl::desc("Disables adjacent type optimization"), llvm::cl::init(false));
+  disableTypeMerging("notypemerge", llvm::cl::desc("Disables adjacent type optimization"), llvm::cl::init(false));
 llvm::cl::opt<bool>
-  IterativeMerging("iterative", llvm::cl::desc("Enables old iterative merging"), llvm::cl::init(false));
+  iterativeMerging("iterative", llvm::cl::desc("Enables old iterative merging"), llvm::cl::init(false));
 llvm::cl::opt<std::string> UseFloat(
   "usefloat",
   llvm::cl::desc("Uses the specified floating point type instead of fixed point. Options are f16, bf16, f32, f64."),

@@ -22,11 +22,11 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 Value* unsupported = (Value*) &unsupported;
 
-void ConversionPass::performConversion(Module& m, const std::vector<Value*>& queue) {
+void ConversionPass::performConversion(const std::vector<Value*>& queue) {
   Logger& logger = log();
   for (Value* value : queue) {
     ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
@@ -37,22 +37,24 @@ void ConversionPass::performConversion(Module& m, const std::vector<Value*>& que
       logger << Logger::Blue << repeatString("▀▄▀▄", 10) << "[Perform conversion]" << repeatString("▄▀▄▀", 10)
              << Logger::Reset << "\n";
       logger.log("[Value] ", Logger::Bold).logValueln(value);
-      if (valueConvInfo->isConversionDisabled)
+      if (valueConvInfo->isConversionDisabled())
         logger.logln("conversion disabled", Logger::Yellow);
       if (convType)
         logger << "requested conv type: " << *convType << "\n";);
 
-    Value* newValue = convertSingleValue(value, m);
-    assert(newValue && "Conversion failed");
-    convertedValues[value] = newValue;
+    std::unique_ptr<ConversionType> resConvType = nullptr;
+    Value* res = convert(value, &resConvType);
+    convertedValues[value] = res;
 
     LLVM_DEBUG(
-      if (auto resConvType = taffoConvInfo.getNewType(newValue))
+      if (resConvType)
         logger.log("result type: ", Logger::Green).logln(*resConvType);
-      logger.log("result:      ", Logger::Green).logValueln(newValue) << "\n");
+      else if (ConversionType* newType = taffoConvInfo.getNewType(res))
+        logger.log("result type: ", Logger::Green).logln(*newType);
+      logger.log("result:      ", Logger::Green).logValueln(res) << "\n");
 
-    if (newValue != value && isa<Instruction>(newValue) && isa<Instruction>(value)) {
-      auto* newInst = dyn_cast<Instruction>(newValue);
+    if (res != value && isa<Instruction>(res) && isa<Instruction>(value)) {
+      auto* newInst = dyn_cast<Instruction>(res);
       auto* oldInst = dyn_cast<Instruction>(value);
       newInst->setDebugLoc(oldInst->getDebugLoc());
     }
@@ -65,13 +67,13 @@ Value* ConversionPass::createPlaceholder(Type* type, BasicBlock* where, StringRe
   return builder.CreateLoad(type, alloca, name);
 }
 
-Value* ConversionPass::convertSingleValue(Value* value, Module& m) {
+Value* ConversionPass::convert(Value* value, std::unique_ptr<ConversionType>* resConvType) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
   if (valueConvInfo->isArgumentPlaceholder)
     return convertedValues.at(value);
 
   if (auto* constant = dyn_cast<Constant>(value))
-    return convertConstant(constant, *valueConvInfo->getNewType(), ConvTypePolicy::RangeOverHint);
+    return convertConstant(constant, *valueConvInfo->getNewType(), ConvTypePolicy::RangeOverHint, resConvType);
 
   if (auto* inst = dyn_cast<Instruction>(value))
     return convertInstruction(inst);
@@ -82,13 +84,14 @@ Value* ConversionPass::convertSingleValue(Value* value, Module& m) {
     return arg;
   }
 
-  return unsupported;
+  llvm_unreachable("Conversion failed");
 }
 
 Value* ConversionPass::getConvertedOperand(Value* value,
                                            const ConversionType& convType,
                                            Instruction* insertionPoint,
-                                           ConvTypePolicy policy) {
+                                           const ConvTypePolicy& policy,
+                                           std::unique_ptr<ConversionType>* resConvType) {
   ConversionType* currentConvType = taffoConvInfo.getOrCreateCurrentType(value);
 
   Logger& logger = log();
@@ -99,13 +102,10 @@ Value* ConversionPass::getConvertedOperand(Value* value,
     indenter.increaseIndent();
     logger << "requested type: " << convType << "\n";);
 
-  Value* convertedValue = nullptr;
-  ConversionType* convertedValueConvType = nullptr;
-
   auto iter = convertedValues.find(value);
   if (iter != convertedValues.end()) {
-    convertedValue = iter->second;
-    convertedValueConvType = taffoConvInfo.getCurrentType(convertedValue);
+    Value* convertedValue = iter->second;
+    ConversionType* convertedValueConvType = taffoConvInfo.getCurrentType(convertedValue);
     LLVM_DEBUG(
       logger << "found converted value of type " << *convertedValueConvType << "\n";
       logger.log("converted operand: ", Logger::Green) << *convertedValue << "\n";);
@@ -117,8 +117,11 @@ Value* ConversionPass::getConvertedOperand(Value* value,
       suitableValue = false;
     if (convType.isFloatingPoint() != convertedValueConvType->isFloatingPoint())
       suitableValue = false;
-    if (suitableValue)
+    if (suitableValue) {
+      if (resConvType)
+        *resConvType = convertedValueConvType->clone();
       return convertedValue;
+    }
     // Not suitable converted value: we need to convert further
     value = convertedValue;
     currentConvType = convertedValueConvType;
@@ -126,23 +129,27 @@ Value* ConversionPass::getConvertedOperand(Value* value,
   else if (*currentConvType == convType) {
     // We didn't find any converted value and value doesn't need conversion
     LLVM_DEBUG(logger.logln("operand did not need conversion", Logger::Green));
+    if (resConvType)
+      *resConvType = currentConvType->clone();
     return value;
   }
 
   LLVM_DEBUG(log() << "value must be converted: converting now\n");
 
   if (auto* constant = dyn_cast<Constant>(value))
-    return convertConstant(constant, convType, policy);
+    return convertConstant(constant, convType, policy, resConvType);
 
   auto* scalarCurrentConvType = cast<ConversionScalarType>(currentConvType);
   auto& scalarConvType = cast<ConversionScalarType>(convType);
   Value* res = genConvertConvToConv(value, *scalarCurrentConvType, scalarConvType, policy, insertionPoint);
-  const auto& resConvType = *taffoConvInfo.getNewType<ConversionScalarType>(res);
-  if (resConvType != scalarConvType && policy == ConvTypePolicy::ForceHint) {
+  const auto* newConvType = taffoConvInfo.getNewType<ConversionScalarType>(res);
+  if (*newConvType != scalarConvType && policy == ConvTypePolicy::ForceHint) {
     LLVM_DEBUG(log() << "forcing hint type\n");
-    res = genConvertConvToConv(res, resConvType, scalarConvType, ConvTypePolicy::ForceHint, insertionPoint);
+    res = genConvertConvToConv(res, *newConvType, scalarConvType, ConvTypePolicy::ForceHint, insertionPoint);
   }
   LLVM_DEBUG(logger.log("converted operand: ", Logger::Green) << *res << "\n";);
+  if (resConvType)
+    *resConvType = newConvType->clone();
   return res;
 }
 

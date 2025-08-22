@@ -3,7 +3,7 @@
 
 #include <llvm/Support/Debug.h>
 
-using namespace tuner;
+using namespace taffo;
 using namespace llvm;
 using namespace std;
 

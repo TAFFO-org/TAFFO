@@ -42,7 +42,7 @@ extern llvm::cl::opt<bool> MixedTripCount;
 class MetricBase;
 class MetricPerf;
 
-namespace tuner {
+namespace taffo {
 
 class Optimizer {
 public:
@@ -146,6 +146,6 @@ public:
   friend class MetricBase;
 };
 
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE

@@ -24,55 +24,36 @@
 using namespace llvm;
 using namespace tda;
 using namespace taffo;
-using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 
-STATISTIC(FixCast, "Number of fixed point format cast");
+STATISTIC(fixCast, "Number of fixed point format cast");
 
 /* the strategy map that associates the global variable values (set through the command line arguments)
  * to the strategy object that held the methods for the chosen strategy. When adding a new strategy
  * you should add a new entry in the map */
-std::map<DtaStrategyType, std::function<dataTypeAllocationStrategy*()>> strategyMap = {
-  {fixedPointOnly,    []() -> fixedPointOnlyStrategy* { return new fixedPointOnlyStrategy(); }        },
-  {floatingPointOnly, []() -> floatingPointOnlyStrategy* { return new floatingPointOnlyStrategy(); }  },
-  {fixedFloating,     []() -> fixedFloatingPointStrategy* { return new fixedFloatingPointStrategy(); }}
+std::map<DtaStrategyType, std::function<AllocationStrategy*()>> strategyMap = {
+  {fixedPointOnly,    []() -> FixedPointOnlyStrategy* { return new FixedPointOnlyStrategy(); }        },
+  {floatingPointOnly, []() -> FloatingPointOnlyStrategy* { return new FloatingPointOnlyStrategy(); }  },
+  {fixedFloating,     []() -> FixedFloatingPointStrategy* { return new FixedFloatingPointStrategy(); }}
 };
 
-PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& AM) {
+PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", Logger::Magenta));
   taffoInfo.initializeFromFile(VRA_TAFFO_INFO, m);
-
-  MAM = &AM;
 
   // method that allocate the strategy object, whose methods will be used to apply the strategy
   setStrategy(strategyMap[DtaStrategy]());
 
   std::vector<Value*> values;
   SmallPtrSet<Value*, 8U> valueSet;
-  dataTypeAllocation(m, values, valueSet);
-
-#ifdef TAFFO_BUILD_ILP_DTA
-  if (MixedMode) {
-    LLVM_DEBUG(
-    log() << "Model " << CostModelFilename << "\n");
-    LLVM_DEBUG(
-    log() << "Inst " << InstructionSet << "\n");
-    buildModelAndOptimze(m, vals, valset);
-  }
-  else {
-    mergeFixFormat(vals, valset);
-  }
-#else
-  mergeFixFormat(values, valueSet);
-#endif
-  propagateStructFieldTypes(values);
+  allocateTypes(m, values, valueSet);
+  mergeTypes(values, valueSet);
 
   mergeBufferIDSets();
 
   std::vector<Function*> toDelete = collapseFunction(m);
 
-  LLVM_DEBUG(log() << "attaching metadata\n");
   attachFPMetaData(values);
   attachFunctionMetaData(m);
 
@@ -87,7 +68,7 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager& 
 // *** STRATEGIES IMPLEMENTATIONS ***
 // (for each strategy, implement the apply, merge and isMergeable methods)
 
-bool fixedPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Value* value) {
+bool FixedPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Value* value) {
   if (!scalarInfo->isConversionEnabled()) {
     LLVM_DEBUG(log() << "conversion disabled: skipping\n");
     return false;
@@ -110,9 +91,9 @@ bool fixedPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Valu
   FixedPointTypeGenError fpgerr;
 
   /* Testing maximum type for operands, not deciding type yet */
-  fixedPointInfoFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+  fixedPointInfoFromRange(Range(0, greatest), &fpgerr, totalBits, fracThreshold, maxTotalBits, totalBits);
   if (fpgerr == FixedPointTypeGenError::NoError) {
-    FixedPointInfo res = fixedPointInfoFromRange(*range, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    FixedPointInfo res = fixedPointInfoFromRange(*range, &fpgerr, totalBits, fracThreshold, maxTotalBits, totalBits);
     if (fpgerr == FixedPointTypeGenError::NoError) {
       LLVM_DEBUG(log().log("converting to ").logln(res, Logger::Green));
       scalarInfo->numericType = res.clone();
@@ -147,9 +128,8 @@ bool fixedPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Valu
   return false;
 }
 
-std::shared_ptr<NumericTypeInfo> fixedPointOnlyStrategy::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
+std::shared_ptr<NumericTypeInfo> FixedPointOnlyStrategy::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
                                                                const std::shared_ptr<NumericTypeInfo>& fpu) {
-
   std::shared_ptr<FixedPointInfo> fpv_fixed = dynamic_ptr_cast<FixedPointInfo>(fpv);
   std::shared_ptr<FixedPointInfo> fpu_fixed = dynamic_ptr_cast<FixedPointInfo>(fpu);
 
@@ -164,13 +144,11 @@ std::shared_ptr<NumericTypeInfo> fixedPointOnlyStrategy::merge(const std::shared
   int frac_res = size_res - int_res - sign_res;
   if (sign_res + int_res + frac_res != size_res || frac_res < 0)
     return nullptr; // Invalid format.
-  else
-    return std::make_shared<FixedPointInfo>(sign_res, size_res, frac_res);
+  return std::make_shared<FixedPointInfo>(sign_res, size_res, frac_res);
 }
 
-bool fixedPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
+bool FixedPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
                                          std::shared_ptr<NumericTypeInfo> userNumericType) {
-
   std::shared_ptr<FixedPointInfo> fpv = dynamic_ptr_cast<FixedPointInfo>(valueNumericType);
   std::shared_ptr<FixedPointInfo> fpu = dynamic_ptr_cast<FixedPointInfo>(userNumericType);
   if (!fpv || !fpu) {
@@ -179,16 +157,13 @@ bool fixedPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueN
     return false;
   }
 
-  if (fpv != fpu)
-    return false;
-
   return fpv->getBits() == fpu->getBits()
       && (std::abs(int(fpv->getFractionalBits()) - int(fpu->getFractionalBits()))
           + (fpv->isSigned() == fpu->isSigned() ? 0 : 1))
-           <= SimilarBits;
+           <= similarBits;
 }
 
-bool floatingPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Value* value) {
+bool FloatingPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Value* value) {
   if (!scalarInfo->isConversionEnabled()) {
     LLVM_DEBUG(log() << "conversion disabled: skipping\n");
     return false;
@@ -251,7 +226,7 @@ bool floatingPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, V
   return false;
 }
 
-std::shared_ptr<NumericTypeInfo> floatingPointOnlyStrategy::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
+std::shared_ptr<NumericTypeInfo> FloatingPointOnlyStrategy::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
                                                                   const std::shared_ptr<NumericTypeInfo>& fpu) {
   if (isa<FloatingPointInfo>(fpu.get()) && isa<FloatingPointInfo>(fpv.get())) {
     std::shared_ptr<FloatingPointInfo> a = dynamic_ptr_cast<FloatingPointInfo>(fpu);
@@ -264,7 +239,7 @@ std::shared_ptr<NumericTypeInfo> floatingPointOnlyStrategy::merge(const std::sha
 }
 
 // dunmmy strategy, always return true
-bool floatingPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
+bool FloatingPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
                                             std::shared_ptr<NumericTypeInfo> userNumericType) {
 
   std::shared_ptr<FloatingPointInfo> fpv = dynamic_ptr_cast<FloatingPointInfo>(valueNumericType);
@@ -279,7 +254,7 @@ bool floatingPointOnlyStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> val
 }
 
 // dummy strategy, use fixed if integer part of rng-> max is even use floating otherwise
-bool fixedFloatingPointStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Value* value) {
+bool FixedFloatingPointStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Value* value) {
   if (!scalarInfo->isConversionEnabled()) {
     LLVM_DEBUG(log() << "conversion disabled: skipping\n");
     return false;
@@ -302,9 +277,9 @@ bool fixedFloatingPointStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, 
     FixedPointTypeGenError fpgerr;
 
     /* Testing maximum type for operands, not deciding type yet */
-    fixedPointInfoFromRange(Range(0, greatest), &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+    fixedPointInfoFromRange(Range(0, greatest), &fpgerr, totalBits, fracThreshold, maxTotalBits, totalBits);
     if (fpgerr == FixedPointTypeGenError::NoError) {
-      FixedPointInfo res = fixedPointInfoFromRange(*rng, &fpgerr, TotalBits, FracThreshold, MaxTotalBits, TotalBits);
+      FixedPointInfo res = fixedPointInfoFromRange(*rng, &fpgerr, totalBits, fracThreshold, maxTotalBits, totalBits);
       if (fpgerr == FixedPointTypeGenError::NoError) {
         LLVM_DEBUG(log().log("converting to ").logln(res, Logger::Green));
         scalarInfo->numericType = res.clone();
@@ -370,15 +345,15 @@ bool fixedFloatingPointStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, 
   return false;
 }
 
-// dunmmy strategy, always return true
-bool fixedFloatingPointStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
+// Dummy strategy, always return true
+bool FixedFloatingPointStrategy::isMergeable(std::shared_ptr<NumericTypeInfo> valueNumericType,
                                              std::shared_ptr<NumericTypeInfo> userNumericType) {
 
   return true;
 }
 
-// dummy strategy, always return the fpu type
-std::shared_ptr<NumericTypeInfo> fixedFloatingPointStrategy::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
+// Dummy strategy, always return the fpu type
+std::shared_ptr<NumericTypeInfo> FixedFloatingPointStrategy::merge(const std::shared_ptr<NumericTypeInfo>& fpv,
                                                                    const std::shared_ptr<NumericTypeInfo>& fpu) {
   if (isa<FloatingPointInfo>(fpu.get()))
     return dynamic_ptr_cast<FloatingPointInfo>(fpu)->clone();
@@ -422,53 +397,133 @@ double DataTypeAllocationPass::getGreatest(std::shared_ptr<ScalarInfo>& scalarIn
   return greatest;
 }
 
-void DataTypeAllocationPass::dataTypeAllocationOfValue(Value& value, std::vector<Value*>& values) {
-  if (processValueInfo(&value)) {
+void DataTypeAllocationPass::allocateTypes(Module& m, std::vector<Value*>& values, SmallPtrSetImpl<Value*>& valueSet) {
+  LLVM_DEBUG(log().logln("[DataTypeAllocation of globals]", Logger::Blue));
+  allocateGlobalTypes(m, values);
+  allocateLocalTypes(m, values);
+
+  LLVM_DEBUG(log().logln("[Sorting queue]", Logger::Blue));
+  sortQueue(values, valueSet);
+}
+
+void DataTypeAllocationPass::allocateGlobalTypes(Module& m, std::vector<Value*>& values) {
+  for (GlobalObject& globObj : m.globals())
+    allocateValueType(globObj, values);
+  LLVM_DEBUG(log() << "\n");
+}
+
+void DataTypeAllocationPass::allocateLocalTypes(Module& m, std::vector<Value*>& values) {
+  for (Function& f : m.functions()) {
+    if (f.isIntrinsic())
+      continue;
+    if (!taffoInfo.isCloneFunction(f) && !taffoInfo.isStartingPoint(f)) {
+      LLVM_DEBUG(log() << "Skip function " << f.getName() << " as it is not a cloned function\n";);
+      continue;
+    }
+    LLVM_DEBUG(log().log("[DataTypeAllocation of function] ", Logger::Blue).logValueln(&f));
+    for (Argument& arg : f.args())
+      allocateValueType(arg, values);
+    for (Instruction& inst : instructions(f))
+      allocateValueType(inst, values);
+  }
+}
+
+void DataTypeAllocationPass::allocateValueType(Value& value, std::vector<Value*>& values) {
+  if (allocateType(&value)) {
     values.push_back(&value);
     retrieveBufferID(&value);
   }
 }
 
-void DataTypeAllocationPass::dataTypeAllocationOfGlobals(Module& m, std::vector<Value*>& values) {
-  for (GlobalObject& globObj : m.globals())
-    dataTypeAllocationOfValue(globObj, values);
-  LLVM_DEBUG(log() << "\n");
-}
+bool DataTypeAllocationPass::allocateType(Value* value) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger.log("[Value] ", Logger::Bold).logValueln(value);
+    indenter.increaseIndent(););
 
-void DataTypeAllocationPass::dataTypeAllocationOfArguments(Function& f, std::vector<Value*>& values) {
-  for (Argument& arg : f.args())
-    dataTypeAllocationOfValue(arg, values);
-}
-
-void DataTypeAllocationPass::dataTypeAllocationOfInstructions(Function& f, std::vector<Value*>& values) {
-  for (Instruction& inst : instructions(f))
-    dataTypeAllocationOfValue(inst, values);
-}
-
-void DataTypeAllocationPass::dataTypeAllocationOfFunctions(Module& m, std::vector<Value*>& values) {
-  for (Function& f : m.functions()) {
-    if (f.isIntrinsic())
-      continue;
-    if (!taffoInfo.isTaffoCloneFunction(f) && !taffoInfo.isStartingPoint(f)) {
-      LLVM_DEBUG(log() << " Skip function " << f.getName() << " as it is not a cloned function\n";);
-      continue;
-    }
-    LLVM_DEBUG(log().log("[DataTypeAllocation of function] ", Logger::Blue).logValueln(&f));
-    dataTypeAllocationOfArguments(f, values);
-    dataTypeAllocationOfInstructions(f, values);
-    LLVM_DEBUG(log() << "\n");
+  if (!taffoInfo.hasValueInfo(*value)) {
+    LLVM_DEBUG(log() << "no valueInfo: skipping\n");
+    return false;
   }
+  std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*value);
+  LLVM_DEBUG(logger << "valueInfo: " << *valueInfo << "\n");
+
+  std::shared_ptr<ValueInfo> newValueInfo = valueInfo->clone();
+
+  if (value->getType()->isVoidTy()) {
+    LLVM_DEBUG(log() << "value has void type: skipping\n");
+    return true;
+  }
+
+  // HACK to set the enabled status on phis which compensates for a bug in vra.
+  // Affects axbench/sobel.
+  bool forceEnableConv = false;
+  if (isa<PHINode>(value) && !isConversionDisabled(value) && isa<ScalarInfo>(newValueInfo.get()))
+    forceEnableConv = true;
+
+  bool skippedAll = true;
+  TransparentType* transparentType = taffoInfo.getOrCreateTransparentType(*value);
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8> queue(
+    {std::make_pair(newValueInfo, transparentType)});
+
+  while (!queue.empty()) {
+    const auto& [valueInfo, transparentType] = queue.pop_back_val();
+
+    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo))
+      skippedAll &= !allocateScalarType(scalarInfo, value, transparentType, forceEnableConv);
+    else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo))
+      allocateStructType(structInfo, value, transparentType, queue);
+    else
+      llvm_unreachable("Unknown valueInfo kind");
+  }
+
+  if (!skippedAll) {
+    std::shared_ptr<DtaValueInfo> dtaValueInfo = createDtaValueInfo(value);
+    taffoInfo.setValueInfo(*value, newValueInfo);
+    LLVM_DEBUG(log().log("new valueInfo: ").logln(*newValueInfo, Logger::Cyan));
+    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(newValueInfo))
+      dtaValueInfo->initialType = scalarInfo->numericType;
+  }
+  return !skippedAll;
 }
 
-void DataTypeAllocationPass::dataTypeAllocation(Module& m,
-                                                std::vector<Value*>& values,
-                                                SmallPtrSetImpl<Value*>& valueSet) {
-  LLVM_DEBUG(log().logln("[DataTypeAllocation of globals]", Logger::Blue));
-  dataTypeAllocationOfGlobals(m, values);
-  dataTypeAllocationOfFunctions(m, values);
+bool DataTypeAllocationPass::allocateScalarType(std::shared_ptr<ScalarInfo>& scalarInfo,
+                                                Value* value,
+                                                const TransparentType* transparentType,
+                                                bool forceEnable) {
+  if (forceEnable)
+    scalarInfo->conversionEnabled = true;
 
-  LLVM_DEBUG(log().logln("[Sorting queue]", Logger::Blue));
-  sortQueue(values, valueSet);
+  // FIXME: hack to propagate itofp metadata
+  if (/*MixedMode && */ isa<UIToFPInst>(value) || isa<SIToFPInst>(value)) {
+    LLVM_DEBUG(log() << "FORCING CONVERSION OF A ITOFP!\n";);
+    scalarInfo->conversionEnabled = true;
+  }
+
+  if (!transparentType->containsFloatingPointType()) {
+    LLVM_DEBUG(log() << "value is not a float: skipping\n");
+    return false;
+  }
+
+  return strategy->apply(scalarInfo, value);
+}
+
+void DataTypeAllocationPass::allocateStructType(
+  std::shared_ptr<StructInfo>& structInfo,
+  const Value* value,
+  const TransparentType* transparentType,
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8>& queue) {
+  if (!transparentType->isStructTT()) {
+    LLVM_DEBUG(log() << "[ERROR] found non conforming structInfo " << structInfo->toString() << " on value " << *value
+                     << "\n");
+    LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
+    LLVM_DEBUG(log() << "The top-level MDInfo was " << structInfo->toString() << "\n");
+    llvm_unreachable("Non-conforming StructInfo.");
+  }
+  for (unsigned i = 0; i < structInfo->getNumFields(); i++)
+    if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
+      queue.push_back(std::make_pair(field, cast<TransparentStructType>(transparentType)->getFieldType(i)));
 }
 
 /**
@@ -491,142 +546,45 @@ void DataTypeAllocationPass::retrieveBufferID(Value* V) {
   }
 }
 
-bool DataTypeAllocationPass::processScalarInfo(std::shared_ptr<ScalarInfo>& scalarInfo,
-                                               Value* value,
-                                               const TransparentType* transparentType,
-                                               bool forceEnable) {
-  if (forceEnable)
-    scalarInfo->conversionEnabled = true;
-
-  // FIXME: hack to propagate itofp metadata
-  if (/*MixedMode && */ isa<UIToFPInst>(value) || isa<SIToFPInst>(value)) {
-    LLVM_DEBUG(log() << "FORCING CONVERSION OF A ITOFP!\n";);
-    scalarInfo->conversionEnabled = true;
-  }
-
-  if (!transparentType->containsFloatingPointType()) {
-    LLVM_DEBUG(log() << "value is not a float: skipping\n");
-    return false;
-  }
-
-  // TODO: insert logic here to associate different types in a clever way
-  return strategy->apply(scalarInfo, value);
-}
-
-void DataTypeAllocationPass::processStructInfo(
-  std::shared_ptr<StructInfo>& structInfo,
-  Value* value,
-  const TransparentType* transparentType,
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8> queue) {
-  if (!transparentType->isStructTT()) {
-    LLVM_DEBUG(log() << "[ERROR] found non conforming structInfo " << structInfo->toString() << " on value " << *value
-                     << "\n");
-    LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
-    LLVM_DEBUG(log() << "The top-level MDInfo was " << structInfo->toString() << "\n");
-    llvm_unreachable("Non-conforming StructInfo.");
-  }
-  for (unsigned i = 0; i < structInfo->getNumFields(); i++)
-    if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
-      queue.push_back(std::make_pair(field, cast<TransparentStructType>(transparentType)->getFieldType(i)));
-}
-
-bool DataTypeAllocationPass::processValueInfo(Value* value) {
-  std::shared_ptr<ValueInfo> valueInfo;
-  if (taffoInfo.hasValueInfo(*value))
-    valueInfo = taffoInfo.getValueInfo(*value);
-
-  Logger& logger = log();
-  auto indenter = logger.getIndenter();
-  LLVM_DEBUG(
-    logger.log("[Value] ", Logger::Bold).logValueln(value);
-    indenter.increaseIndent(););
-
-  if (!valueInfo) {
-    LLVM_DEBUG(log() << "no valueInfo: skipping\n");
-    return false;
-  }
-  LLVM_DEBUG(logger << "valueInfo: " << *valueInfo << "\n");
-
-  std::shared_ptr<ValueInfo> newValueInfo = valueInfo->clone();
-
-  if (value->getType()->isVoidTy()) {
-    LLVM_DEBUG(log() << "value has void type: skipping\n");
-    return true;
-  }
-
-  /* HACK to set the enabled status on phis which compensates for a bug in vra.
-   * Affects axbench/sobel. */
-  bool forceEnableConv = false;
-  if (isa<PHINode>(value) && !isConversionDisabled(value) && isa<ScalarInfo>(newValueInfo.get()))
-    forceEnableConv = true;
-
-  bool skippedAll = true;
-  TransparentType* transparentType = taffoInfo.getOrCreateTransparentType(*value);
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8> queue(
-    {std::make_pair(newValueInfo, transparentType)});
-
-  while (!queue.empty()) {
-    const auto& [valueInfo, transparentType] = queue.pop_back_val();
-
-    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(valueInfo))
-      skippedAll &= !processScalarInfo(scalarInfo, value, transparentType, forceEnableConv);
-    else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo))
-      processStructInfo(structInfo, value, transparentType, queue);
-    else
-      llvm_unreachable("unknown valueInfo kind");
-  }
-
-  if (!skippedAll) {
-    std::shared_ptr<DtaValueInfo> dtaValueInfo = createDtaValueInfo(value);
-    taffoInfo.setValueInfo(*value, newValueInfo);
-    LLVM_DEBUG(log().log("new valueInfo: ").logln(*newValueInfo, Logger::Cyan));
-    if (std::shared_ptr<ScalarInfo> scalarInfo = dynamic_ptr_cast<ScalarInfo>(newValueInfo))
-      dtaValueInfo->initialType = scalarInfo->numericType;
-  }
-  return !skippedAll;
-}
-
 void DataTypeAllocationPass::sortQueue(std::vector<Value*>& vals, SmallPtrSetImpl<Value*>& valset) {
   // Topological sort by means of a reversed DFS.
   enum VState {
     Visited,
     Visiting
   };
-  DenseMap<Value*, VState> vstates;
+  DenseMap<Value*, VState> vStates;
   std::vector<Value*> revQueue;
   std::vector<Value*> stack;
   revQueue.reserve(vals.size());
   stack.reserve(vals.size());
 
-  for (Value* v : vals) {
-    if (vstates.count(v))
+  for (Value* value : vals) {
+    if (vStates.count(value))
       continue;
 
-    stack.push_back(v);
+    stack.push_back(value);
     while (!stack.empty()) {
       Value* c = stack.back();
-      auto cstate = vstates.find(c);
-      if (cstate == vstates.end()) {
-        vstates[c] = Visiting;
-        for (Value* u : c->users()) {
-          if (!isa<Instruction>(u) && !isa<GlobalObject>(u))
+      auto cState = vStates.find(c);
+      if (cState == vStates.end()) {
+        vStates[c] = Visiting;
+        for (Value* user : c->users()) {
+          if (!isa<Instruction>(user) && !isa<GlobalObject>(user))
             continue;
-
-          if (isConversionDisabled(u)) {
-            LLVM_DEBUG(log() << "[WARNING] Skipping " << *u << " because its conversion is disabled!\n");
+          if (isConversionDisabled(user)) {
+            LLVM_DEBUG(log() << "conversion is disabled: skipping " << *user << "\n");
             continue;
           }
-
-          stack.push_back(u);
+          stack.push_back(user);
         }
       }
-      else if (cstate->second == Visiting) {
+      else if (cState->second == Visiting) {
         revQueue.push_back(c);
         stack.pop_back();
-        vstates[c] = Visited;
+        vStates[c] = Visited;
       }
       else {
-        assert(cstate->second == Visited);
+        assert(cState->second == Visited);
         stack.pop_back();
       }
     }
@@ -637,79 +595,149 @@ void DataTypeAllocationPass::sortQueue(std::vector<Value*>& vals, SmallPtrSetImp
   for (auto i = revQueue.rbegin(); i != revQueue.rend(); ++i) {
     vals.push_back(*i);
     valset.insert(*i);
-    if (Argument* Arg = dyn_cast<Argument>(*i)) {
-      LLVM_DEBUG(log() << "Restoring consistency of argument " << *Arg << " of function "
-                       << Arg->getParent()->getNameOrAsOperand() << "\n");
-      restoreTypesAcrossFunctionCall(Arg);
-    }
+  }
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (Value* value : vals)
+      changed |= propagateTypeAcrossCalls(value);
   }
 }
 
-void DataTypeAllocationPass::mergeFixFormat(const std::vector<Value*>& vals, const SmallPtrSetImpl<Value*>& valset) {
-  if (DisableTypeMerging)
+void DataTypeAllocationPass::mergeTypes(const std::vector<Value*>& vals, const SmallPtrSetImpl<Value*>& valset) {
+  if (disableTypeMerging)
     return;
 
-  assert(vals.size() == valset.size() && "They must contain the same elements.");
+  assert(vals.size() == valset.size() && "They must contain the same elements");
   bool merged = false;
-  for (Value* v : vals) {
-    for (Value* u : v->users()) {
-      if (valset.count(u)) {
-        if (mergeFixFormat(v, u)) {
-          restoreTypesAcrossFunctionCall(v);
-          restoreTypesAcrossFunctionCall(u);
-
+  for (Value* value : vals) {
+    for (Value* user : value->users()) {
+      if (valset.count(user)) {
+        if (mergeTypes(value, user)) {
+          propagateTypeAcrossCalls(value);
+          propagateTypeAcrossCalls(user);
           merged = true;
         }
       }
     }
   }
-  if (IterativeMerging && merged)
-    mergeFixFormat(vals, valset);
+  if (iterativeMerging && merged)
+    mergeTypes(vals, valset);
 }
 
-bool DataTypeAllocationPass::mergeFixFormat(Value* v, Value* u) {
-  std::shared_ptr<DtaValueInfo> valueTunerInfo = getDtaValueInfo(v);
-  std::shared_ptr<DtaValueInfo> userTunerInfo = getOrCreateDtaValueInfo(u);
-  if (!taffoInfo.hasValueInfo(*v) || !taffoInfo.hasValueInfo(*u)) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because at least one is a struct\n");
-    return false;
-  }
-  std::shared_ptr<ScalarInfo> valueInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*v));
-  std::shared_ptr<ScalarInfo> userInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*u));
-  if (!valueInfo->numericType || !valueTunerInfo->initialType || !userInfo->numericType
-      || !userTunerInfo->initialType) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u
-                     << " because at least one does not change to a fixed point type\n");
-    return false;
-  }
-  if (v->getType()->isPointerTy() || u->getType()->isPointerTy()) {
-    LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because at least one is a pointer\n");
+bool DataTypeAllocationPass::mergeTypes(Value* value1, Value* value2) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger << Logger::Bold << "[" << __FUNCTION__ << "]\n" << Logger::Reset;
+    indenter.increaseIndent();
+    logger.log("value1: ").logValueln(value1);
+    logger.log("value2: ").logValueln(value2););
+
+  if (!taffoInfo.hasValueInfo(*value1) || !taffoInfo.hasValueInfo(*value2)) {
+    LLVM_DEBUG(logger << "at least one has no valueInfo: skipping\n");
     return false;
   }
 
-  std::shared_ptr<NumericTypeInfo> valueNumericType = dynamic_ptr_cast<NumericTypeInfo>(valueTunerInfo->initialType);
-  std::shared_ptr<NumericTypeInfo> userNumericType = dynamic_ptr_cast<NumericTypeInfo>(userTunerInfo->initialType);
+  auto valueInfo1 = taffoInfo.getValueInfo(*value1);
+  auto valueInfo2 = taffoInfo.getValueInfo(*value2);
+  auto* type1 = taffoInfo.getOrCreateTransparentType(*value1);
+  auto* type2 = taffoInfo.getOrCreateTransparentType(*value2);
 
-  if (strategy->isMergeable(valueNumericType, userNumericType)) {
+  return mergeTypes(valueInfo1, type1, valueInfo2, type2);
+}
+bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
+                                        TransparentType* type1,
+                                        std::shared_ptr<ValueInfo> valueInfo2,
+                                        TransparentType* type2) {
+  Logger& logger = log();
 
-    std::shared_ptr<NumericTypeInfo> fp = strategy->merge(valueNumericType, userNumericType);
-    if (!fp) {
-      LLVM_DEBUG(log() << "not attempting merge of " << *v << ", " << *u << " because resulting type is invalid\n");
+  // Scalar <-> Scalar
+  if (auto scalarInfo1 = std::dynamic_ptr_cast<ScalarInfo>(valueInfo1)) {
+    if (auto scalarInfo2 = std::dynamic_ptr_cast<ScalarInfo>(valueInfo2))
+      return mergeTypes(scalarInfo1, scalarInfo2);
+    // Struct-vs-Scalar is handled elsewhere (via GEP propagation). Skip here.
+    LLVM_DEBUG(logger << "kinds mismatch (scalar vs non-scalar): skipping in mergeValueInfos\n");
+    return false;
+  }
+
+  // Struct <-> Struct (recurse)
+  if (auto structInfo1 = std::dynamic_ptr_cast<StructInfo>(valueInfo1)) {
+    auto structInfo2 = std::dynamic_ptr_cast<StructInfo>(valueInfo2);
+    if (!structInfo2) {
+      LLVM_DEBUG(logger << "kinds mismatch (struct vs non-struct): skipping in mergeValueInfos\n");
       return false;
     }
-    LLVM_DEBUG(log() << "Merged type : \n"
-                     << "\t" << *v << " fix type " << valueNumericType->toString() << "\n"
-                     << "\t" << *u << " fix type " << userNumericType->toString() << "\n"
-                     << "Final format " << fp->toString() << "\n";);
+    if (!type1 || !type2 || !type1->isStructTT() || !type2->isStructTT()) {
+      LLVM_DEBUG(logger << "transparent types not struct: skipping\n");
+      return false;
+    }
+    auto structType1 = llvm::cast<TransparentStructType>(type1);
+    auto structType2 = llvm::cast<TransparentStructType>(type2);
 
-    valueInfo->numericType = fp->clone();
-    userInfo->numericType = fp->clone();
+    unsigned n = std::min(structInfo1->getNumFields(), structInfo2->getNumFields());
+    bool changed = false;
+    for (unsigned i = 0; i < n; ++i) {
+      auto fieldInfo1 = structInfo1->getField(i);
+      auto fieldInfo2 = structInfo2->getField(i);
+      if (!fieldInfo1 || !fieldInfo2)
+        continue; // nothing to merge for this field
+
+      auto fieldType1 = structType1->getFieldType(i);
+      auto fieldType2 = structType2->getFieldType(i);
+      changed |= mergeTypes(fieldInfo1, fieldType1, fieldInfo2, fieldType2);
+    }
+    return changed;
+  }
+  llvm_unreachable("Unknown valueInfo kind");
+}
+
+bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ScalarInfo> scalarInfo1,
+                                        std::shared_ptr<ScalarInfo> scalarInfo2) {
+  Logger& logger = log();
+  if (!scalarInfo1->numericType && !scalarInfo2->numericType) {
+    LLVM_DEBUG(logger << "neither has a numeric type: skipping\n");
+    return false;
+  }
+
+  if (!scalarInfo1->numericType) {
+    scalarInfo1->numericType = scalarInfo2->numericType->clone();
+    LLVM_DEBUG(
+      logger << "scalarInfo1 has no numeric type: copying it from scalarInfo2\n";
+      logger.log("new type: ").logln(*scalarInfo1->numericType, Logger::Green););
     return true;
   }
-  else {
-    FixCast++;
+  if (!scalarInfo2->numericType) {
+    scalarInfo2->numericType = scalarInfo1->numericType->clone();
+    LLVM_DEBUG(
+      logger << "scalarInfo2 has no numeric type: copying it from scalarInfo1\n";
+      logger.log("new type: ").logln(*scalarInfo2->numericType, Logger::Green););
+    return true;
   }
 
+  LLVM_DEBUG(
+    logger.log("type1: ").logln(*scalarInfo1->numericType, Logger::Cyan);
+    logger.log("type2: ").logln(*scalarInfo2->numericType, Logger::Cyan););
+  if (*scalarInfo1->numericType == *scalarInfo2->numericType) {
+    LLVM_DEBUG(logger << "same type already\n");
+    return false;
+  }
+
+  if (strategy->isMergeable(scalarInfo1->numericType, scalarInfo2->numericType)) {
+    std::shared_ptr<NumericTypeInfo> mergedType = strategy->merge(scalarInfo1->numericType, scalarInfo2->numericType);
+    if (!mergedType) {
+      LLVM_DEBUG(logger << "merge failed: skipping\n");
+      fixCast++;
+      return false;
+    }
+    LLVM_DEBUG(logger.log("merged type: ").logln(*mergedType, Logger::Green););
+    scalarInfo1->numericType = mergedType->clone();
+    scalarInfo2->numericType = mergedType->clone();
+    return true;
+  }
+  LLVM_DEBUG(logger << "types are not mergeable: skipping\n");
+  fixCast++;
   return false;
 }
 
@@ -722,28 +750,28 @@ void DataTypeAllocationPass::mergeBufferIDSets() {
     ReadBufferIDFile(BufferIDImport, InMap);
   }
 
-  for (auto& Set : bufferIDSets) {
-    LLVM_DEBUG(log() << "Merging Buffer ID set " << Set.first << "\n");
+  for (auto& set : bufferIDSets) {
+    LLVM_DEBUG(log() << "Merging Buffer ID set " << set.first << "\n");
 
     std::shared_ptr<NumericTypeInfo> DestType;
-    if (InMap.find(Set.first) != InMap.end()) {
+    if (InMap.find(set.first) != InMap.end()) {
       LLVM_DEBUG(log() << "Set has type specified in file\n");
-      DestType = InMap.at(Set.first)->clone();
+      DestType = InMap.at(set.first)->clone();
     }
     else {
-      for (auto* V : Set.second) {
-        std::shared_ptr<DtaValueInfo> dtaValueInfo = getDtaValueInfo(V);
-        if (!taffoInfo.hasValueInfo(*V)) {
-          LLVM_DEBUG(log() << "Metadata is null or struct, not handled, bailing out! Value='" << *V << "'\n");
+      for (auto* value : set.second) {
+        std::shared_ptr<DtaValueInfo> dtaValueInfo = getDtaValueInfo(value);
+        if (!taffoInfo.hasValueInfo(*value)) {
+          LLVM_DEBUG(log() << "Metadata is null or struct, not handled, bailing out! Value='" << *value << "'\n");
           goto nextSet;
         }
-        std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*V));
+        std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*value));
         std::shared_ptr<NumericTypeInfo> T = scalarInfo->numericType;
         if (T) {
-          LLVM_DEBUG(log() << "Type=" << T->toString() << " Value='" << *V << "'\n");
+          LLVM_DEBUG(log() << "Type=" << T->toString() << " Value='" << *value << "'\n");
         }
         else {
-          LLVM_DEBUG(log() << "Type is null, not handled, bailing out! Value='" << *V << "'\n");
+          LLVM_DEBUG(log() << "Type is null, not handled, bailing out! Value='" << *value << "'\n");
           continue;
         }
 
@@ -755,16 +783,16 @@ void DataTypeAllocationPass::mergeBufferIDSets() {
     }
     LLVM_DEBUG(log() << "Computed merged type: " << DestType->toString() << "\n");
 
-    for (auto* V : Set.second) {
+    for (auto* V : set.second) {
       std::shared_ptr<DtaValueInfo> dtaValueInfo = getDtaValueInfo(V);
       std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*V));
       scalarInfo->numericType = DestType->clone();
-      restoreTypesAcrossFunctionCall(V);
+      propagateTypeAcrossCalls(V);
     }
-    OutMap[Set.first] = DestType->clone();
+    OutMap[set.first] = DestType->clone();
 
 nextSet:
-    LLVM_DEBUG(log() << "Merging Buffer ID set " << Set.first << " DONE\n\n");
+    LLVM_DEBUG(log() << "Merging Buffer ID set " << set.first << " DONE\n\n");
   }
 
   if (!BufferIDExport.empty()) {
@@ -775,107 +803,223 @@ nextSet:
   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " END\n\n");
 }
 
-void DataTypeAllocationPass::restoreTypesAcrossFunctionCall(Value* v) {
-  LLVM_DEBUG(log() << "restoreTypesAcrossFunctionCall(" << *v << ")\n");
-  if (!hasDtaInfo(v)) {
-    LLVM_DEBUG(log() << " --> skipping restoring types because value is not converted\n");
-    return;
+bool DataTypeAllocationPass::propagateTypeAcrossCalls(Value* value) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger << Logger::Bold << "[" << __FUNCTION__ << "] " << Logger::Reset;
+    logger.logValueln(value);
+    indenter.increaseIndent(););
+
+  if (!taffoInfo.hasValueInfo(*value)) {
+    LLVM_DEBUG(logger << "value has no valueInfo: skipping\n");
+    return false;
+  }
+  std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*value);
+
+  bool changed = false;
+  if (auto* arg = dyn_cast<Argument>(value)) {
+    LLVM_DEBUG(logger << "value is an argument: propagating backward to call arguments\n");
+    changed |= propagateArgType(arg, valueInfo);
+  }
+  else if (auto* call = dyn_cast<CallBase>(value)) {
+    LLVM_DEBUG(
+      logger
+      << "value is a call: propagating forward to function arguments, function return values and function itself\n");
+    changed |= propagateCallType(call);
+    for (Use& use : call->args()) {
+      Value* callArg = use.get();
+      changed |= propagateTypeAcrossCalls(callArg);
+    }
+  }
+  else if (auto* gep = dyn_cast<GetElementPtrInst>(value)) {
+    LLVM_DEBUG(logger << "value is a gep: propagating backward to pointer operand\n");
+    changed |= propagateGepType(gep);
   }
 
-  std::shared_ptr<ValueInfo> finalValueInfo = taffoInfo.getValueInfo(*v);
-
-  if (auto* arg = dyn_cast<Argument>(v)) {
-    LLVM_DEBUG(log() << "Is a function argument, propagating to calls\n");
-    setTypesOnCallArgumentFromFunctionArgument(arg, finalValueInfo);
-  }
-  else {
-    LLVM_DEBUG(log() << "Not a function argument, propagating to function arguments\n");
-    setTypesOnFunctionArgumentFromCallArgument(v, finalValueInfo);
-  }
-
-  LLVM_DEBUG(log() << "restoreTypesAcrossFunctionCall ended\n");
-}
-
-void DataTypeAllocationPass::setTypesOnFunctionArgumentFromCallArgument(Value* v, std::shared_ptr<ValueInfo> finalMd) {
-  for (Use& use : v->uses()) {
+  for (Use& use : value->uses()) {
     User* user = use.getUser();
-    auto* call = dyn_cast<CallBase>(user);
-    if (call == nullptr)
-      continue;
-    LLVM_DEBUG(log() << "restoreTypesAcrossFunctionCall: processing user " << *(user) << ")\n");
+    if (auto* call = dyn_cast<CallBase>(user)) {
+      if (!is_contained(call->args(), value))
+        continue; // Not a call argument
+      LLVM_DEBUG(
+        logger.log("value used as call argument in call: ").logValueln(call);
+        logger << "propagating forward to function arguments\n";);
+      auto* fun = dyn_cast<Function>(call->getCalledFunction());
+      if (!fun) {
+        LLVM_DEBUG(logger << "function reference cannot be resolved: skipping\n");
+        continue;
+      }
+      if (fun->isVarArg()) {
+        LLVM_DEBUG(logger << "vararg function: skipping\n");
+        continue;
+      }
 
-    auto* fun = dyn_cast<Function>(call->getCalledFunction());
-    if (fun == nullptr) {
-      LLVM_DEBUG(log() << " --> skipping restoring types from call site " << *user
-                       << " because function reference cannot be resolved\n");
-      continue;
+      Argument* arg = fun->getArg(use.getOperandNo());
+      changed |= mergeTypes(value, arg);
+      changed |= propagateArgType(arg, valueInfo);
     }
-    if (fun->isVarArg()) {
-      LLVM_DEBUG(log() << " --> skipping restoring types from call site " << *user << " because function is vararg\n");
-      continue;
-    }
-
-    assert(fun->arg_size() > use.getOperandNo() && "invalid call to function; operandNo > numOperands");
-    Argument* arg = fun->arg_begin() + use.getOperandNo();
-    if (hasDtaInfo(arg)) {
-      taffoInfo.setValueInfo(*arg, finalMd->clone());
-      setTypesOnCallArgumentFromFunctionArgument(arg, finalMd);
-      LLVM_DEBUG(log() << " --> set new metadata, now checking uses of the argument... (hope there's no recursion!)\n");
-      setTypesOnFunctionArgumentFromCallArgument(arg, finalMd);
-    }
-    else {
-      LLVM_DEBUG(log() << "Not looking good, formal arg #" << use.getOperandNo() << " (" << *arg
-                       << ") has no valueInfo, but actual argument does...\n");
+    else if (auto* ret = dyn_cast<ReturnInst>(user)) {
+      LLVM_DEBUG(
+        logger.log("value used as return value in: ").logValueln(ret);
+        logger << "propagating backward to function and call\n");
+      Function* fun = ret->getFunction();
+      changed |= mergeTypes(fun, value);
+      for (User* funUser : fun->users())
+        if (auto* funCall = dyn_cast<CallBase>(funUser)) {
+          changed |= mergeTypes(funCall, value);
+          changed |= propagateTypeAcrossCalls(funCall);
+        }
     }
   }
+  return changed;
 }
 
-void DataTypeAllocationPass::setTypesOnCallArgumentFromFunctionArgument(Argument* arg,
-                                                                        std::shared_ptr<ValueInfo> finalMd) {
-  Function* fun = arg->getParent();
-  int n = arg->getArgNo();
-  LLVM_DEBUG(log() << " --> setting types to " << finalMd->toString() << " on call arguments from function "
-                   << fun->getName() << " argument " << n << "\n");
-  for (auto it = fun->user_begin(); it != fun->user_end(); it++) {
-    if (isa<CallInst>(*it) || isa<InvokeInst>(*it)) {
-      Value* callarg = it->getOperand(n);
-      LLVM_DEBUG(log() << " --> target " << *callarg << ", CallBase " << **it << "\n");
+bool DataTypeAllocationPass::propagateArgType(Argument* arg, const std::shared_ptr<ValueInfo>& valueInfo) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger << Logger::Bold << "[" << __FUNCTION__ << "] " << Logger::Reset;
+    logger.logValueln(arg);
+    indenter.increaseIndent(););
 
-      if (!hasDtaInfo(callarg)) {
-        if (!isa<Argument>(callarg)) {
-          LLVM_DEBUG(log() << " --> actual argument doesn't get converted; skipping\n");
-          continue;
-        }
-        else {
-          LLVM_DEBUG(
-            log() << " --> actual argument IS AN ARGUMENT ITSELF! not skipping even if it doesn't get converted\n");
-        }
-      }
-      taffoInfo.setValueInfo(*callarg, finalMd->clone());
-      if (auto* Arg = dyn_cast<Argument>(callarg)) {
-        LLVM_DEBUG(log() << " --> actual argument IS AN ARGUMENT ITSELF, recursing\n");
-        setTypesOnCallArgumentFromFunctionArgument(Arg, finalMd);
+  bool changed = false;
+  Function* fun = arg->getParent();
+  unsigned argIndex = arg->getArgNo();
+  for (User* user : fun->users()) {
+    if (auto* call = dyn_cast<CallBase>(user)) {
+      Value* callArg = call->getOperand(argIndex);
+      LLVM_DEBUG(
+        logger.log("call: ").logValueln(call);
+        logger.log("callArg: ").logValueln(callArg););
+
+      changed |= mergeTypes(callArg, arg);
+      if (auto* arg = dyn_cast<Argument>(callArg)) {
+        LLVM_DEBUG(logger << "callArg is an argument itself: recursing\n");
+        changed |= propagateArgType(arg, valueInfo);
       }
     }
   }
+  return changed;
+}
+
+bool DataTypeAllocationPass::propagateCallType(CallBase* call) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger << Logger::Bold << "[" << __FUNCTION__ << "] " << Logger::Reset;
+    logger.logValueln(call);
+    indenter.increaseIndent(););
+
+  Function* fun = call->getCalledFunction();
+  if (!fun) {
+    LLVM_DEBUG(logger << "function reference cannot be resolved: skipping\n");
+    return false;
+  }
+  if (!taffoInfo.isCloneFunction(*fun)) {
+    LLVM_DEBUG(logger << "function is not a clone: skipping\n");
+    return false;
+  }
+  bool changed = false;
+  changed |= mergeTypes(fun, call);
+  for (Instruction& inst : instructions(fun))
+    if (auto* ret = dyn_cast<ReturnInst>(&inst))
+      if (Value* retValue = ret->getReturnValue()) {
+        changed |= mergeTypes(retValue, call);
+        changed |= propagateTypeAcrossCalls(ret);
+      }
+  return changed;
+}
+
+bool DataTypeAllocationPass::propagateGepType(GetElementPtrInst* gep) {
+  Logger& logger = log();
+  auto indenter = logger.getIndenter();
+  LLVM_DEBUG(
+    logger << Logger::Bold << "[" << __FUNCTION__ << "] " << Logger::Reset;
+    logger.logValueln(gep);
+    indenter.increaseIndent(););
+
+  if (!taffoInfo.hasValueInfo(*gep))
+    return false;
+  Value* ptrOperand = gep->getPointerOperand();
+  std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*gep);
+  std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
+  if (!scalarInfo)
+    return false;
+  bool changed = mergeTypeWithGepPtrOperand(gep, scalarInfo);
+  if (changed)
+    for (User* user : ptrOperand->users())
+      if (auto* gepUser = dyn_cast<GetElementPtrInst>(user))
+        propagateTypeAcrossCalls(gepUser);
+  return changed;
+}
+
+bool DataTypeAllocationPass::mergeTypeWithGepPtrOperand(GetElementPtrInst* gep,
+                                                        const std::shared_ptr<ScalarInfo>& gepInfo) {
+  Logger& logger = log();
+  Value* ptrOperand = gep->getPointerOperand();
+  if (!taffoInfo.hasValueInfo(*ptrOperand))
+    return false;
+
+  std::shared_ptr<ValueInfo> ptrOperandInfo = taffoInfo.getValueInfo(*ptrOperand);
+  ValueInfo* targetInfo = ptrOperandInfo.get();
+  if (auto structInfo = std::dynamic_ptr_cast<StructInfo>(ptrOperandInfo)) {
+    targetInfo = structInfo->getField(gep->indices());
+    if (!targetInfo)
+      return false;
+  }
+
+  ScalarInfo* targetScalarInfo = dyn_cast<ScalarInfo>(targetInfo);
+  if (!targetScalarInfo || (!gepInfo->numericType && !targetScalarInfo->numericType))
+    return false;
+
+  if (!gepInfo->numericType) {
+    gepInfo->numericType = targetScalarInfo->numericType->clone();
+    LLVM_DEBUG(
+      logger << "gep has no numeric type: copying it from target\n";
+      logger.log("new value type: ").logln(*gepInfo->numericType, Logger::Green););
+    return true;
+  }
+  if (!targetScalarInfo->numericType) {
+    targetScalarInfo->numericType = gepInfo->numericType->clone();
+    LLVM_DEBUG(
+      logger << "target has no numeric type: copying it from gep\n";
+      logger.log("new value type: ").logln(*targetScalarInfo->numericType, Logger::Green););
+    return true;
+  }
+  LLVM_DEBUG(
+    logger.log("gep type:    ").logln(*gepInfo->numericType, Logger::Cyan);
+    logger.log("target type: ").logln(*targetScalarInfo->numericType, Logger::Cyan););
+  if (*gepInfo->numericType == *targetScalarInfo->numericType) {
+    LLVM_DEBUG(logger << "same type already\n";);
+    return false;
+  }
+
+  std::shared_ptr<NumericTypeInfo> mergedType = strategy->merge(gepInfo->numericType, targetScalarInfo->numericType);
+  gepInfo->numericType = mergedType->clone();
+  targetScalarInfo->numericType = mergedType->clone();
+  LLVM_DEBUG(logger.log("merged type: ").logln(*mergedType, Logger::Green););
+  return true;
 }
 
 std::vector<Function*> DataTypeAllocationPass::collapseFunction(Module& m) {
+  Logger& logger = log();
   std::vector<Function*> toDel;
   for (Function& f : m.functions()) {
     if (std::ranges::find(toDel, &f) != toDel.end())
       continue;
-    LLVM_DEBUG(log() << "Analyzing original function " << f.getName() << "\n");
+    LLVM_DEBUG(logger.log("Analyzing original function ").logValueln(&f));
+    auto indenter = logger.getIndenter();
+    indenter.increaseIndent();
 
     SmallPtrSet<Function*, 2> taffoFunctions;
-    taffoInfo.getTaffoCloneFunctions(f, taffoFunctions);
+    taffoInfo.getCloneFunctions(f, taffoFunctions);
     for (Function* cloneF : taffoFunctions) {
-      LLVM_DEBUG(log() << "\t Clone: " << *cloneF << "\n");
-      if (cloneF->user_empty()) {
-        LLVM_DEBUG(log() << "\t Ignoring " << cloneF->getName() << " because it's not used anywhere\n");
-      }
+      LLVM_DEBUG(logger.log("clone: ").logValueln(cloneF));
+      if (cloneF->user_empty())
+        LLVM_DEBUG(logger << "clone not used anywhere: ignoring\n");
       else if (Function* eqFun = findEqFunction(cloneF, &f)) {
-        LLVM_DEBUG(log() << "\t Replace function " << cloneF->getName() << " with " << eqFun->getName() << "\n";);
+        LLVM_DEBUG(logger.log("replacing function clone with ").logValueln(eqFun););
         cloneF->replaceAllUsesWith(eqFun);
         toDel.push_back(cloneF);
       }
@@ -924,21 +1068,21 @@ bool compareTypesOfMDInfo(const std::shared_ptr<ValueInfo>& mdi1, const std::sha
 Function* DataTypeAllocationPass::findEqFunction(Function* fun, Function* origin) {
   std::vector<std::pair<int, std::shared_ptr<ValueInfo>>> fixSign;
 
-  LLVM_DEBUG(log() << "\t\t Search eq function for " << fun->getName() << " in " << origin->getName() << " pool\n";);
+  LLVM_DEBUG(log() << "Search eq function for " << fun->getName() << " in " << origin->getName() << " pool\n";);
 
   if (getFullyUnwrappedType(fun)->isFloatingPointTy() && hasDtaInfo(*fun->user_begin())) {
     if (taffoInfo.hasValueInfo(**fun->user_begin())) {
       std::shared_ptr<ValueInfo> retval = taffoInfo.getValueInfo(**fun->user_begin());
       fixSign.push_back(std::pair(-1, retval)); // ret value in signature
-      LLVM_DEBUG(log() << "\t\t Return type : " << *retval << "\n";);
+      LLVM_DEBUG(log() << "Return type : " << *retval << "\n";);
     }
   }
 
   int i = 0;
   for (Argument& arg : fun->args()) {
-    if (hasDtaInfo(&arg) && taffoInfo.hasValueInfo(arg)) {
+    if (taffoInfo.hasValueInfo(arg)) {
       fixSign.push_back(std::pair(i, taffoInfo.getValueInfo(arg)));
-      LLVM_DEBUG(log() << "\t\t Arg " << i << " type : " << *taffoInfo.getValueInfo(arg) << "\n";);
+      LLVM_DEBUG(log() << "Arg " << i << " type : " << *taffoInfo.getValueInfo(arg) << "\n";);
     }
     i++;
   }
@@ -963,7 +1107,7 @@ Function* DataTypeAllocationPass::findEqFunction(Function* fun, Function* origin
   funInfo.newFun = fun;
   funInfo.fixArgs = fixSign;
   functionPool[origin].push_back(funInfo);
-  LLVM_DEBUG(log() << "\t Function " << fun->getName() << " used\n";);
+  LLVM_DEBUG(log() << "Function " << fun->getName() << " used\n";);
   return nullptr;
 }
 
@@ -986,211 +1130,3 @@ void DataTypeAllocationPass::attachFunctionMetaData(Module& m) {
     //  TODO remove this function
   }
 }
-
-std::shared_ptr<ValueInfo>
-DataTypeAllocationPass::getStructFieldValueInfo(std::shared_ptr<StructInfo> structInfo,
-                                                const iterator_range<const Use*> gepIndices) {
-  SmallVector<unsigned, 4> indices;
-  for (Value* value : gepIndices) {
-    auto constantIndex = cast<ConstantInt>(value);
-    indices.push_back(constantIndex->getZExtValue());
-  }
-
-  std::shared_ptr<ValueInfo> curr = structInfo;
-  bool first = true;
-  for (unsigned index : indices) {
-    if (first) {
-      assert(index == 0);
-      first = false;
-      continue;
-    }
-    auto currStructInfo = std::dynamic_ptr_cast_or_null<StructInfo>(curr);
-    if (!currStructInfo)
-      return nullptr; // Field not found in structInfo
-    curr = currStructInfo->getField(index);
-  }
-  return curr;
-}
-
-void DataTypeAllocationPass::attachStructFieldType(GetElementPtrInst* gep, const NumericTypeInfo& numericType) {
-  Value* ptrOperand = gep->getPointerOperand();
-  if (!taffoInfo.hasValueInfo(*ptrOperand))
-    return;
-
-  auto structInfo = std::static_ptr_cast<StructInfo>(taffoInfo.getValueInfo(*ptrOperand));
-  auto fieldInfo = getStructFieldValueInfo(structInfo, gep->indices());
-  if (!fieldInfo)
-    return;
-
-  auto fieldScalarInfo = std::dynamic_ptr_cast<ScalarInfo>(fieldInfo);
-  if (!fieldScalarInfo || (fieldScalarInfo->numericType && *fieldScalarInfo->numericType == numericType))
-    return;
-
-  if (!fieldScalarInfo->numericType)
-    fieldScalarInfo->numericType = numericType.clone();
-  else
-    llvm_unreachable("Struct field already has a different numericType");
-}
-
-void DataTypeAllocationPass::propagateStructFieldTypes(const std::vector<Value*>& queue) {
-  for (Value* value : queue) {
-    if (!taffoInfo.hasValueInfo(*value))
-      continue;
-    if (auto* gepInst = dyn_cast<GetElementPtrInst>(value)) {
-      Value* ptrOperand = gepInst->getPointerOperand();
-      if (taffoInfo.hasTransparentType(*ptrOperand) && taffoInfo.getTransparentType(*ptrOperand)->isStructTT()) {
-        std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*gepInst);
-        std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo);
-        if (scalarInfo && scalarInfo->numericType)
-          attachStructFieldType(gepInst, *scalarInfo->numericType);
-      }
-    }
-  }
-}
-
-#ifdef TAFFO_BUILD_ILP_DTA
-void DataTypeAllocationPass::buildModelAndOptimze(Module& m,
-                                                  const vector<Value*>& vals,
-                                                  const SmallPtrSetImpl<Value*>& valset) {
-  assert(vals.size() == valset.size() && "They must contain the same elements.");
-
-  Optimizer optimizer(m, this, new MetricPerf(), CostModelFilename, CPUCosts::CostType::Performance);
-  // Optimizer optimizer(m, this, new MetricPerf(),"", CPUCosts::CostType::Size);
-  optimizer.initialize();
-
-  LLVM_DEBUG(
-  log() << "\n============ GLOBALS ============\n");
-
-  for (GlobalObject& globObj : m.globals()) {
-    LLVM_DEBUG(
-    globObj.print(log()););
-    LLVM_DEBUG(
-    log() << "     -having-     ");
-    if (!hasTunerInfo(&globObj)) {
-      LLVM_DEBUG(
-      log() << "No info available, skipping.");
-    }
-    else {
-      LLVM_DEBUG(
-      log() << getTunerInfo(&globObj)->metadata->toString() << "\n");
-
-      optimizer.handleGlobal(&globObj, getTunerInfo(&globObj));
-    }
-    LLVM_DEBUG(
-    log() << "\n\n";);
-  }
-
-  // FIXME: this is an hack to prevent multiple visit of the same function if it will be called somewhere from the
-  // program
-  for (Function& f : m.functions()) {
-    // Skip compiler provided functions
-    if (f.isIntrinsic() || f.isDeclaration())
-      continue;
-
-    if (!f.isIntrinsic() && !f.empty() && f.getName().equals("main")) {
-      LLVM_DEBUG(
-      log() << "========== GLOBAL ENTRY POINT main ==========";);
-
-      optimizer.handleCallFromRoot(&f);
-      break;
-    }
-  }
-
-  // Looking for remaining functions
-  for (Function& f : m.functions()) {
-    // Skip compiler provided functions
-    if (f.isIntrinsic()) {
-      LLVM_DEBUG(
-      log() << "Skipping intrinsic function " << f.getName() << "\n";);
-      continue;
-    }
-
-    // Skip empty functions
-    if (f.empty()) {
-      LLVM_DEBUG(
-      log() << "Skipping empty function " << f.getName() << "\n";);
-      continue;
-    }
-
-    optimizer.handleCallFromRoot(&f);
-  }
-
-  bool result = optimizer.finish();
-  assert(result && "Optimizer did not find a solution!");
-
-  for (Value* v : vals) {
-    LLVM_DEBUG(
-    log() << "Processing " << *v << "...\n");
-
-    if (!valset.count(v)) {
-      LLVM_DEBUG(
-      log() << "Not in the conversion queue! Skipping!\n\n";);
-      continue;
-    }
-
-    std::shared_ptr<TunerInfo> viu = getTunerInfo(v);
-
-    // Read from the model, search for the data type associated with that value and convert it!
-    auto fp = optimizer.getAssociatedMetadata(v);
-    if (!fp) {
-      LLVM_DEBUG(
-      log() << "Invalid datatype returned!\n";);
-      continue;
-    }
-    LLVM_DEBUG(
-    log() << "Datatype: " << fp->toString() << "\n");
-
-    // Write the datatype
-    bool result = overwriteType(viu->metadata, fp);
-    if (result) {
-      // Some datatype has changed, restore in function call
-      LLVM_DEBUG(
-      log() << "Restoring call type because of mergeDataTypes()...\n";);
-      restoreTypesAcrossFunctionCall(v);
-    }
-
-    LLVM_DEBUG(
-    log() << "done with [" << *v << "]\n\n");
-    /*auto *iiv = dyn_cast<InputInfo>(viu->metadata.get());
-
-    iiv->IType.reset(fp->clone());*/
-  }
-
-  optimizer.printStatInfos();
-}
-
-bool DataTypeAllocationPass::overwriteType(shared_ptr<ValueInfo> old, shared_ptr<ValueInfo> model) {
-  if (!old || !model)
-    return false;
-
-  if (old->getKind() == ValueInfo::K_Scalar) {
-    assert(model->getKind() == ValueInfo::K_Scalar && "Mismatching metadata infos!!!");
-
-    std::shared_ptr<ScalarInfo> old1 = dynamic_ptr_cast<ScalarInfo>(old);
-    std::shared_ptr<ScalarInfo> model1 = dynamic_ptr_cast<ScalarInfo>(model);
-
-    if (!old1->numericType)
-      return false;
-    LLVM_DEBUG(
-    log() << "model1: " << model1->numericType->toString() << "\n";);
-    LLVM_DEBUG(
-    log() << "old1: " << old1->numericType->toString() << "\n";);
-    if (*old1->numericType == *model1->numericType)
-      return false;
-
-    old1->numericType = model1->numericType->clone();
-    return true;
-  }
-  else if (old->getKind() == ValueInfo::K_Struct) {
-    std::shared_ptr<StructInfo> old1 = dynamic_ptr_cast<StructInfo>(old);
-    std::shared_ptr<StructInfo> model1 = dynamic_ptr_cast<StructInfo>(model);
-
-    bool changed = false;
-    for (unsigned i = 0; i < old1->getNumFields(); i++)
-      changed |= overwriteType(old1->getField(i), model1->getField(i));
-    return changed;
-  }
-
-  llvm_unreachable("unknown data type");
-}
-#endif // TAFFO_BUILD_ILP_DTA

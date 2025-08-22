@@ -8,7 +8,7 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner {
+namespace taffo {
 
 // This class contains references to phi node that has no been closed yet
 class PhiWatcher {
@@ -25,6 +25,6 @@ public:
   void dumpState();
 };
 
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE

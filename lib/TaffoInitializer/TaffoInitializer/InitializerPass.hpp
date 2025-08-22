@@ -27,7 +27,7 @@ private:
   TaffoInitInfo taffoInitInfo;
   std::list<llvm::Value*> infoPropagationQueue;
   llvm::SmallPtrSet<llvm::Function*, 2> annotatedFunctions;
-  llvm::DenseMap<llvm::CallBase*, llvm::Function*> clonedFunctionsForCalls;
+  llvm::DenseMap<llvm::CallBase*, llvm::Function*> handledCalls;
 
   llvm::Function* findStartingPointFunctionGlobal(llvm::Module& m);
 

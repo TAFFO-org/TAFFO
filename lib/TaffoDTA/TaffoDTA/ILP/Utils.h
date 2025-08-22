@@ -6,7 +6,7 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner {
+namespace taffo {
 
 /// Utility function that generates an unique string ID from a value
 std::string uniqueIDForValue(llvm::Value* value);

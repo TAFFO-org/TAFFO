@@ -29,7 +29,7 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 cl::opt<unsigned> maxTotalBitsConv("maxtotalbitsconv",
                                    cl::value_desc("bits"),
@@ -63,7 +63,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   // Collect memory allocations before conversion
   auto memoryAllocations = collectMemoryAllocations(m);
 
-  performConversion(m, convQueue);
+  performConversion(convQueue);
 
   // Collect memory allocations after conversion
   MemoryAllocationsVec newMemoryAllocations = collectMemoryAllocations(m);
@@ -238,18 +238,8 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
     // propagate conversion
     std::vector<Value*> newQueue;
     for (auto&& [oldArg, newArg] : zip(oldF->args(), newF->args())) {
-      ValueConvInfo* oldArgConvInfo = taffoConvInfo.getValueConvInfo(&oldArg);
-      if (!oldArgConvInfo->isConversionDisabled) {
-        // append fixp info to arg name
-        newArg.setName(newArg.getName() + "." + oldArgConvInfo->getNewType()->toString());
-
-        ValueConvInfo* newArgConvInfo = taffoConvInfo.createValueConvInfo(&newArg);
-        *newArgConvInfo = *oldArgConvInfo;
-        ConversionType* convType = newArgConvInfo->getNewType();
-        if (*convType != *newArgConvInfo->getOldType())
-          newArgConvInfo->isConverted = true;
-        taffoInfo.setTransparentType(newArg, convType->toTransparentType()->clone());
-
+      ValueConvInfo* newArgConvInfo = taffoConvInfo.getValueConvInfo(&newArg);
+      if (*newArgConvInfo->getNewType() != *newArgConvInfo->getOldType()) {
         // Create a fake value to maintain type consistency because
         // createConvertedFunctionForCall has RAUWed all arguments
         // FIXME: is there a cleaner way to do this?
@@ -267,9 +257,9 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
         taffoInfo.setValueInfo(*placeholder, taffoInfo.getValueInfo(oldArg)->clone());
 
         ValueConvInfo* placeholderConvInfo = taffoConvInfo.createValueConvInfo(placeholder);
-        *placeholderConvInfo = *oldArgConvInfo;
+        *placeholderConvInfo = *newArgConvInfo;
         placeholderConvInfo->isArgumentPlaceholder = true;
-        placeholderConvInfo->isConverted = true;
+        placeholderConvInfo->enableConversion();
         LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*placeholderConvInfo, tda::Logger::Cyan));
         convertedValues[placeholder] = &newArg;
         newQueue.push_back(placeholder);
@@ -281,12 +271,10 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
     buildLocalConvInfo(*newF, newLocalValues);
     newQueue.insert(newQueue.end(), newLocalValues.begin(), newLocalValues.end());
 
-    for (ReturnInst* ret : returns)
-      if (!taffoConvInfo.hasValueConvInfo(ret)) {
-        ValueConvInfo* retConvInfo = taffoConvInfo.createValueConvInfo(ret);
-        retConvInfo->isConversionDisabled = false;
-        newQueue.push_back(ret);
-      }
+    for (ReturnInst* ret : returns) {
+      taffoConvInfo.getValueConvInfo(ret)->enableConversion();
+      newQueue.push_back(ret);
+    }
 
     LLVM_DEBUG(log() << "creating conversion queue of new function " << newF->getName() << "\n");
     createConversionQueue(newQueue);
@@ -332,13 +320,15 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
     logger.logln("[Creating converted function]", Logger::Blue);
     indenter.increaseIndent();
     logger.log("call: ").logValueln(call);
-    logger.log("original function: ").logValueln(oldF););
+    logger.log("original function:  ");
+    logFunctionSignature(oldF);
+    logger << "\n";);
 
   if (isSpecialFunction(oldF)) {
     LLVM_DEBUG(logger << "special function: ignoring\n");
     return nullptr;
   }
-  if (!taffoInfo.isTaffoCloneFunction(*oldF)) {
+  if (!taffoInfo.isCloneFunction(*oldF)) {
     LLVM_DEBUG(logger << "not a function clone: ignoring\n");
     return nullptr;
   }
@@ -353,53 +343,49 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
   if (alreadyHandledNewF)
     *alreadyHandledNewF = false;
 
-  std::vector<Type*> argLLVMTypes;
-  std::vector<std::pair<int, ConversionType*>> argConvTypes;
-
-  TransparentType* oldRetType = taffoInfo.getTransparentType(*oldF);
-  TransparentType* newRetType = oldRetType;
+  Type* retLLVMType = oldF->getReturnType();
   ConversionType* retConvType = nullptr;
-  if (taffoConvInfo.hasValueConvInfo(call)) {
-    ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(call);
-    if (!valueConvInfo->isConversionDisabled) {
-      retConvType = valueConvInfo->getNewType();
-      newRetType = retConvType->toTransparentType();
+  if (!taffoConvInfo.getValueConvInfo(oldF)->isConversionDisabled()) {
+    retConvType = taffoConvInfo.getNewType(oldF);
+    retLLVMType = retConvType->toLLVMType();
+  }
+
+  std::vector<Type*> argLLVMTypes;
+  std::vector<ConversionType*> argConvTypes;
+  for (auto& oldArg : oldF->args()) {
+    Type* newLLVMType = oldArg.getType();
+    ConversionType* argConvType = nullptr;
+    if (!taffoConvInfo.getValueConvInfo(&oldArg)->isConversionDisabled()) {
+      argConvType = taffoConvInfo.getNewType(&oldArg);
+      newLLVMType = argConvType->toLLVMType();
     }
+    argLLVMTypes.push_back(newLLVMType);
+    argConvTypes.push_back(argConvType);
   }
 
   std::string suffix;
-  if (retConvType) {
+  if (retConvType)
     suffix = retConvType->toString();
-    argConvTypes.emplace_back(-1, retConvType);
-  }
   else
-    suffix = "fixp";
+    suffix = "taffo";
 
-  int i = 0;
-  for (auto& oldArg : oldF->args()) {
-    Type* newLLVMType;
-    if (taffoConvInfo.hasValueConvInfo(&oldArg)) {
-      ConversionType* argConvType = taffoConvInfo.getNewType(&oldArg);
-      argConvTypes.emplace_back(i, argConvType);
-      newLLVMType = argConvType->toLLVMType();
-    }
-    else
-      newLLVMType = oldArg.getType();
-    argLLVMTypes.push_back(newLLVMType);
-    i++;
-  }
-
-  FunctionType* newFunType = FunctionType::get(newRetType->toLLVMType(), argLLVMTypes, oldF->isVarArg());
+  FunctionType* newFunType = FunctionType::get(retLLVMType, argLLVMTypes, oldF->isVarArg());
   newF = Function::Create(newFunType, oldF->getLinkage(), oldF->getName() + "_" + suffix, oldF->getParent());
-  taffoInfo.setTransparentType(*newF, newRetType->clone());
 
-  if (retConvType) {
-    ValueConvInfo* newConvInfo = taffoConvInfo.createValueConvInfo(newF);
-    newConvInfo->isConversionDisabled = false;
-    setConversionResultInfo(newF, call, retConvType);
+  setConversionResultInfo(newF, call, retConvType);
+  ValueConvInfo* newConvInfo = taffoConvInfo.getValueConvInfo(newF);
+  newConvInfo->enableConversion();
+
+  for (auto&& [oldArg, newArg, argConvType] : zip(oldF->args(), newF->args(), argConvTypes)) {
+    setConversionResultInfo(&newArg, &oldArg, argConvType);
+    if (argConvType)
+      newArg.setName(newArg.getName() + "." + argConvType->toString()); // append convType info to arg name
   }
 
-  LLVM_DEBUG(logger.log("created function:  ").logValueln(newF));
+  LLVM_DEBUG(
+    logger.log("converted function: ");
+    logFunctionSignature(newF);
+    logger << "\n";);
   functionPool[oldF] = newF;
   functionCreated++;
   return newF;
@@ -419,7 +405,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
   copyValueInfo(info.oldPhi, phi, type);
   ValueConvInfo* oldPhiConvInfo = taffoConvInfo.createValueConvInfo(info.oldPhi);
   *oldPhiConvInfo = *phiConvInfo;
-  oldPhiConvInfo->isConversionDisabled = false;
+  oldPhiConvInfo->enableConversion();
   LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*oldPhiConvInfo, tda::Logger::Cyan));
   phi->replaceAllUsesWith(info.oldPhi);
 
@@ -430,7 +416,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
     info.newPhi = createPlaceholder(newType->toLLVMType(), phi->getParent(), "newPhi");
     copyValueInfo(info.newPhi, phi, newType);
     ValueConvInfo* newPhiConvInfo = taffoConvInfo.createValueConvInfo(info.newPhi, oldConvType);
-    newPhiConvInfo->isConversionDisabled = false;
+    newPhiConvInfo->enableConversion();
     setConversionResultInfo(info.newPhi, phi, newConvType);
     LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*newPhiConvInfo, tda::Logger::Cyan));
   }

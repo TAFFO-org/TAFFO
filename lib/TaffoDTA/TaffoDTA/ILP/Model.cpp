@@ -18,7 +18,6 @@
 using namespace std;
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
 void Model::insertLinearConstraint(const vector<pair<string, double>>& variables,
                                    ConstraintType constraintType,
@@ -29,15 +28,9 @@ void Model::insertLinearConstraint(const vector<pair<string, double>>& variables
 
   auto constraint = solver->MakeRowConstraint();
   switch (constraintType) {
-  case EQ:
-    constraint->SetBounds(rightSide, rightSide);
-    break;
-  case LE:
-    constraint->SetUB(rightSide);
-    break;
-  case GE:
-    constraint->SetLB(rightSide);
-    break;
+  case EQ: constraint->SetBounds(rightSide, rightSide); break;
+  case LE: constraint->SetUB(rightSide); break;
+  case GE: constraint->SetLB(rightSide); break;
   }
 
   for (auto p : variables) {
@@ -103,23 +96,12 @@ bool Model::finalizeAndSolve() {
       && result_status != operations_research::MPSolver::FEASIBLE) {
     LLVM_DEBUG(log() << "[ERROR] There was an error while solving the model!\n");
     switch (result_status) {
-    case operations_research::MPSolver::INFEASIBLE:
-      LLVM_DEBUG(log() << "status = INFEASIBLE\n");
-      break;
-    case operations_research::MPSolver::UNBOUNDED:
-      LLVM_DEBUG(log() << "status = UNBOUNDED\n");
-      break;
-    case operations_research::MPSolver::ABNORMAL:
-      LLVM_DEBUG(log() << "status = ABNORMAL\n");
-      break;
-    case operations_research::MPSolver::MODEL_INVALID:
-      LLVM_DEBUG(log() << "status = MODEL_INVALID\n");
-      break;
-    case operations_research::MPSolver::NOT_SOLVED:
-      LLVM_DEBUG(log() << "status = NOT_SOLVED????\n");
-      break;
-    default:
-      LLVM_DEBUG(log() << "status = " << result_status << "\n");
+    case operations_research::MPSolver::INFEASIBLE:    LLVM_DEBUG(log() << "status = INFEASIBLE\n"); break;
+    case operations_research::MPSolver::UNBOUNDED: LLVM_DEBUG(log() << "status = UNBOUNDED\n"); break;
+    case operations_research::MPSolver::ABNORMAL: LLVM_DEBUG(log() << "status = ABNORMAL\n"); break;
+    case operations_research::MPSolver::MODEL_INVALID: LLVM_DEBUG(log() << "status = MODEL_INVALID\n"); break;
+    case operations_research::MPSolver::NOT_SOLVED: LLVM_DEBUG(log() << "status = NOT_SOLVED????\n"); break;
+    default: LLVM_DEBUG(log() << "status = " << result_status << "\n");
     }
     return false;
   }
@@ -257,12 +239,8 @@ void Model::writeOutObjectiveFunction() {
   auto obj = solver->MutableObjective();
 
   switch (problemType) {
-  case MIN:
-    obj->SetMinimization();
-    break;
-  case MAX:
-    obj->SetMaximization();
-    break;
+  case MIN: obj->SetMinimization(); break;
+  case MAX: obj->SetMaximization(); break;
   }
 
   for (auto& objectives : objDeclarationOccoured)

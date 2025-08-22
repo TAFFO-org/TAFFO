@@ -14,7 +14,7 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 /// Retrieve the indirect calls converted into trampolines and re-use the
 /// original indirect functions.

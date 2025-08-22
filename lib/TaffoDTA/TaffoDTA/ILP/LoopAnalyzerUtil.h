@@ -6,11 +6,11 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner {
+namespace taffo {
 
 unsigned computeFullTripCount(llvm::FunctionAnalysisManager& FAM, llvm::Instruction* instruction);
 unsigned computeFullTripCount(llvm::FunctionAnalysisManager& FAM, llvm::Loop* bb);
 
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE // "taffo-dta"

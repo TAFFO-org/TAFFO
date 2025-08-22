@@ -7,12 +7,12 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-extern llvm::cl::opt<int> FracThreshold;
-extern llvm::cl::opt<int> TotalBits;
-extern llvm::cl::opt<int> MaxTotalBits;
-extern llvm::cl::opt<int> SimilarBits;
-extern llvm::cl::opt<bool> DisableTypeMerging;
-extern llvm::cl::opt<bool> IterativeMerging;
+extern llvm::cl::opt<int> fracThreshold;
+extern llvm::cl::opt<int> totalBits;
+extern llvm::cl::opt<int> maxTotalBits;
+extern llvm::cl::opt<int> similarBits;
+extern llvm::cl::opt<bool> disableTypeMerging;
+extern llvm::cl::opt<bool> iterativeMerging;
 extern llvm::cl::opt<std::string> UseFloat;
 extern llvm::cl::opt<std::string> BufferIDExport;
 extern llvm::cl::opt<std::string> BufferIDImport;

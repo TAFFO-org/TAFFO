@@ -22,7 +22,7 @@ extern llvm::cl::opt<bool> MixedDoubleEnabled;
 extern llvm::cl::opt<std::string> DumpModelFile;
 #endif
 
-namespace tuner {
+namespace taffo {
 class Model {
 public:
   enum ProblemType {
@@ -74,6 +74,6 @@ public:
 
   // void insertComment(std::string comment, int spaceBefore=0, int spaceAfter=0);
 };
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE

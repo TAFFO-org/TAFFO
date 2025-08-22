@@ -4,7 +4,7 @@
 
 #define DEBUG_TYPE "taffo-dta"
 
-namespace tuner {
+namespace taffo {
 
 class OptimizerInfo {
 public:
@@ -245,6 +245,6 @@ public:
   static bool classof(const OptimizerInfo* M) { return M->getKind() == K_Pointer; }
 };
 
-} // namespace tuner
+} // namespace taffo
 
 #undef DEBUG_TYPE

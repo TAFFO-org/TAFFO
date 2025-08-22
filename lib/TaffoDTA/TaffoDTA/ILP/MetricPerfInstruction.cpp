@@ -7,7 +7,6 @@
 
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
 #define DEBUG_TYPE "taffo-dta"
 

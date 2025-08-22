@@ -9,11 +9,10 @@ ValueConvInfo* TaffoConvInfo::createValueConvInfo(Value* value, const Conversion
   auto iter = valueConvInfo.find(value);
   assert(iter == valueConvInfo.end() && "value already has valueConvInfo!");
   TransparentType* type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
-  std::unique_ptr<ValueConvInfo> newConversionInfo;
-  if (oldConvType)
-    newConversionInfo = std::make_unique<ValueConvInfo>(oldConvType->clone(*type));
-  else
-    newConversionInfo = std::make_unique<ValueConvInfo>(*type);
+  bool isConstant = isa<Constant>(value) && !isa<GlobalVariable>(value) && !isa<Function>(value);
+  std::unique_ptr<ValueConvInfo> newConversionInfo =
+    oldConvType ? std::make_unique<ValueConvInfo>(oldConvType->clone(*type), isConstant)
+                : std::make_unique<ValueConvInfo>(*type, isConstant);
   return (valueConvInfo[value] = std::move(newConversionInfo)).get();
 }
 

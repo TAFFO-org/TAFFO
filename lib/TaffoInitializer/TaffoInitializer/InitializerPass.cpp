@@ -101,25 +101,11 @@ void InitializerPass::propagateInfo() {
     indenter.increaseIndent();
     logInfoPropagationQueue(););
 
-  // Propagate info from arguments alloca to formal arguments to call arguments
-  // for (Value* value : infoPropagationQueue)
-  //  if (auto* argAlloca = dyn_cast<AllocaInst>(value))
-  //    for (User* argAllocaUser : argAlloca->users())
-  //      if (auto* argStore = dyn_cast<StoreInst>(argAllocaUser))
-  //        if (argStore->getPointerOperand() == argAlloca)
-  //          if (auto* arg = dyn_cast<Argument>(argStore->getValueOperand())) {
-  //            propagateInfo(argAlloca, arg);
-  //            for (User* user : arg->getParent()->users())
-  //              if (auto* call = dyn_cast<CallBase>(user))
-  //                propagateInfo(arg, call->getArgOperand(arg->getArgNo()));
-  //          }
-
-  // Set to track processed values to avoid reprocessing
   SmallPtrSet<Value*, 8> visited;
-
-  // Continue propagation until the queue size stabilizes
+  SmallPtrSet<CallBase*, 8> calls;
   unsigned iteration = 0;
   size_t prevQueueSize = 0;
+  // Continue propagation until the queue size stabilizes
   while (prevQueueSize < infoPropagationQueue.size()) {
     LLVM_DEBUG(log() << Logger::Blue << "[Propagation iteration " << iteration << "]\n"
                      << Logger::Reset);
@@ -129,18 +115,15 @@ void InitializerPass::propagateInfo() {
     // Forward propagation: process each value in the queue
     for (Value* value : infoPropagationQueue) {
       visited.insert(value);
+      if (auto* call = dyn_cast<CallBase>(value))
+        calls.insert(call);
       ValueInitInfo& valueInitInfo = taffoInitInfo.getValueInitInfo(value);
 
       auto indenter = logger.getIndenter();
       LLVM_DEBUG(
         logger.log("[Value] ", Logger::Bold).logValueln(value);
         indenter.increaseIndent();
-        logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";);
-
-      if (auto* call = dyn_cast<CallBase>(value))
-        cloneFunctionForCall(call);
-
-      LLVM_DEBUG(
+        logger << "root distance: " << valueInitInfo.getRootDistance() << "\n";
         if (value->user_empty())
           logger.logln("value has no users: continuing"););
 
@@ -250,6 +233,9 @@ void InitializerPass::propagateInfo() {
         userInitInfo.decreaseBacktrackingDepth();
       }
     }
+    for (CallBase* call : calls)
+      if (!handledCalls.contains(call))
+        cloneFunctionForCall(call);
   }
   LLVM_DEBUG(log().logln("[Propagation completed]", Logger::Blue));
 }
@@ -262,6 +248,15 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
   ValueInitInfo& dstInitInfo = taffoInitInfo.getOrCreateValueInitInfo(dst);
   ValueInfo* srcInfo = &*taffoInfo.getValueInfo(*src);
   ValueInfo* dstInfo = &*taffoInfo.getValueInfo(*dst);
+
+  if (auto* dstGep = dyn_cast<GetElementPtrInst>(dst))
+    if (auto* srcStructInfo = dyn_cast<StructInfo>(srcInfo)) {
+      srcInfo = srcStructInfo->getField(dstGep->indices());
+      if (!srcInfo) {
+        LLVM_DEBUG(log().logln("source struct field has no valueInfo: skipping\n"));
+        return;
+      }
+    }
 
   unsigned dstRootDistance = dstInitInfo.getRootDistance();
   unsigned newDstRootDistance = srcInitInfo.getUserRootDistance();
@@ -293,12 +288,15 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
       logger.log(*dstType, Logger::Cyan);
       logger << ", ";);
 
+    // TODO remove and correct taffo to lower relative errors in benchmarks:
+    // Whole valueInfo copy should not be performed.
+    // InitializerPass should be only responsible of setting conversionEnabled,
+    // but right now, removing this causes big relative errors in some benchmarks
     if (!srcType->isStructTT() && !dstType->isStructTT())
       dstInfo->copyFrom(*srcInfo);
-    // TODO Manage structs (conversionEnabled of fields)
-    if (dstInfo->isConversionEnabled() || srcInfo->isConversionEnabled())
-      if (auto* dstScalarInfo = dyn_cast<ScalarInfo>(dstInfo))
-        dstScalarInfo->conversionEnabled = true;
+
+    if (srcInfo->getKind() == dstInfo->getKind())
+      dstInfo->mergeConversionEnabled(*srcInfo);
 
     LLVM_DEBUG(
       Logger& logger = log();
@@ -318,34 +316,33 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
 void InitializerPass::cloneFunctionForCall(CallBase* call) {
   Logger& logger = log();
   auto indenter = logger.getIndenter();
-  LLVM_DEBUG(logger << "[" << __FUNCTION__ << "]\n");
+  LLVM_DEBUG(
+    logger << Logger::Bold << "[" << __FUNCTION__ << "] " << Logger::Reset;
+    logger.logValueln(call));
   indenter.increaseIndent();
 
   Function* oldF = call->getCalledFunction();
   if (!oldF) {
     LLVM_DEBUG(logger.logln("call to indirect function: skipping"));
+    handledCalls[call] = nullptr;
     return;
   }
   if (isSpecialFunction(oldF)) {
     LLVM_DEBUG(logger.logln("call to special function: skipping"));
+    handledCalls[call] = nullptr;
     return;
   }
   if (manualFunctionCloning) {
     if (!annotatedFunctions.contains(oldF)) {
       LLVM_DEBUG(logger.logln("call to disabled function: skipping"));
+      handledCalls[call] = nullptr;
       return;
     }
   }
 
-  auto iter = clonedFunctionsForCalls.find(call);
-  if (iter != clonedFunctionsForCalls.end()) {
-    Function* clonedFunction = iter->second;
-    call->setCalledFunction(clonedFunction);
-    LLVM_DEBUG(logger.logln("function already cloned for this call: ").logValueln(clonedFunction));
-    return;
-  }
-
-  Function* newF = Function::Create(oldF->getFunctionType(), oldF->getLinkage(), oldF->getName(), oldF->getParent());
+  assert(!handledCalls.contains(call) && "Call already handled");
+  const auto newName = oldF->getName() + "_clone" + std::to_string(taffoInfo.getNumCloneFunctions(*oldF));
+  Function* newF = Function::Create(oldF->getFunctionType(), oldF->getLinkage(), newName, oldF->getParent());
   call->setCalledFunction(newF);
 
   // Setting oldF as weak to avoid globalDCE and preserve the mapping between old function and cloned function
@@ -353,8 +350,8 @@ void InitializerPass::cloneFunctionForCall(CallBase* call) {
   oldF->setLinkage(GlobalValue::WeakAnyLinkage);
 
   annotatedFunctions.insert(newF);
-  clonedFunctionsForCalls[call] = newF;
-  taffoInfo.setTaffoFunction(*oldF, *newF);
+  handledCalls[call] = newF;
+  taffoInfo.addCloneFunction(*oldF, *newF);
 
   // Create Val2Val mapping and clone function
   ValueToValueMapTy valueMap;
@@ -382,7 +379,7 @@ void InitializerPass::cloneFunctionForCall(CallBase* call) {
 
   for (auto&& [oldValue, newValue] : valueMap)
     copyInfo(oldValue, newValue);
-  copyInfo(oldF, newF);
+  copyInfo(call, newF);
 
   if (!openCLKernelMode && !cudaKernelMode)
     newF->setLinkage(GlobalVariable::LinkageTypes::InternalLinkage);
@@ -438,7 +435,6 @@ void InitializerPass::cloneFunctionForCall(CallBase* call) {
     argInfo->bufferId = callArgInfo->bufferId;
 
     LLVM_DEBUG(
-      Logger& logger = log();
       logger.log("argInfo: ");
       logger.log(*argInfo, Logger::Cyan);
       logger.logln(" copied from call", Logger::Green);

@@ -5,7 +5,6 @@
 class MyClass {
 public:
   int i = 0;
-  // padding here
   double d = 0.0;
   bool b = false;
   // padding here

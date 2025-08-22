@@ -89,8 +89,8 @@ std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {
     for (auto& field_j : j["fieldTypes"])
       structType->addFieldType(deserialize(field_j));
     if (j.contains("paddingFields"))
-      for (unsigned padding : j["paddingFields"])
-        structType->addFieldPadding(padding);
+      for (unsigned paddingField : j["paddingFields"])
+        structType->addFieldPadding(paddingField);
   }
   else if (kind == "Array") {
     auto* arrayType = cast<TransparentArrayType>(type.get());

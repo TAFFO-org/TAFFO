@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <fstream>
 
-#define DEBUG_TYPE "taffo-util"
+#define DEBUG_TYPE "taffo-common"
 
 using namespace llvm;
 using namespace tda;
@@ -126,16 +126,28 @@ int TaffoInfo::getValueWeight(const Value& v) const {
   return iter != valueWeights.end() ? iter->second : -1;
 }
 
-void TaffoInfo::setTaffoFunction(Function& originalF, Function& taffoF) {
-  taffoCloneToOriginalFunction[&taffoF] = &originalF;
-  originalToTaffoCloneFunctions[&originalF].insert(&taffoF);
+void TaffoInfo::addCloneFunction(Function& originalF, Function& cloneF) {
+  cloneToOriginalFunction[&cloneF] = &originalF;
+  originalToCloneFunctions[&originalF].insert(&cloneF);
 }
 
-bool TaffoInfo::isOriginalFunction(const Function& originalF) const {
-  return originalToTaffoCloneFunctions.contains(&originalF);
+void TaffoInfo::getCloneFunctions(const Function& originalF, SmallPtrSetImpl<Function*>& cloneFunctions) const {
+  auto iter = this->originalToCloneFunctions.find(&originalF);
+  if (iter != this->originalToCloneFunctions.end())
+    for (auto cloneF : iter->second)
+      cloneFunctions.insert(cloneF);
 }
 
-bool TaffoInfo::isTaffoCloneFunction(Function& f) const { return taffoCloneToOriginalFunction.contains(&f); }
+unsigned TaffoInfo::getNumCloneFunctions(const Function& originalF) const {
+  auto iter = this->originalToCloneFunctions.find(&originalF);
+  if (iter != this->originalToCloneFunctions.end())
+    return iter->second.size();
+  return 0;
+}
+
+bool TaffoInfo::isOriginalFunction(const Function& f) const { return originalToCloneFunctions.contains(&f); }
+
+bool TaffoInfo::isCloneFunction(Function& f) const { return cloneToOriginalFunction.contains(&f); }
 
 void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, GlobalValue::LinkageTypes linkage) {
   originalFunctionLinkage[&originalF] = linkage;
@@ -144,13 +156,6 @@ void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, GlobalValue::Lin
 GlobalValue::LinkageTypes TaffoInfo::getOriginalFunctionLinkage(const Function& originalF) const {
   assert(originalFunctionLinkage.contains(&originalF) && "Original Function Linkage not inserted");
   return originalFunctionLinkage.at(&originalF);
-}
-
-void TaffoInfo::getTaffoCloneFunctions(const Function& originalF, SmallPtrSetImpl<Function*>& taffoFunctions) const {
-  auto iter = this->originalToTaffoCloneFunctions.find(&originalF);
-  if (iter != this->originalToTaffoCloneFunctions.end())
-    for (auto taffoF : iter->second)
-      taffoFunctions.insert(taffoF);
 }
 
 void TaffoInfo::setMaxRecursionCount(Function& f, unsigned maxRecursion) { maxRecursionCount[&f] = maxRecursion; }
@@ -255,10 +260,10 @@ void TaffoInfo::eraseValue(Value* v) {
   eraseByValue(indirectFunctions, vFunction);
   eraseByKeyAndValue(oclTrampolines, vFunction);
   eraseFromVector(disabledConversion, vInst);
-  eraseByKeyAndValue(taffoCloneToOriginalFunction, vFunction);
-  eraseByKey(originalToTaffoCloneFunctions, vFunction);
+  eraseByKeyAndValue(cloneToOriginalFunction, vFunction);
+  eraseByKey(originalToCloneFunctions, vFunction);
 
-  for (auto& [original, clones] : originalToTaffoCloneFunctions)
+  for (auto& [original, clones] : originalToCloneFunctions)
     clones.erase(vFunction);
 
   eraseByKey(originalFunctionLinkage, vFunction);
@@ -373,11 +378,11 @@ void TaffoInfo::generateTaffoIds() {
   }
   for (auto* i : disabledConversion)
     valueSet.insert(i);
-  for (auto& [originalF, taffoFunctions] : originalToTaffoCloneFunctions) {
+  for (auto& [originalF, cloneFunctions] : originalToCloneFunctions) {
     valueSet.insert(originalF);
-    for (auto* f : taffoFunctions)
+    for (auto* f : cloneFunctions)
       valueSet.insert(f);
-    // No need to get values of taffoCloneToOriginalFunction as they are the same of originalToTaffoCloneFunctions
+    // No need to get values of cloneToOriginalFunction as they are the same of originalToCloneFunctions
   }
   for (auto& [v, _] : valueInfo)
     valueSet.insert(v);
@@ -593,22 +598,22 @@ json TaffoInfo::serialize() const {
     j["disabledConversion"].push_back(id);
   }
 
-  // Serialize taffoCloneToOriginalFunction
-  j["taffoCloneToOriginalFunction"] = json::object();
-  for (auto& [taffoF, originalF] : taffoCloneToOriginalFunction) {
-    std::string taffoId = idValueMapping.findByValue(taffoF)->first;
+  // Serialize cloneToOriginalFunction
+  j["cloneToOriginalFunction"] = json::object();
+  for (auto& [cloneF, originalF] : cloneToOriginalFunction) {
+    std::string taffoId = idValueMapping.findByValue(cloneF)->first;
     std::string originalId = idValueMapping.findByValue(originalF)->first;
-    j["taffoCloneToOriginalFunction"][taffoId] = originalId;
+    j["cloneToOriginalFunction"][taffoId] = originalId;
   }
 
-  // Serialize originalToTaffoCloneFunctions
-  j["originalToTaffoCloneFunctions"] = json::object();
-  for (auto& [originalF, taffoFunctions] : originalToTaffoCloneFunctions) {
+  // Serialize originalToCloneFunctions
+  j["originalToCloneFunctions"] = json::object();
+  for (auto& [originalF, cloneFunctions] : originalToCloneFunctions) {
     std::string originalId = idValueMapping.findByValue(originalF)->first;
-    j["originalToTaffoCloneFunctions"][originalId] = json::array();
-    for (auto taffoF : taffoFunctions) {
-      std::string taffoId = idValueMapping.findByValue(taffoF)->first;
-      j["originalToTaffoCloneFunctions"][originalId].push_back(taffoId);
+    j["originalToCloneFunctions"][originalId] = json::array();
+    for (auto cloneF : cloneFunctions) {
+      std::string taffoId = idValueMapping.findByValue(cloneF)->first;
+      j["originalToCloneFunctions"][originalId].push_back(taffoId);
     }
   }
 
@@ -669,8 +674,8 @@ void TaffoInfo::deserialize(const json& j) {
   indirectFunctions.clear();
   oclTrampolines.clear();
   disabledConversion.clear();
-  taffoCloneToOriginalFunction.clear();
-  originalToTaffoCloneFunctions.clear();
+  cloneToOriginalFunction.clear();
+  originalToCloneFunctions.clear();
   originalFunctionLinkage.clear();
   valueInfo.clear();
   valueWeights.clear();
@@ -734,8 +739,8 @@ void TaffoInfo::deserialize(const json& j) {
     }
   }
 
-  // Deserialize taffoCloneToOriginalFunction
-  for (auto& item : j["taffoCloneToOriginalFunction"].items()) {
+  // Deserialize cloneToOriginalFunction
+  for (auto& item : j["cloneToOriginalFunction"].items()) {
     const std::string& taffoId = item.key();
     std::string originalId = item.value().get<std::string>();
     auto taffoIt = idValueMapping.find(taffoId);
@@ -743,14 +748,14 @@ void TaffoInfo::deserialize(const json& j) {
     if (originalIt != idValueMapping.end() && taffoIt != idValueMapping.end()) {
       Value* taffoVal = taffoIt->second;
       Value* orignalVal = originalIt->second;
-      if (auto* taffoF = dyn_cast<Function>(taffoVal))
+      if (auto* cloneF = dyn_cast<Function>(taffoVal))
         if (auto* originalF = dyn_cast<Function>(orignalVal))
-          taffoCloneToOriginalFunction[taffoF] = originalF;
+          cloneToOriginalFunction[cloneF] = originalF;
     }
   }
 
-  // Deserialize originalToTaffoCloneFunctions
-  for (auto& item : j["originalToTaffoCloneFunctions"].items()) {
+  // Deserialize originalToCloneFunctions
+  for (auto& item : j["originalToCloneFunctions"].items()) {
     const std::string& originalId = item.key();
     auto originalIt = idValueMapping.find(originalId);
     if (originalIt == idValueMapping.end())
@@ -762,8 +767,8 @@ void TaffoInfo::deserialize(const json& j) {
         auto taffoIt = idValueMapping.find(taffoId);
         if (taffoIt != idValueMapping.end()) {
           Value* taffoVal = taffoIt->second;
-          if (auto* taffoF = dyn_cast<Function>(taffoVal))
-            this->originalToTaffoCloneFunctions[originalF].insert(taffoF);
+          if (auto* cloneF = dyn_cast<Function>(taffoVal))
+            this->originalToCloneFunctions[originalF].insert(cloneF);
         }
       }
     }

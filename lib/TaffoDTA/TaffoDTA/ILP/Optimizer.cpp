@@ -12,7 +12,6 @@
 
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
 Optimizer::Optimizer(
   Module& mm, DataTypeAllocationPass* tuner, MetricBase* met, string modelFile, CPUCosts::CostType cType)
@@ -445,21 +444,11 @@ void Optimizer::handleBinaryInstruction(Instruction* instr,
   auto binop = dyn_cast_or_null<BinaryOperator>(instr);
 
   switch (OpCode) {
-  case Instruction::FAdd:
-    metric->handleFAdd(binop, OpCode, valueInfos);
-    break;
-  case Instruction::FSub:
-    metric->handleFSub(binop, OpCode, valueInfos);
-    break;
-  case Instruction::FMul:
-    metric->handleFMul(binop, OpCode, valueInfos);
-    break;
-  case Instruction::FDiv:;
-    metric->handleFDiv(binop, OpCode, valueInfos);
-    break;
-  case Instruction::FRem:
-    metric->handleFRem(binop, OpCode, valueInfos);
-    break;
+  case Instruction::FAdd: metric->handleFAdd(binop, OpCode, valueInfos); break;
+  case Instruction::FSub: metric->handleFSub(binop, OpCode, valueInfos); break;
+  case Instruction::FMul: metric->handleFMul(binop, OpCode, valueInfos); break;
+  case Instruction::FDiv: ; metric->handleFDiv(binop, OpCode, valueInfos); break;
+  case Instruction::FRem: metric->handleFRem(binop, OpCode, valueInfos); break;
 
   case Instruction::Add:
   case Instruction::Sub:
@@ -473,8 +462,7 @@ void Optimizer::handleBinaryInstruction(Instruction* instr,
   case Instruction::AShr:
   case Instruction::And:
   case Instruction::Or:
-  case Instruction::Xor:
-    LLVM_DEBUG(log() << "Skipping operation between integers...\n";);
+  case Instruction::Xor: LLVM_DEBUG(log() << "Skipping operation between integers...\n";);
     break;
   default:
     emitError("Unhandled binary operator " + to_string(OpCode)); // unsupported operation
@@ -509,37 +497,22 @@ void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo
   else if (Instruction::isUnaryOp(opCode)) {
 
     switch (opCode) {
-    case Instruction::FNeg:
-      metric->handleFNeg(dyn_cast<UnaryOperator>(instruction), opCode, valueInfo);
-      break;
-    default:
-      llvm_unreachable("Not handled.");
+    case Instruction::FNeg: metric->handleFNeg(dyn_cast<UnaryOperator>(instruction), opCode, valueInfo); break;
+    default:                llvm_unreachable("Not handled.");
     }
   }
   else {
     switch (opCode) {
     // memory operations
-    case Instruction::Alloca:
-      metric->handleAlloca(instruction, valueInfo);
-      break;
-    case Instruction::Load:
-      metric->handleLoad(instruction, valueInfo);
-      break;
-    case Instruction::Store:
-      metric->handleStore(instruction, valueInfo);
-      break;
-    case Instruction::GetElementPtr:
-      metric->handleGEPInstr(instruction, valueInfo);
-      break;
-    case Instruction::Fence:
-      emitError("Handling of Fence not supported yet");
-      break; // TODO implement
-    case Instruction::AtomicCmpXchg:
-      emitError("Handling of AtomicCmpXchg not supported yet");
-      break; // TODO implement
+    case Instruction::Alloca:        metric->handleAlloca(instruction, valueInfo); break;
+    case Instruction::Load:          metric->handleLoad(instruction, valueInfo); break;
+    case Instruction::Store:         metric->handleStore(instruction, valueInfo); break;
+    case Instruction::GetElementPtr: metric->handleGEPInstr(instruction, valueInfo); break;
+    case Instruction::Fence:         emitError("Handling of Fence not supported yet"); break;         // TODO implement
+    case Instruction::AtomicCmpXchg: emitError("Handling of AtomicCmpXchg not supported yet"); break; // TODO implement
     case Instruction::AtomicRMW:
       emitError("Handling of AtomicRMW not supported yet");
-      break; // TODO implement
+      break;                                                                                          // TODO implement
 
       // other operations
     case Instruction::ICmp: {
@@ -552,9 +525,7 @@ void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo
     case Instruction::PHI: {
       metric->handlePhi(instruction, valueInfo);
     } break;
-    case Instruction::Select:
-      metric->handleSelect(instruction, valueInfo);
-      break;
+    case Instruction::Select: metric->handleSelect(instruction, valueInfo); break;
     case Instruction::UserOp1:        // TODO implement
     case Instruction::UserOp2:        // TODO implement
       emitError("Handling of UserOp not supported yet");
@@ -580,9 +551,7 @@ void Optimizer::handleInstruction(Instruction* instruction, shared_ptr<TunerInfo
     case Instruction::LandingPad:     // TODO implement
       emitError("Handling of LandingPad not supported yet");
       break;
-    default:
-      emitError("unknown instruction " + std::to_string(opCode));
-      break;
+    default: emitError("unknown instruction " + std::to_string(opCode)); break;
     }
     // TODO here be dragons
   } // end else
@@ -607,39 +576,20 @@ int Optimizer::getCurrentInstructionCost() {
 void Optimizer::handleTerminators(Instruction* term, shared_ptr<TunerInfo> valueInfo) {
   const unsigned opCode = term->getOpcode();
   switch (opCode) {
-  case Instruction::Ret:
-    metric->handleReturn(term, valueInfo);
-    break;
+  case Instruction::Ret: metric->handleReturn(term, valueInfo); break;
   case Instruction::Br:
     // TODO improve by checking condition and relatevely update BB weigths
     // do nothing
     break;
-  case Instruction::Switch:
-    emitError("Handling of Switch not implemented yet");
-    break; // TODO implement
-  case Instruction::IndirectBr:
-    emitError("Handling of IndirectBr not implemented yet");
-    break; // TODO implement
-  case Instruction::Invoke:
-    metric->handleCall(term, valueInfo);
-    break;
-  case Instruction::Resume:
-    emitError("Handling of Resume not implemented yet");
-    break; // TODO implement
-  case Instruction::Unreachable:
-    emitError("Handling of Unreachable not implemented yet");
-    break; // TODO implement
-  case Instruction::CleanupRet:
-    emitError("Handling of CleanupRet not implemented yet");
-    break; // TODO implement
-  case Instruction::CatchRet:
-    emitError("Handling of CatchRet not implemented yet");
-    break; // TODO implement
-  case Instruction::CatchSwitch:
-    emitError("Handling of CatchSwitch not implemented yet");
-    break; // TODO implement
-  default:
-    break;
+  case Instruction::Switch:      emitError("Handling of Switch not implemented yet"); break;      // TODO implement
+  case Instruction::IndirectBr:  emitError("Handling of IndirectBr not implemented yet"); break;  // TODO implement
+  case Instruction::Invoke:      metric->handleCall(term, valueInfo); break;
+  case Instruction::Resume:      emitError("Handling of Resume not implemented yet"); break;      // TODO implement
+  case Instruction::Unreachable: emitError("Handling of Unreachable not implemented yet"); break; // TODO implement
+  case Instruction::CleanupRet:  emitError("Handling of CleanupRet not implemented yet"); break;  // TODO implement
+  case Instruction::CatchRet:    emitError("Handling of CatchRet not implemented yet"); break;    // TODO implement
+  case Instruction::CatchSwitch: emitError("Handling of CatchSwitch not implemented yet"); break; // TODO implement
+  default:                       break;
   }
 
   return;

@@ -5,7 +5,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
 
-#define DEBUG_TYPE "TaffoUtils"
+#define DEBUG_TYPE "taffo-common"
 #define TAFFO_GLOBAL_ID_LIST_METADATA "taffo.globalIds"
 #define TAFFO_ID_METADATA "taffo.id"
 #define TAFFO_ARGUMENTS_ID_METADATA "taffo.argIds"

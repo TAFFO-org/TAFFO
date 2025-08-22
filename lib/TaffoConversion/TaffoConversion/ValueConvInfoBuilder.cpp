@@ -13,38 +13,36 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 void ConversionPass::buildGlobalConvInfo(Module& m, SmallVectorImpl<Value*>& values) {
   LLVM_DEBUG(log().logln("[Building conversionInfo of global values]", Logger::Blue));
   for (GlobalVariable& gv : m.globals())
-    if (taffoInfo.hasValueInfo(gv))
-      buildConvInfo(&values, taffoInfo.getValueInfo(gv), &gv);
+    buildConvInfo(&values, &gv);
 }
 
 void ConversionPass::buildLocalConvInfo(Function& f, SmallVectorImpl<Value*>& values, bool argsOnly) {
+  if (!taffoConvInfo.hasValueConvInfo(&f))
+    buildConvInfo(nullptr, &f); // No need to enqueue function
+
   for (Argument& arg : f.args())
-    if (!taffoConvInfo.hasValueConvInfo(&arg) && taffoInfo.hasValueInfo(arg)) {
+    if (!taffoConvInfo.hasValueConvInfo(&arg) && !arg.getType()->isMetadataTy()) {
       // Don't enqueue function arguments because they will be handled by the function cloning step
-      buildConvInfo(nullptr, taffoInfo.getValueInfo(arg), &arg);
+      buildConvInfo(nullptr, &arg);
     }
+
   if (argsOnly)
     return;
 
   for (Instruction& inst : instructions(f))
-    if (taffoInfo.hasValueInfo(inst))
-      buildConvInfo(&values, taffoInfo.getValueInfo(inst), &inst);
-
-  if (!taffoConvInfo.hasValueConvInfo(&f))
-    if (taffoInfo.hasTransparentType(f) && !taffoInfo.getTransparentType(f)->isOpaquePointer())
-      taffoConvInfo.createValueConvInfo(&f);
+    buildConvInfo(&values, &inst);
 }
 
 void ConversionPass::buildAllLocalConvInfo(Module& m, SmallVectorImpl<Value*>& values) {
   LLVM_DEBUG(log().logln("[Building conversionInfo of local values]", Logger::Blue));
   for (Function& f : m.functions()) {
     bool argsOnly = false;
-    if (TaffoInfo::getInstance().isTaffoCloneFunction(f)) {
+    if (taffoInfo.isCloneFunction(f)) {
       LLVM_DEBUG(log() << __FUNCTION__ << " skipping function body of " << f.getName() << " because it is cloned\n");
       functionPool[&f] = nullptr;
       argsOnly = true;
@@ -58,9 +56,7 @@ void ConversionPass::buildAllLocalConvInfo(Module& m, SmallVectorImpl<Value*>& v
   }
 }
 
-bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue,
-                                   const std::shared_ptr<ValueInfo>& valueInfo,
-                                   Value* value) {
+bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* value) {
   Logger& logger = log();
   auto indenter = logger.getIndenter();
   LLVM_DEBUG(
@@ -75,8 +71,12 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue,
     }
   }
 
-  TransparentType* type = taffoInfo.getTransparentType(*value);
   ValueConvInfo* valueConvInfo = taffoConvInfo.createValueConvInfo(value);
+
+  if (!taffoInfo.hasValueInfo(*value))
+    return false;
+  std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*value);
+  TransparentType* type = taffoInfo.getTransparentType(*value);
 
   if (std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
     if (!scalarInfo->isConversionEnabled() && !isAlwaysConvertible(value)) {
@@ -106,20 +106,21 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue,
   else if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
     if (!value->getType()->isVoidTy()) {
       auto* structType = cast<TransparentStructType>(type);
-      bool conversionEnabled = true;
-      valueConvInfo->setNewType(std::make_unique<ConversionStructType>(*structType, structInfo, &conversionEnabled));
+      bool conversionEnabled;
+      auto newConvType = std::make_unique<ConversionStructType>(*structType, structInfo, &conversionEnabled);
       if (!conversionEnabled && !isAlwaysConvertible(value)) {
         LLVM_DEBUG(
           logger << "conversion disabled: skipping\n";
           logger.log("new conversionInfo: ").logln(*valueConvInfo, Logger::Cyan););
         return false;
       }
+      valueConvInfo->setNewType(std::move(newConvType));
     }
   }
   else
     llvm_unreachable("Unrecognized valueInfo");
 
-  valueConvInfo->isConversionDisabled = false;
+  valueConvInfo->enableConversion();
   if (convQueue && !is_contained(*convQueue, value))
     convQueue->push_back(value);
   LLVM_DEBUG(logger.log("new conversionInfo: ").logln(*valueConvInfo, Logger::Cyan));

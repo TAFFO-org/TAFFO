@@ -183,23 +183,12 @@ for opt in $raw_opts; do
           ;;
         -debug)
           if [[ $llvm_debug -ne 0 ]]; then
-            typededucer_flags="$typededucer_flags -debug --stats";
-            init_flags="$init_flags -debug --stats";
-            dta_flags="$dta_flags -debug --stats";
-            conversion_flags="$conversion_flags -debug --stats";
-            vra_flags="$vra_flags -debug --stats";
-            errorprop_flags="$errorprop_flags -debug --stats";
-          fi
-          LOG=/dev/stderr
-          ;;
-        -debug-taffo)
-          if [[ $llvm_debug -ne 0 ]]; then
-            typededucer_flags="$typededucer_flags --debug-only=taffo-typededucer";
-            init_flags="$init_flags --debug-only=taffo-init";
-            dta_flags="$dta_flags --debug-only=taffo-dta";
-            conversion_flags="$conversion_flags --debug-only=taffo-conversion";
-            vra_flags="$vra_flags --debug-only=taffo-vra --debug-only=taffo-mem2reg";
-            errorprop_flags="$errorprop_flags --debug-only=errorprop";
+            typededucer_flags="$typededucer_flags --stats --debug-only=tda,taffo-common,taffo-typededucer";
+            init_flags="$init_flags --stats --debug-only=taffo-common,taffo-init";
+            vra_flags="$vra_flags --stats --debug-only=taffo-common,taffo-mem2reg,taffo-vra";
+            dta_flags="$dta_flags --stats --debug-only=taffo-common,taffo-dta";
+            conversion_flags="$conversion_flags --stats --debug-only=taffo-common,taffo-conv";
+            errorprop_flags="$errorprop_flags --stats";
           fi
           LOG=/dev/stderr
           ;;
@@ -399,7 +388,6 @@ Options:
                         of TAFFO
   -debug                Enable LLVM and TAFFO debug logging during the
                         compilation.
-  -debug-taffo          Enable TAFFO-only debug logging during the compilation.
   -temp-dir <dir>       Store various temporary files related to the execution
                         of TAFFO to the specified directory.
 

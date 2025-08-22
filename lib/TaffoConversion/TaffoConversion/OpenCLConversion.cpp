@@ -7,7 +7,7 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-#define DEBUG_TYPE "taffo-conversion"
+#define DEBUG_TYPE "taffo-conv"
 
 bool ConversionPass::isSupportedOpenCLFunction(Function* F) {
   if (F->getName() == "clCreateBuffer")
@@ -90,7 +90,7 @@ void ConversionPass::cleanUpOpenCLKernelTrampolines(Module* M) {
 
     // TODO check: there may be more clones
     SmallPtrSet<Function*, 2> clone;
-    TaffoInfo::getInstance().getTaffoCloneFunctions(*KernF, clone);
+    TaffoInfo::getInstance().getCloneFunctions(*KernF, clone);
     Function* NewKernF = *clone.begin();
     assert(NewKernF && "OpenCL kernel function with trampoline but no cloned function??");
     Function* NewFixpKernF = functionPool[NewKernF];

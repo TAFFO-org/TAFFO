@@ -16,9 +16,8 @@ STATISTIC(TripCountDetectionSuccessCount, "Number of times the trip count of a l
 
 using namespace llvm;
 using namespace taffo;
-using namespace tuner;
 
-unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction* instruction) {
+unsigned taffo::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction* instruction) {
   auto bb = instruction->getParent();
   auto f = instruction->getParent()->getParent();
   auto loop = FAM.getResult<llvm::LoopAnalysis>(*f).getLoopFor(bb);
@@ -30,7 +29,7 @@ unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Instruction* 
   return info;
 }
 
-unsigned tuner::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
+unsigned taffo::computeFullTripCount(FunctionAnalysisManager& FAM, Loop* loop) {
   unsigned LocalTrip;
 
   if (!loop) {

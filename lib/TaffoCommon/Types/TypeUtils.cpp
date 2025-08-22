@@ -4,7 +4,7 @@
 
 #include <llvm/Support/Debug.h>
 
-#define DEBUG_TYPE "taffo"
+#define DEBUG_TYPE "taffo-common"
 
 using namespace llvm;
 using namespace tda;
