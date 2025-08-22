@@ -1,6 +1,8 @@
 set(SELF TaffoDTA)
 
 set(DTA_SRC
+  AllocationStrategy.hpp
+  AllocationStrategy.cpp
   DataTypeAllocationPass.hpp
   DataTypeAllocationPass.cpp
   DTAConfig.hpp
@@ -30,7 +32,7 @@ if (TAFFO_BUILD_ILP_DTA)
     ILP/LoopAnalyzerUtil.h
     ILP/Utils.h
     ILP/Utils.cpp
-    )
+  )
 endif ()
 
 add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY ${DTA_SRC})

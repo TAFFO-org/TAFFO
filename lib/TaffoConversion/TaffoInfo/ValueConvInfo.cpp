@@ -1,5 +1,3 @@
-#pragma once
-
 #include "ValueConvInfo.hpp"
 
 using namespace llvm;
