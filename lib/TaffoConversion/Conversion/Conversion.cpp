@@ -1,4 +1,4 @@
-#include "ConversionPass.hpp"
+#include "../ConversionPass.hpp"
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TransparentType.hpp"
@@ -25,6 +25,12 @@ using namespace taffo;
 #define DEBUG_TYPE "taffo-conv"
 
 Value* unsupported = (Value*) &unsupported;
+
+Value* ConversionPass::createPlaceholder(Type* type, BasicBlock* where, StringRef name) const {
+  IRBuilder<NoFolder> builder(where, where->getFirstInsertionPt());
+  AllocaInst* alloca = builder.CreateAlloca(type);
+  return builder.CreateLoad(type, alloca, name);
+}
 
 void ConversionPass::performConversion(const std::vector<Value*>& queue) {
   Logger& logger = log();
@@ -61,12 +67,6 @@ void ConversionPass::performConversion(const std::vector<Value*>& queue) {
   }
 }
 
-Value* ConversionPass::createPlaceholder(Type* type, BasicBlock* where, StringRef name) {
-  IRBuilder<NoFolder> builder(where, where->getFirstInsertionPt());
-  AllocaInst* alloca = builder.CreateAlloca(type);
-  return builder.CreateLoad(type, alloca, name);
-}
-
 Value* ConversionPass::convert(Value* value, std::unique_ptr<ConversionType>* resConvType) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
   if (valueConvInfo->isArgumentPlaceholder)
@@ -85,6 +85,53 @@ Value* ConversionPass::convert(Value* value, std::unique_ptr<ConversionType>* re
   }
 
   llvm_unreachable("Conversion failed");
+}
+
+ValueConvInfo* ConversionPass::setConversionResultInfoCommon(Value* resultValue,
+                                                             Value* oldValue,
+                                                             const ConversionType* resultConvType) {
+  if (!oldValue)
+    oldValue = resultValue;
+  ValueConvInfo* oldConvInfo = taffoConvInfo.getOrCreateValueConvInfo(oldValue);
+  ConversionType* oldConvType = oldConvInfo->getCurrentType();
+  if (!resultConvType)
+    resultConvType = oldConvType;
+  ValueConvInfo* resConvInfo;
+  if (oldValue != resultValue) {
+    if (taffoInfo.hasValueInfo(*oldValue))
+      taffoInfo.setValueInfo(*resultValue, taffoInfo.getValueInfo(*oldValue));
+    taffoInfo.setTransparentType(*resultValue, resultConvType->toTransparentType()->clone());
+    // If missing, create valueConvInfo with the same oldType as oldConvType but adapted to the new transparent type
+    resConvInfo = taffoConvInfo.getOrCreateValueConvInfo(resultValue, oldConvType);
+  }
+  else {
+    // If missing, create valueConvInfo from scratch
+    resConvInfo = taffoConvInfo.getOrCreateValueConvInfo(resultValue);
+  }
+  return resConvInfo;
+}
+
+void ConversionPass::setConstantConversionResultInfo(Value* resultValue,
+                                                     Value* oldValue,
+                                                     const ConversionType* resultConvType,
+                                                     std::unique_ptr<ConversionType>* resConvTypeOwner) {
+  ValueConvInfo* resConvInfo = setConversionResultInfoCommon(resultValue, oldValue, resultConvType);
+  if (!resConvInfo->isConstant() && resultConvType) {
+    resConvInfo->setNewType(resultConvType->clone());
+    resConvInfo->setConverted();
+  }
+  if (resConvTypeOwner && resultConvType)
+    *resConvTypeOwner = resultConvType->clone();
+}
+
+void ConversionPass::setConversionResultInfo(Value* resultValue,
+                                             Value* oldValue,
+                                             const ConversionType* resultConvType) {
+  ValueConvInfo* resConvInfo = setConversionResultInfoCommon(resultValue, oldValue, resultConvType);
+  if (resultConvType) {
+    resConvInfo->setNewType(resultConvType->clone());
+    resConvInfo->setConverted();
+  }
 }
 
 Value* ConversionPass::getConvertedOperand(Value* value,

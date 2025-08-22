@@ -7,7 +7,7 @@ using namespace tda;
 using namespace taffo;
 
 static constexpr std::string_view infStr = "inf";
-static constexpr std::string_view ninfStr = "-inf";
+static constexpr std::string_view nInfStr = "-inf";
 static constexpr std::string_view nanStr = "nan";
 
 json taffo::serializeDouble(double value) {
@@ -17,7 +17,7 @@ json taffo::serializeDouble(double value) {
     return json(nanStr);
   if (value > 0)
     return json(infStr);
-  return json(ninfStr);
+  return json(nInfStr);
 }
 
 double taffo::deserializeDouble(const json& j) {
@@ -26,7 +26,7 @@ double taffo::deserializeDouble(const json& j) {
   auto s = j.get<std::string_view>();
   if (s == infStr)
     return std::numeric_limits<double>::infinity();
-  if (s == ninfStr)
+  if (s == nInfStr)
     return -std::numeric_limits<double>::infinity();
   if (s == nanStr)
     return std::numeric_limits<double>::quiet_NaN();

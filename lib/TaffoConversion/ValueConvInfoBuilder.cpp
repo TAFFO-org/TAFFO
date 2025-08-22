@@ -82,7 +82,7 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
     if (!scalarInfo->isConversionEnabled() && !isAlwaysConvertible(value)) {
       LLVM_DEBUG(
         logger << "conversion disabled: skipping\n";
-        logger.log("new conversionInfo: ").logln(*valueConvInfo, Logger::Cyan););
+        logger.log("new valueConvInfo: ").logln(*valueConvInfo, Logger::Cyan););
       return false;
     }
     if (taffoInfo.getTransparentType(*value)->containsFloatingPointType()) {
@@ -97,7 +97,7 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
         else {
           LLVM_DEBUG(
             logger << "skipping\n" << Logger::Reset;
-            logger.log("new conversionInfo: ").logln(*valueConvInfo, Logger::Cyan););
+            logger.log("new valueConvInfo: ").logln(*valueConvInfo, Logger::Cyan););
           return false;
         }
       }
@@ -111,7 +111,7 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
       if (!conversionEnabled && !isAlwaysConvertible(value)) {
         LLVM_DEBUG(
           logger << "conversion disabled: skipping\n";
-          logger.log("new conversionInfo: ").logln(*valueConvInfo, Logger::Cyan););
+          logger.log("new valueConvInfo: ").logln(*valueConvInfo, Logger::Cyan););
         return false;
       }
       valueConvInfo->setNewType(std::move(newConvType));
@@ -123,7 +123,7 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
   valueConvInfo->enableConversion();
   if (convQueue && !is_contained(*convQueue, value))
     convQueue->push_back(value);
-  LLVM_DEBUG(logger.log("new conversionInfo: ").logln(*valueConvInfo, Logger::Cyan));
+  LLVM_DEBUG(logger.log("new valueConvInfo: ").logln(*valueConvInfo, Logger::Cyan));
   return true;
 }
 

@@ -10,6 +10,8 @@ std::string ValueConvInfo::toString() const {
   std::stringstream ss;
   ss << "{ ";
   ss << "oldType: " << (oldType ? oldType->toString() : "null") << ", ";
+  if (constant)
+    ss << "constant, ";
   if (conversionDisabled)
     ss << "disabled, ";
   else if (newType)

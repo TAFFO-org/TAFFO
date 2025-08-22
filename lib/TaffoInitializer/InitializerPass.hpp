@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TaffoInfo/TaffoInfo.hpp"
-#include "TaffoInitializer/TaffoInitializer/TaffoInfo/TaffoInitInfo.hpp"
+#include "TaffoInfo/TaffoInitInfo.hpp"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/PassManager.h>

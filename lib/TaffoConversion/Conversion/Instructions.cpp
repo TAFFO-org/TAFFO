@@ -1,8 +1,10 @@
-#include "ConversionPass.hpp"
+#include <llvm/IR/Instructions.h>
+
+#include "../ConversionPass.hpp"
+#include "../Types/ConversionType.hpp"
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TransparentType.hpp"
-#include "Types/ConversionType.hpp"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
@@ -10,7 +12,6 @@
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/InstrTypes.h>
-#include <llvm/IR/Instructions.h>
 #include <llvm/IR/NoFolder.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
@@ -320,13 +321,13 @@ Value* ConversionPass::convertSelect(SelectInst* select) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(select);
   auto* newConvType = valueConvInfo->getNewType<ConversionScalarType>();
 
-  if (!isFloatingPointToConvert(select))
+  if (valueConvInfo->isConversionDisabled())
     return unsupported;
   /* the condition is always a bool (i1) or a vector of bools */
   Value* newcond = convertedValues.at(select->getCondition());
   /* otherwise create a new one */
-  Value* newtruev = translateOrMatchAnyOperandAndType(select->getTrueValue(), *newConvType, select);
-  Value* newfalsev = translateOrMatchAnyOperandAndType(select->getFalseValue(), *newConvType, select);
+  Value* newtruev = getConvertedOperand(select->getTrueValue(), *newConvType, select, ConvTypePolicy::ForceHint);
+  Value* newfalsev = getConvertedOperand(select->getFalseValue(), *newConvType, select, ConvTypePolicy::ForceHint);
   if (!newtruev || !newfalsev || !newcond)
     return nullptr;
   auto* res = SelectInst::Create(newcond, newtruev, newfalsev);
@@ -362,12 +363,10 @@ Value* ConversionPass::convertCall(CallBase* call) {
   ConversionType* newConvType = valueConvInfo->getNewType();
 
   std::vector<Value*> newArgs;
-  int i = 0;
   for (const auto&& [callArg, funArg] : zip(call->args(), newF->args())) {
     ConversionType* argConvType = taffoConvInfo.getNewType(&funArg);
     Value* newArg = getConvertedOperand(callArg, *argConvType, call, ConvTypePolicy::ForceHint);
     newArgs.push_back(newArg);
-    i++;
   }
 
   IRBuilder builder(call);

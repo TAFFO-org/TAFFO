@@ -1,21 +1,11 @@
 #pragma once
 
+#include <llvm/ADT/Twine.h>
 #include <llvm/IR/IRBuilder.h>
-
-#ifndef NDEBUG
-
-#define IF_TAFFO_DEBUG if (::llvm::DebugFlag && ::llvm::isCurrentDebugType(DEBUG_TYPE))
-
-#else
-
-#define IF_TAFFO_DEBUG if (false)
-
-#endif
+#include <llvm/IR/Module.h>
 
 template <typename... Args>
 void genPrintf(llvm::IRBuilder<>& builder, llvm::Module& m, const llvm::Twine& str, Args... args) {
-  // %call3.flt = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.3, i64 0, i64 0),
-  // double %6), !taffo.info !31, !taffo.
   auto& ctx = m.getContext();
   std::string functionName("printf");
 
@@ -33,3 +23,5 @@ void genPrintf(llvm::IRBuilder<>& builder, llvm::Module& m, const llvm::Twine& s
   callArgs.insert(callArgs.end(), {args...});
   builder.CreateCall(print, callArgs);
 }
+
+int write_module(const std::string& fileName, const llvm::Module& m);

@@ -60,15 +60,15 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(printConversionQueue(convQueue));
   conversionCount = convQueue.size();
 
-  // Collect memory allocations before conversion
-  auto memoryAllocations = collectMemoryAllocations(m);
+  // Collect heap allocations before conversion
+  auto heapAllocations = collectHeapAllocations(m);
 
   performConversion(convQueue);
 
-  // Collect memory allocations after conversion
-  MemoryAllocationsVec newMemoryAllocations = collectMemoryAllocations(m);
-  // Adjust size of memory allocations using the info before and after conversion
-  adjustSizeOfMemoryAllocations(m, memoryAllocations, newMemoryAllocations);
+  // Collect heap allocations after conversion
+  HeapAllocationsVec newHeapAllocations = collectHeapAllocations(m);
+  // Adjust size of heap allocations using the info before and after conversion
+  adjustSizeOfHeapAllocations(m, heapAllocations, newHeapAllocations);
 
   closePhiLoops();
   cleanup(convQueue);
@@ -132,10 +132,10 @@ void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
       values.push_back(user);
 
       if (!taffoConvInfo.hasValueConvInfo(user)) {
-        LLVM_DEBUG(logger.logln("value will not be converted because it has no conversionInfo", Logger::Yellow));
+        LLVM_DEBUG(logger.logln("value will not be converted because it has no valueConvInfo", Logger::Yellow));
         taffoInfo.getOrCreateTransparentType(*user); // Create transparent type if missing
-        auto* valueConversionInfo = taffoConvInfo.createValueConvInfo(user);
-        LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*valueConversionInfo, tda::Logger::Cyan));
+        auto* userConvInfo = taffoConvInfo.createValueConvInfo(user);
+        LLVM_DEBUG(log().log("new valueConvInfo: ").logln(*userConvInfo, Logger::Cyan));
       }
 
       if (auto* phi = dyn_cast<PHINode>(user))
@@ -260,7 +260,7 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
         *placeholderConvInfo = *newArgConvInfo;
         placeholderConvInfo->isArgumentPlaceholder = true;
         placeholderConvInfo->enableConversion();
-        LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*placeholderConvInfo, tda::Logger::Cyan));
+        LLVM_DEBUG(log().log("new valueConvInfo: ").logln(*placeholderConvInfo, Logger::Cyan));
         convertedValues[placeholder] = &newArg;
         newQueue.push_back(placeholder);
       }
@@ -406,10 +406,10 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
   ValueConvInfo* oldPhiConvInfo = taffoConvInfo.createValueConvInfo(info.oldPhi);
   *oldPhiConvInfo = *phiConvInfo;
   oldPhiConvInfo->enableConversion();
-  LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*oldPhiConvInfo, tda::Logger::Cyan));
+  LLVM_DEBUG(log().log("new valueConvInfo: ").logln(*oldPhiConvInfo, Logger::Cyan));
   phi->replaceAllUsesWith(info.oldPhi);
 
-  if (isFloatingPointToConvert(phi)) {
+  if (!phiConvInfo->isConversionDisabled()) {
     ConversionType* oldConvType = phiConvInfo->getOldType();
     ConversionType* newConvType = phiConvInfo->getNewType();
     TransparentType* newType = newConvType->toTransparentType();
@@ -418,7 +418,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
     ValueConvInfo* newPhiConvInfo = taffoConvInfo.createValueConvInfo(info.newPhi, oldConvType);
     newPhiConvInfo->enableConversion();
     setConversionResultInfo(info.newPhi, phi, newConvType);
-    LLVM_DEBUG(tda::log().log("new conversionInfo: ").logln(*newPhiConvInfo, tda::Logger::Cyan));
+    LLVM_DEBUG(log().log("new valueConvInfo: ").logln(*newPhiConvInfo, Logger::Cyan));
   }
   else
     info.newPhi = info.oldPhi;
@@ -443,7 +443,8 @@ void ConversionPass::closePhiLoops() {
       info.oldPhi->replaceAllUsesWith(origphi);
     if (!substphi) {
       LLVM_DEBUG(log() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
-      substphi = translateOrMatchAnyOperandAndType(origphi, *taffoConvInfo.getNewType<ConversionScalarType>(origphi));
+      substphi = getConvertedOperand(
+        origphi, *taffoConvInfo.getNewType<ConversionScalarType>(origphi), nullptr, ConvTypePolicy::ForceHint);
       assert(substphi && "phi conversion has failed");
     }
 
@@ -452,22 +453,6 @@ void ConversionPass::closePhiLoops() {
   }
 
   LLVM_DEBUG(log() << __PRETTY_FUNCTION__ << " end\n");
-}
-
-void ConversionPass::printConversionQueue(const std::vector<Value*>& queue) {
-  Logger& logger = log();
-  if (queue.size() > 1000) {
-    logger << "Not printing the conversion queue because it exceeds 1000 items\n";
-    return;
-  }
-  logger.logln("[Conversion queue]", Logger::Blue);
-  for (Value* value : queue) {
-    auto valueConvInfo = taffoConvInfo.getValueConvInfo(value);
-    logger.log("[Value] ", Logger::Bold).logValueln(value);
-    auto indenter = logger.getIndenter();
-    indenter.increaseIndent();
-    logger.log("conversionInfo: ").logln(*valueConvInfo, Logger::Cyan);
-  }
 }
 
 bool potentiallyUsesMemory(Value* val) {
@@ -575,11 +560,11 @@ void ConversionPass::cleanUpOriginalFunctions(Module& m) {
       f.setLinkage(taffoInfo.getOriginalFunctionLinkage(f));
 }
 
-ConversionPass::MemoryAllocationsVec ConversionPass::collectMemoryAllocations(Module& m) {
+ConversionPass::HeapAllocationsVec ConversionPass::collectHeapAllocations(Module& m) {
   Logger& logger = log();
-  LLVM_DEBUG(logger.logln("[Collecting memory allocations]", Logger::Blue));
+  LLVM_DEBUG(logger.logln("[Collecting heap allocations]", Logger::Blue));
   std::vector<std::string> names {"malloc"};
-  MemoryAllocationsVec memoryAllocations;
+  HeapAllocationsVec heapAllocations;
 
   for (const auto& name : names) {
     // Mangle name to find the function
@@ -600,7 +585,7 @@ ConversionPass::MemoryAllocationsVec ConversionPass::collectMemoryAllocations(Mo
       continue;
     }
 
-    // Iterate over function users (actual memory allocations, e.g. call to malloc)
+    // Iterate over function users (actual heap allocations, e.g. call to malloc)
     for (auto* user : fun->users())
       if (auto* inst = dyn_cast<Instruction>(user)) {
         if (taffoInfo.hasTransparentType(*inst)) {
@@ -610,39 +595,39 @@ ConversionPass::MemoryAllocationsVec ConversionPass::collectMemoryAllocations(Mo
             logger.log("[Value] ", Logger::Bold).logValueln(inst);
             indenter.increaseIndent();
             logger.log("type: ").logln(*type, Logger::Cyan));
-          memoryAllocations.push_back({inst, type});
+          heapAllocations.push_back({inst, type});
         }
       }
   }
-  return memoryAllocations;
+  return heapAllocations;
 }
 
-void ConversionPass::adjustSizeOfMemoryAllocations(Module& m,
-                                                   const MemoryAllocationsVec& oldMemoryAllocations,
-                                                   const MemoryAllocationsVec& newMemoryAllocations) {
+void ConversionPass::adjustSizeOfHeapAllocations(Module& m,
+                                                 const HeapAllocationsVec& oldHeapAllocations,
+                                                 const HeapAllocationsVec& newHeapAllocations) {
   IRBuilder builder(m.getContext());
 
   Logger& logger = log();
-  LLVM_DEBUG(logger.logln("[Adjusting size of memory allocations]", Logger::Blue));
+  LLVM_DEBUG(logger.logln("[Adjusting size of heap allocations]", Logger::Blue));
 
-  for (const auto& [oldUser, oldType] : oldMemoryAllocations)
-    for (auto& [newUser, newType] : newMemoryAllocations)
+  for (const auto& [oldUser, oldType] : oldHeapAllocations)
+    for (auto& [newUser, newType] : newHeapAllocations)
       if (newUser == convertedValues[oldUser]) {
         auto indenter = logger.getIndenter();
         LLVM_DEBUG(
           logger.log("[Value] ", Logger::Bold).logValueln(oldUser);
           indenter.increaseIndent(););
         Value* oldSizeValue = oldUser->getOperand(0);
-        Value* newSizeValue = adjustMemoryAllocationSize(
+        Value* newSizeValue = adjustHeapAllocationSize(
           oldSizeValue, oldType->getPointedType(), newType->getPointedType(), dyn_cast<Instruction>(oldUser));
         newUser->setOperand(0, newSizeValue);
       }
 }
 
-Value* ConversionPass::adjustMemoryAllocationSize(Value* oldSizeValue,
-                                                  const std::shared_ptr<TransparentType>& oldAllocatedType,
-                                                  const std::shared_ptr<TransparentType>& newAllocatedType,
-                                                  Instruction* insertionPoint) {
+Value* ConversionPass::adjustHeapAllocationSize(Value* oldSizeValue,
+                                                const std::shared_ptr<TransparentType>& oldAllocatedType,
+                                                const std::shared_ptr<TransparentType>& newAllocatedType,
+                                                Instruction* insertionPoint) const {
   Logger& logger = log();
   LLVM_DEBUG(
     logger << "size: " << oldSizeValue->getNameOrAsOperand() << "\n";
@@ -676,4 +661,75 @@ Value* ConversionPass::adjustMemoryAllocationSize(Value* oldSizeValue,
   else
     LLVM_DEBUG(logger << "size did not change\n");
   return newSizeValue;
+}
+
+Instruction* ConversionPass::getFirstInsertionPointAfter(Value* value) const {
+  if (auto* arg = dyn_cast<Argument>(value))
+    return &*arg->getParent()->getEntryBlock().getFirstInsertionPt();
+  if (auto* inst = dyn_cast<Instruction>(value)) {
+    Instruction* insertionPoint = inst->getNextNode();
+    if (!insertionPoint) {
+      LLVM_DEBUG(log() << __FUNCTION__ << " called on a BB-terminating inst\n");
+      return nullptr;
+    }
+    if (isa<PHINode>(insertionPoint))
+      insertionPoint = insertionPoint->getParent()->getFirstNonPHI();
+    return insertionPoint;
+  }
+  return nullptr;
+}
+
+Value* ConversionPass::copyValueInfo(Value* dst, const Value* src, const TransparentType* dstType) const {
+  if (taffoInfo.hasValueInfo(*src)) {
+    std::shared_ptr<ValueInfo> dstInfo = taffoInfo.getValueInfo(*src)->clone();
+    taffoInfo.setValueInfo(*dst, dstInfo);
+  }
+  if (dstType)
+    taffoInfo.setTransparentType(*dst, dstType->clone());
+  else
+    taffoInfo.setTransparentType(*dst, TransparentTypeFactory::create(dst->getType()));
+  return dst;
+}
+
+void ConversionPass::updateNumericTypeInfo(Value* value, bool isSigned, int fractionalBits, int bits) const {
+  assert(!taffoInfo.getTransparentType(*value)->isStructTT());
+  std::shared_ptr<ScalarInfo> scalarInfo;
+  if (taffoInfo.hasValueInfo(*value))
+    scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*value));
+  else {
+    scalarInfo = std::make_shared<ScalarInfo>();
+    taffoInfo.setValueInfo(*value, scalarInfo);
+  }
+  scalarInfo->numericType = std::make_shared<FixedPointInfo>(isSigned, bits, fractionalBits);
+}
+
+void ConversionPass::updateNumericTypeInfo(Value* value, const ConversionScalarType& convType) const {
+  updateNumericTypeInfo(value, convType.isSigned(), convType.getFractionalBits(), convType.getBits());
+}
+
+void ConversionPass::logFunctionSignature(Function* fun) {
+  Logger& logger = log();
+  logger.log(*taffoConvInfo.getCurrentType(fun), Logger::Cyan) << " " << fun->getName().str() << "(";
+  for (auto iter : enumerate(fun->args())) {
+    if (iter.index() != 0)
+      logger << ", ";
+    logger.log(*taffoConvInfo.getCurrentType(&iter.value()), iter.index() % 2 == 0 ? Logger::Cyan : Logger::Blue);
+  }
+  logger << ")";
+}
+
+void ConversionPass::printConversionQueue(const std::vector<Value*>& queue) const {
+  Logger& logger = log();
+  if (queue.size() > 1000) {
+    logger << "Not printing the conversion queue because it exceeds 1000 items\n";
+    return;
+  }
+  logger.logln("[Conversion queue]", Logger::Blue);
+  for (Value* value : queue) {
+    const ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
+    logger.log("[Value] ", Logger::Bold).logValueln(value);
+    auto indenter = logger.getIndenter();
+    indenter.increaseIndent();
+    logger.log("valueConvInfo: ").logln(*valueConvInfo, Logger::Cyan);
+  }
 }
