@@ -114,11 +114,13 @@ Value* ConversionPass::convertAlloca(AllocaInst* alloca) {
     return alloca;
 
   ConversionType* convType = valueConvInfo->getNewType();
-
-  Type* allocatedLLVMType = alloca->getAllocatedType();
-  Type* newAllocatedLLVMType = convType->toTransparentType()->getPointedType()->toLLVMType();
-  if (newAllocatedLLVMType == allocatedLLVMType)
+  if (*convType == *valueConvInfo->getOldType()) {
+    LLVM_DEBUG(log().logln("Conversion not needed", Logger::Yellow));
+    setConversionResultInfo(alloca);
     return alloca;
+  }
+
+  Type* newAllocatedLLVMType = convType->toTransparentType()->getPointedType()->toLLVMType();
 
   Value* arraySizeValue = alloca->getArraySize();
   Align align = alloca->getAlign();
@@ -212,13 +214,31 @@ Value* ConversionPass::convertStore(StoreInst* store) {
 
 Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
   Value* pointerOperand = gep->getPointerOperand();
-  Value* newPointerOperand = nullptr;
-
+  Value* newPointerOperand = pointerOperand;
+  bool convertedPointerOperand = false;
   auto iter = convertedValues.find(pointerOperand);
-  if (iter != convertedValues.end())
+  if (iter != convertedValues.end()) {
     newPointerOperand = iter->second;
-  if (!newPointerOperand || newPointerOperand == pointerOperand) {
-    LLVM_DEBUG(log().logln("Pointer operand was not converted: conversion not needed", Logger::Yellow));
+    if (newPointerOperand != pointerOperand)
+      convertedPointerOperand = true;
+  }
+
+  SmallVector<Value*, 4> newIndices;
+  bool anyConvertedIndexOperand = false;
+  for (Use& indexOperand : gep->indices()) {
+    auto iter = convertedValues.find(indexOperand);
+    if (iter != convertedValues.end()) {
+      Value* newIndexOperand = iter->second;
+      newIndices.push_back(newIndexOperand);
+      if (newIndexOperand != indexOperand)
+        anyConvertedIndexOperand = true;
+    }
+    else
+      newIndices.push_back(indexOperand);
+  }
+
+  if (!convertedPointerOperand && !anyConvertedIndexOperand) {
+    LLVM_DEBUG(log().logln("No operand was not converted: conversion not needed", Logger::Yellow));
     setConversionResultInfo(gep);
     return gep;
   }
@@ -230,9 +250,8 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
   std::unique_ptr<ConversionType> resConvType = newPointerOperandConvType->getGepConvType(gep->indices());
 
   IRBuilder<NoFolder> builder(gep);
-  std::vector<Value*> indices(gep->indices().begin(), gep->indices().end());
   Value* res = builder.CreateInBoundsGEP(
-    newPointerOperandConvType->toTransparentType()->getPointedType()->toLLVMType(), newPointerOperand, indices);
+    newPointerOperandConvType->toTransparentType()->getPointedType()->toLLVMType(), newPointerOperand, newIndices);
 
   setConversionResultInfo(res, gep, resConvType.get());
   return res;

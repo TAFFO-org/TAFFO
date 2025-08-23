@@ -1,4 +1,5 @@
-add_subdirectory(simple)
+add_subdirectory(0_simple)
+add_subdirectory(1_c++)
+#add_subdirectory(2_openmp)
 add_subdirectory(fpbench)
 add_subdirectory(polybench-cpu)
-add_subdirectory(c++)
