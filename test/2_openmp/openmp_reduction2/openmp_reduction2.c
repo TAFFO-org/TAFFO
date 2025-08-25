@@ -9,5 +9,7 @@ int main(int argc, char* argv[]) {
 #pragma omp parallel reduction(+ : result) num_threads(NUM_THREADS)
   result += 500.0;
 
-  printf("result: %f\n", result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("Values End\n");
 }

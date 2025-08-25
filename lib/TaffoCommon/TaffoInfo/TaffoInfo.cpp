@@ -83,14 +83,16 @@ bool TaffoInfo::hasStartingPoint(Module& m) const {
   return any_of(m.functions(), [this](auto& f) { return isStartingPoint(f); });
 }
 
-void TaffoInfo::setIndirectFunction(CallInst& call, Function& f) { indirectFunctions[&call] = &f; }
+void TaffoInfo::setIndirectFunction(CallBase& trampolineCall, Function& f) { indirectFunctions[&trampolineCall] = &f; }
 
-Function* TaffoInfo::getIndirectFunction(const CallInst& call) const {
-  auto iter = indirectFunctions.find(&call);
+Function* TaffoInfo::getIndirectFunction(const CallBase& trampolineCall) const {
+  auto iter = indirectFunctions.find(&trampolineCall);
   return iter != indirectFunctions.end() ? iter->second : nullptr;
 }
 
-bool TaffoInfo::isIndirectFunction(const CallInst& call) const { return indirectFunctions.contains(&call); }
+const SmallDenseMap<CallBase*, Function*>& TaffoInfo::getIndirectFunctions() const { return indirectFunctions; }
+
+bool TaffoInfo::isTrampolineCall(const CallBase& call) const { return indirectFunctions.contains(&call); }
 
 void TaffoInfo::setOpenCLTrampoline(Function& f, Function& kernF) { oclTrampolines[&f] = &kernF; }
 
@@ -101,11 +103,7 @@ Function* TaffoInfo::getOpenCLTrampoline(const Function& f) const {
 
 bool TaffoInfo::isOpenCLTrampoline(const Function& f) const { return oclTrampolines.contains(&f); }
 
-void TaffoInfo::disableConversion(Instruction& i) { disabledConversion.push_back(&i); }
-
-bool TaffoInfo::isConversionDisabled(Instruction& i) const { return is_contained(disabledConversion, &i); }
-
-void TaffoInfo::createValueInfo(Value& v) { valueInfo[&v] = ValueInfoFactory::create(&v); }
+ValueInfo* TaffoInfo::createValueInfo(Value& v) { return (valueInfo[&v] = ValueInfoFactory::create(&v)).get(); }
 
 void TaffoInfo::setValueInfo(Value& v, const std::shared_ptr<ValueInfo>& vi) { valueInfo[&v] = vi; }
 
@@ -706,10 +704,10 @@ void TaffoInfo::deserialize(const json& j) {
     auto funcIt = idValueMapping.find(funcId);
     if (callIt != idValueMapping.end() && funcIt != idValueMapping.end()) {
       Value* callVal = callIt->second;
-      Value* funcVal = funcIt->second;
-      if (auto* callInst = dyn_cast<CallInst>(callVal))
-        if (auto* f = dyn_cast<Function>(funcVal))
-          indirectFunctions[callInst] = f;
+      Value* funVal = funcIt->second;
+      if (auto* call = dyn_cast<CallBase>(callVal))
+        if (auto* f = dyn_cast<Function>(funVal))
+          indirectFunctions[call] = f;
     }
   }
 

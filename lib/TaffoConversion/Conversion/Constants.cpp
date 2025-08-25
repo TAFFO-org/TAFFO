@@ -45,7 +45,9 @@ Constant* ConversionPass::convertConstant(Constant* constant,
     return convertConstantDataSequential(constantDataSequential, cast<ConversionScalarType>(convType), resConvType);
   if (auto* constantExpr = dyn_cast<ConstantExpr>(constant))
     return convertConstantExpr(constantExpr, convType, policy, resConvType);
-  llvm_unreachable("Constant conversion failed");
+
+  LLVM_DEBUG(log().logln("constant conversion not needed or not supported", Logger::Yellow));
+  return constant;
 }
 
 Constant* ConversionPass::convertGlobalVariable(GlobalVariable* globalVariable,
@@ -248,9 +250,9 @@ Constant* ConversionPass::convertConstantExpr(ConstantExpr* constantExpr,
 
     std::unique_ptr<ConversionType> newConvType = convType.clone();
     if (policy == ConvTypePolicy::ForceHint)
-      assert(*newConvType == *taffoConvInfo.getNewType(newValue) && "Cannot force hint type");
+      assert(*newConvType == *taffoConvInfo.getNewOrOldType(newValue) && "Cannot force hint type");
     else
-      *newConvType = *taffoConvInfo.getNewType(newValue);
+      *newConvType = *taffoConvInfo.getNewOrOldType(newValue);
 
     SmallVector<Constant*, 4> indices;
     for (unsigned i = 1; i < constantExpr->getNumOperands(); i++)

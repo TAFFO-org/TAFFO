@@ -10,7 +10,6 @@ add_llvm_library(${SELF} OBJECT BUILDTREE_ONLY
   TaffoInfo/TaffoInitInfo.cpp
   TaffoInfo/ValueInitInfo.hpp
   TaffoInfo/ValueInitInfo.cpp
-  IndirectCallPatcher.hpp
   IndirectCallPatcher.cpp
   OpenCLKernelPatcher.hpp
   OpenCLKernelPatcher.cpp

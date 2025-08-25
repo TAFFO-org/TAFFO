@@ -176,6 +176,7 @@ private:
   llvm::Value* convertUnaryOp(llvm::Instruction* inst);
   llvm::Value* convertCmp(llvm::FCmpInst* fcmp);
   llvm::Value* convertCast(llvm::CastInst* cast);
+  llvm::Value* convertAtomicRMW(llvm::AtomicRMWInst* atomicRMW);
   llvm::Value* fallback(llvm::Instruction* inst);
 
   // OpenCL support
@@ -196,8 +197,9 @@ private:
 
   // Indirect calls
 
-  void convertIndirectCalls(llvm::Module& m);
-  void handleKmpcFork(llvm::CallInst* patchedDirectCall, llvm::Function* indirectFunction);
+  /// Retrieve the indirect calls converted into trampolines and re-use the original indirect functions.
+  void convertIndirectCalls();
+  void handleKmpcFork(llvm::CallBase* trampolineCall, llvm::Function* indirectFunction);
 
   /** Returns if a function is a library function which shall not be cloned.
    *  @param f The function to check */

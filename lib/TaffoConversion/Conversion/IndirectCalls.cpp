@@ -16,72 +16,42 @@ using namespace taffo;
 
 #define DEBUG_TYPE "taffo-conv"
 
-/// Retrieve the indirect calls converted into trampolines and re-use the
-/// original indirect functions.
-void ConversionPass::convertIndirectCalls(Module& m) {
-  using handler_function = void (ConversionPass::*)(CallInst* patchedDirectCall, Function* indirectFunction);
-  const std::map<const std::string, handler_function> indirectCallFunctions = {
+void ConversionPass::convertIndirectCalls() {
+  using IndirectCallHandler = void (ConversionPass::*)(CallBase* trampolineCall, Function* indirectFun);
+  const std::map<const std::string, IndirectCallHandler> indirectCallFunctions = {
     {"__kmpc_fork_call", &ConversionPass::handleKmpcFork}
   };
 
-  std::vector<CallInst*> trampolineCalls;
-
-  // Retrieve the trampoline calls using the INDIRECT_METADATA
-  for (Function& curFunction : m) {
-    for (auto instructionIt = inst_begin(curFunction); instructionIt != inst_end(curFunction); instructionIt++) {
-      if (auto curCallInstruction = dyn_cast<CallInst>(&(*instructionIt))) {
-        if (TaffoInfo::getInstance().isIndirectFunction(*curCallInstruction))
-          trampolineCalls.push_back(curCallInstruction);
-      }
-    }
-  }
-
   // Convert the trampoline calls
-  for (auto trampolineCall : trampolineCalls) {
-    auto* indirectFunction = TaffoInfo::getInstance().getIndirectFunction(*trampolineCall);
-
-    if (indirectFunction == nullptr) {
-      LLVM_DEBUG(log() << "Blocking the following conversion for failed "
-                          "dyn_cast on the indirect function: "
-                       << *trampolineCall << "\n");
-      continue;
-    }
-
-    auto indirectCallHandler = indirectCallFunctions.find((std::string) indirectFunction->getName());
-
-    if (indirectCallHandler != indirectCallFunctions.end()) {
-      handler_function indirectFunctionHandler = indirectCallHandler->second;
-      (this->*indirectFunctionHandler)(trampolineCall, indirectFunction);
-    }
+  for (auto&& [trampolineCall, indirectFun] : taffoInfo.getIndirectFunctions()) {
+    auto iter = indirectCallFunctions.find(static_cast<std::string>(indirectFun->getName()));
+    if (iter != indirectCallFunctions.end())
+      (this->*iter->second)(trampolineCall, indirectFun);
   }
 }
 
-/// Convert a trampoline call to an outlined function back into the original
-/// library function
-void ConversionPass::handleKmpcFork(CallInst* patchedDirectCall, Function* indirectFunction) {
-  auto calledFunction = cast<CallInst>(patchedDirectCall)->getCalledFunction();
-  auto entryBlock = &calledFunction->getEntryBlock();
+void ConversionPass::handleKmpcFork(CallBase* trampolineCall, Function* indirectFunction) {
+  auto* convertedCall = cast<CallBase>(convertedValues.at(trampolineCall));
 
-  // Get the fixp call instruction to use it as an argument for the restored
-  // library function
-  auto fixpCallInstr = entryBlock->getTerminator()->getPrevNode();
-  assert(isa<CallInst>(fixpCallInstr) && "expected a CallInst to the outlined function");
-  auto fixpCall = cast<CallInst>(fixpCallInstr);
-
-  // Use bitcast to keep compatibility with the OpenMP runtime reference
-  auto microTaskType = indirectFunction->getArg(2)->getType();
-  auto bitcastedMicroTask = ConstantExpr::getBitCast(fixpCall->getCalledFunction(), microTaskType);
+  // Get converted microtask
+  Function* convertedTrampolineFun = convertedCall->getCalledFunction();
+  CallBase* convertedMicrotaskCall = nullptr;
+  for (auto& inst : instructions(convertedTrampolineFun))
+    if (auto* call = dyn_cast<CallBase>(&inst)) {
+      convertedMicrotaskCall = call;
+      break;
+    }
+  assert(convertedMicrotaskCall && "Could not find call to converted microtask");
+  Function* convertedMicrotask = convertedMicrotaskCall->getCalledFunction();
 
   // Add the indirect arguments
-  std::vector<Value*> indirectCallArgs =
-    std::vector<Value*>(patchedDirectCall->arg_begin(), patchedDirectCall->arg_end());
-  indirectCallArgs.insert(indirectCallArgs.begin() + 2, bitcastedMicroTask);
+  std::vector<Value*> indirectCallArgs = std::vector<Value*>(convertedCall->arg_begin(), convertedCall->arg_end());
+  indirectCallArgs.insert(indirectCallArgs.begin() + 2, convertedMicrotask);
 
   // Insert the indirect call after the patched direct call
-  auto indirectCall = CallInst::Create(indirectFunction, indirectCallArgs);
-  indirectCall->insertAfter(patchedDirectCall);
-  copyValueInfo(indirectCall, patchedDirectCall);
+  CallInst* indirectCall = CallInst::Create(indirectFunction, indirectCallArgs);
+  indirectCall->insertAfter(trampolineCall);
+  copyValueInfo(indirectCall, trampolineCall);
 
-  // Remove the patched direct call
-  TaffoInfo::getInstance().eraseValue(patchedDirectCall);
+  taffoInfo.eraseValue(convertedCall);
 }

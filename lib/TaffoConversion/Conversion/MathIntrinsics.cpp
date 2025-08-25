@@ -39,7 +39,7 @@ Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
     return unsupported;
 
   TransparentType* type = taffoInfo.getOrCreateTransparentType(*call);
-  auto* newConvType = valueConvInfo->getNewType<ConversionScalarType>();
+  auto* newConvType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
 
   Function* fun = call->getCalledFunction();
   MathIntrinsicFamily family = getMathIntrinsicFamily(fun);

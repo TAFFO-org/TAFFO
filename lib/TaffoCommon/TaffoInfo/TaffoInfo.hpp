@@ -38,18 +38,16 @@ public:
   bool isStartingPoint(llvm::Function& f) const;
   bool hasStartingPoint(llvm::Module& m) const;
 
-  void setIndirectFunction(llvm::CallInst& call, llvm::Function& f);
-  llvm::Function* getIndirectFunction(const llvm::CallInst& call) const;
-  bool isIndirectFunction(const llvm::CallInst& call) const;
+  void setIndirectFunction(llvm::CallBase& trampolineCall, llvm::Function& f);
+  llvm::Function* getIndirectFunction(const llvm::CallBase& trampolineCall) const;
+  const llvm::SmallDenseMap<llvm::CallBase*, llvm::Function*>& getIndirectFunctions() const;
+  bool isTrampolineCall(const llvm::CallBase& call) const;
 
   void setOpenCLTrampoline(llvm::Function& f, llvm::Function& kernF);
   llvm::Function* getOpenCLTrampoline(const llvm::Function& f) const;
   bool isOpenCLTrampoline(const llvm::Function& f) const;
 
-  void disableConversion(llvm::Instruction& i);
-  bool isConversionDisabled(llvm::Instruction& i) const;
-
-  void createValueInfo(llvm::Value& v);
+  ValueInfo* createValueInfo(llvm::Value& v);
   void setValueInfo(llvm::Value& v, const std::shared_ptr<ValueInfo>& vi);
   void setValueInfo(llvm::Value& v, std::shared_ptr<ValueInfo>&& vi);
 
@@ -93,7 +91,7 @@ private:
   llvm::DenseMap<llvm::Value*, std::unique_ptr<tda::TransparentType>> transparentTypes;
 
   llvm::SmallVector<llvm::Function*> startingPoints;
-  llvm::SmallDenseMap<llvm::CallInst*, llvm::Function*> indirectFunctions;
+  llvm::SmallDenseMap<llvm::CallBase*, llvm::Function*> indirectFunctions;
   llvm::SmallDenseMap<llvm::Function*, llvm::Function*> oclTrampolines;
   llvm::SmallVector<llvm::Instruction*> disabledConversion;
 

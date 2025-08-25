@@ -53,7 +53,7 @@ Value* ConversionPass::convertOpenCLCall(CallBase* C) {
     return unsupported;
   }
   LLVM_DEBUG(log() << "Found converted buffer: " << *NewBuffer << "\n");
-  LLVM_DEBUG(log() << "Buffer convType is: " << *taffoConvInfo.getNewType(NewBuffer) << "\n");
+  LLVM_DEBUG(log() << "Buffer convType is: " << *taffoConvInfo.getNewOrOldType(NewBuffer) << "\n");
   Type* VoidPtrTy = Type::getInt8Ty(C->getContext())->getPointerTo();
   Value* NewBufferArg;
   if (NewBuffer->getType() != VoidPtrTy)

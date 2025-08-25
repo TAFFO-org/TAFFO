@@ -22,6 +22,8 @@ int main(int argc, char* argv[]) {
   for (i = 0; i < N; i++)
     container_result += container[i];
 
-  printf("result: %f\n", result);
-  printf("container: %f\n", container_result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("%f\n", container_result);
+  printf("Values End\n");
 }

@@ -21,5 +21,7 @@ int main(int argc, char* argv[]) {
   }
   result = first_task_var + second_task_var;
 
-  printf("result: %f\n", result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("Values End\n");
 }

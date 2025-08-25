@@ -9,7 +9,7 @@ void nested_task_invocation(int index) {
   else
 #pragma omp task
   {
-    printf("result: %d\n", index);
+    printf("%d\n", index);
   }
 }
 
@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 
   int i;
 
+  printf("Values Begin\n");
 #pragma omp parallel
   {
 #pragma omp single
@@ -34,5 +35,6 @@ int main(int argc, char* argv[]) {
   for (i = 0; i < MAX_N; i++)
     result += array[i];
 
-  printf("result: %f\n", result);
+  printf("%f\n", result);
+  printf("Values End\n");
 }

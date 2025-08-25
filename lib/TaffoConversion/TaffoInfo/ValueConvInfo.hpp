@@ -34,7 +34,7 @@ struct ValueConvInfo : tda::Printable {
 
   template <std::derived_from<ConversionType> T = ConversionType>
   T* getOldType() const {
-    return static_cast<T*>(oldType.get());
+    return llvm::cast<T>(oldType.get());
   }
 
   void setNewType(std::unique_ptr<ConversionType> type) {
@@ -45,12 +45,18 @@ struct ValueConvInfo : tda::Printable {
   template <std::derived_from<ConversionType> T = ConversionType>
   T* getNewType() const {
     assert(!constant && "Cannot get newType for a constant because they are uniqued");
-    return static_cast<T*>(newType ? newType.get() : oldType.get());
+    return llvm::cast_or_null<T>(newType.get());
+  }
+
+  template <std::derived_from<ConversionType> T = ConversionType>
+  T* getNewOrOldType() const {
+    assert(!constant && "Cannot get newType for a constant because they are uniqued");
+    return llvm::cast<T>(newType ? newType.get() : oldType.get());
   }
 
   template <std::derived_from<ConversionType> T = ConversionType>
   T* getCurrentType() const {
-    return static_cast<T*>(isConverted ? newType.get() : oldType.get());
+    return llvm::cast<T>(isConverted ? newType.get() : oldType.get());
   }
 
   bool isConstant() const { return constant; }

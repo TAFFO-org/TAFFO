@@ -20,5 +20,7 @@ int main(int argc, char* argv[]) {
     result += array[i];
   }
 
-  printf("result: %f\n", result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("Values End\n");
 }

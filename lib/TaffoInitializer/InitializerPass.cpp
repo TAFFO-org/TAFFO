@@ -1,6 +1,5 @@
 #include "CudaKernelPatcher.hpp"
 #include "Debug/Logger.hpp"
-#include "IndirectCallPatcher.hpp"
 #include "InitializerPass.hpp"
 #include "OpenCLKernelPatcher.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
@@ -73,15 +72,6 @@ void InitializerPass::saveValueWeights() {
     ValueInitInfo& valueInitInfo = taffoInitInfo.getValueInitInfo(value);
     if (isa<Instruction>(value) || isa<GlobalObject>(value))
       taffoInfo.setValueWeight(*value, valueInitInfo.getRootDistance());
-    if (auto* inst = dyn_cast<Instruction>(value))
-      if (auto scalarInfo = dyn_cast<ScalarInfo>(taffoInfo.getValueInfo(*value).get()))
-        if (taffoInfo.isConversionDisabled(*inst)) {
-          scalarInfo->conversionEnabled = false;
-          LLVM_DEBUG(
-            Logger& logger = log();
-            logger.log("Disabled conversion of shared variable ", Logger::Yellow);
-            logger.logValueln(inst););
-        }
   }
 }
 

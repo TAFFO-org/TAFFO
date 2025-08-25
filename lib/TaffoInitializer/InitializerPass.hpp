@@ -29,6 +29,14 @@ private:
   llvm::SmallPtrSet<llvm::Function*, 2> annotatedFunctions;
   llvm::DenseMap<llvm::CallBase*, llvm::Function*> handledCalls;
 
+  /**
+   * Check for indirect calls the module, adding dedicated direct trampoline calls.
+   * The trampolines enable subsequent passes to better analyze the indirect calls.
+   */
+  void manageIndirectCalls(llvm::Module& m);
+  void handleCallIfIndirect(const llvm::Module& m, llvm::CallBase* curCall, llvm::Function* indirectFunction);
+  void handleKmpcFork(const llvm::Module& m, llvm::CallBase* call, llvm::Function* indirectFunction);
+
   llvm::Function* findStartingPointFunctionGlobal(llvm::Module& m);
 
   void readAndRemoveGlobalAnnotations(llvm::Module& m);

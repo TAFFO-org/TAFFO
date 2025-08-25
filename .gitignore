@@ -5,6 +5,7 @@
 build*
 cmake-build-*/
 # test executables, results and temp files
+test/Testing
 test/**/*-float
 test/**/*-taffo
 test/**/*res-float*

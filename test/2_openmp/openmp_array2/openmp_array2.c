@@ -31,5 +31,7 @@ int main(int argc, char* argv[]) {
   for (i = 0; i < MAX_N; i++)
     result += result_container[i];
 
-  printf("result: %f\n", result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("Values End\n");
 }

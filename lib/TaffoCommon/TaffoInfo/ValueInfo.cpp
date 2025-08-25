@@ -171,7 +171,7 @@ bool StructInfo::isConversionEnabled() const {
 
 bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*>& visited) const {
   visited.insert(this);
-  for (const auto& field : Fields) {
+  for (const auto& field : fields) {
     if (!field)
       continue;
     if (auto* si = dyn_cast<StructInfo>(field.get())) {
@@ -186,6 +186,14 @@ bool StructInfo::isConversionEnabled(SmallPtrSetImpl<const StructInfo*>& visited
     }
   }
   return false;
+}
+
+void StructInfo::disableConversion() {
+  for (const auto& field : fields) {
+    if (!field)
+      continue;
+    field->disableConversion();
+  }
 }
 
 std::shared_ptr<ValueInfo> StructInfo::resolveFromIndexList(Type* type, ArrayRef<unsigned> indices) const {
@@ -252,7 +260,7 @@ ValueInfo* StructInfo::getField(const iterator_range<const Use*> gepIndices) {
 
 std::shared_ptr<ValueInfo> StructInfo::cloneImpl() const {
   SmallVector<std::shared_ptr<ValueInfo>, 4> newFields;
-  for (const std::shared_ptr<ValueInfo>& field : Fields)
+  for (const std::shared_ptr<ValueInfo>& field : fields)
     if (field)
       newFields.push_back(field->clone());
     else
@@ -264,7 +272,7 @@ std::string StructInfo::toString() const {
   std::stringstream ss;
   ss << "struct(";
   bool first = true;
-  for (const std::shared_ptr<ValueInfo>& field : Fields) {
+  for (const std::shared_ptr<ValueInfo>& field : fields) {
     if (!first)
       ss << ", ";
     if (field)
@@ -282,7 +290,7 @@ json StructInfo::serialize() const {
   j["kind"] = "StructInfo";
   j.update(ValueInfo::serialize());
   j["fields"] = json::array();
-  for (const auto& field : Fields)
+  for (const auto& field : fields)
     if (field)
       j["fields"].push_back(field->serialize());
     else
@@ -293,27 +301,26 @@ json StructInfo::serialize() const {
 void StructInfo::deserialize(const json& j) {
   ValueInfo::deserialize(j);
   if (!j.contains("fields") || !j["fields"].is_array())
-    report_fatal_error("StructInfo::deserialize: Missing or invalid fields array");
-  Fields.clear();
+    llvm_unreachable("Missing or invalid fields array");
+  fields.clear();
   for (auto& fieldJson : j["fields"]) {
     if (fieldJson.is_null()) {
-      Fields.push_back(nullptr);
+      fields.push_back(nullptr);
     }
-    else {
+    else if (fieldJson.contains("kind")) {
       std::string fieldKind = fieldJson["kind"].get<std::string>();
       if (fieldKind == "ScalarInfo") {
         auto field = std::make_shared<ScalarInfo>(nullptr);
         field->deserialize(fieldJson);
-        Fields.push_back(field);
+        fields.push_back(field);
       }
       else if (fieldKind == "StructInfo") {
         auto field = std::make_shared<StructInfo>(0);
         field->deserialize(fieldJson);
-        Fields.push_back(field);
+        fields.push_back(field);
       }
-      else {
-        report_fatal_error(StringRef("StructInfo::deserialize: Unknown field kind: " + fieldKind));
-      }
+      else
+        llvm_unreachable("Unknown field kind");
     }
   }
 }

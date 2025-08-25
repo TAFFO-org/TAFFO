@@ -62,16 +62,16 @@ Value* ConversionPass::convertInstruction(Instruction* inst) {
     res = convertCall(dyn_cast<CallBase>(inst));
   else if (auto* ret = dyn_cast<ReturnInst>(inst))
     res = convertRet(ret);
-  else if (auto* instr = dyn_cast<Instruction>(inst)) { // llvm/include/llvm/IR/Instruction.def for more info
-    if (instr->isBinaryOp())
-      res = convertBinOp(instr, *taffoConvInfo.getNewType<ConversionScalarType>(instr));
-    else if (auto* cast = dyn_cast<CastInst>(instr))
-      res = convertCast(cast);
-    else if (auto* fcmp = dyn_cast<FCmpInst>(instr))
-      res = convertCmp(fcmp);
-    else if (instr->isUnaryOp())
-      res = convertUnaryOp(instr);
-  }
+  else if (inst->isBinaryOp())
+    res = convertBinOp(inst, *taffoConvInfo.getNewOrOldType<ConversionScalarType>(inst));
+  else if (auto* atomicRMW = dyn_cast<AtomicRMWInst>(inst))
+    res = convertAtomicRMW(atomicRMW);
+  else if (auto* cast = dyn_cast<CastInst>(inst))
+    res = convertCast(cast);
+  else if (auto* fcmp = dyn_cast<FCmpInst>(inst))
+    res = convertCmp(fcmp);
+  else if (inst->isUnaryOp())
+    res = convertUnaryOp(inst);
 
   bool didFallback = false;
   if (res == unsupported) {
@@ -97,15 +97,14 @@ Value* ConversionPass::convertInstruction(Instruction* inst) {
     if (didFallback)
       os << "fallback";
     else if (*taffoInfo.getTransparentType(*inst) != *taffoInfo.getTransparentType(*res))
-      os << *taffoConvInfo.getNewType(res);
+      os << *taffoConvInfo.getNewOrOldType(res);
     else
       os << "taffo";
     res->setName(os.str());
   }
 
-  if (res)
-    return res;
-  return nullptr;
+  assert(res);
+  return res;
 }
 
 Value* ConversionPass::convertAlloca(AllocaInst* alloca) {
@@ -113,7 +112,7 @@ Value* ConversionPass::convertAlloca(AllocaInst* alloca) {
   if (valueConvInfo->isConversionDisabled())
     return alloca;
 
-  ConversionType* convType = valueConvInfo->getNewType();
+  ConversionType* convType = valueConvInfo->getNewOrOldType();
   if (*convType == *valueConvInfo->getOldType()) {
     LLVM_DEBUG(log().logln("Conversion not needed", Logger::Yellow));
     setConversionResultInfo(alloca);
@@ -150,7 +149,7 @@ Value* ConversionPass::convertLoad(LoadInst* load) {
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
-  ConversionType* newPtrOperandConvType = taffoConvInfo.getNewType(newPtrOperand);
+  ConversionType* newPtrOperandConvType = taffoConvInfo.getNewOrOldType(newPtrOperand);
   std::unique_ptr<TransparentType> newType = newPtrOperandConvType->toTransparentType()->getPointedType();
   Type* newLLVMType = newType->toLLVMType();
   std::unique_ptr<ConversionType> newConvType = newPtrOperandConvType->clone(*newType);
@@ -165,8 +164,9 @@ Value* ConversionPass::convertLoad(LoadInst* load) {
 
   if (valueConvInfo->isConversionDisabled()) {
     assert(res->getType()->isIntegerTy() && "DTA bug; improperly tagged struct/pointer!");
-    return genConvertConvToFloat(
-      res, *taffoConvInfo.getNewType<ConversionScalarType>(newPtrOperand), cast<ConversionScalarType>(*newConvType));
+    return genConvertConvToFloat(res,
+                                 *taffoConvInfo.getNewOrOldType<ConversionScalarType>(newPtrOperand),
+                                 cast<ConversionScalarType>(*newConvType));
   }
   return res;
 }
@@ -198,7 +198,7 @@ Value* ConversionPass::convertStore(StoreInst* store) {
     return unsupported;
 
   TransparentType* valueOperandType = taffoInfo.getTransparentType(*valueOperand);
-  auto valueOperandConvType = taffoConvInfo.getNewType(newPointerOperand)->clone(*valueOperandType);
+  auto valueOperandConvType = taffoConvInfo.getNewOrOldType(newPointerOperand)->clone(*valueOperandType);
   newValueOperand = getConvertedOperand(newValueOperand, *valueOperandConvType, nullptr, ConvTypePolicy::ForceHint);
 
   /*if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m,
@@ -246,7 +246,7 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
   if (taffoConvInfo.getValueConvInfo(gep)->isConversionDisabled())
     return unsupported;
 
-  ConversionType* newPointerOperandConvType = taffoConvInfo.getNewType(newPointerOperand);
+  ConversionType* newPointerOperandConvType = taffoConvInfo.getNewOrOldType(newPointerOperand);
   std::unique_ptr<ConversionType> resConvType = newPointerOperandConvType->getGepConvType(gep->indices());
 
   IRBuilder<NoFolder> builder(gep);
@@ -263,10 +263,8 @@ Value* ConversionPass::convertExtractValue(ExtractValueInst* extractValue) {
   IRBuilder<NoFolder> builder(extractValue);
   Value* oldval = extractValue->getAggregateOperand();
   Value* newval = convertedValues.at(oldval);
-  if (!newval)
-    return nullptr;
   std::unique_ptr<ConversionType> newConvType =
-    taffoConvInfo.getNewType(newval)->getGepConvType(extractValue->getIndices());
+    taffoConvInfo.getNewOrOldType(newval)->getGepConvType(extractValue->getIndices());
   std::vector idxlist(extractValue->indices().begin(), extractValue->indices().end());
   Value* res = builder.CreateExtractValue(newval, idxlist);
   setConversionResultInfo(res, extractValue, newConvType.get());
@@ -279,14 +277,10 @@ Value* ConversionPass::convertInsertValue(InsertValueInst* insertValue) {
   IRBuilder<NoFolder> builder(insertValue);
   Value* oldAggVal = insertValue->getAggregateOperand();
   Value* newAggVal = convertedValues.at(oldAggVal);
-  if (!newAggVal)
-    return nullptr;
-  auto newConvType = taffoConvInfo.getNewType(newAggVal)->getGepConvType(insertValue->getIndices());
+  auto newConvType = taffoConvInfo.getNewOrOldType(newAggVal)->getGepConvType(insertValue->getIndices());
   Value* oldInsertVal = insertValue->getInsertedValueOperand();
   Value* newInsertVal;
   newInsertVal = getConvertedOperand(oldInsertVal, *newConvType, nullptr, ConvTypePolicy::ForceHint);
-  if (!newInsertVal)
-    return nullptr;
   std::vector idxlist(insertValue->indices().begin(), insertValue->indices().end());
   auto* res = builder.CreateInsertValue(newAggVal, newInsertVal, idxlist);
   setConversionResultInfo(res, insertValue, newConvType.get());
@@ -295,7 +289,7 @@ Value* ConversionPass::convertInsertValue(InsertValueInst* insertValue) {
 
 Value* ConversionPass::convertPhi(PHINode* phi) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(phi);
-  ConversionType* newConvType = valueConvInfo->getNewType();
+  ConversionType* newConvType = valueConvInfo->getNewOrOldType();
 
   if (!phi->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled()) {
     /* in the conversion chain the floating point number was converted to
@@ -320,16 +314,13 @@ Value* ConversionPass::convertPhi(PHINode* phi) {
    * and thus all of its incoming values were floats */
   PHINode* res = PHINode::Create(newConvType->toLLVMType(), phi->getNumIncomingValues());
   for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
-    Value* thisval = phi->getIncomingValue(i);
-    BasicBlock* thisbb = phi->getIncomingBlock(i);
-    Value* newval = getConvertedOperand(thisval, *newConvType, thisbb->getTerminator(), ConvTypePolicy::ForceHint);
-    if (!newval) {
-      delete res;
-      return nullptr;
-    }
-    if (auto* inst2 = dyn_cast<Instruction>(newval))
+    Value* incomingValue = phi->getIncomingValue(i);
+    BasicBlock* incomingBB = phi->getIncomingBlock(i);
+    Value* newIncomingValue =
+      getConvertedOperand(incomingValue, *newConvType, incomingBB->getTerminator(), ConvTypePolicy::ForceHint);
+    if (auto* inst2 = dyn_cast<Instruction>(newIncomingValue))
       LLVM_DEBUG(log() << "warning: new phi value " << *inst2 << " not coming from the obviously correct BB\n");
-    res->addIncoming(newval, thisbb);
+    res->addIncoming(newIncomingValue, incomingBB);
   }
   res->insertAfter(phi);
   setConversionResultInfo(res, phi, newConvType);
@@ -338,7 +329,7 @@ Value* ConversionPass::convertPhi(PHINode* phi) {
 
 Value* ConversionPass::convertSelect(SelectInst* select) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(select);
-  auto* newConvType = valueConvInfo->getNewType<ConversionScalarType>();
+  auto* newConvType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
 
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
@@ -347,8 +338,6 @@ Value* ConversionPass::convertSelect(SelectInst* select) {
   /* otherwise create a new one */
   Value* newtruev = getConvertedOperand(select->getTrueValue(), *newConvType, select, ConvTypePolicy::ForceHint);
   Value* newfalsev = getConvertedOperand(select->getFalseValue(), *newConvType, select, ConvTypePolicy::ForceHint);
-  if (!newtruev || !newfalsev || !newcond)
-    return nullptr;
   auto* res = SelectInst::Create(newcond, newtruev, newfalsev);
   res->insertAfter(select);
   setConversionResultInfo(res, select, newConvType);
@@ -379,11 +368,11 @@ Value* ConversionPass::convertCall(CallBase* call) {
     logger << "\n";);
 
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(call);
-  ConversionType* newConvType = valueConvInfo->getNewType();
+  ConversionType* newConvType = valueConvInfo->getNewOrOldType();
 
   std::vector<Value*> newArgs;
   for (const auto&& [callArg, funArg] : zip(call->args(), newF->args())) {
-    ConversionType* argConvType = taffoConvInfo.getNewType(&funArg);
+    ConversionType* argConvType = taffoConvInfo.getNewOrOldType(&funArg);
     Value* newArg = getConvertedOperand(callArg, *argConvType, call, ConvTypePolicy::ForceHint);
     newArgs.push_back(newArg);
   }
@@ -411,7 +400,7 @@ Value* ConversionPass::convertRet(ReturnInst* ret) {
 
   auto* fun = dyn_cast<Function>(ret->getParent()->getParent());
   ValueConvInfo* funConvInfo = taffoConvInfo.getValueConvInfo(fun);
-  auto* convType = funConvInfo->getNewType<ConversionType>();
+  auto* convType = funConvInfo->getNewOrOldType<ConversionType>();
   Value* newRetValue = getConvertedOperand(retValue, *convType, ret, ConvTypePolicy::ForceHint);
   ret->setOperand(0, newRetValue);
   // The type of a return instruction is always void, and it has valueConvInfo already: no need to call
@@ -421,7 +410,7 @@ Value* ConversionPass::convertRet(ReturnInst* ret) {
 
 Value* ConversionPass::convertUnaryOp(Instruction* inst) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(inst);
-  auto* newConvType = valueConvInfo->getNewType<ConversionScalarType>();
+  auto* newConvType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
 
   if (!inst->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled())
     return unsupported;
@@ -430,21 +419,20 @@ Value* ConversionPass::convertUnaryOp(Instruction* inst) {
 
   if (opc == Instruction::FNeg) {
     LLVM_DEBUG(log() << inst->getOperand(0) << "\n";);
-    Value* val1 = getConvertedOperand(inst->getOperand(0), *newConvType, inst, ConvTypePolicy::ForceHint);
-    if (!val1)
-      return nullptr;
+    Value* newOperand = getConvertedOperand(inst->getOperand(0), *newConvType, inst, ConvTypePolicy::ForceHint);
+
     IRBuilder<NoFolder> builder(inst);
     Value* res = nullptr;
 
     if (newConvType->isFixedPoint())
-      res = builder.CreateNeg(val1);
+      res = builder.CreateNeg(newOperand);
     else if (newConvType->isFloatingPoint())
-      res = builder.CreateFNeg(val1);
+      res = builder.CreateFNeg(newOperand);
     else
       llvm_unreachable("Unknown convType");
 
     copyValueInfo(res, inst);
-    updateNumericTypeInfo(val1, *newConvType);
+    updateNumericTypeInfo(newOperand, *newConvType);
     setConversionResultInfo(res, inst, newConvType);
     return res;
   }
@@ -452,10 +440,8 @@ Value* ConversionPass::convertUnaryOp(Instruction* inst) {
 }
 
 Value* ConversionPass::convertBinOp(Instruction* inst, const ConversionScalarType& convType) {
-  // Instructions [Add,Sub,Mul,SDiv,UDiv,SRem,URem,Shl,LShr,AShr,And,Or,Xor] are handled by the fallback function
-
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(inst);
-  if (!inst->getType()->isFloatingPointTy() || valueConvInfo->isConversionDisabled())
+  if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
   unsigned opcode = inst->getOpcode();
@@ -473,11 +459,55 @@ Value* ConversionPass::convertBinOp(Instruction* inst, const ConversionScalarTyp
   return unsupported;
 }
 
+Value* ConversionPass::convertAtomicRMW(AtomicRMWInst* atomicRMW) {
+  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(atomicRMW);
+
+  // TODO other float operations if any
+  if (atomicRMW->getOperation() != AtomicRMWInst::FAdd)
+    return unsupported;
+
+  auto* convType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
+
+  Value* ptrOperand = atomicRMW->getPointerOperand();
+  Value* newPtrOperand = ptrOperand;
+  auto iter = convertedValues.find(ptrOperand);
+  if (iter != convertedValues.end())
+    newPtrOperand = iter->second;
+  if (!newPtrOperand || newPtrOperand == ptrOperand) {
+    LLVM_DEBUG(log().logln("Pointer operand was not converted: conversion not needed", Logger::Yellow));
+    setConversionResultInfo(atomicRMW);
+    return atomicRMW;
+  }
+
+  if (valueConvInfo->isConversionDisabled())
+    return unsupported;
+
+  Value* oldValueOperand = atomicRMW->getValOperand();
+  Value* newValueOperand = getConvertedOperand(oldValueOperand, *convType, atomicRMW, ConvTypePolicy::ForceHint);
+
+  AtomicRMWInst::BinOp binOp;
+  if (convType->isFixedPoint())
+    binOp = AtomicRMWInst::Add;
+  else if (convType->isFloatingPoint())
+    binOp = AtomicRMWInst::FAdd;
+  else
+    llvm_unreachable("Unknown convType");
+
+  IRBuilder<NoFolder> builder(atomicRMW);
+  AtomicRMWInst* res = builder.CreateAtomicRMW(binOp,
+                                               newPtrOperand,
+                                               newValueOperand,
+                                               atomicRMW->getAlign(),
+                                               atomicRMW->getOrdering(),
+                                               atomicRMW->getSyncScopeID());
+
+  setConversionResultInfo(res, atomicRMW, convType);
+  return res;
+}
+
 Value* ConversionPass::convertFAdd(Instruction* inst, const ConversionScalarType& convType) {
   Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
   Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
-  if (!newOperand1 || !newOperand2)
-    return nullptr;
 
   IRBuilder<NoFolder> builder(inst);
   Value* res;
@@ -498,8 +528,6 @@ Value* ConversionPass::convertFAdd(Instruction* inst, const ConversionScalarType
 Value* ConversionPass::convertFSub(Instruction* inst, const ConversionScalarType& convType) {
   Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
   Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
-  if (!newOperand1 || !newOperand2)
-    return nullptr;
 
   IRBuilder<NoFolder> builder(inst);
   Value* res;
@@ -521,8 +549,6 @@ Value* ConversionPass::convertFSub(Instruction* inst, const ConversionScalarType
 Value* ConversionPass::convertFRem(Instruction* inst, const ConversionScalarType& convType) {
   Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
   Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
-  if (!newOperand1 || !newOperand2)
-    return nullptr;
 
   IRBuilder<NoFolder> builder(inst);
   Value* res;
@@ -553,8 +579,6 @@ Value* ConversionPass::convertFMul(Instruction* inst, const ConversionScalarType
     std::unique_ptr<ConversionType> convType2 = nullptr;
     Value* newOperand1 = getConvertedOperand(operand1, convType, inst, ConvTypePolicy::RangeOverHint, &convType1);
     Value* newOperand2 = getConvertedOperand(operand2, convType, inst, ConvTypePolicy::RangeOverHint, &convType2);
-    if (!newOperand1 || !newOperand2)
-      return nullptr;
 
     const ConversionScalarType& scalarConvType1 = cast<ConversionScalarType>(*convType1);
     const ConversionScalarType& scalarConvType2 = cast<ConversionScalarType>(*convType2);
@@ -686,8 +710,6 @@ Value* ConversionPass::convertFMul(Instruction* inst, const ConversionScalarType
   else if (convType.isFloatingPoint()) {
     Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
     Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
-    if (!newOperand1 || !newOperand2)
-      return nullptr;
 
     IRBuilder<NoFolder> builder(inst);
     Value* res = builder.CreateFMul(newOperand1, newOperand2);
@@ -709,8 +731,6 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
     std::unique_ptr<ConversionType> convType2 = nullptr;
     Value* newOperand1 = getConvertedOperand(operand1, convType, inst, ConvTypePolicy::RangeOverHint, &convType1);
     Value* newOperand2 = getConvertedOperand(operand2, convType, inst, ConvTypePolicy::RangeOverHint, &convType2);
-    if (!newOperand1 || !newOperand2)
-      return nullptr;
 
     const ConversionScalarType& scalarConvType1 = cast<ConversionScalarType>(*convType1);
     const ConversionScalarType& scalarConvType2 = cast<ConversionScalarType>(*convType2);
@@ -782,8 +802,6 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
   if (convType.isFloatingPoint()) {
     Value* newOperand1 = getConvertedOperand(inst->getOperand(0), convType, inst, ConvTypePolicy::ForceHint);
     Value* newOperand2 = getConvertedOperand(inst->getOperand(1), convType, inst, ConvTypePolicy::ForceHint);
-    if (!newOperand1 || !newOperand2)
-      return nullptr;
 
     IRBuilder<NoFolder> builder(inst);
     Value* res = builder.CreateFDiv(newOperand1, newOperand2);
@@ -801,12 +819,12 @@ Value* ConversionPass::convertCmp(FCmpInst* fcmp) {
   if (taffoConvInfo.hasValueConvInfo(operand1)) {
     ValueConvInfo* valueConvInfo1 = taffoConvInfo.getValueConvInfo(operand1);
     if (!valueConvInfo1->isConstant() && !valueConvInfo1->isConversionDisabled())
-      convType1 = valueConvInfo1->getNewType<ConversionScalarType>();
+      convType1 = valueConvInfo1->getNewOrOldType<ConversionScalarType>();
   }
   if (taffoConvInfo.hasValueConvInfo(operand2)) {
     ValueConvInfo* valueConvInfo2 = taffoConvInfo.getValueConvInfo(operand2);
     if (!valueConvInfo2->isConstant() && !valueConvInfo2->isConversionDisabled())
-      convType2 = valueConvInfo2->getNewType<ConversionScalarType>();
+      convType2 = valueConvInfo2->getNewOrOldType<ConversionScalarType>();
   }
 
   if (!convType1 && !convType2)
@@ -933,7 +951,7 @@ Value* ConversionPass::convertCast(CastInst* cast) {
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
-  auto* convType = valueConvInfo->getNewType<ConversionScalarType>();
+  auto* convType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
 
   IRBuilder<NoFolder> builder(cast->getNextNode());
   if (auto* bc = dyn_cast<BitCastInst>(cast)) {

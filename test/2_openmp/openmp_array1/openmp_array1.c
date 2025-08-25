@@ -14,10 +14,11 @@ int main(int argc, char* argv[]) {
 
   float result __attribute__((annotate("target('result') scalar(range(0,6000))"))) = 0;
 
+  printf("Values Begin\n");
   for (i = 0; i < MAX_N; i++) {
     result += array[i];
-    printf("%d: %f\n", i, array[i]);
+    printf("%f\n", i, array[i]);
   }
-
-  printf("result: %f\n", result);
+  printf("%f\n", result);
+  printf("Values End\n");
 }

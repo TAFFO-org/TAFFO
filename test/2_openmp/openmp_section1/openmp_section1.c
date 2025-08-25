@@ -24,5 +24,7 @@ int main(int argc, char* argv[]) {
   }
   result = first_section + second_section;
 
-  printf("result: %f\n", result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("Values End\n");
 }

@@ -51,6 +51,7 @@ public:
 
   virtual ValueInfoKind getKind() const = 0;
   virtual bool isConversionEnabled() const = 0;
+  virtual void disableConversion() {}
 
   template <typename ValueInfoT = ValueInfo>
   std::shared_ptr<ValueInfoT> clone() const {
@@ -96,7 +97,10 @@ public:
   : numericType(numericType), range(range), error(error), conversionEnabled(conversionEnabled), final(final) {}
 
   ValueInfoKind getKind() const override { return K_Scalar; }
+
   bool isConversionEnabled() const override { return conversionEnabled; }
+  void disableConversion() override { conversionEnabled = false; }
+
   bool isFinal() const { return final; }
 
   ScalarInfo& operator=(const ScalarInfo& other);
@@ -117,24 +121,25 @@ public:
   static bool classof(const ValueInfo* valueInfo) { return valueInfo->getKind() == K_Struct; }
 
   StructInfo(unsigned numFields)
-  : Fields(numFields, nullptr) {}
+  : fields(numFields, nullptr) {}
 
   StructInfo(const llvm::ArrayRef<std::shared_ptr<ValueInfo>> SInfos)
-  : Fields(SInfos.begin(), SInfos.end()) {}
+  : fields(SInfos.begin(), SInfos.end()) {}
 
-  auto begin() { return Fields.begin(); }
-  auto end() { return Fields.end(); }
-  auto begin() const { return Fields.begin(); }
-  auto end() const { return Fields.end(); }
+  auto begin() { return fields.begin(); }
+  auto end() { return fields.end(); }
+  auto begin() const { return fields.begin(); }
+  auto end() const { return fields.end(); }
 
-  unsigned getNumFields() const { return Fields.size(); }
-  std::shared_ptr<ValueInfo> getField(unsigned i) { return Fields[i]; }
-  void setField(unsigned i, std::shared_ptr<ValueInfo> field) { Fields[i] = std::move(field); }
+  unsigned getNumFields() const { return fields.size(); }
+  std::shared_ptr<ValueInfo> getField(unsigned i) { return fields[i]; }
+  void setField(unsigned i, std::shared_ptr<ValueInfo> field) { fields[i] = std::move(field); }
 
   ValueInfo* getField(llvm::iterator_range<const llvm::Use*> gepIndices);
 
   ValueInfoKind getKind() const override { return K_Struct; }
   bool isConversionEnabled() const override;
+  void disableConversion() override;
 
   std::shared_ptr<ValueInfo> resolveFromIndexList(llvm::Type* type, llvm::ArrayRef<unsigned> indices) const;
 
@@ -146,7 +151,7 @@ public:
   void deserialize(const json& j) override;
 
 private:
-  llvm::SmallVector<std::shared_ptr<ValueInfo>, 4> Fields;
+  llvm::SmallVector<std::shared_ptr<ValueInfo>, 4> fields;
 
   bool isConversionEnabled(llvm::SmallPtrSetImpl<const StructInfo*>& visited) const;
 

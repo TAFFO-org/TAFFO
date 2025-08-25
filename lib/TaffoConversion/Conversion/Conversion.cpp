@@ -36,7 +36,7 @@ void ConversionPass::performConversion(const std::vector<Value*>& queue) {
   Logger& logger = log();
   for (Value* value : queue) {
     ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
-    ConversionType* convType = taffoConvInfo.getNewType(value);
+    ConversionType* convType = taffoConvInfo.getNewOrOldType(value);
 
     auto indenter = logger.getIndenter();
     LLVM_DEBUG(
@@ -55,7 +55,7 @@ void ConversionPass::performConversion(const std::vector<Value*>& queue) {
     LLVM_DEBUG(
       if (resConvType)
         logger.log("result type: ", Logger::Green).logln(*resConvType);
-      else if (ConversionType* newType = taffoConvInfo.getNewType(res))
+      else if (ConversionType* newType = taffoConvInfo.getNewOrOldType(res))
         logger.log("result type: ", Logger::Green).logln(*newType);
       logger.log("result:      ", Logger::Green).logValueln(res) << "\n");
 
@@ -73,14 +73,14 @@ Value* ConversionPass::convert(Value* value, std::unique_ptr<ConversionType>* re
     return convertedValues.at(value);
 
   if (auto* constant = dyn_cast<Constant>(value))
-    return convertConstant(constant, *valueConvInfo->getNewType(), ConvTypePolicy::RangeOverHint, resConvType);
+    return convertConstant(constant, *valueConvInfo->getNewOrOldType(), ConvTypePolicy::RangeOverHint, resConvType);
 
   if (auto* inst = dyn_cast<Instruction>(value))
     return convertInstruction(inst);
 
   if (auto* arg = dyn_cast<Argument>(value)) {
     if (getFullyUnwrappedType(arg)->isFloatingPointTy())
-      return getConvertedOperand(value, *taffoConvInfo.getNewType(arg));
+      return getConvertedOperand(value, *taffoConvInfo.getNewOrOldType(arg));
     return arg;
   }
 
@@ -189,7 +189,7 @@ Value* ConversionPass::getConvertedOperand(Value* value,
   auto* scalarCurrentConvType = cast<ConversionScalarType>(currentConvType);
   auto& scalarConvType = cast<ConversionScalarType>(convType);
   Value* res = genConvertConvToConv(value, *scalarCurrentConvType, scalarConvType, policy, insertionPoint);
-  const auto* newConvType = taffoConvInfo.getNewType<ConversionScalarType>(res);
+  const auto* newConvType = taffoConvInfo.getNewOrOldType<ConversionScalarType>(res);
   if (*newConvType != scalarConvType && policy == ConvTypePolicy::ForceHint) {
     LLVM_DEBUG(log() << "forcing hint type\n");
     res = genConvertConvToConv(res, *newConvType, scalarConvType, ConvTypePolicy::ForceHint, insertionPoint);

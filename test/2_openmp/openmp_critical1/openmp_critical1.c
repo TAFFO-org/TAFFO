@@ -14,5 +14,7 @@ int main(int argc, char* argv[]) {
     result += 1.0;
   }
 
-  printf("result: %f\n", result);
+  printf("Values Begin\n");
+  printf("%f\n", result);
+  printf("Values End\n");
 }

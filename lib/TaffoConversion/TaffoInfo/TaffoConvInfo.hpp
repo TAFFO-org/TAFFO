@@ -32,6 +32,11 @@ class TaffoConvInfo {
   T* getNewType(llvm::Value* value) const {
     return getValueConvInfo(value)->getNewType<T>();
   }
+
+  template <std::derived_from<ConversionType> T = ConversionType>
+  T* getNewOrOldType(llvm::Value* value) const {
+    return getValueConvInfo(value)->getNewOrOldType<T>();
+  }
 };
 
 } // namespace taffo

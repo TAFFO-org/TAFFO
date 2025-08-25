@@ -63,6 +63,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   // Collect heap allocations before conversion
   auto heapAllocations = collectHeapAllocations(m);
 
+  LLVM_DEBUG(log() << "\n");
   performConversion(convQueue);
 
   // Collect heap allocations after conversion
@@ -71,10 +72,9 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   adjustSizeOfHeapAllocations(m, heapAllocations, newHeapAllocations);
 
   closePhiLoops();
+  convertIndirectCalls();
+
   cleanup(convQueue);
-
-  convertIndirectCalls(m);
-
   cleanUpOpenCLKernelTrampolines(&m);
   cleanUpOriginalFunctions(m);
 
@@ -148,7 +148,7 @@ void ConversionPass::createConversionQueue(std::vector<Value*>& values) {
 
   for (Value* value : values) {
     assert(taffoConvInfo.hasValueConvInfo(value) && "all values in the queue should have conversionInfo by now");
-    if (!taffoConvInfo.getNewType(value) && taffoInfo.getTransparentType(*value)->containsFloatingPointType()
+    if (!taffoConvInfo.getNewOrOldType(value) && taffoInfo.getTransparentType(*value)->containsFloatingPointType()
         && !isAlwaysConvertible(value)) {
       LLVM_DEBUG(
         logger.log("[Value] ", Logger::Bold).logValueln(value);
@@ -239,7 +239,7 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
     std::vector<Value*> newQueue;
     for (auto&& [oldArg, newArg] : zip(oldF->args(), newF->args())) {
       ValueConvInfo* newArgConvInfo = taffoConvInfo.getValueConvInfo(&newArg);
-      if (*newArgConvInfo->getNewType() != *newArgConvInfo->getOldType()) {
+      if (*newArgConvInfo->getNewOrOldType() != *newArgConvInfo->getOldType()) {
         // Create a fake value to maintain type consistency because
         // createConvertedFunctionForCall has RAUWed all arguments
         // FIXME: is there a cleaner way to do this?
@@ -346,7 +346,7 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
   Type* retLLVMType = oldF->getReturnType();
   ConversionType* retConvType = nullptr;
   if (!taffoConvInfo.getValueConvInfo(oldF)->isConversionDisabled()) {
-    retConvType = taffoConvInfo.getNewType(oldF);
+    retConvType = taffoConvInfo.getNewOrOldType(oldF);
     retLLVMType = retConvType->toLLVMType();
   }
 
@@ -356,7 +356,7 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
     Type* newLLVMType = oldArg.getType();
     ConversionType* argConvType = nullptr;
     if (!taffoConvInfo.getValueConvInfo(&oldArg)->isConversionDisabled()) {
-      argConvType = taffoConvInfo.getNewType(&oldArg);
+      argConvType = taffoConvInfo.getNewOrOldType(&oldArg);
       newLLVMType = argConvType->toLLVMType();
     }
     argLLVMTypes.push_back(newLLVMType);
@@ -411,7 +411,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
 
   if (!phiConvInfo->isConversionDisabled()) {
     ConversionType* oldConvType = phiConvInfo->getOldType();
-    ConversionType* newConvType = phiConvInfo->getNewType();
+    ConversionType* newConvType = phiConvInfo->getNewOrOldType();
     TransparentType* newType = newConvType->toTransparentType();
     info.newPhi = createPlaceholder(newType->toLLVMType(), phi->getParent(), "newPhi");
     copyValueInfo(info.newPhi, phi, newType);
@@ -444,7 +444,7 @@ void ConversionPass::closePhiLoops() {
     if (!substphi) {
       LLVM_DEBUG(log() << "phi " << *origphi << "could not be converted! Trying last resort conversion\n");
       substphi = getConvertedOperand(
-        origphi, *taffoConvInfo.getNewType<ConversionScalarType>(origphi), nullptr, ConvTypePolicy::ForceHint);
+        origphi, *taffoConvInfo.getNewOrOldType<ConversionScalarType>(origphi), nullptr, ConvTypePolicy::ForceHint);
       assert(substphi && "phi conversion has failed");
     }
 
@@ -475,66 +475,31 @@ bool potentiallyUsesMemory(Value* val) {
 }
 
 void ConversionPass::cleanup(const std::vector<Value*>& queue) {
-  std::vector<Value*> roots;
-  for (Value* value : queue)
-    if (taffoConvInfo.getValueConvInfo(value)->isRoot == true)
-      roots.push_back(value);
-
-  DenseMap<Value*, bool> isRootOk;
-  for (Value* root : roots)
-    isRootOk[root] = true;
-
-  for (Value* value : queue) {
-    Value* cqi = convertedValues.at(value);
-    assert(cqi && "every value should have been processed at this point!!");
-    // TODO fix soon
-    /*if (cqi == conversionError) {
-      if (!potentiallyUsesMemory(value))
-        continue;
-      LLVM_DEBUG(
-        value->print(errs());
-        if (auto* inst = dyn_cast<Instruction>(value))
-          errs() << " in function " << inst->getFunction()->getName();
-        errs() << " not converted; invalidates roots ");
-      const auto& rootsAffected = taffoConvInfo.getValueConvInfo(value)->roots;
-      for (Value* root : rootsAffected) {
-        isRootOk[root] = false;
-        LLVM_DEBUG(root->print(errs()));
-      }
-      LLVM_DEBUG(errs() << '\n');
-    }*/
-  }
+  Logger& logger = log();
+  LLVM_DEBUG(log().logln("[Cleaning up]", Logger::Blue));
 
   std::vector<Instruction*> toErase;
 
-  auto clear = [&](bool (*toDelete)(const Instruction& Y)) {
+  auto clear = [&](bool (*shouldErase)(const Instruction& x)) {
     for (Value* value : queue) {
+      Value* convertedValue = convertedValues[value];
+      assert(convertedValue && "Every value in queue should have been converted at this point");
       auto* inst = dyn_cast<Instruction>(value);
-      if (!inst || !toDelete(*inst))
+      if (!inst || !shouldErase(*inst))
         continue;
-      if (convertedValues.at(value) == value) {
-        LLVM_DEBUG(log() << *inst << " not deleted, as it was converted by self-mutation\n");
-        continue;
-      }
-      const auto& roots = taffoConvInfo.getValueConvInfo(value)->roots;
 
-      bool allOk = true;
-      for (Value* root : roots) {
-        if (!isRootOk[root]) {
-          LLVM_DEBUG(
-            inst->print(errs());
-            errs() << " not deleted: involves root ";
-            root->print(errs());
-            errs() << '\n');
-          allOk = false;
-          break;
-        }
+      auto indenter = logger.getIndenter();
+      LLVM_DEBUG(
+        logger.log("[Value] ", Logger::Bold).logValueln(value);
+        indenter.increaseIndent(););
+      if (convertedValue == value) {
+        LLVM_DEBUG(logger << "converted by self-mutation: not erasing\n");
+        continue;
       }
-      if (allOk) {
-        if (!inst->use_empty())
-          inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
-        toErase.push_back(inst);
-      }
+      if (!inst->use_empty())
+        inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
+      toErase.push_back(inst);
+      LLVM_DEBUG(logger << "erasing\n");
     }
   };
 
@@ -581,7 +546,7 @@ ConversionPass::HeapAllocationsVec ConversionPass::collectHeapAllocations(Module
     // Search function in module
     auto fun = m.getFunction(mangledName);
     if (fun == nullptr) {
-      LLVM_DEBUG(log() << "not found\n\n");
+      LLVM_DEBUG(log() << "not found\n");
       continue;
     }
 

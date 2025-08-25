@@ -16,6 +16,8 @@ int main(void) {
     container[index] = x * index;
   }
 
+  printf("Values Begin\n");
   for (i = 0; i < NUM_THREADS; i++)
     printf("%f\n", container[i]);
+  printf("Values End\n");
 }
