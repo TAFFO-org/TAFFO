@@ -55,7 +55,7 @@ TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
     logger.logValueln(&v);
     logger.log("TransparentType set to:            ", Logger::Yellow);
     logger.logln(type, Logger::Cyan);
-    if (type->isOpaquePointer())
+    if (type->isOpaque())
       logger.logln("Warning: the newly created transparentType is opaque", Logger::Red);
     logger.restorePrevContextTag(););
   return (transparentTypes[&v] = std::move(type)).get();

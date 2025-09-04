@@ -31,7 +31,7 @@ extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
                   return true;
                 }
                 if (name == "taffodta") {
-                  passManager.addPass(taffo::DataTypeAllocationPass());
+                  passManager.addPass(DataTypeAllocationPass());
                   return true;
                 }
                 if (name == "taffoconv") {
