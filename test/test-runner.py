@@ -167,7 +167,7 @@ def run(path: Path, use_io_files: bool):
             suffix = inp.stem[len("input"):]  # e.g. "" or ".1" or ".2"
             for var in variants:
                 out_f = f"res{var}{suffix}"
-                cmd   = f"./{bench_name}{var} {"< " if not use_io_files else ""}{inp.name} {"> " if not use_io_files else ""}{out_f}"
+                cmd   = f"./{bench_name}{var} {'< ' if not use_io_files else ''}{inp.name} {'> ' if not use_io_files else ''}{out_f}"
                 ret = run_bench(cmd, path, bench_name + var + suffix)
                 if ret != 0:
                     ok_all = False
@@ -175,7 +175,7 @@ def run(path: Path, use_io_files: bool):
         # no input files
         for var in variants:
             out_f = f"res{var}"
-            cmd   = f"./{bench_name}{var} {"> " if not use_io_files else ""}{out_f}"
+            cmd   = f"./{bench_name}{var} {'> ' if not use_io_files else ''}{out_f}"
             ret = run_bench(cmd, path, bench_name + var)
             if ret != 0:
                 ok_all = False
