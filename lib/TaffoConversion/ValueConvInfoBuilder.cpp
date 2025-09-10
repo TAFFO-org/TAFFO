@@ -104,7 +104,7 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
     }
   }
   else if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
-    if (!value->getType()->isVoidTy()) {
+    if (!value->getType()->isVoidTy() && type->isStructTT()) {
       auto* structType = cast<TransparentStructType>(type);
       bool conversionEnabled;
       auto newConvType = std::make_unique<ConversionStructType>(*structType, structInfo, &conversionEnabled);

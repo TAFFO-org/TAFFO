@@ -53,7 +53,7 @@ Constant* ConversionPass::convertConstant(Constant* constant,
 Constant* ConversionPass::convertGlobalVariable(GlobalVariable* globalVariable,
                                                 const ConversionType& convType,
                                                 std::unique_ptr<ConversionType>* resConvType) {
-  std::unique_ptr<TransparentType> newType = convType.toTransparentType()->getPointedType();
+  const TransparentType* newType = convType.toTransparentType()->getPointedType();
   Type* newLLVMType = newType->toLLVMType();
 
   Constant* initializer = globalVariable->getInitializer();

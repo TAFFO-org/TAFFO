@@ -12,7 +12,7 @@ using namespace taffo;
 
 Type* taffo::getFullyUnwrappedType(Value* value) {
   TransparentType* transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
-  return transparentType->getFullyUnwrappedLLVMType();
+  return transparentType->getFullyUnwrappedType()->toLLVMType();
 }
 
 FixedPointInfo taffo::fixedPointInfoFromRange(const Range& range,

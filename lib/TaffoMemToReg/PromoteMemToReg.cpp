@@ -62,10 +62,10 @@ static void propagateTaffoInfo(Value& src, Value& dst) {
   }
   if (taffoInfo.hasTransparentType(src)) {
     TransparentType* srcType = taffoInfo.getTransparentType(src);
-    std::unique_ptr<TransparentType> dstType = srcType->clone();
+    const TransparentType* dstType = srcType;
     if (src.getType()->isPointerTy() and !dst.getType()->isPointerTy())
       dstType = dstType->getPointedType();
-    taffoInfo.setTransparentType(dst, std::move(dstType));
+    taffoInfo.setTransparentType(dst, dstType->clone());
     LLVM_DEBUG(
       Logger& logger = log();
       auto indenter = logger.getIndenter();

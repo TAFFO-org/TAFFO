@@ -47,7 +47,7 @@ TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())
     return iter->second.get();
-  std::unique_ptr<TransparentType> type = TransparentTypeFactory::create(&v);
+  std::unique_ptr<TransparentType> type = TransparentTypeFactory::createFromValue(&v);
   LLVM_DEBUG(
     Logger& logger = log();
     logger.setContextTag(logContextTag);
@@ -55,7 +55,7 @@ TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
     logger.logValueln(&v);
     logger.log("TransparentType set to:            ", Logger::Yellow);
     logger.logln(type, Logger::Cyan);
-    if (type->isOpaque())
+    if (type->containsOpaquePtr())
       logger.logln("Warning: the newly created transparentType is opaque", Logger::Red);
     logger.restorePrevContextTag(););
   return (transparentTypes[&v] = std::move(type)).get();

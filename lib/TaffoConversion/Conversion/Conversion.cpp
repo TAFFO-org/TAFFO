@@ -400,7 +400,7 @@ Value* ConversionPass::genConvertConvToFloat(Value* src,
   auto* srcType = srcConvType.toTransparentType();
   auto* dstType = dstConvType.toTransparentType();
   Type* dstLLVMType = dstType->toLLVMType();
-  assert(!srcType->isPointerTy() && !dstType->isPointerTy() && "src and dst cannot be pointers");
+  assert(!srcType->isPointerTT() && !dstType->isPointerTT() && "src and dst cannot be pointers");
 
   Logger& logger = log();
   auto indenter = logger.getIndenter();

@@ -150,7 +150,7 @@ Value* ConversionPass::convertLoad(LoadInst* load) {
     return unsupported;
 
   ConversionType* newPtrOperandConvType = taffoConvInfo.getNewOrOldType(newPtrOperand);
-  std::unique_ptr<TransparentType> newType = newPtrOperandConvType->toTransparentType()->getPointedType();
+  const TransparentType* newType = newPtrOperandConvType->toTransparentType()->getPointedType();
   Type* newLLVMType = newType->toLLVMType();
   std::unique_ptr<ConversionType> newConvType = newPtrOperandConvType->clone(*newType);
 

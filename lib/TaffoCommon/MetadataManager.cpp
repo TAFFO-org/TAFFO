@@ -59,8 +59,7 @@ void MetadataManager::setIdValueMapping(const BiMap<std::string, Value*>& idValu
     }
     else {
       Logger& logger = log();
-      logger.logln("Unrecognized local value kind for value:", Logger::Red);
-      logger.logValueln(value);
+      logger.log("Unrecognized local value kind for value: ", Logger::Red).logValueln(value);
       llvm_unreachable("Unrecognized local value kind");
     }
   }

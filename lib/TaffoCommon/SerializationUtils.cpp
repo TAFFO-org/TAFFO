@@ -37,12 +37,13 @@ json serializeCommon(const TransparentType& type) {
   json j;
   j["kind"] = "Scalar";
   j["repr"] = type.toString();
-  j["unwrappedType"] = toString(type.getUnwrappedLLVMType());
-  j["indirections"] = type.getIndirections();
+  j["unwrappedType"] = toString(type.getLLVMType());
   return j;
 }
 
 json taffo::serialize(const TransparentType& type) {
+  if (auto* ptrTy = dyn_cast<const TransparentPointerType>(&type))
+    return serialize(*ptrTy);
   if (auto* arrayType = dyn_cast<const TransparentArrayType>(&type))
     return serialize(*arrayType);
   if (auto* structType = dyn_cast<const TransparentStructType>(&type))
@@ -50,10 +51,18 @@ json taffo::serialize(const TransparentType& type) {
   return serializeCommon(*cast<const TransparentType>(&type));
 }
 
+json taffo::serialize(const TransparentPointerType& ptrType) {
+  json j = serializeCommon(ptrType);
+  j["kind"] = "Pointer";
+  const TransparentType* pointedType = ptrType.getPointedType();
+  j["pointedType"] = pointedType ? serialize(*pointedType) : nullptr;
+  return j;
+}
+
 json taffo::serialize(const TransparentArrayType& arrayType) {
   json j = serializeCommon(arrayType);
   j["kind"] = "Array";
-  j["elementType"] = arrayType.getArrayElementType() ? serialize(*arrayType.getArrayElementType()) : nullptr;
+  j["elementType"] = arrayType.getElementType() ? serialize(*arrayType.getElementType()) : nullptr;
   return j;
 }
 
@@ -68,8 +77,7 @@ json taffo::serialize(const TransparentStructType& structType) {
 }
 
 void deserializeCommon(const json& j, TransparentType& type) {
-  type.setUnwrappedLLVMType(TaffoInfo::getInstance().getType(j["unwrappedType"]));
-  type.setIndirections(j["indirections"]);
+  type.setLLVMType(TaffoInfo::getInstance().getType(j["unwrappedType"]));
 }
 
 std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {
@@ -79,6 +87,8 @@ std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {
     type = std::make_unique<TransparentStructType>();
   else if (kind == "Array")
     type = std::make_unique<TransparentArrayType>();
+  else if (kind == "Pointer")
+    type = std::make_unique<TransparentPointerType>();
   else
     type = std::make_unique<TransparentType>();
 
@@ -94,7 +104,12 @@ std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {
   }
   else if (kind == "Array") {
     auto* arrayType = cast<TransparentArrayType>(type.get());
-    arrayType->setArrayElementType(deserialize(j["elementType"]));
+    arrayType->setElementType(deserialize(j["elementType"]));
+  }
+  else if (kind == "Pointer") {
+    auto* ptrType = cast<TransparentPointerType>(type.get());
+    if (j.contains("pointedType") && !j["pointedType"].is_null())
+      ptrType->setPointedType(deserialize(j["pointedType"]));
   }
 
   return type;

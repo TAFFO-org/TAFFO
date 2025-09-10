@@ -101,8 +101,8 @@ private:
                                    const HeapAllocationsVec& oldHeapAllocations,
                                    const HeapAllocationsVec& newHeapAllocations);
   llvm::Value* adjustHeapAllocationSize(llvm::Value* oldSizeValue,
-                                        const std::shared_ptr<tda::TransparentType>& oldAllocatedType,
-                                        const std::shared_ptr<tda::TransparentType>& newAllocatedType,
+                                        const tda::TransparentType* oldAllocatedType,
+                                        const tda::TransparentType* newAllocatedType,
                                         llvm::Instruction* insertionPoint) const;
 
   llvm::Value* createPlaceholder(llvm::Type* type, llvm::BasicBlock* where, llvm::StringRef name) const;

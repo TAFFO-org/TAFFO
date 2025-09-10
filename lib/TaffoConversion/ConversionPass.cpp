@@ -590,8 +590,8 @@ void ConversionPass::adjustSizeOfHeapAllocations(Module& m,
 }
 
 Value* ConversionPass::adjustHeapAllocationSize(Value* oldSizeValue,
-                                                const std::shared_ptr<TransparentType>& oldAllocatedType,
-                                                const std::shared_ptr<TransparentType>& newAllocatedType,
+                                                const TransparentType* oldAllocatedType,
+                                                const TransparentType* newAllocatedType,
                                                 Instruction* insertionPoint) const {
   Logger& logger = log();
   LLVM_DEBUG(
@@ -652,7 +652,7 @@ Value* ConversionPass::copyValueInfo(Value* dst, const Value* src, const Transpa
   if (dstType)
     taffoInfo.setTransparentType(*dst, dstType->clone());
   else
-    taffoInfo.setTransparentType(*dst, TransparentTypeFactory::create(dst->getType()));
+    taffoInfo.setTransparentType(*dst, TransparentTypeFactory::createFromType(dst->getType()));
   return dst;
 }
 

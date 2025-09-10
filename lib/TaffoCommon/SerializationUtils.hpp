@@ -50,6 +50,7 @@ json serializeDouble(double value);
 double deserializeDouble(const json& j);
 
 json serialize(const tda::TransparentType& t);
+json serialize(const tda::TransparentPointerType& t);
 json serialize(const tda::TransparentArrayType& t);
 json serialize(const tda::TransparentStructType& t);
 std::unique_ptr<tda::TransparentType> deserialize(const json& j);

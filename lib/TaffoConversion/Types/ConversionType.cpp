@@ -41,32 +41,21 @@ TransparentType* ConversionType::toTransparentType(bool* hasFloats) const {
 std::unique_ptr<ConversionType> ConversionType::getGepConvType(const ArrayRef<unsigned> gepIndices) const {
   const TransparentType* resolvedType = transparentType.get();
   const ConversionType* resolvedConvType = this;
-  unsigned indirections = resolvedType->getIndirections();
   for (unsigned index : gepIndices)
-    if (indirections > 0)
-      indirections--;
+    if (resolvedType->isPointerTT())
+      resolvedType = resolvedType->getPointedType();
+    else if (resolvedType->isArrayTT())
+      resolvedType = cast<TransparentArrayType>(resolvedType)->getElementType();
     else if (resolvedType->isStructTT()) {
       resolvedType = cast<TransparentStructType>(resolvedType)->getFieldType(index);
-      indirections = resolvedType->getIndirections();
       resolvedConvType = cast<ConversionStructType>(resolvedConvType)->getFieldType(index);
-    }
-    else if (resolvedType->isArrayTT()) {
-      resolvedType = cast<TransparentArrayType>(resolvedType)->getArrayElementType();
-      indirections = resolvedType->getIndirections();
     }
     else
       llvm_unreachable("Unsupported type in gep");
 
   if (!resolvedConvType)
     return nullptr;
-
-  indirections++;
-  if (indirections != resolvedType->getIndirections()) {
-    std::unique_ptr<TransparentType> resolvedTypeCopy = resolvedType->clone();
-    resolvedTypeCopy->setIndirections(indirections);
-    return resolvedConvType->clone(*resolvedTypeCopy);
-  }
-  return resolvedConvType->clone(*resolvedType);
+  return resolvedConvType->clone(*resolvedType->getPointerToType());
 }
 
 std::unique_ptr<ConversionType> ConversionType::getGepConvType(const iterator_range<const Use*> gepIndices) const {
@@ -92,11 +81,14 @@ ConversionType& ConversionType::operator=(const ConversionType& other) {
 
 ConversionScalarType::ConversionScalarType(const TransparentType& type, bool isSigned)
 : ConversionType(type), sign(isSigned) {
-  assert(type.isScalarTT() || type.isArrayTT());
+  assert(type.isScalarTT() || type.isPointerTT() || type.isArrayTT());
   const TransparentType* curr = &type;
-  while (curr->isArrayTT())
-    curr = cast<TransparentArrayType>(curr)->getArrayElementType();
-  Type* unwrappedType = curr->getUnwrappedLLVMType();
+  while (curr->isArrayTT() || (curr->isPointerTT() && !curr->isOpaquePtr()))
+    if (const auto* currArray = dyn_cast<TransparentArrayType>(curr))
+      curr = currArray->getElementType();
+    else if (const auto* currPointer = dyn_cast<TransparentPointerType>(curr))
+      curr = currPointer->getPointedType();
+  Type* unwrappedType = curr->getLLVMType();
   if (unwrappedType->isFloatingPointTy()) {
     bits = 0;
     fractionalBits = 0;
@@ -189,17 +181,21 @@ bool ConversionScalarType::toTransparentTypeHelper(TransparentType& newType) con
   if (newType.isArrayTT()) {
     // Array case
     auto& arrType = cast<TransparentArrayType>(newType);
-    hasFloats = toTransparentTypeHelper(*arrType.getArrayElementType());
-    newType.setUnwrappedLLVMType(ArrayType::get(arrType.getArrayElementType()->getUnwrappedLLVMType(),
-                                                newType.getUnwrappedLLVMType()->getArrayNumElements()));
+    hasFloats = toTransparentTypeHelper(*arrType.getElementType());
+    newType.setLLVMType(
+      ArrayType::get(arrType.getElementType()->getLLVMType(), newType.getLLVMType()->getArrayNumElements()));
+  }
+  else if (newType.isPointerTT()) {
+    // Pointer case
+    return toTransparentTypeHelper(*newType.getPointedType());
   }
   else {
     // Scalar case
-    Type* unwrapped = newType.getUnwrappedLLVMType();
+    Type* unwrapped = newType.getLLVMType();
     if (newType.containsFloatingPointType())
       hasFloats = true;
     if (!unwrapped->isVoidTy())
-      newType.setUnwrappedLLVMType(toScalarLLVMType(newType.getUnwrappedLLVMType()->getContext()));
+      newType.setLLVMType(toScalarLLVMType(newType.getLLVMType()->getContext()));
   }
   return hasFloats;
 }
@@ -283,13 +279,12 @@ bool ConversionStructType::toTransparentTypeHelper(TransparentType& newType) con
     if (fieldType)
       if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTT())
         hasFloats |= fieldType->toTransparentTypeHelper(*fieldTransparentType);
-    fieldsLLVMTypes.push_back(fieldTransparentType->getUnwrappedLLVMType());
+    fieldsLLVMTypes.push_back(fieldTransparentType->getLLVMType());
   }
   if (hasFloats) {
-    newStructType.setUnwrappedLLVMType(
-      StructType::get(newStructType.getUnwrappedLLVMType()->getContext(),
-                      fieldsLLVMTypes,
-                      cast<StructType>(newStructType.getUnwrappedLLVMType())->isPacked()));
+    newStructType.setLLVMType(StructType::get(newStructType.getLLVMType()->getContext(),
+                                              fieldsLLVMTypes,
+                                              cast<StructType>(newStructType.getLLVMType())->isPacked()));
   }
   return hasFloats;
 }
