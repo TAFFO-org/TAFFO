@@ -657,7 +657,7 @@ Value* ConversionPass::copyValueInfo(Value* dst, const Value* src, const Transpa
 }
 
 void ConversionPass::updateNumericTypeInfo(Value* value, bool isSigned, int fractionalBits, int bits) const {
-  assert(!taffoInfo.getTransparentType(*value)->isStructTT());
+  assert(!taffoInfo.getTransparentType(*value)->isStructTTOrPtrTo());
   std::shared_ptr<ScalarInfo> scalarInfo;
   if (taffoInfo.hasValueInfo(*value))
     scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*value));

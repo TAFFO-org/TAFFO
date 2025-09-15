@@ -16,16 +16,15 @@ using namespace tda;
 using namespace taffo;
 
 std::unique_ptr<ConversionType> ConversionTypeFactory::create(const TransparentType& type) {
-  const TransparentType* currentType = &type;
-  if (currentType->isStructTT()) {
-    auto* structType = cast<TransparentStructType>(currentType);
+  if (type.isStructTTOrPtrTo()) {
+    auto* structType = cast<TransparentStructType>(type.getFirstNonPtr());
     SmallVector<std::unique_ptr<ConversionType>, 4> fields;
     fields.reserve(structType->getNumFieldTypes());
     for (unsigned i = 0; i < structType->getNumFieldTypes(); i++)
       fields.push_back(create(*structType->getFieldType(i)));
-    return std::make_unique<ConversionStructType>(*cast<TransparentStructType>(currentType), fields);
+    return std::make_unique<ConversionStructType>(type, fields);
   }
-  return std::make_unique<ConversionScalarType>(*currentType);
+  return std::make_unique<ConversionScalarType>(type);
 }
 
 TransparentType* ConversionType::toTransparentType(bool* hasFloats) const {
@@ -81,7 +80,7 @@ ConversionType& ConversionType::operator=(const ConversionType& other) {
 
 ConversionScalarType::ConversionScalarType(const TransparentType& type, bool isSigned)
 : ConversionType(type), sign(isSigned) {
-  assert(type.isScalarTT() || type.isPointerTT() || type.isArrayTT());
+  assert(!type.isStructTTOrPtrTo());
   const TransparentType* curr = &type;
   while (curr->isArrayTT() || (curr->isPointerTT() && !curr->isOpaquePtr()))
     if (const auto* currArray = dyn_cast<TransparentArrayType>(curr))
@@ -178,16 +177,18 @@ Type* ConversionScalarType::toScalarLLVMType(LLVMContext& context) const {
 
 bool ConversionScalarType::toTransparentTypeHelper(TransparentType& newType) const {
   bool hasFloats = false;
+  if (newType.isPointerTT()) {
+    // Pointer case
+    if (!newType.isOpaquePtr())
+      return toTransparentTypeHelper(*newType.getPointedType());
+    return hasFloats;
+  }
   if (newType.isArrayTT()) {
     // Array case
     auto& arrType = cast<TransparentArrayType>(newType);
     hasFloats = toTransparentTypeHelper(*arrType.getElementType());
     newType.setLLVMType(
       ArrayType::get(arrType.getElementType()->getLLVMType(), newType.getLLVMType()->getArrayNumElements()));
-  }
-  else if (newType.isPointerTT()) {
-    // Pointer case
-    return toTransparentTypeHelper(*newType.getPointedType());
   }
   else {
     // Scalar case
@@ -236,13 +237,14 @@ std::string ConversionScalarType::toString() const {
   return ss.str();
 }
 
-ConversionStructType::ConversionStructType(const TransparentStructType& type,
+ConversionStructType::ConversionStructType(const TransparentType& type,
                                            const std::shared_ptr<StructInfo>& structInfo,
                                            bool* conversionEnabled)
 : ConversionType(type) {
   if (conversionEnabled)
     *conversionEnabled = false;
-  for (const auto&& [fieldType, fieldInfo] : zip(type.getFieldTypes(), *structInfo)) {
+  for (const auto&& [fieldType, fieldInfo] :
+       zip(cast<TransparentStructType>(type.getFirstNonPtr())->getFieldTypes(), *structInfo)) {
     if (!fieldInfo)
       fieldTypes.push_back(ConversionTypeFactory::create(*fieldType));
     else if (std::shared_ptr<ScalarInfo> scalarFieldInfo = std::dynamic_ptr_cast<ScalarInfo>(fieldInfo)) {
@@ -255,7 +257,7 @@ ConversionStructType::ConversionStructType(const TransparentStructType& type,
         fieldTypes.push_back(ConversionTypeFactory::create(*fieldType));
     }
     else if (std::shared_ptr<StructInfo> structFieldInfo = std::dynamic_ptr_cast<StructInfo>(fieldInfo)) {
-      auto* structFieldType = cast<TransparentStructType>(fieldType);
+      auto* structFieldType = cast<TransparentStructType>(fieldType->getFirstNonPtr());
       bool structFieldConversionEnabled;
       fieldTypes.push_back(
         std::make_unique<ConversionStructType>(*structFieldType, structFieldInfo, &structFieldConversionEnabled));
@@ -268,23 +270,23 @@ ConversionStructType::ConversionStructType(const TransparentStructType& type,
 }
 
 bool ConversionStructType::toTransparentTypeHelper(TransparentType& newType) const {
-  auto& newStructType = cast<TransparentStructType>(newType);
-  assert(newStructType.getNumFieldTypes() == getNumFieldTypes());
+  auto* newStructType = cast<TransparentStructType>(newType.getFirstNonPtr());
+  assert(newStructType->getNumFieldTypes() == getNumFieldTypes());
 
   bool hasFloats = false;
   SmallVector<Type*, 4> fieldsLLVMTypes;
   for (unsigned i = 0; i < getNumFieldTypes(); i++) {
-    TransparentType* fieldTransparentType = newStructType.getFieldType(i);
+    TransparentType* fieldTransparentType = newStructType->getFieldType(i);
     ConversionType* fieldType = getFieldType(i);
     if (fieldType)
-      if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTT())
+      if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTTOrPtrTo())
         hasFloats |= fieldType->toTransparentTypeHelper(*fieldTransparentType);
     fieldsLLVMTypes.push_back(fieldTransparentType->getLLVMType());
   }
   if (hasFloats) {
-    newStructType.setLLVMType(StructType::get(newStructType.getLLVMType()->getContext(),
-                                              fieldsLLVMTypes,
-                                              cast<StructType>(newStructType.getLLVMType())->isPacked()));
+    newStructType->setLLVMType(StructType::get(newStructType->getLLVMType()->getContext(),
+                                               fieldsLLVMTypes,
+                                               cast<StructType>(newStructType->getLLVMType())->isPacked()));
   }
   return hasFloats;
 }

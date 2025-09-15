@@ -190,7 +190,7 @@ bool AnnotationParser::parseScalar(std::shared_ptr<ValueInfo>& thisValueInfo) {
 }
 
 bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, const TransparentType* type) {
-  auto structType = cast<TransparentStructType>(type);
+  auto structType = cast<TransparentStructType>(type->getFirstNonPtr());
   if (!structType) {
     std::string errStr;
     raw_string_ostream ss(errStr);

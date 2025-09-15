@@ -348,11 +348,12 @@ void VRAnalyzer::handleReturn(const Instruction* ret) {
 }
 
 void VRAnalyzer::handleAllocaInstr(Instruction* I) {
-  AllocaInst* allocaInst = cast<AllocaInst>(I);
+  auto* allocaInst = cast<AllocaInst>(I);
   LLVM_DEBUG(Logger->logInstruction(I));
   const auto inputValueInfo = getGlobalStore()->getUserInput(I);
   auto* allocatedType = TaffoInfo::getInstance().getOrCreateTransparentType(*allocaInst);
-  if (auto* structType = dyn_cast<TransparentStructType>(allocatedType)) {
+  if (allocatedType->isStructTTOrPtrTo()) {
+    auto* structType = cast<TransparentStructType>(allocatedType->getFirstNonPtr());
     if (inputValueInfo && std::isa_ptr<StructInfo>(inputValueInfo))
       DerivedRanges[I] = inputValueInfo->clone();
     else

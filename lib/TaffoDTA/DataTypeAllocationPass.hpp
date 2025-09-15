@@ -61,7 +61,7 @@ private:
                           bool forceEnable);
   void allocateStructType(std::shared_ptr<StructInfo>& structInfo,
                           const llvm::Value* value,
-                          const tda::TransparentType* transparentType,
+                          const tda::TransparentType* type,
                           llvm::SmallVector<std::pair<std::shared_ptr<ValueInfo>, tda::TransparentType*>, 8>& queue);
 
   void retrieveBufferID(llvm::Value* V);

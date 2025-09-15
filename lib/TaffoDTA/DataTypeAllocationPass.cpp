@@ -207,18 +207,18 @@ bool DataTypeAllocationPass::allocateScalarType(std::shared_ptr<ScalarInfo>& sca
 void DataTypeAllocationPass::allocateStructType(
   std::shared_ptr<StructInfo>& structInfo,
   const Value* value,
-  const TransparentType* transparentType,
+  const TransparentType* type,
   SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8>& queue) {
-  if (!transparentType->isStructTT()) {
+  if (!type->isStructTTOrPtrTo()) {
     LLVM_DEBUG(log() << "[ERROR] found non conforming structInfo " << structInfo->toString() << " on value " << *value
                      << "\n");
-    LLVM_DEBUG(log() << "contained type " << *transparentType << " is not a struct type\n");
+    LLVM_DEBUG(log() << "contained type " << *type << " is not a struct type\n");
     LLVM_DEBUG(log() << "The top-level MDInfo was " << structInfo->toString() << "\n");
     llvm_unreachable("Non-conforming StructInfo.");
   }
   for (unsigned i = 0; i < structInfo->getNumFields(); i++)
     if (const std::shared_ptr<ValueInfo>& field = structInfo->getField(i))
-      queue.push_back(std::make_pair(field, cast<TransparentStructType>(transparentType)->getFieldType(i)));
+      queue.push_back(std::make_pair(field, cast<TransparentStructType>(type->getFirstNonPtr())->getFieldType(i)));
 }
 
 /**
@@ -342,6 +342,7 @@ bool DataTypeAllocationPass::mergeTypes(Value* value1, Value* value2) {
 
   return mergeTypes(valueInfo1, type1, valueInfo2, type2);
 }
+
 bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
                                         TransparentType* type1,
                                         std::shared_ptr<ValueInfo> valueInfo2,
@@ -364,12 +365,12 @@ bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
       LLVM_DEBUG(logger << "kinds mismatch (struct vs non-struct): skipping in mergeValueInfos\n");
       return false;
     }
-    if (!type1 || !type2 || !type1->isStructTT() || !type2->isStructTT()) {
+    if (!type1 || !type2 || !type1->isStructTTOrPtrTo() || !type2->isStructTTOrPtrTo()) {
       LLVM_DEBUG(logger << "transparent types not struct: skipping\n");
       return false;
     }
-    auto structType1 = llvm::cast<TransparentStructType>(type1);
-    auto structType2 = llvm::cast<TransparentStructType>(type2);
+    auto structType1 = llvm::cast<TransparentStructType>(type1->getFirstNonPtr());
+    auto structType2 = llvm::cast<TransparentStructType>(type2->getFirstNonPtr());
 
     unsigned n = std::min(structInfo1->getNumFields(), structInfo2->getNumFields());
     bool changed = false;

@@ -24,7 +24,8 @@ ValueInfoFactory::create(const TransparentType* type,
   if (iter != recursionMap.end())
     return iter->second;
 
-  if (auto* structType = dyn_cast<TransparentStructType>(type)) {
+  if (type->isStructTTOrPtrTo()) {
+    auto* structType = cast<TransparentStructType>(type->getFirstNonPtr());
     unsigned numFields = structType->getNumFieldTypes();
     SmallVector<std::shared_ptr<ValueInfo>, 4> fields;
     auto res = std::make_shared<StructInfo>(StructInfo(numFields));

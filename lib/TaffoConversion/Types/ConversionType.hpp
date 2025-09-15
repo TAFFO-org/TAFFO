@@ -126,14 +126,14 @@ public:
 
   ConversionTypeKind getKind() const override { return K_Struct; }
 
-  ConversionStructType(const tda::TransparentStructType& type,
-                       const llvm::ArrayRef<std::unique_ptr<ConversionType>>& fields)
+  ConversionStructType(const tda::TransparentType& type, const llvm::ArrayRef<std::unique_ptr<ConversionType>>& fields)
   : ConversionType(type) {
+    assert(type.isStructTTOrPtrTo());
     for (const auto& field : fields)
       fieldTypes.push_back(field ? field->clone() : nullptr);
   }
 
-  ConversionStructType(const tda::TransparentStructType& type,
+  ConversionStructType(const tda::TransparentType& type,
                        const std::shared_ptr<StructInfo>& structInfo,
                        bool* conversionEnabled);
 

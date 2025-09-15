@@ -282,7 +282,7 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
     // Whole valueInfo copy should not be performed.
     // InitializerPass should be only responsible of setting conversionEnabled,
     // but right now, removing this causes big relative errors in some benchmarks
-    if (!srcType->isStructTT() && !dstType->isStructTT())
+    if (!srcType->isStructTTOrPtrTo() && !dstType->isStructTTOrPtrTo())
       dstInfo->copyFrom(*srcInfo);
 
     if (srcInfo->getKind() == dstInfo->getKind())

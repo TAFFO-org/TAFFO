@@ -104,10 +104,9 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
     }
   }
   else if (std::shared_ptr<StructInfo> structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
-    if (!value->getType()->isVoidTy() && type->isStructTT()) {
-      auto* structType = cast<TransparentStructType>(type);
+    if (!value->getType()->isVoidTy() && type->isStructTTOrPtrTo()) {
       bool conversionEnabled;
-      auto newConvType = std::make_unique<ConversionStructType>(*structType, structInfo, &conversionEnabled);
+      auto newConvType = std::make_unique<ConversionStructType>(*type, structInfo, &conversionEnabled);
       if (!conversionEnabled && !isAlwaysConvertible(value)) {
         LLVM_DEBUG(
           logger << "conversion disabled: skipping\n";

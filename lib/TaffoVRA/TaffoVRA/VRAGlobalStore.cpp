@@ -55,8 +55,8 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         DerivedRanges[&v] = structInfo;
       }
     }
-    else if (auto* structType = dyn_cast<TransparentStructType>(taffoInfo.getOrCreateTransparentType(v))) {
-      DerivedRanges[&v] = ValueInfoFactory::create(structType);
+    else if (auto type = taffoInfo.getOrCreateTransparentType(v); type->isStructTTOrPtrTo()) {
+      DerivedRanges[&v] = ValueInfoFactory::create(type);
     }
     else {
       std::shared_ptr<ValueInfo> constInfo = fetchConstant(&v);
