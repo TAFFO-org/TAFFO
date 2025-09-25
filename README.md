@@ -92,7 +92,7 @@ cd test/polybench
 
 ## How to debug TAFFO
 
-When invoked with the ```-debug``` option, TAFFO launches ```opt``` once for each of its passes with the commands like:
+When invoked with the ```-debug``` option, TAFFO launches ```opt``` once for each of its passes with commands like:
 ```
 /path/to/opt -load /path/to/Taffo.so --load-pass-plugin=/path/to/Taffo.so --passes=no-op-module,typededucer                     --stats --debug-only=tda,taffo-common,taffo-typededucer   -S -o out.ll in.ll
 /path/to/opt -load /path/to/Taffo.so --load-pass-plugin=/path/to/Taffo.so --passes=no-op-module,taffoinit                       --stats --debug-only=taffo-common,taffo-init              -S -o out.ll in.ll
@@ -121,7 +121,7 @@ To debug a TAFFO pass in VSCode, use the following launch configuration template
     "args": [
         "-load",
         "/path/to/Taffo.so",
-        ...,
+        "...",
         "output_file",
         "input_file"
     ],
