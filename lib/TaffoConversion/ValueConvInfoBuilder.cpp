@@ -129,8 +129,12 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
 bool ConversionPass::isAlwaysConvertible(Value* value) {
   if (isa<LoadInst>(value) || isa<StoreInst>(value) || isa<GetElementPtrInst>(value))
     return true; // Load, store and gep convType depends only on the pointer operand
+  if (isa<FCmpInst>(value))
+    return true; // FCmp conversion only depends on its operands
   if (auto* call = dyn_cast<CallBase>(value)) {
     Function* fun = call->getCalledFunction();
+    if (isSupportedMathIntrinsicFunction(fun))
+      return true;
     if (isSupportedOpenCLFunction(fun))
       return true;
     if (isSupportedCudaFunction(fun))

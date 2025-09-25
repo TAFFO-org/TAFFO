@@ -53,24 +53,24 @@ Value* ConversionPass::convertInstruction(Instruction* inst) {
     res = convertExtractValue(ev);
   else if (auto* iv = dyn_cast<InsertValueInst>(inst))
     res = convertInsertValue(iv);
-  else if (auto* phi = dyn_cast<PHINode>(inst))
-    res = convertPhi(phi);
   else if (auto* select = dyn_cast<SelectInst>(inst))
     res = convertSelect(select);
-  else if (isa<CallInst>(inst) || isa<InvokeInst>(inst))
+  else if (auto* phi = dyn_cast<PHINode>(inst))
+    res = convertPhi(phi);
+  else if (isa<CallBase>(inst))
     res = convertCall(dyn_cast<CallBase>(inst));
   else if (auto* ret = dyn_cast<ReturnInst>(inst))
     res = convertRet(ret);
+  else if (auto* fcmp = dyn_cast<FCmpInst>(inst))
+    res = convertFCmp(fcmp);
+  else if (auto* cast = dyn_cast<CastInst>(inst))
+    res = convertCast(cast);
+  else if (inst->isUnaryOp())
+    res = convertUnaryOp(inst);
   else if (inst->isBinaryOp())
     res = convertBinOp(inst, *taffoConvInfo.getNewOrOldType<ConversionScalarType>(inst));
   else if (auto* atomicRMW = dyn_cast<AtomicRMWInst>(inst))
     res = convertAtomicRMW(atomicRMW);
-  else if (auto* cast = dyn_cast<CastInst>(inst))
-    res = convertCast(cast);
-  else if (auto* fcmp = dyn_cast<FCmpInst>(inst))
-    res = convertCmp(fcmp);
-  else if (inst->isUnaryOp())
-    res = convertUnaryOp(inst);
 
   bool didFallback = false;
   if (res == unsupported) {
@@ -407,6 +407,179 @@ Value* ConversionPass::convertRet(ReturnInst* ret) {
   return ret;
 }
 
+Value* ConversionPass::convertFCmp(FCmpInst* fcmp) {
+  Value* operand1 = fcmp->getOperand(0);
+  Value* operand2 = fcmp->getOperand(1);
+  ConversionScalarType* convType1 = nullptr;
+  ConversionScalarType* convType2 = nullptr;
+  if (taffoConvInfo.hasValueConvInfo(operand1)) {
+    ValueConvInfo* valueConvInfo1 = taffoConvInfo.getValueConvInfo(operand1);
+    if (!valueConvInfo1->isConstant() && !valueConvInfo1->isConversionDisabled())
+      convType1 = valueConvInfo1->getNewOrOldType<ConversionScalarType>();
+  }
+  if (taffoConvInfo.hasValueConvInfo(operand2)) {
+    ValueConvInfo* valueConvInfo2 = taffoConvInfo.getValueConvInfo(operand2);
+    if (!valueConvInfo2->isConstant() && !valueConvInfo2->isConversionDisabled())
+      convType2 = valueConvInfo2->getNewOrOldType<ConversionScalarType>();
+  }
+
+  if (!convType1 && !convType2)
+    return fcmp;
+
+  if (!convType2)
+    convType2 = convType1;
+  else if (!convType1)
+    convType1 = convType2;
+  bool isOneFloat = convType1->isFloatingPoint() || convType2->isFloatingPoint();
+
+  ConversionScalarType convType = ConversionScalarType(*convType1->toTransparentType());
+  if (!isOneFloat) {
+    bool mixedSign = convType1->isSigned() != convType2->isSigned();
+    int intBits1 = convType1->getBits() - convType1->getFractionalBits() + (mixedSign ? convType1->isSigned() : 0);
+    int intBits2 = convType2->getBits() - convType2->getFractionalBits() + (mixedSign ? convType2->isSigned() : 0);
+    convType.setSigned(convType1->isSigned() || convType2->isSigned());
+    convType.setFractionalBits(std::max(convType1->getFractionalBits(), convType2->getFractionalBits()));
+    convType.setBits(std::max(intBits1, intBits2) + convType.getFractionalBits());
+    Value* convertedOperand1 = getConvertedOperand(operand1, convType, fcmp, ConvTypePolicy::ForceHint);
+    Value* convertedOperand2 = getConvertedOperand(operand2, convType, fcmp, ConvTypePolicy::ForceHint);
+    IRBuilder<NoFolder> builder(fcmp->getNextNode());
+    CmpInst::Predicate oldPred = fcmp->getPredicate();
+    CmpInst::Predicate newPred;
+    bool swapped = false;
+    // If unordered swap first, then convert with int, and then re-swap at the end
+    if (!CmpInst::isOrdered(fcmp->getPredicate())) {
+      oldPred = fcmp->getInversePredicate();
+      swapped = true;
+    }
+
+    if (oldPred == CmpInst::FCMP_OEQ)
+      newPred = CmpInst::ICMP_EQ;
+    else if (oldPred == CmpInst::FCMP_ONE)
+      newPred = CmpInst::ICMP_NE;
+    else if (oldPred == CmpInst::FCMP_OGT)
+      newPred = convType.isSigned() ? CmpInst::ICMP_SGT : CmpInst::ICMP_UGT;
+    else if (oldPred == CmpInst::FCMP_OGE)
+      newPred = convType.isSigned() ? CmpInst::ICMP_SGE : CmpInst::ICMP_UGE;
+    else if (oldPred == CmpInst::FCMP_OLE)
+      newPred = convType.isSigned() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE;
+    else if (oldPred == CmpInst::FCMP_OLT)
+      newPred = convType.isSigned() ? CmpInst::ICMP_SLT : CmpInst::ICMP_ULT;
+    else if (oldPred == CmpInst::FCMP_ORD) {
+      // TODO gestione NaN
+    }
+    else if (oldPred == CmpInst::FCMP_TRUE) {
+      // There is no integer-only always-true / always-false comparison operator...
+      // So we roll out our own by producing a tautology
+      auto* res = builder.CreateICmpEQ(ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0),
+                                       ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0));
+      setConversionResultInfo(res);
+      return res;
+    }
+    else if (oldPred == CmpInst::FCMP_FALSE) {
+      auto* res = builder.CreateICmpNE(ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0),
+                                       ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0));
+      setConversionResultInfo(res);
+      return res;
+    }
+
+    if (swapped)
+      newPred = CmpInst::getInversePredicate(newPred);
+    auto* res = builder.CreateICmp(newPred, convertedOperand1, convertedOperand2);
+    setConversionResultInfo(res);
+    return res;
+  }
+
+  // Handling the presence of at least one float:
+  // Converting all to the biggest float, then comparing as before
+  if (convType1->isFloatingPoint() && convType2->isFloatingPoint()) {
+    // take the biggest floating point
+    if (convType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
+        > convType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
+      // t1 is "more precise"
+      convType = *convType1;
+    }
+    else if (convType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
+             < convType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
+      // t2 is "more precise"
+      convType = *convType2;
+    }
+    else {
+      // they are equal, yeah!
+      convType = *convType1; // or t2, they are equal
+      // FIXME: what if bfloat16 (for now unsupported) and half???
+    }
+  }
+  else if (convType1->isFloatingPoint())
+    convType = *convType1;
+  else if (convType2->isFloatingPoint())
+    convType = *convType2;
+  else
+    llvm_unreachable("There should be at least one floating point");
+
+  Value* newOperand1 = getConvertedOperand(operand1, convType, fcmp, ConvTypePolicy::ForceHint);
+  Value* newOperand2 = getConvertedOperand(operand2, convType, fcmp, ConvTypePolicy::ForceHint);
+  IRBuilder<NoFolder> builder(fcmp->getNextNode());
+  auto* res = builder.CreateFCmp(fcmp->getPredicate(), newOperand1, newOperand2);
+  setConversionResultInfo(res);
+  return res;
+}
+
+Value* ConversionPass::convertCast(CastInst* cast) {
+  // Instruction opcodes:
+  // - [FPToSI,FPToUI,SIToFP,UIToFP] are handled here
+  // - [Trunc,ZExt,SExt] are handled as a fallback case, not here
+  // - [PtrToInt,IntToPtr,BitCast,AddrSpaceCast] might cause errors
+
+  TransparentType* type = taffoInfo.getOrCreateTransparentType(*cast);
+  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(cast);
+
+  Value* operand = cast->getOperand(0);
+  Value* newOperand = nullptr;
+  auto iter = convertedValues.find(operand);
+  if (iter != convertedValues.end())
+    newOperand = iter->second;
+  if (!newOperand || newOperand == operand) {
+    LLVM_DEBUG(log().logln("Operand was not converted: conversion not needed", Logger::Yellow));
+    setConversionResultInfo(cast);
+    return cast;
+  }
+
+  if (valueConvInfo->isConversionDisabled())
+    return unsupported;
+
+  auto* convType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
+
+  IRBuilder<NoFolder> builder(cast->getNextNode());
+  if (auto* bc = dyn_cast<BitCastInst>(cast)) {
+    TransparentType* newType = convType->toTransparentType();
+    Type* newLLVMType = newType->toLLVMType();
+    if (newOperand)
+      return builder.CreateBitCast(newOperand, newLLVMType);
+    else
+      return builder.CreateBitCast(operand, newLLVMType);
+  }
+  if (operand->getType()->isFloatingPointTy()) {
+    /* fptosi, fptoui, fptrunc, fpext */
+    if (cast->getOpcode() == Instruction::FPToSI)
+      return getConvertedOperand(operand, ConversionScalarType(*type, true), cast, ConvTypePolicy::ForceHint);
+    else if (cast->getOpcode() == Instruction::FPToUI)
+      return getConvertedOperand(operand, ConversionScalarType(*type, false), cast, ConvTypePolicy::ForceHint);
+    else if (cast->getOpcode() == Instruction::FPTrunc || cast->getOpcode() == Instruction::FPExt)
+      return getConvertedOperand(operand, *convType, cast, ConvTypePolicy::ForceHint);
+  }
+  else {
+    TransparentType* newOperandType = taffoInfo.getTransparentType(*newOperand);
+    /* sitofp, uitofp */
+    if (cast->getOpcode() == Instruction::SIToFP)
+      return genConvertConvToConv(
+        newOperand, ConversionScalarType(*newOperandType, true), *convType, ConvTypePolicy::ForceHint, cast);
+    else if (cast->getOpcode() == Instruction::UIToFP)
+      return genConvertConvToConv(
+        newOperand, ConversionScalarType(*newOperandType, false), *convType, ConvTypePolicy::ForceHint, cast);
+  }
+  return unsupported;
+}
+
 Value* ConversionPass::convertUnaryOp(Instruction* inst) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(inst);
   auto* newConvType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
@@ -456,52 +629,6 @@ Value* ConversionPass::convertBinOp(Instruction* inst, const ConversionScalarTyp
     return convertFDiv(inst, convType);
 
   return unsupported;
-}
-
-Value* ConversionPass::convertAtomicRMW(AtomicRMWInst* atomicRMW) {
-  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(atomicRMW);
-
-  // TODO other float operations if any
-  if (atomicRMW->getOperation() != AtomicRMWInst::FAdd)
-    return unsupported;
-
-  auto* convType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
-
-  Value* ptrOperand = atomicRMW->getPointerOperand();
-  Value* newPtrOperand = ptrOperand;
-  auto iter = convertedValues.find(ptrOperand);
-  if (iter != convertedValues.end())
-    newPtrOperand = iter->second;
-  if (!newPtrOperand || newPtrOperand == ptrOperand) {
-    LLVM_DEBUG(log().logln("Pointer operand was not converted: conversion not needed", Logger::Yellow));
-    setConversionResultInfo(atomicRMW);
-    return atomicRMW;
-  }
-
-  if (valueConvInfo->isConversionDisabled())
-    return unsupported;
-
-  Value* oldValueOperand = atomicRMW->getValOperand();
-  Value* newValueOperand = getConvertedOperand(oldValueOperand, *convType, atomicRMW, ConvTypePolicy::ForceHint);
-
-  AtomicRMWInst::BinOp binOp;
-  if (convType->isFixedPoint())
-    binOp = AtomicRMWInst::Add;
-  else if (convType->isFloatingPoint())
-    binOp = AtomicRMWInst::FAdd;
-  else
-    llvm_unreachable("Unknown convType");
-
-  IRBuilder<NoFolder> builder(atomicRMW);
-  AtomicRMWInst* res = builder.CreateAtomicRMW(binOp,
-                                               newPtrOperand,
-                                               newValueOperand,
-                                               atomicRMW->getAlign(),
-                                               atomicRMW->getOrdering(),
-                                               atomicRMW->getSyncScopeID());
-
-  setConversionResultInfo(res, atomicRMW, convType);
-  return res;
 }
 
 Value* ConversionPass::convertFAdd(Instruction* inst, const ConversionScalarType& convType) {
@@ -810,177 +937,50 @@ Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType
   llvm_unreachable("Unknown convType");
 }
 
-Value* ConversionPass::convertCmp(FCmpInst* fcmp) {
-  Value* operand1 = fcmp->getOperand(0);
-  Value* operand2 = fcmp->getOperand(1);
-  ConversionScalarType* convType1 = nullptr;
-  ConversionScalarType* convType2 = nullptr;
-  if (taffoConvInfo.hasValueConvInfo(operand1)) {
-    ValueConvInfo* valueConvInfo1 = taffoConvInfo.getValueConvInfo(operand1);
-    if (!valueConvInfo1->isConstant() && !valueConvInfo1->isConversionDisabled())
-      convType1 = valueConvInfo1->getNewOrOldType<ConversionScalarType>();
-  }
-  if (taffoConvInfo.hasValueConvInfo(operand2)) {
-    ValueConvInfo* valueConvInfo2 = taffoConvInfo.getValueConvInfo(operand2);
-    if (!valueConvInfo2->isConstant() && !valueConvInfo2->isConversionDisabled())
-      convType2 = valueConvInfo2->getNewOrOldType<ConversionScalarType>();
-  }
+Value* ConversionPass::convertAtomicRMW(AtomicRMWInst* atomicRMW) {
+  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(atomicRMW);
 
-  if (!convType1 && !convType2)
-    return fcmp;
+  // TODO other float operations if any
+  if (atomicRMW->getOperation() != AtomicRMWInst::FAdd)
+    return unsupported;
 
-  if (!convType2)
-    convType2 = convType1;
-  else if (!convType1)
-    convType1 = convType2;
-  bool isOneFloat = convType1->isFloatingPoint() || convType2->isFloatingPoint();
+  auto* convType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
 
-  ConversionScalarType convType = ConversionScalarType(*convType1->toTransparentType());
-  if (!isOneFloat) {
-    bool mixedSign = convType1->isSigned() != convType2->isSigned();
-    int intBits1 = convType1->getBits() - convType1->getFractionalBits() + (mixedSign ? convType1->isSigned() : 0);
-    int intBits2 = convType2->getBits() - convType2->getFractionalBits() + (mixedSign ? convType2->isSigned() : 0);
-    convType.setSigned(convType1->isSigned() || convType2->isSigned());
-    convType.setFractionalBits(std::max(convType1->getFractionalBits(), convType2->getFractionalBits()));
-    convType.setBits(std::max(intBits1, intBits2) + convType.getFractionalBits());
-    Value* convertedOperand1 = getConvertedOperand(operand1, convType, fcmp, ConvTypePolicy::ForceHint);
-    Value* convertedOperand2 = getConvertedOperand(operand2, convType, fcmp, ConvTypePolicy::ForceHint);
-    IRBuilder<NoFolder> builder(fcmp->getNextNode());
-    CmpInst::Predicate oldPred = fcmp->getPredicate();
-    CmpInst::Predicate newPred;
-    bool swapped = false;
-    // If unordered swap first, then convert with int, and then re-swap at the end
-    if (!CmpInst::isOrdered(fcmp->getPredicate())) {
-      oldPred = fcmp->getInversePredicate();
-      swapped = true;
-    }
-
-    if (oldPred == CmpInst::FCMP_OEQ)
-      newPred = CmpInst::ICMP_EQ;
-    else if (oldPred == CmpInst::FCMP_ONE)
-      newPred = CmpInst::ICMP_NE;
-    else if (oldPred == CmpInst::FCMP_OGT)
-      newPred = convType.isSigned() ? CmpInst::ICMP_SGT : CmpInst::ICMP_UGT;
-    else if (oldPred == CmpInst::FCMP_OGE)
-      newPred = convType.isSigned() ? CmpInst::ICMP_SGE : CmpInst::ICMP_UGE;
-    else if (oldPred == CmpInst::FCMP_OLE)
-      newPred = convType.isSigned() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE;
-    else if (oldPred == CmpInst::FCMP_OLT)
-      newPred = convType.isSigned() ? CmpInst::ICMP_SLT : CmpInst::ICMP_ULT;
-    else if (oldPred == CmpInst::FCMP_ORD) {
-      // TODO gestione NaN
-    }
-    else if (oldPred == CmpInst::FCMP_TRUE) {
-      // There is no integer-only always-true / always-false comparison operator...
-      // So we roll out our own by producing a tautology
-      auto* res = builder.CreateICmpEQ(ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0),
-                                       ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0));
-      setConversionResultInfo(res);
-      return res;
-    }
-    else if (oldPred == CmpInst::FCMP_FALSE) {
-      auto* res = builder.CreateICmpNE(ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0),
-                                       ConstantInt::get(Type::getInt32Ty(fcmp->getContext()), 0));
-      setConversionResultInfo(res);
-      return res;
-    }
-
-    if (swapped)
-      newPred = CmpInst::getInversePredicate(newPred);
-    auto* res = builder.CreateICmp(newPred, convertedOperand1, convertedOperand2);
-    setConversionResultInfo(res);
-    return res;
-  }
-
-  // Handling the presence of at least one float:
-  // Converting all to the biggest float, then comparing as before
-  if (convType1->isFloatingPoint() && convType2->isFloatingPoint()) {
-    // take the biggest floating point
-    if (convType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
-        > convType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
-      // t1 is "more precise"
-      convType = *convType1;
-    }
-    else if (convType1->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()
-             < convType2->toScalarLLVMType(fcmp->getContext())->getPrimitiveSizeInBits()) {
-      // t2 is "more precise"
-      convType = *convType2;
-    }
-    else {
-      // they are equal, yeah!
-      convType = *convType1; // or t2, they are equal
-      // FIXME: what if bfloat16 (for now unsupported) and half???
-    }
-  }
-  else if (convType1->isFloatingPoint())
-    convType = *convType1;
-  else if (convType2->isFloatingPoint())
-    convType = *convType2;
-  else
-    llvm_unreachable("There should be at least one floating point");
-
-  Value* newOperand1 = getConvertedOperand(operand1, convType, fcmp, ConvTypePolicy::ForceHint);
-  Value* newOperand2 = getConvertedOperand(operand2, convType, fcmp, ConvTypePolicy::ForceHint);
-  IRBuilder<NoFolder> builder(fcmp->getNextNode());
-  auto* res = builder.CreateFCmp(fcmp->getPredicate(), newOperand1, newOperand2);
-  setConversionResultInfo(res);
-  return res;
-}
-
-Value* ConversionPass::convertCast(CastInst* cast) {
-  // Instruction opcodes:
-  // - [FPToSI,FPToUI,SIToFP,UIToFP] are handled here
-  // - [Trunc,ZExt,SExt] are handled as a fallback case, not here
-  // - [PtrToInt,IntToPtr,BitCast,AddrSpaceCast] might cause errors
-
-  TransparentType* type = taffoInfo.getOrCreateTransparentType(*cast);
-  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(cast);
-
-  Value* operand = cast->getOperand(0);
-  Value* newOperand = nullptr;
-  auto iter = convertedValues.find(operand);
+  Value* ptrOperand = atomicRMW->getPointerOperand();
+  Value* newPtrOperand = ptrOperand;
+  auto iter = convertedValues.find(ptrOperand);
   if (iter != convertedValues.end())
-    newOperand = iter->second;
-  if (!newOperand || newOperand == operand) {
-    LLVM_DEBUG(log().logln("Operand was not converted: conversion not needed", Logger::Yellow));
-    setConversionResultInfo(cast);
-    return cast;
+    newPtrOperand = iter->second;
+  if (!newPtrOperand || newPtrOperand == ptrOperand) {
+    LLVM_DEBUG(log().logln("Pointer operand was not converted: conversion not needed", Logger::Yellow));
+    setConversionResultInfo(atomicRMW);
+    return atomicRMW;
   }
 
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
-  auto* convType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
+  Value* oldValueOperand = atomicRMW->getValOperand();
+  Value* newValueOperand = getConvertedOperand(oldValueOperand, *convType, atomicRMW, ConvTypePolicy::ForceHint);
 
-  IRBuilder<NoFolder> builder(cast->getNextNode());
-  if (auto* bc = dyn_cast<BitCastInst>(cast)) {
-    TransparentType* newType = convType->toTransparentType();
-    Type* newLLVMType = newType->toLLVMType();
-    if (newOperand)
-      return builder.CreateBitCast(newOperand, newLLVMType);
-    else
-      return builder.CreateBitCast(operand, newLLVMType);
-  }
-  if (operand->getType()->isFloatingPointTy()) {
-    /* fptosi, fptoui, fptrunc, fpext */
-    if (cast->getOpcode() == Instruction::FPToSI)
-      return getConvertedOperand(operand, ConversionScalarType(*type, true), cast, ConvTypePolicy::ForceHint);
-    else if (cast->getOpcode() == Instruction::FPToUI)
-      return getConvertedOperand(operand, ConversionScalarType(*type, false), cast, ConvTypePolicy::ForceHint);
-    else if (cast->getOpcode() == Instruction::FPTrunc || cast->getOpcode() == Instruction::FPExt)
-      return getConvertedOperand(operand, *convType, cast, ConvTypePolicy::ForceHint);
-  }
-  else {
-    TransparentType* newOperandType = taffoInfo.getTransparentType(*newOperand);
-    /* sitofp, uitofp */
-    if (cast->getOpcode() == Instruction::SIToFP)
-      return genConvertConvToConv(
-        newOperand, ConversionScalarType(*newOperandType, true), *convType, ConvTypePolicy::ForceHint, cast);
-    else if (cast->getOpcode() == Instruction::UIToFP)
-      return genConvertConvToConv(
-        newOperand, ConversionScalarType(*newOperandType, false), *convType, ConvTypePolicy::ForceHint, cast);
-  }
-  return unsupported;
+  AtomicRMWInst::BinOp binOp;
+  if (convType->isFixedPoint())
+    binOp = AtomicRMWInst::Add;
+  else if (convType->isFloatingPoint())
+    binOp = AtomicRMWInst::FAdd;
+  else
+    llvm_unreachable("Unknown convType");
+
+  IRBuilder<NoFolder> builder(atomicRMW);
+  AtomicRMWInst* res = builder.CreateAtomicRMW(binOp,
+                                               newPtrOperand,
+                                               newValueOperand,
+                                               atomicRMW->getAlign(),
+                                               atomicRMW->getOrdering(),
+                                               atomicRMW->getSyncScopeID());
+
+  setConversionResultInfo(res, atomicRMW, convType);
+  return res;
 }
 
 /**

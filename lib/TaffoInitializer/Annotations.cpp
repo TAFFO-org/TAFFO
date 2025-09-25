@@ -22,29 +22,29 @@ using namespace taffo;
 Function* InitializerPass::findStartingPointFunctionGlobal(Module& m) {
   GlobalVariable* startFunGlob = nullptr;
 
-  for (GlobalVariable& Global : m.globals()) {
-    if (Global.getName() == "__taffo_vra_starting_function") {
-      startFunGlob = &Global;
+  for (GlobalVariable& global : m.globals()) {
+    if (global.getName() == "__taffo_vra_starting_function") {
+      startFunGlob = &global;
       break;
     }
   }
   if (!startFunGlob)
     return nullptr;
 
-  Constant* Init = startFunGlob->getInitializer();
-  ConstantExpr* ValCExpr = dyn_cast_or_null<ConstantExpr>(Init);
-  if (!ValCExpr)
+  Constant* initializer = startFunGlob->getInitializer();
+  auto* initializerConstExpr = dyn_cast_or_null<ConstantExpr>(initializer);
+  if (!initializerConstExpr)
     report_fatal_error("__taffo_vra_starting_function not initialized to anything or initialized incorrectly!");
 
   Function* startingPointFun = nullptr;
-  while (ValCExpr && ValCExpr->getOpcode() == Instruction::BitCast) {
-    if (isa<Function>(ValCExpr->getOperand(0))) {
-      startingPointFun = dyn_cast<Function>(ValCExpr->getOperand(0));
+  while (initializerConstExpr && initializerConstExpr->getOpcode() == Instruction::BitCast) {
+    if (isa<Function>(initializerConstExpr->getOperand(0))) {
+      startingPointFun = dyn_cast<Function>(initializerConstExpr->getOperand(0));
       break;
     }
-    ValCExpr = dyn_cast<ConstantExpr>(ValCExpr->getOperand(0));
+    initializerConstExpr = dyn_cast<ConstantExpr>(initializerConstExpr->getOperand(0));
   }
-  if (!ValCExpr || !startingPointFun)
+  if (!initializerConstExpr || !startingPointFun)
     report_fatal_error("__taffo_vra_starting_function initialized incorrectly!");
 
   taffoInfo.eraseValue(startFunGlob);
@@ -145,11 +145,11 @@ void InitializerPass::parseAnnotation(Value* annotatedValue, Value* annotationVa
         continue;
       infoPropagationQueue.push_back(user);
       taffoInfo.setValueInfo(*user, funInfo);
-      taffoInitInfo.createValueInitInfo(user, 0, parser.backtracking ? parser.backtrackingDepth : 0);
+      taffoInitInfo.createValueInitInfo(user, 0);
     }
   }
   else {
     infoPropagationQueue.push_back(annotatedValue);
-    taffoInitInfo.createValueInitInfo(annotatedValue, 0, parser.backtracking ? parser.backtrackingDepth : 0);
+    taffoInitInfo.createValueInitInfo(annotatedValue, 0);
   }
 }

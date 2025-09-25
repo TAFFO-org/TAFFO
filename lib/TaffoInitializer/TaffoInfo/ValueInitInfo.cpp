@@ -5,6 +5,11 @@ using namespace taffo;
 
 std::string ValueInitInfo::toString() const {
   std::stringstream ss;
-  ss << "[rootDistance: " << rootDistance << ", backtrackingDepth: " << backtrackingDepth << "]";
+  ss << "[rootDistance: ";
+  if (rootDistance == UINT_MAX)
+    ss << "inf";
+  else
+    ss << rootDistance;
+  ss << "]";
   return ss.str();
 }

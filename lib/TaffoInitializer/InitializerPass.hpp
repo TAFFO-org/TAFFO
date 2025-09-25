@@ -19,10 +19,7 @@ class InitializerPass : public llvm::PassInfoMixin<InitializerPass> {
 public:
   llvm::PreservedAnalyses run(llvm::Module& m, llvm::ModuleAnalysisManager&);
 
-#ifndef UNITTESTS
-
 private:
-#endif
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
   TaffoInitInfo taffoInitInfo;
   std::list<llvm::Value*> infoPropagationQueue;
@@ -45,7 +42,11 @@ private:
   void parseAnnotation(llvm::Value* annotatedValue, llvm::Value* annotationValue, bool* isStartingPoint = nullptr);
 
   void propagateInfo();
-  void propagateInfo(llvm::Value* src, llvm::Value* dst);
+  void propagateInfo(llvm::Value* value, llvm::Value* user);
+  void propagateInfo(const ValueInfo* srcInfo,
+                     const ValueInitInfo& srcInitInfo,
+                     ValueInfo* dstInfo,
+                     ValueInitInfo& dstInitInfo);
   void cloneFunctionForCall(llvm::CallBase* call);
   void saveValueWeights();
   void logInfoPropagationQueue();

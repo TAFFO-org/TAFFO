@@ -55,8 +55,6 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
 
   LLVM_DEBUG(log().logln("[Propagating info from roots]", Logger::Blue));
   propagateInfo();
-  LLVM_DEBUG(log().logln("[Propagating info after function cloning]", Logger::Blue));
-  propagateInfo();
   LLVM_DEBUG(
     log().logln("[Results]", Logger::Green);
     logInfoPropagationQueue(););
@@ -79,9 +77,7 @@ void InitializerPass::saveValueWeights() {
  * @brief Propagates info from roots.
  *
  * Starting from the set of root values, this function propagates taffoInitInfo
- * through the IR graph by iterating over each value's users (forward propagation)
- * and then backtracking through instruction operands (backward propagation)
- * until no new values are discovered
+ * through the IR until no new values are discovered
  */
 void InitializerPass::propagateInfo() {
   Logger& logger = log();
@@ -102,7 +98,6 @@ void InitializerPass::propagateInfo() {
     prevQueueSize = infoPropagationQueue.size();
     iteration++;
 
-    // Forward propagation: process each value in the queue
     for (Value* value : infoPropagationQueue) {
       visited.insert(value);
       if (auto* call = dyn_cast<CallBase>(value))
@@ -128,99 +123,11 @@ void InitializerPass::propagateInfo() {
           logger.log("[User] ", Logger::Bold).logValueln(user);
           indenter.increaseIndent(););
 
-        // Update valueInitInfo of the user based on the parent's valueInitInfo
         propagateInfo(value, user);
 
-        // Determine the new backtracking depth for backward propagation
-        unsigned newUserBtDepth = valueInitInfo.getUserBacktrackingDepth();
-        if (auto* storeUser = dyn_cast<StoreInst>(user))
-          if (newUserBtDepth <= 1) {
-            Value* storedValue = storeUser->getValueOperand();
-            if (getFullyUnwrappedType(storedValue)->isFloatingPointTy()) {
-              LLVM_DEBUG(
-                logger.log("will backtrack to stored value: ", Logger::Cyan);
-                logger.logValueln(storedValue););
-              newUserBtDepth = 1;
-            }
-          }
-        if (newUserBtDepth > 0) {
-          ValueInitInfo& userInitInfo = taffoInitInfo.getValueInitInfo(user);
-          userInitInfo.setBacktrackingDepth(std::max(newUserBtDepth, userInitInfo.getBacktrackingDepth()));
-        }
-
-        // Extract the user from the queue if already in
         auto userIter = std::ranges::find(infoPropagationQueue, user);
-        if (userIter != infoPropagationQueue.end())
-          infoPropagationQueue.erase(userIter);
-        // Insert it at the end of the queue
-        infoPropagationQueue.push_back(user);
-      }
-    }
-
-    // Backward propagation: process operands of each instruction in reverse order
-    for (auto iter = --infoPropagationQueue.end(); iter != infoPropagationQueue.begin(); iter--) {
-      Value* value = *iter;
-      ValueInitInfo& valueInitInfo = taffoInitInfo.getValueInitInfo(value);
-
-      unsigned backtrackingDepth = valueInitInfo.getBacktrackingDepth();
-      if (backtrackingDepth == 0)
-        continue;
-      auto* inst = dyn_cast<Instruction>(value);
-      if (!inst)
-        continue;
-
-      auto indenter = logger.getIndenter();
-      LLVM_DEBUG(
-        logger.log("[Backtracking] ", Logger::Bold).logValueln(value);
-        indenter.increaseIndent();
-        logger << "depth left = " << backtrackingDepth << "\n";);
-
-      // Process each operand of the instruction
-      for (Value* operand : inst->operands()) {
-        auto indenter = logger.getIndenter();
-        LLVM_DEBUG(
-          logger.log("[Operand] ", Logger::Bold).logValueln(operand);
-          indenter.increaseIndent(););
-        // Skip operands that are not a User or an Argument
-        if (!isa<User>(operand) && !isa<Argument>(operand)) {
-          LLVM_DEBUG(log().logln("not a user or an argument: ignoring"));
-          continue;
-        }
-        // Skip functions and block addresses
-        if (isa<Function>(operand) || isa<BlockAddress>(operand)) {
-          LLVM_DEBUG(log().logln("is a function or a block address: ignoring"));
-          continue;
-        }
-        // Skip constants
-        if (isa<Constant>(operand)) {
-          LLVM_DEBUG(log().logln("is a constant: ignoring"));
-          continue;
-        }
-        if (!getFullyUnwrappedType(operand)->isFloatingPointTy()) {
-          LLVM_DEBUG(log().logln("not a float: ignoring"));
-          continue;
-        }
-
-        bool alreadyIn = false;
-        auto userIter = std::ranges::find(infoPropagationQueue, operand);
-        if (userIter != infoPropagationQueue.end()) {
-          auto valuePosition = std::distance(infoPropagationQueue.begin(), iter);
-          auto userPosition = std::distance(infoPropagationQueue.begin(), userIter);
-          if (userPosition < valuePosition)
-            alreadyIn = true;
-          else
-            infoPropagationQueue.erase(userIter);
-        }
-
-        if (!alreadyIn) {
-          propagateInfo(value, operand);
-          infoPropagationQueue.push_front(operand);
-        }
-        else
-          LLVM_DEBUG(log().logln("already in queue: continuing"));
-
-        ValueInitInfo& userInitInfo = taffoInitInfo.getOrCreateValueInitInfo(operand);
-        userInitInfo.decreaseBacktrackingDepth();
+        if (userIter == infoPropagationQueue.end())
+          infoPropagationQueue.push_back(user);
       }
     }
     for (CallBase* call : calls)
@@ -230,59 +137,79 @@ void InitializerPass::propagateInfo() {
   LLVM_DEBUG(log().logln("[Propagation completed]", Logger::Blue));
 }
 
-void InitializerPass::propagateInfo(Value* src, Value* dst) {
-  if (!taffoInfo.hasValueInfo(*dst))
-    taffoInfo.createValueInfo(*dst);
+void InitializerPass::propagateInfo(Value* value, Value* user) {
+  if (!taffoInfo.hasValueInfo(*user))
+    taffoInfo.createValueInfo(*user);
 
-  ValueInitInfo& srcInitInfo = taffoInitInfo.getValueInitInfo(src);
-  ValueInitInfo& dstInitInfo = taffoInitInfo.getOrCreateValueInitInfo(dst);
-  ValueInfo* srcInfo = &*taffoInfo.getValueInfo(*src);
-  ValueInfo* dstInfo = &*taffoInfo.getValueInfo(*dst);
+  ValueInitInfo& srcInitInfo = taffoInitInfo.getValueInitInfo(value);
+  ValueInitInfo& dstInitInfo = taffoInitInfo.getOrCreateValueInitInfo(user);
+  ValueInfo* srcInfo = &*taffoInfo.getValueInfo(*value);
+  ValueInfo* dstInfo = &*taffoInfo.getValueInfo(*user);
 
-  if (auto* dstGep = dyn_cast<GetElementPtrInst>(dst))
+  auto* userInst = dyn_cast<Instruction>(user);
+  if (!userInst)
+    return;
+
+  if (auto* userGep = dyn_cast<GetElementPtrInst>(user)) {
+    if (value != userGep->getPointerOperand()) {
+      LLVM_DEBUG(log().logln("user is a gep, but value is not its pointer operand: skipping"));
+      return;
+    }
     if (auto* srcStructInfo = dyn_cast<StructInfo>(srcInfo)) {
-      srcInfo = srcStructInfo->getField(dstGep->indices());
+      srcInfo = srcStructInfo->getField(userGep->indices());
       if (!srcInfo) {
-        LLVM_DEBUG(log().logln("source struct field has no valueInfo: skipping\n"));
+        LLVM_DEBUG(log().logln("user is a gep, but value struct field has no valueInfo: skipping\n"));
         return;
       }
+      LLVM_DEBUG(log() << "propagating info to value struct field based on user gep");
     }
+  }
+  else if (auto* store = dyn_cast<StoreInst>(user)) {
+    // Choose as dst the store operand different from src value
+    Value* operand = store->getPointerOperand();
+    if (operand == value)
+      operand = store->getValueOperand();
+    if (!taffoInfo.hasValueInfo(*operand))
+      taffoInfo.createValueInfo(*operand);
+    dstInitInfo = taffoInitInfo.getOrCreateValueInitInfo(operand);
+    dstInfo = &*taffoInfo.getValueInfo(*operand);
+    LLVM_DEBUG(
+      Logger& logger = log();
+      logger << "propagating info from a store operand to the other:\n";
+      logger.log("src: ").logValueln(value);
+      logger.log("dst: ").logValueln(operand););
+  }
+  else if (!isa<LoadInst>(user) && !isa<PHINode>(user) && !userInst->isUnaryOp() && !userInst->isBinaryOp()
+           && !userInst->isCast())
+    return;
 
+  propagateInfo(srcInfo, srcInitInfo, dstInfo, dstInitInfo);
+}
+
+void InitializerPass::propagateInfo(const ValueInfo* srcInfo,
+                                    const ValueInitInfo& srcInitInfo,
+                                    ValueInfo* dstInfo,
+                                    ValueInitInfo& dstInitInfo) {
   unsigned dstRootDistance = dstInitInfo.getRootDistance();
   unsigned newDstRootDistance = srcInitInfo.getUserRootDistance();
 
-  //// If dst is a gep and src is one of its index operands, skip propagation completely
-  // if (auto* dstGep = dyn_cast<GetElementPtrInst>(dst);
-  //     dstGep && is_contained(dstGep->operands(), src) && src != dstGep->getPointerOperand()) {
-  //   LLVM_DEBUG(log().logln("dst is a gep, but src is just an index operand: continuing"));
-  //     }
-  //  If dst is a gep and src is not its pointer operand, skip propagation completely
-  if (isa<GetElementPtrInst>(dst) && src != cast<GetElementPtrInst>(dst)->getPointerOperand()) {
-    LLVM_DEBUG(log().logln("dst is a gep, but src is not its pointer operand: continuing"));
-  }
   /* Propagate info only if the path to a root is shorter than the current */
-  else if (newDstRootDistance < dstRootDistance) {
+  if (newDstRootDistance < dstRootDistance) {
     dstInitInfo.setRootDistance(newDstRootDistance);
-    TransparentType* srcType = taffoInfo.getOrCreateTransparentType(*src);
-    TransparentType* dstType = taffoInfo.getOrCreateTransparentType(*dst);
 
     LLVM_DEBUG(
       Logger& logger = log();
       logger.setContextTag(__FUNCTION__);
       logger << "updated root distance: " << newDstRootDistance << "\n";
-      logger << "srcType = ";
-      logger.log(*srcType, Logger::Cyan);
       logger << ", srcInfo = ";
       logger.logln(*srcInfo, Logger::Cyan);
-      logger << "dstType = ";
-      logger.log(*dstType, Logger::Cyan);
       logger << ", ";);
 
     // TODO remove and correct taffo to lower relative errors in benchmarks:
     // Whole valueInfo copy should not be performed.
     // InitializerPass should be only responsible of setting conversionEnabled,
     // but right now, removing this causes big relative errors in some benchmarks
-    if (!srcType->isStructTTOrPtrTo() && !dstType->isStructTTOrPtrTo())
+    if (!isa<StructInfo>(srcInfo) && !isa<StructInfo>(dstInfo))
       dstInfo->copyFrom(*srcInfo);
 
     if (srcInfo->getKind() == dstInfo->getKind())
@@ -297,10 +224,6 @@ void InitializerPass::propagateInfo(Value* src, Value* dst) {
   }
   else
     LLVM_DEBUG(log().logln("already has info from a value closer or equally close to a root: continuing"));
-
-  // Copy BufferId across loads, geps and bitcasts
-  if (isa<LoadInst>(dst) || isa<GetElementPtrInst>(dst) || isa<BitCastInst>(dst))
-    dstInfo->bufferId = srcInfo->bufferId;
 }
 
 void InitializerPass::cloneFunctionForCall(CallBase* call) {
@@ -362,7 +285,6 @@ void InitializerPass::cloneFunctionForCall(CallBase* call) {
       ValueInitInfo& oldValueInitInfo = taffoInitInfo.getValueInitInfo(src);
       ValueInitInfo& newValueInitInfo = taffoInitInfo.createValueInitInfo(dst);
       newValueInitInfo.setRootDistance(oldValueInitInfo.getRootDistance());
-      newValueInitInfo.setBacktrackingDepth(oldValueInitInfo.getBacktrackingDepth());
       infoPropagationQueue.push_back(dst);
     }
   };

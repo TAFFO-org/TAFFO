@@ -163,19 +163,19 @@ private:
   llvm::Value* convertGep(llvm::GetElementPtrInst* gep);
   llvm::Value* convertExtractValue(llvm::ExtractValueInst* extractValue);
   llvm::Value* convertInsertValue(llvm::InsertValueInst* insertValue);
-  llvm::Value* convertPhi(llvm::PHINode* phi);
   llvm::Value* convertSelect(llvm::SelectInst* select);
+  llvm::Value* convertPhi(llvm::PHINode* phi);
   llvm::Value* convertCall(llvm::CallBase* call);
   llvm::Value* convertRet(llvm::ReturnInst* ret);
+  llvm::Value* convertFCmp(llvm::FCmpInst* fcmp);
+  llvm::Value* convertCast(llvm::CastInst* cast);
+  llvm::Value* convertUnaryOp(llvm::Instruction* inst);
   llvm::Value* convertBinOp(llvm::Instruction* inst, const ConversionScalarType& convType);
   llvm::Value* convertFAdd(llvm::Instruction* inst, const ConversionScalarType& convType);
   llvm::Value* convertFSub(llvm::Instruction* inst, const ConversionScalarType& convType);
   llvm::Value* convertFRem(llvm::Instruction* inst, const ConversionScalarType& convType);
   llvm::Value* convertFMul(llvm::Instruction* inst, const ConversionScalarType& convType);
   llvm::Value* convertFDiv(llvm::Instruction* inst, const ConversionScalarType& convType);
-  llvm::Value* convertUnaryOp(llvm::Instruction* inst);
-  llvm::Value* convertCmp(llvm::FCmpInst* fcmp);
-  llvm::Value* convertCast(llvm::CastInst* cast);
   llvm::Value* convertAtomicRMW(llvm::AtomicRMWInst* atomicRMW);
   llvm::Value* fallback(llvm::Instruction* inst);
 

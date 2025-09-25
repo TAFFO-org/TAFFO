@@ -4,8 +4,6 @@
 
 namespace taffo {
 
-class InitializerPass;
-
 class TaffoInitInfo {
   friend class InitializerPass;
 
@@ -13,8 +11,7 @@ class TaffoInitInfo {
 
   ValueInitInfo& getValueInitInfo(const llvm::Value* value);
   ValueInitInfo& getOrCreateValueInitInfo(llvm::Value* value);
-  ValueInitInfo&
-  createValueInitInfo(llvm::Value* value, unsigned rootDistance = UINT_MAX, unsigned backtrackingDepth = 0);
+  ValueInitInfo& createValueInitInfo(llvm::Value* value, unsigned rootDistance = UINT_MAX);
   bool hasValueInitInfo(const llvm::Value* value) const;
 };
 
