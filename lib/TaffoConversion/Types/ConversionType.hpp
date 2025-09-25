@@ -34,7 +34,9 @@ public:
 
   virtual ~ConversionType() = default;
 
-  virtual bool isVoid() const { return false; }
+  bool isVoid() const { return transparentType->getLLVMType()->isVoidTy(); }
+  bool isPtr() const { return transparentType->isPointerTT(); }
+  bool isOpaquePtr() const { return transparentType->isOpaquePtr(); }
   virtual bool isFixedPoint() const { return false; }
   virtual bool isFloatingPoint() const { return false; }
 
@@ -98,7 +100,6 @@ public:
   int getIntegerBits() const { return bits - fractionalBits; }
   FloatStandard getFloatStandard() const { return floatStandard; }
 
-  bool isVoid() const override { return floatStandard == NotFloat && bits == 0; }
   bool isFixedPoint() const override { return floatStandard == NotFloat; }
   bool isFloatingPoint() const override { return floatStandard != NotFloat; }
   llvm::Type* toScalarLLVMType(llvm::LLVMContext& context) const;

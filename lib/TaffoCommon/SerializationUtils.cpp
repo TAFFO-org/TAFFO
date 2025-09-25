@@ -37,7 +37,9 @@ json serializeCommon(const TransparentType& type) {
   json j;
   j["kind"] = "Scalar";
   j["repr"] = type.toString();
-  j["unwrappedType"] = toString(type.getLLVMType());
+  j["unwrappedType"] = nullptr;
+  if (Type* llvmType = type.getLLVMType())
+    j["unwrappedType"] = toString(llvmType);
   return j;
 }
 
@@ -77,7 +79,10 @@ json taffo::serialize(const TransparentStructType& structType) {
 }
 
 void deserializeCommon(const json& j, TransparentType& type) {
-  type.setLLVMType(TaffoInfo::getInstance().getType(j["unwrappedType"]));
+  if (!j["unwrappedType"].is_null())
+    type.setLLVMType(TaffoInfo::getInstance().getType(j["unwrappedType"]));
+  else
+    type.setLLVMType(nullptr);
 }
 
 std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {

@@ -252,7 +252,7 @@ ValueInfo* StructInfo::getField(const iterator_range<const Use*> gepIndices) {
       continue;
     }
     auto currStructInfo = dyn_cast_or_null<StructInfo>(curr);
-    if (!currStructInfo)
+    if (!currStructInfo || currStructInfo->getNumFields() <= index)
       return nullptr; // Field not found in structInfo
     curr = currStructInfo->getField(index).get();
   }

@@ -164,6 +164,8 @@ Value* ConversionPass::getConvertedOperand(Value* value,
       suitableValue = false;
     if (convType.isFloatingPoint() != convertedValueConvType->isFloatingPoint())
       suitableValue = false;
+    if (convertedValueConvType->isPtr() && convType.isOpaquePtr())
+      suitableValue = true;
     if (suitableValue) {
       if (resConvType)
         *resConvType = convertedValueConvType->clone();
@@ -173,7 +175,7 @@ Value* ConversionPass::getConvertedOperand(Value* value,
     value = convertedValue;
     currentConvType = convertedValueConvType;
   }
-  else if (*currentConvType == convType) {
+  else if (*currentConvType == convType || (currentConvType->isPtr() && convType.isOpaquePtr())) {
     // We didn't find any converted value and value doesn't need conversion
     LLVM_DEBUG(logger.logln("operand did not need conversion", Logger::Green));
     if (resConvType)

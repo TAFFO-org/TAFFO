@@ -209,6 +209,8 @@ void DataTypeAllocationPass::allocateStructType(
   const Value* value,
   const TransparentType* type,
   SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8>& queue) {
+  if (type->isOpaquePtr())
+    return;
   if (!type->isStructTTOrPtrTo()) {
     LLVM_DEBUG(log() << "[ERROR] found non conforming structInfo " << structInfo->toString() << " on value " << *value
                      << "\n");

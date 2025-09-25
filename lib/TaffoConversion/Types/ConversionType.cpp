@@ -88,7 +88,7 @@ ConversionScalarType::ConversionScalarType(const TransparentType& type, bool isS
     else if (const auto* currPointer = dyn_cast<TransparentPointerType>(curr))
       curr = currPointer->getPointedType();
   Type* unwrappedType = curr->getLLVMType();
-  if (unwrappedType->isFloatingPointTy()) {
+  if (unwrappedType && unwrappedType->isFloatingPointTy()) {
     bits = 0;
     fractionalBits = 0;
     if (unwrappedType->getTypeID() == Type::HalfTyID)
@@ -108,7 +108,7 @@ ConversionScalarType::ConversionScalarType(const TransparentType& type, bool isS
     else
       floatStandard = NotFloat;
   }
-  else if (unwrappedType->isIntegerTy()) {
+  else if (unwrappedType && unwrappedType->isIntegerTy()) {
     bits = unwrappedType->getIntegerBitWidth();
     fractionalBits = 0;
     floatStandard = NotFloat;
@@ -230,6 +230,8 @@ std::string ConversionScalarType::toString() const {
   std::stringstream ss;
   if (isVoid())
     ss << "void";
+  else if (isOpaquePtr())
+    ss << "ptr";
   else if (floatStandard == NotFloat)
     ss << (sign ? "s" : "u") << (bits - fractionalBits) << "_" << fractionalBits << "fixp";
   else

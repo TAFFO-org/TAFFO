@@ -180,7 +180,7 @@ void InitializerPass::propagateInfo(Value* value, Value* user) {
       logger.log("dst: ").logValueln(operand););
   }
   else if (!isa<LoadInst>(user) && !isa<PHINode>(user) && !userInst->isUnaryOp() && !userInst->isBinaryOp()
-           && !userInst->isCast())
+           && !userInst->isCast() && !isa<AtomicRMWInst>(user))
     return;
 
   propagateInfo(srcInfo, srcInitInfo, dstInfo, dstInitInfo);
