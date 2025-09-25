@@ -483,14 +483,14 @@ build_float="${AUTO_CLANGXX} $opts ${optimization} ${float_opts} $compat_flags_c
 # passes at all.
 
 ###
-###  TAFFO Type deduction
+###  Type deduction
 ###
 append_time_string "type_deduction_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,typededucer' \
-  -temp-dir=$temporary_dir \
   ${typededucer_flags} \
+  -temp-dir=$temporary_dir \
   -S -o "${temporary_dir}/${output_basename}.1.taffotmp.ll" "${temporary_dir}/${output_basename}.0.taffotmp.ll" || exit $?
 
 ###
@@ -500,8 +500,8 @@ append_time_string "init_start"
 ${OPT} \
   -load "$TAFFOLIB" --load-pass-plugin="$TAFFOLIB" \
   --passes='no-op-module,taffoinit' \
-  -temp-dir=$temporary_dir \
   ${init_flags} \
+  -temp-dir=$temporary_dir \
   -S -o "${temporary_dir}/${output_basename}.2.taffotmp.ll" "${temporary_dir}/${output_basename}.1.taffotmp.ll" || exit $?
 
 ###

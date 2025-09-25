@@ -92,6 +92,13 @@ Additional options to add at the end **only for macOS**:
   -DLLVM_EXTERNALIZE_DEBUGINFO=ON
 ```
 
+If you encounter problems with the build, you may try to add also the following options:
+```
+  -DCMAKE_CXX_FLAGS="-include cstdint -U_GLIBCXX_ASSERTIONS" \
+  -DCMAKE_EXE_LINKER_FLAGS="-lstdc++" \
+  -DLIBOMP_USE_STDCPPLIB=ON
+```
+
 **Now you can run the cmake command. Make sure to copy-paste both sections
 (the common one and the OS-specific one which matches your OS).**
 
