@@ -101,7 +101,8 @@ When invoked with the ```-debug``` option, TAFFO launches ```opt``` once for eac
 /path/to/opt -load /path/to/Taffo.so --load-pass-plugin=/path/to/Taffo.so --passes=no-op-module,taffoconv,globaldce,dce         --stats --debug-only=taffo-common,taffo-conv              -S -o out.ll in.ll
 ```
 
-You can find the real commands int the debug log of each test. For example, in my case I get these for the benchmark ```correlation``` inside polybench:
+You can find the real commands in the debug log of each test, in the lines just before the start of each pass, marked by ```[NameOfThePass]``` (e.g. ```[ConversionPass]```).
+For example, in my case I get these for the benchmark ```correlation``` inside polybench:
 ```
 /home/nico/llvm/llvm-18-install/bin/opt -load /home/nico/taffo/taffo-install/lib/Taffo.so --load-pass-plugin=/home/nico/taffo/taffo-install/lib/Taffo.so --passes=no-op-module,typededucer                     --stats --debug-only=tda,taffo-common,taffo-typededucer   -temp-dir=./taffo_temp -S -o ./taffo_temp/correlation-taffo.1.taffotmp.ll ./taffo_temp/correlation-taffo.0.taffotmp.ll
 /home/nico/llvm/llvm-18-install/bin/opt -load /home/nico/taffo/taffo-install/lib/Taffo.so --load-pass-plugin=/home/nico/taffo/taffo-install/lib/Taffo.so --passes=no-op-module,taffoinit                       --stats --debug-only=taffo-common,taffo-init              -temp-dir=./taffo_temp -S -o ./taffo_temp/correlation-taffo.2.taffotmp.ll ./taffo_temp/correlation-taffo.1.taffotmp.ll
