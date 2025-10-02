@@ -16,7 +16,7 @@ if __name__ == "__main__":
         sys.executable,
         str(runner_path),
         "-tests-dir", str(test_dir),
-        "-common-args", "-O3 -DM=1 -fno-vectorize -fno-slp-vectorize",
+        "-common-args", "-O3 -DM=1 -fno-vectorize -fno-slp-vectorize -I../../include",
         *sys.argv[1:]
     ]
     result = subprocess.run(cmd)
