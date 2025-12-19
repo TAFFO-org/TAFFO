@@ -4,6 +4,7 @@
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
+#include <llvm/IR/Module.h>
 
 #define DEBUG_TYPE "taffo-common"
 #define TAFFO_GLOBAL_ID_LIST_METADATA "taffo.globalIds"

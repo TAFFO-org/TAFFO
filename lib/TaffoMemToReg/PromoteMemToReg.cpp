@@ -363,6 +363,21 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
   }
 }
 
+// llvm code used for isKnownNonZero
+static const Instruction *safeCxtI(const Value *V, const Instruction *CxtI) {
+  // If we've been provided with a context instruction, then use that (provided
+  // it has been inserted).
+  if (CxtI && CxtI->getParent())
+    return CxtI;
+
+  // If the value is really an already-inserted instruction, then use that.
+  CxtI = dyn_cast<Instruction>(V);
+  if (CxtI && CxtI->getParent())
+    return CxtI;
+
+  return nullptr;
+}
+
 /// Rewrite as many loads as possible given a single store.
 ///
 /// When there is only a single store, we can use the domtree to trivially
@@ -424,8 +439,23 @@ static bool rewriteSingleStoreAlloca(
     // If the load was marked as nonnull we don't want to lose
     // that information when we erase this Load. So we preserve
     // it with an assume.
-    if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
-      addAssumeNonNull(AC, LI);
+
+
+#if (LLVM_VERSION_MAJOR == 18)
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+          && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
+                addAssumeNonNull(AC, LI);
+#elif (LLVM_VERSION_MAJOR == 19)
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+          && !isKnownNonZero(ReplVal,
+                             SimplifyQuery(DL, &DT, AC,
+                                           safeCxtI(ReplVal, LI),
+                                           true), 0))
+                addAssumeNonNull(AC, LI);
+#else
+#error unsupported llvm version
+#endif
+
 
     propagateTaffoInfo(*LI, *ReplVal);
     LI->replaceAllUsesWith(ReplVal);
@@ -522,8 +552,25 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
       // Note, if the load was marked as nonnull we don't want to lose that
       // information when we erase it. So we preserve it with an assume.
       Value* ReplVal = std::prev(I)->second->getOperand(0);
-      if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
-        addAssumeNonNull(AC, LI);
+
+
+#if (LLVM_VERSION_MAJOR == 18)
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+          && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
+                addAssumeNonNull(AC, LI);
+#elif (LLVM_VERSION_MAJOR == 19)
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+          && !isKnownNonZero(ReplVal,
+                             SimplifyQuery(DL, &DT, AC,
+                                           safeCxtI(ReplVal, LI),
+                                           true), 0))
+                addAssumeNonNull(AC, LI);
+#else
+#error unsupported llvm version        
+#endif
+
+
+
 
       // If the replacement value is the load, this must occur in unreachable
       // code.
@@ -974,9 +1021,22 @@ NextIteration:
       // If the load was marked as nonnull we don't want to lose
       // that information when we erase this Load. So we preserve
       // it with an assume.
-      if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(V, SQ.DL, 0, AC, LI, &DT))
-        addAssumeNonNull(AC, LI);
 
+#if (LLVM_VERSION_MAJOR == 18)
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+          && !isKnownNonZero(V, SQ.DL, 0, AC, LI, &DT))
+                addAssumeNonNull(AC, LI);
+#elif (LLVM_VERSION_MAJOR == 19)
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+          && !isKnownNonZero(V,
+                             SimplifyQuery(SQ.DL, &DT, AC,
+                                           safeCxtI(V, LI),
+                                           true), 0))
+                addAssumeNonNull(AC, LI);
+#else
+#error unsupported llvm version        
+#endif
+      
       // Anything using the load now uses the current value.
       propagateTaffoInfo(*LI, *V);
       LI->replaceAllUsesWith(V);

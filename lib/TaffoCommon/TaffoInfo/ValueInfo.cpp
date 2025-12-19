@@ -2,6 +2,7 @@
 #include "ValueInfo.hpp"
 
 #include <llvm/IR/Constants.h>
+#include <llvm/Support/CommandLine.h>
 
 using namespace llvm;
 using namespace tda;

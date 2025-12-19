@@ -7,6 +7,8 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/CommandLine.h>
 
 extern llvm::cl::opt<std::string> tempDir;
 #define TYPE_DEDUCER_TAFFO_INFO (tempDir + "/taffo_info_typededucer.json")

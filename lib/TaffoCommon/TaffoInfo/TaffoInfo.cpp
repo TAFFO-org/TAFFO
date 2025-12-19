@@ -72,7 +72,8 @@ void TaffoInfo::addStartingPoint(Function& f) {
 }
 
 void TaffoInfo::addDefaultStartingPoint(Module& m) {
-  auto main = find_if(m.functions(), [](Function& f) { return f.getName().equals("main"); });
+  auto main = find_if(m.functions(), [](Function& f) { return f.getName() == "main"; });
+ 
   if (main != m.end())
     addStartingPoint(*main);
 }
