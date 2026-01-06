@@ -445,7 +445,7 @@ static bool rewriteSingleStoreAlloca(
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
           && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
                 addAssumeNonNull(AC, LI);
-#elif (LLVM_VERSION_MAJOR == 19)
+#elif (LLVM_VERSION_MAJOR >= 19)
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
           && !isKnownNonZero(ReplVal,
                              SimplifyQuery(DL, &DT, AC,
@@ -558,7 +558,7 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
           && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
                 addAssumeNonNull(AC, LI);
-#elif (LLVM_VERSION_MAJOR == 19)
+#elif (LLVM_VERSION_MAJOR >= 19)
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
           && !isKnownNonZero(ReplVal,
                              SimplifyQuery(DL, &DT, AC,
@@ -1026,7 +1026,7 @@ NextIteration:
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
           && !isKnownNonZero(V, SQ.DL, 0, AC, LI, &DT))
                 addAssumeNonNull(AC, LI);
-#elif (LLVM_VERSION_MAJOR == 19)
+#elif (LLVM_VERSION_MAJOR >= 19)
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
           && !isKnownNonZero(V,
                              SimplifyQuery(SQ.DL, &DT, AC,
