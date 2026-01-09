@@ -72,7 +72,8 @@ void TaffoInfo::addStartingPoint(Function& f) {
 }
 
 void TaffoInfo::addDefaultStartingPoint(Module& m) {
-  auto main = find_if(m.functions(), [](Function& f) { return f.getName().equals("main"); });
+  auto main = find_if(m.functions(), [](Function& f) { return f.getName() == "main"; });
+ 
   if (main != m.end())
     addStartingPoint(*main);
 }
@@ -194,6 +195,8 @@ Type* TaffoInfo::getType(const std::string& typeId) const {
 void TaffoInfo::eraseValue(Value* v) {
   if (auto* f = dyn_cast<Function>(v)) {
     SmallPtrSet<Value*, 32> childValues;
+    for (BasicBlock& bb : *f)
+      childValues.insert(&bb);
     for (Instruction& inst : instructions(f))
       childValues.insert(&inst);
     for (Argument& arg : f->args())
@@ -207,8 +210,10 @@ void TaffoInfo::eraseValue(Value* v) {
 
   if (auto* i = dyn_cast<Instruction>(v))
     i->removeFromParent();
-  if (auto* bb = dyn_cast<BasicBlock>(v))
+  if (auto* bb = dyn_cast<BasicBlock>(v)) {
+    BranchInst::Create(bb, bb); // reinserts debug records
     bb->removeFromParent();
+  }
   if (auto* gv = dyn_cast<GlobalValue>(v))
     gv->removeFromParent();
   if (User* u = dyn_cast<User>(v))
@@ -282,7 +287,7 @@ void TaffoInfo::eraseLoop(Loop* l) {
 }
 
 void TaffoInfo::deleteErasedValues() {
-  for (Value* value : erasedValues)
+  for (Value* value : erasedValues) {
     if (auto* gv = dyn_cast<GlobalVariable>(value))
       delete gv; // For some unexplained reason GlobalVariable can only be deleted via direct destructor
                  // NB Only the direct destructor of GlobalVariable is public all the others destructors are private
@@ -294,9 +299,9 @@ void TaffoInfo::deleteErasedValues() {
     else if (auto* constant = dyn_cast<Constant>(value)) {
       if (!constant->use_empty())
         constant->replaceAllUsesWith(UndefValue::get(constant->getType()));
-    }
-    else
+    } else
       value->deleteValue();
+  }
   erasedValues.clear();
 }
 
