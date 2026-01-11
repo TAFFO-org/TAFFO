@@ -49,13 +49,10 @@ jobs:
           max-size: 500M
           key: sccache-ubuntu-latest
           variant: sccache
-          
+
       - name: Fetch LLVM
         if: steps.llvm-cache.outputs.cache-hit != 'true'
-        uses: llvm/actions/get-llvm-project-src/@main
-        with:
-          ref: 3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff
-          repo: llvm/llvm-project
+        run: git clone https://github.com/llvm/llvm-project.git --branch llvmorg-18.1.8 --depth 1 --single-branch /home/runner/llvm
 
       - name: Build and Test
         if: steps.llvm-cache.outputs.cache-hit != 'true'
