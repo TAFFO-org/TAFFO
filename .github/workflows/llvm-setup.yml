@@ -52,7 +52,7 @@ jobs:
 
       - name: Fetch LLVM
         if: steps.llvm-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/llvm/llvm-project.git --branch llvmorg-18.1.8 --depth 1 --single-branch /home/runner/llvm
+        run: git clone https://github.com/llvm/llvm-project.git --branch release/18.x --depth 1 --single-branch /home/runner/llvm
 
       - name: Build and Test
         if: steps.llvm-cache.outputs.cache-hit != 'true'
@@ -61,7 +61,7 @@ jobs:
           # This should be a no-op for non-mac OSes
           PKG_CONFIG_PATH: /usr/local/Homebrew/Library/Homebrew/os/mac/pkgconfig//12
         run: |
-          cmake -S llvm -B build -GNinja -DCMAKE_INSTALL_PREFIX="$HOME/llvm" -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_BUILD_TYPE=Release -DLLDB_INCLUDE_TESTS=OFF -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake -S llvm -B build -GNinja -DCMAKE_INSTALL_PREFIX="/home/runner/llvm" -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_BUILD_TYPE=Release -DLLDB_INCLUDE_TESTS=OFF -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           cmake --build build -j $(nproc) -- install
 
       - name: Cache
