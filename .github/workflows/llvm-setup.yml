@@ -52,7 +52,10 @@ jobs:
 
       - name: Fetch LLVM
         if: steps.llvm-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/llvm/llvm-project.git --branch release/18.x --depth 1 --single-branch /home/runner/llvm
+        run: |
+          wget https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-18.1.8.tar.gz
+          mkdir -p /home/runner/llvm
+          tar xzf llvmorg-18.1.8.tar.gz -C /home/runner/llvm --strip-components=1
 
       - name: Build and Test
         if: steps.llvm-cache.outputs.cache-hit != 'true'
