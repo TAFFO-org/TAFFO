@@ -10,63 +10,66 @@ on:
 
 jobs:
   build_and_test_Taffo:
-    # The CMake configure and build commands are platform-agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        llvm_version: [18, 19]
+
     container:
-      image: docker.io/ledmington/taffo-deps:llvm18.1.8
+      image: docker.io/ledmington/taffo-deps:llvm${{ matrix.llvm_version }}
+
+    env:
+      LLVM_INSTALL_DIR=/opt/llvm-${{ matrix.llvm_version }}
 
     steps:
+      - name: Install git
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git
 
-    - name: Install git
-      run: |
-        apt-get update
-        apt-get install -y --no-install-recommends git
+      - uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
-    - uses: actions/checkout@v6.0.2
-      with:
-        submodules: recursive
+      - name: Dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            gcc \
+            g++ \
+            ninja-build \
+            python3 \
+            python3-pip \
+            python3-venv \
+            protobuf-compiler \
+            lsb-release \
+            clang-format-19
 
-    - name: Dependencies
-      run: |
-        apt-get update
-        apt-get install -y --no-install-recommends \
-          gcc \
-          g++ \
-          ninja-build \
-          python3 \
-          python3-pip \
-          python3-venv \
-          protobuf-compiler \
-          lsb-release \
-          clang-format-19
+      - name: Python Dependencies
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt
 
-    - name: Python Dependencies
-      run: |
-        cd ${GITHUB_WORKSPACE}
-        python3 -m venv .venv
-        . .venv/bin/activate
-        pip install -r requirements.txt
+      - name: Configure CMake
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          cmake -S ${GITHUB_WORKSPACE} -B ${GITHUB_WORKSPACE}/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DLLVM_DIR=${LLVM_INSTALL_DIR}
 
-    - name: Configure CMake
-      run: |
-        cd ${GITHUB_WORKSPACE}
-        cmake -S ${GITHUB_WORKSPACE} -B ${GITHUB_WORKSPACE}/build -G Ninja \
-          -DCMAKE_BUILD_TYPE=Debug \
-          -DLLVM_DIR=/opt/llvm-18
+      - name: Build
+        run: |
+          cmake --build ${GITHUB_WORKSPACE}/build -j $(nproc) -- all
+          cmake --build ${GITHUB_WORKSPACE}/build -- install
 
-    - name: Build
-      # Build your program with the given configuration
-      run: |
-        cmake --build ${GITHUB_WORKSPACE}/build -j $(nproc) -- all
-        cmake --build ${GITHUB_WORKSPACE}/build -- install
-
-    - name: Test
-      env:
-        LD_LIBRARY_PATH: /opt/or-tools/lib:/opt/llvm-18/lib
-      run: |
-        cd ${GITHUB_WORKSPACE}
-        . .venv/bin/activate
-        ctest --test-dir ${GITHUB_WORKSPACE}/build -j $(nproc) --output-on-failure --timeout 3600
+      - name: Test
+        env:
+          LD_LIBRARY_PATH: /opt/or-tools/lib:${LLVM_INSTALL_DIR}/lib
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          . .venv/bin/activate
+          ctest --test-dir ${GITHUB_WORKSPACE}/build -j $(nproc) --output-on-failure --timeout 3600
