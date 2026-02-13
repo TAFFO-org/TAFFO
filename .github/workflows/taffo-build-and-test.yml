@@ -21,7 +21,7 @@ jobs:
       image: docker.io/ledmington/taffo-deps:llvm${{ matrix.llvm_version }}
 
     env:
-      LLVM_INSTALL_DIR=/opt/llvm-${{ matrix.llvm_version }}
+      LLVM_INSTALL_DIR: /opt/llvm-${{ matrix.llvm_version }}
 
     steps:
       - name: Install git
