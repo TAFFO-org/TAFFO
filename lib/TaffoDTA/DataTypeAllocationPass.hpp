@@ -102,7 +102,7 @@ private:
   }
 
   std::shared_ptr<DtaValueInfo> getOrCreateDtaValueInfo(llvm::Value* value) {
-    if (info.contains(value))
+    if (info.find(value) != info.end())
       return info[value];
     return createDtaValueInfo(value);
   }

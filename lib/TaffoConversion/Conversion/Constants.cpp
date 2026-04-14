@@ -242,7 +242,7 @@ Constant* ConversionPass::convertConstantExpr(ConstantExpr* constantExpr,
                                               const ConvTypePolicy& policy,
                                               std::unique_ptr<ConversionType>* resConvType) {
   if (isa<GEPOperator>(constantExpr)) {
-    Value* newValue = convertedValues.at(constantExpr->getOperand(0));
+    Value* newValue = convertedValues.find(constantExpr->getOperand(0))->second;
 
     auto* newConstant = dyn_cast<Constant>(newValue);
     if (!newConstant)

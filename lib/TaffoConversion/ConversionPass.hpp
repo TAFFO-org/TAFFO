@@ -76,7 +76,9 @@ private:
   llvm::DenseMap<llvm::Function*, llvm::Function*> functionPool;
   llvm::DenseMap<llvm::PHINode*, PhiInfo> phiNodeInfo;
 
-  bool hasConvertedValue(const llvm::Value* value) const { return convertedValues.contains(value); }
+  bool hasConvertedValue(const llvm::Value* value) const {
+    return convertedValues.find(value) != convertedValues.end();
+  }
 
   void buildGlobalConvInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
   void buildLocalConvInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argsOnly = false);

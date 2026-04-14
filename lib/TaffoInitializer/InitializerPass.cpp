@@ -134,7 +134,7 @@ void InitializerPass::propagateInfo() {
       }
     }
     for (CallBase* call : calls)
-      if (!handledCalls.contains(call))
+      if (handledCalls.find(call) == handledCalls.end())
         cloneFunctionForCall(call);
   }
   LLVM_DEBUG(log().logln("[Propagation completed]", Logger::Blue));
@@ -256,7 +256,7 @@ void InitializerPass::cloneFunctionForCall(CallBase* call) {
     }
   }
 
-  assert(!handledCalls.contains(call) && "Call already handled");
+  assert(handledCalls.find(call) == handledCalls.end() && "Call already handled");
   const auto newName = oldF->getName() + "_clone" + std::to_string(taffoInfo.getNumCloneFunctions(*oldF));
   Function* newF = Function::Create(oldF->getFunctionType(), oldF->getLinkage(), newName, oldF->getParent());
   call->setCalledFunction(newF);
