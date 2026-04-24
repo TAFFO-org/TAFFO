@@ -123,7 +123,11 @@ bool taffo::isAllocaPromotable(const AllocaInst* allocaInst) {
 namespace {
 
 struct AllocaInfo {
+#if LLVM_VERSION_MAJOR < 22
   using DbgUserVec = SmallVector<DbgVariableIntrinsic*, 1>;
+#else
+  using DbgUserVec = SmallVector<DbgVariableRecord*, 1>;
+#endif
 
   SmallVector<BasicBlock*, 32> DefiningBlocks;
   SmallVector<BasicBlock*, 32> UsingBlocks;
@@ -141,7 +145,7 @@ struct AllocaInfo {
     OnlyBlock = nullptr;
     OnlyUsedInOneBlock = true;
     DbgUsers.clear();
-  }
+  } // namespace
 
   /// Scan the uses of the specified alloca, filling in the AllocaInfo used
   /// by the rest of the pass to reason about the uses of this alloca.
@@ -174,7 +178,15 @@ struct AllocaInfo {
       }
     }
 
+#if LLVM_VERSION_MAJOR < 22
     findDbgUsers(DbgUsers, AI);
+#else
+    findDbgUsers(AI, DbgUsers);
+    DbgUsers.erase(std::remove_if(DbgUsers.begin(),
+                                  DbgUsers.end(),
+                                  [AI](const DbgVariableRecord* DVR) { return DVR->getValue() == AI; }),
+                   DbgUsers.end());
+#endif
   }
 };
 
@@ -464,6 +476,7 @@ static bool rewriteSingleStoreAlloca(
 
   // Record debuginfo for the store and remove the declaration's
   // debuginfo.
+#if LLVM_VERSION_MAJOR < 22
   for (DbgVariableIntrinsic* DII : Info.DbgUsers) {
     if (DII->isAddressOfVariable()) {
       DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
@@ -474,6 +487,18 @@ static bool rewriteSingleStoreAlloca(
       TaffoInfo::getInstance().eraseValue(DII);
     }
   }
+#else
+  for (DbgVariableRecord* DVR : Info.DbgUsers) {
+    if (DVR->isAddressOfVariable()) {
+      DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
+      ConvertDebugDeclareToDebugValue(DVR, Info.OnlyStore, DIB);
+      TaffoInfo::getInstance().eraseValue(DVR->getValue());
+    }
+    else if (DVR->getExpression()->startsWithDeref()) {
+      TaffoInfo::getInstance().eraseValue(DVR->getValue());
+    }
+  }
+#endif
   // Remove the (now dead) store and alloca.
   TaffoInfo::getInstance().eraseValue(Info.OnlyStore);
   LBI.deleteValue(Info.OnlyStore);
@@ -576,12 +601,21 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
   while (!AI->use_empty()) {
     auto* SI = cast<StoreInst>(AI->user_back());
     // Record debuginfo for the store before removing it.
+#if LLVM_VERSION_MAJOR < 22
     for (DbgVariableIntrinsic* DII : Info.DbgUsers) {
       if (DII->isAddressOfVariable()) {
         DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
         ConvertDebugDeclareToDebugValue(DII, SI, DIB);
       }
     }
+#else
+    for (DbgVariableRecord* DVR : Info.DbgUsers) {
+      if (DVR->isAddressOfVariable()) {
+        DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
+        ConvertDebugDeclareToDebugValue(DVR, SI, DIB);
+      }
+    }
+#endif
     TaffoInfo::getInstance().eraseValue(SI);
     LBI.deleteValue(SI);
   }
@@ -589,9 +623,15 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
   TaffoInfo::getInstance().eraseValue(AI);
 
   // The alloca's debuginfo can be removed as well.
+#if LLVM_VERSION_MAJOR < 22
   for (DbgVariableIntrinsic* DII : Info.DbgUsers)
     if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
       TaffoInfo::getInstance().eraseValue(DII);
+#else
+  for (DbgVariableRecord* DVR : Info.DbgUsers)
+    if (DVR->isAddressOfVariable() || DVR->getExpression()->startsWithDeref())
+      TaffoInfo::getInstance().eraseValue(DVR->getValue());
+#endif
 
   ++NumLocalPromoted;
   return true;
@@ -729,9 +769,15 @@ void PromoteMemToReg::run() {
 
   // Remove alloca's dbg.declare instrinsics from the function.
   for (auto& DbgUsers : AllocaDbgUsers) {
+#if LLVM_VERSION_MAJOR < 22
     for (auto* DII : DbgUsers)
       if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
         TaffoInfo::getInstance().eraseValue(DII);
+#else
+    for (auto* DVR : DbgUsers)
+      if (DVR->isAddressOfVariable() || DVR->getExpression()->startsWithDeref())
+        TaffoInfo::getInstance().eraseValue(DVR->getValue());
+#endif
   }
 
   // Loop over all of the PHI nodes and see if there are any that we can get
@@ -970,9 +1016,15 @@ NextIteration:
 
         // The currently active variable for this block is now the PHI.
         IncomingVals[AllocaNo] = APN;
+#if LLVM_VERSION_MAJOR < 22
         for (DbgVariableIntrinsic* DII : AllocaDbgUsers[AllocaNo])
           if (DII->isAddressOfVariable())
             ConvertDebugDeclareToDebugValue(DII, APN, DIB);
+#else
+        for (DbgVariableRecord* DVR : AllocaDbgUsers[AllocaNo])
+          if (DVR->isAddressOfVariable())
+            ConvertDebugDeclareToDebugValue(DVR, APN, DIB);
+#endif
 
         // Get the next phi node.
         ++PNI;
@@ -1042,9 +1094,15 @@ NextIteration:
 
       // Record debuginfo for the store before removing it.
       IncomingLocs[AllocaNo] = SI->getDebugLoc();
+#if LLVM_VERSION_MAJOR < 22
       for (DbgVariableIntrinsic* DII : AllocaDbgUsers[ai->second])
         if (DII->isAddressOfVariable())
           ConvertDebugDeclareToDebugValue(DII, SI, DIB);
+#else
+      for (DbgVariableRecord* DVR : AllocaDbgUsers[ai->second])
+        if (DVR->isAddressOfVariable())
+          ConvertDebugDeclareToDebugValue(DVR, SI, DIB);
+#endif
       TaffoInfo::getInstance().eraseValue(SI);
     }
   }
