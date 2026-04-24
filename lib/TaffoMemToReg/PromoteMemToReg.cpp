@@ -1,5 +1,6 @@
 #include "Debug/Logger.hpp"
 #include "PromoteMemToReg.hpp"
+#include "TaffoCommon/AliasUtils.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/ADT/ArrayRef.h>
@@ -321,7 +322,7 @@ private:
 
 /// Given a LoadInst LI this adds assume(LI != null) after it.
 static void addAssumeNonNull(AssumptionCache* AC, LoadInst* LI) {
-  Function* AssumeIntrinsic = Intrinsic::getDeclaration(LI->getModule(), Intrinsic::assume);
+  Function* AssumeIntrinsic = aliasUtils::Intrinsic::getOrInsertDeclaration(LI->getModule(), Intrinsic::assume, {});
   auto* LoadNotNull = new ICmpInst(ICmpInst::ICMP_NE, LI, Constant::getNullValue(LI->getType()));
   LoadNotNull->insertAfter(LI);
   CallInst* CI = CallInst::Create(AssumeIntrinsic, {LoadNotNull});
