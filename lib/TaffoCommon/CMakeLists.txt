@@ -20,6 +20,7 @@ add_llvm_library(${SELF} STATIC
   SerializationUtils.cpp
   MemSSAUtils.cpp
   MemSSAUtils.hpp
+  AliasUtils.hpp
 )
 target_include_directories(${SELF} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${SELF} PUBLIC

@@ -1,4 +1,5 @@
 #include "../ConversionPass.hpp"
+#include "TaffoCommon/AliasUtils.hpp"
 #include "TransparentType.hpp"
 
 #include <llvm/IR/IRBuilder.h>
@@ -68,9 +69,10 @@ Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
       Type* newLLVMType = newConvType->toScalarLLVMType(call->getContext());
       Function* newIntrinsic;
       if (family == FMA)
-        newIntrinsic = Intrinsic::getDeclaration(call->getModule(), Intrinsic::fma, newLLVMType);
+        newIntrinsic = aliasUtils::Intrinsic::getOrInsertDeclaration(call->getModule(), Intrinsic::fma, newLLVMType);
       else
-        newIntrinsic = Intrinsic::getDeclaration(call->getModule(), Intrinsic::fmuladd, newLLVMType);
+        newIntrinsic =
+          aliasUtils::Intrinsic::getOrInsertDeclaration(call->getModule(), Intrinsic::fmuladd, newLLVMType);
       Value* res =
         builder.CreateCall(newIntrinsic->getFunctionType(), newIntrinsic, {newOperand1, newOperand2, newOperand3});
       setConversionResultInfo(res, call, newConvType);

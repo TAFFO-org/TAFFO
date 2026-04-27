@@ -1,5 +1,6 @@
 #include "Debug/Logger.hpp"
 #include "OpenCLKernelPatcher.hpp"
+#include "TaffoCommon/AliasUtils.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 
 #include <llvm/ADT/SmallVector.h>
@@ -112,7 +113,7 @@ void createOpenCLKernelTrampoline(Module& M, Function& KernF) {
   /* Do the dirty job and simulate clang... */
   SmallVector<AllocaInst*, 8> Allocas;
   IRBuilder<> Builder(TheBB);
-  Function* AnnoFun = Intrinsic::getDeclaration(&M, Intrinsic::var_annotation);
+  Function* AnnoFun = aliasUtils::Intrinsic::getOrInsertDeclaration(&M, Intrinsic::var_annotation, {});
   for (unsigned ArgId = 0; ArgId < NewF->arg_size(); ArgId++) {
     Argument* Arg = NewF->getArg(ArgId);
     AllocaInst* Alloca = Builder.CreateAlloca(Arg->getType());
