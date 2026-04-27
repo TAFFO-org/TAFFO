@@ -177,7 +177,11 @@ std::shared_ptr<taffo::Range> VRAnalyzer::extractDeltaFromPhiValue(const llvm::P
   if (auto *CB = llvm::dyn_cast<llvm::CallBase>(Next)) {
     if (auto *F = CB->getCalledFunction()) {
       llvm::StringRef Name = F->getName();
+#if LLVM_VERSION_MAJOR <= 15
+      if (Name.startswith("llvm.fmuladd")) {
+#else
       if (Name.starts_with("llvm.fmuladd")) {
+#endif
         if (CB->arg_size() == 3) {
           const llvm::Value* a = CB->getArgOperand(0);
           const llvm::Value* b = CB->getArgOperand(1);
@@ -227,7 +231,11 @@ std::shared_ptr<Range> VRAnalyzer::extractDeltaFromStoreValue(const Value* Store
   // case: llvm.fmuladd(a,b,c)  and c == old
   if (auto *CB = dyn_cast<CallBase>(StoreVal)) {
     if (auto *F = CB->getCalledFunction()) {
+#if LLVM_VERSION_MAJOR <= 15
+      if (F->getName() == "llvm.fmuladd.f32" || F->getName().startswith("llvm.fmuladd")) {
+#else
       if (F->getName() == "llvm.fmuladd.f32" || F->getName().starts_with("llvm.fmuladd")) {
+#endif
         const Value* a = CB->getArgOperand(0);
         const Value* b = CB->getArgOperand(1);
         const Value* c = CB->getArgOperand(2);

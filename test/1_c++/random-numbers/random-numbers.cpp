@@ -8,8 +8,8 @@
 
 int main() {
   std::mt19937 gen(0);
-  std::uniform_real_distribution distA(-3000.0, 3000.0);
-  std::uniform_real_distribution distB(-10.0, 10.0);
+  std::uniform_real_distribution<double> distA(-3000.0, 3000.0);
+  std::uniform_real_distribution<double> distB(-10.0, 10.0);
 
   std::cout << "Values Begin\n";
   for (std::size_t i = 0; i < ITERATIONS; i++) {

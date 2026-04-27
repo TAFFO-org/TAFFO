@@ -53,7 +53,11 @@ private:
 
   bool isSpecialFunction(const llvm::Function* f) {
     llvm::StringRef fName = f->getName();
+#if LLVM_VERSION_MAJOR <= 15
+    return fName.startswith("llvm.") || f->empty();
+#else
     return fName.starts_with("llvm.") || f->empty();
+#endif
   }
 };
 

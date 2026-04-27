@@ -28,7 +28,14 @@ bool containsUnsupportedFunction(const Function* function, std::unordered_set<Fu
     if (auto call = dyn_cast<CallInst>(&inst)) {
       Function* calledFunction = call->getCalledFunction();
       auto funName = calledFunction->getName();
-      if (any_of(prefixBlocklist, [&](const std::string& prefix) { return funName.starts_with(prefix); }))
+      const auto anyPred = [&](const std::string& prefix) {
+#if LLVM_VERSION_MAJOR <= 15
+        return funName.startswith(prefix);
+#else
+        return funName.starts_with(prefix);
+#endif
+      };
+      if (any_of(prefixBlocklist, anyPred))
         return true;
       if (!visitedFunctions.contains(calledFunction)) {
         visitedFunctions.insert(calledFunction);
