@@ -74,7 +74,7 @@ llvm_ver_maj=${llvm_ver%%.*}
 
 compat_flags_clang=
 compat_flags_opt=
-if [[ $llvm_ver_maj -eq 15 ]]; then
+if [[ $llvm_ver_maj -eq 14 ]]; then
   compat_flags_clang='-Xclang -no-opaque-pointers'
   compat_flags_opt='-opaque-pointers=0'
 fi
