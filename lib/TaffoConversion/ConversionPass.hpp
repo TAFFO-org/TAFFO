@@ -205,7 +205,13 @@ private:
 
   /** Returns if a function is a library function which shall not be cloned.
    *  @param f The function to check */
-  bool isSpecialFunction(const llvm::Function* f) { return f->getName().starts_with("llvm.") || f->empty(); }
+  bool isSpecialFunction(const llvm::Function* f) {
+#if LLVM_VERSION_MAJOR <= 15
+    return f->getName().startswith("llvm.") || f->empty();
+#else
+    return f->getName().starts_with("llvm.") || f->empty();
+#endif
+  }
 
   llvm::Value* getConvertedOperand(llvm::Value* value,
                                    const ConversionType& convType,
