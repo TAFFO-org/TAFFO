@@ -31,7 +31,7 @@ void ConversionPass::convertIndirectCalls() {
 }
 
 void ConversionPass::handleKmpcFork(CallBase* trampolineCall, Function* indirectFunction) {
-  auto* convertedCall = cast<CallBase>(convertedValues.at(trampolineCall));
+  auto* convertedCall = cast<CallBase>(convertedValues.find(trampolineCall)->second);
 
   // Get converted microtask
   Function* convertedTrampolineFun = convertedCall->getCalledFunction();

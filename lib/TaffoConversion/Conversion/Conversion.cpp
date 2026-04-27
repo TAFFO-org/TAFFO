@@ -70,7 +70,7 @@ void ConversionPass::performConversion(const std::vector<Value*>& queue) {
 Value* ConversionPass::convert(Value* value, std::unique_ptr<ConversionType>* resConvType) {
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(value);
   if (valueConvInfo->isArgumentPlaceholder)
-    return convertedValues.at(value);
+    return convertedValues.find(value)->second;
 
   if (auto* constant = dyn_cast<Constant>(value))
     return convertConstant(constant, *valueConvInfo->getNewOrOldType(), ConvTypePolicy::RangeOverHint, resConvType);

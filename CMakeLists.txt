@@ -20,7 +20,7 @@ include(AddLLVM)
 include(LLVMConfig)
 include(HandleLLVMOptions)
 
-if((${LLVM_VERSION_MAJOR} LESS 17) OR (${LLVM_VERSION_MAJOR} GREATER 21))
+if((${LLVM_VERSION_MAJOR} LESS 16) OR (${LLVM_VERSION_MAJOR} GREATER 21))
   message(FATAL_ERROR
     " LLVM version ${LLVM_VERSION_MAJOR} is not supported!\n"
     " LLVM found at path: ${LLVM_DIR}")

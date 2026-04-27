@@ -73,7 +73,7 @@ void TaffoInfo::addStartingPoint(Function& f) {
 
 void TaffoInfo::addDefaultStartingPoint(Module& m) {
   auto main = find_if(m.functions(), [](Function& f) { return f.getName() == "main"; });
- 
+
   if (main != m.end())
     addStartingPoint(*main);
 }
@@ -93,7 +93,9 @@ Function* TaffoInfo::getIndirectFunction(const CallBase& trampolineCall) const {
 
 const SmallDenseMap<CallBase*, Function*>& TaffoInfo::getIndirectFunctions() const { return indirectFunctions; }
 
-bool TaffoInfo::isTrampolineCall(const CallBase& call) const { return indirectFunctions.contains(&call); }
+bool TaffoInfo::isTrampolineCall(const CallBase& call) const {
+  return indirectFunctions.find(&call) != indirectFunctions.end();
+}
 
 void TaffoInfo::setOpenCLTrampoline(Function& f, Function& kernF) { oclTrampolines[&f] = &kernF; }
 
@@ -102,7 +104,7 @@ Function* TaffoInfo::getOpenCLTrampoline(const Function& f) const {
   return iter != oclTrampolines.end() ? iter->second : nullptr;
 }
 
-bool TaffoInfo::isOpenCLTrampoline(const Function& f) const { return oclTrampolines.contains(&f); }
+bool TaffoInfo::isOpenCLTrampoline(const Function& f) const { return oclTrampolines.find(&f) != oclTrampolines.end(); }
 
 ValueInfo* TaffoInfo::createValueInfo(Value& v) { return (valueInfo[&v] = ValueInfoFactory::create(&v)).get(); }
 
@@ -116,7 +118,7 @@ std::shared_ptr<ValueInfo> TaffoInfo::getValueInfo(const Value& v) const {
   return iter->second;
 }
 
-bool TaffoInfo::hasValueInfo(const Value& v) const { return valueInfo.contains(&v); }
+bool TaffoInfo::hasValueInfo(const Value& v) const { return valueInfo.find(&v) != valueInfo.end(); }
 
 void TaffoInfo::setValueWeight(Value& v, int weight) { valueWeights[&v] = weight; }
 
@@ -144,17 +146,22 @@ unsigned TaffoInfo::getNumCloneFunctions(const Function& originalF) const {
   return 0;
 }
 
-bool TaffoInfo::isOriginalFunction(const Function& f) const { return originalToCloneFunctions.contains(&f); }
+bool TaffoInfo::isOriginalFunction(const Function& f) const {
+  return originalToCloneFunctions.find(&f) != originalToCloneFunctions.end();
+}
 
-bool TaffoInfo::isCloneFunction(Function& f) const { return cloneToOriginalFunction.contains(&f); }
+bool TaffoInfo::isCloneFunction(Function& f) const {
+  return cloneToOriginalFunction.find(&f) != cloneToOriginalFunction.end();
+}
 
 void TaffoInfo::setOriginalFunctionLinkage(Function& originalF, GlobalValue::LinkageTypes linkage) {
   originalFunctionLinkage[&originalF] = linkage;
 }
 
 GlobalValue::LinkageTypes TaffoInfo::getOriginalFunctionLinkage(const Function& originalF) const {
-  assert(originalFunctionLinkage.contains(&originalF) && "Original Function Linkage not inserted");
-  return originalFunctionLinkage.at(&originalF);
+  auto it = originalFunctionLinkage.find(&originalF);
+  assert(it != originalFunctionLinkage.end() && "Original Function Linkage not inserted");
+  return it->second;
 }
 
 void TaffoInfo::setMaxRecursionCount(Function& f, unsigned maxRecursion) { maxRecursionCount[&f] = maxRecursion; }
@@ -299,7 +306,8 @@ void TaffoInfo::deleteErasedValues() {
     else if (auto* constant = dyn_cast<Constant>(value)) {
       if (!constant->use_empty())
         constant->replaceAllUsesWith(UndefValue::get(constant->getType()));
-    } else
+    }
+    else
       value->deleteValue();
   }
   erasedValues.clear();

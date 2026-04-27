@@ -5,7 +5,6 @@ import shutil
 from pathlib import Path
 import subprocess
 import re
-from xxsubtype import bench
 
 import numpy as np
 import matplotlib.pyplot as plt

@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        llvm_version: [17, 18, 19, 20, 21]
+        llvm_version: [16, 17, 18, 19, 20, 21]
 
     container:
       image: docker.io/niccolon/taffo-deps:llvm${{ matrix.llvm_version }}
