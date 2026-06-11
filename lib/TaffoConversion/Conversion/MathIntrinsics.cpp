@@ -38,7 +38,7 @@ Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
-  TransparentType* type = taffoInfo.getOrCreateTransparentType(*call);
+  const TransparentType* type = taffoInfo.getOrCreateTransparentType(*call);
   auto* newConvType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
 
   Function* fun = call->getCalledFunction();
@@ -52,9 +52,9 @@ Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
 
     if (newConvType->isFixedPoint()) {
       auto* tmpFMul = cast<Instruction>(builder.CreateFMul(operand1, operand2));
-      taffoInfo.setTransparentType(*tmpFMul, type->clone());
+      taffoInfo.setTransparentType(*tmpFMul, type);
       auto* tmpFAdd = cast<Instruction>(builder.CreateFAdd(tmpFMul, operand3));
-      taffoInfo.setTransparentType(*tmpFAdd, type->clone());
+      taffoInfo.setTransparentType(*tmpFAdd, type);
       convertedValues[tmpFMul] = convertFMul(tmpFMul, *newConvType);
       return convertFAdd(tmpFAdd, *newConvType);
     }

@@ -23,14 +23,14 @@ Constant* ConversionPass::convertConstant(Constant* constant,
                                           const ConvTypePolicy& policy,
                                           std::unique_ptr<ConversionType>* resConvType) {
   if (isa<UndefValue>(constant)) {
-    TransparentType* newType = convType.toTransparentType();
-    auto* res = UndefValue::get(newType->toLLVMType());
+    const TransparentType* newType = convType.toTransparentType();
+    auto* res = UndefValue::get(const_cast<Type*>(newType->toLLVMType()));
     setConstantConversionResultInfo(res, constant, &convType, resConvType);
     return res;
   }
   if (isa<ConstantAggregateZero>(constant)) {
-    TransparentType* newType = convType.toTransparentType();
-    auto* res = ConstantAggregateZero::get(newType->toLLVMType());
+    const TransparentType* newType = convType.toTransparentType();
+    auto* res = ConstantAggregateZero::get(const_cast<Type*>(newType->toLLVMType()));
     setConstantConversionResultInfo(res, constant, &convType, resConvType);
     return res;
   }
@@ -54,8 +54,7 @@ Constant* ConversionPass::convertGlobalVariable(GlobalVariable* globalVariable,
                                                 const ConversionType& convType,
                                                 std::unique_ptr<ConversionType>* resConvType) {
   const TransparentType* newType = convType.toTransparentType()->getPointedType();
-  Type* newLLVMType = newType->toLLVMType();
-
+  Type* newLLVMType = const_cast<Type*>(newType->toLLVMType());
   Constant* initializer = globalVariable->getInitializer();
   Constant* newInitializer = nullptr;
   if (initializer && !initializer->isNullValue()) {
@@ -97,15 +96,15 @@ Constant* ConversionPass::convertConstantFloat(ConstantFP* floatConst,
     }
 
     convertAPFloat(floatConstantValue, fixedPointConstantValue, newConvType);
-    TransparentType* newType = newConvType.toTransparentType();
-    Type* newLLVMType = newType->toLLVMType();
+    const TransparentType* newType = newConvType.toTransparentType();
+    Type* newLLVMType = const_cast<Type*>(newType->toLLVMType());
     auto* res = ConstantInt::get(newLLVMType, fixedPointConstantValue);
     setConstantConversionResultInfo(res, floatConst, &newConvType, resConvType);
     return res;
   }
   if (convType.isFloatingPoint()) {
-    TransparentType* newType = convType.toTransparentType();
-    Type* newLLVMType = newType->toLLVMType();
+    const TransparentType* newType = convType.toTransparentType();
+    Type* newLLVMType = const_cast<Type*>(newType->toLLVMType());
     bool loosesInfo;
     floatConstantValue.convert(newLLVMType->getFltSemantics(), APFloatBase::rmTowardPositive, &loosesInfo);
     auto* res = ConstantFP::get(newLLVMType, floatConstantValue);
@@ -125,7 +124,7 @@ Constant* ConversionPass::convertConstantAggregate(ConstantAggregate* constantAg
     Constant* oldConst = constantAggregate->getOperand(i);
     Constant* newConst = nullptr;
     if (getFullyUnwrappedType(oldConst)->isFloatingPointTy()) {
-      TransparentType* oldType = taffoInfo.getOrCreateTransparentType(*oldConst);
+      const TransparentType* oldType = taffoInfo.getOrCreateTransparentType(*oldConst);
       std::unique_ptr<ConversionType> constConvType = convType.clone(*oldType);
       newConst = convertConstant(constantAggregate->getOperand(i), *constConvType, ConvTypePolicy::ForceHint);
     }
@@ -258,8 +257,9 @@ Constant* ConversionPass::convertConstantExpr(ConstantExpr* constantExpr,
     for (unsigned i = 1; i < constantExpr->getNumOperands(); i++)
       indices.push_back(constantExpr->getOperand(i));
 
-    TransparentType* newType = newConvType->toTransparentType();
-    auto* res = ConstantExpr::getInBoundsGetElementPtr(newType->toLLVMType(), newConstant, indices);
+    const TransparentType* newType = newConvType->toTransparentType();
+    Type* newLLVMType = const_cast<Type*>(newType->toLLVMType());
+    auto* res = ConstantExpr::getInBoundsGetElementPtr(newLLVMType, newConstant, indices);
     setConstantConversionResultInfo(res, constantExpr, newConvType.get(), resConvType);
     return res;
   }

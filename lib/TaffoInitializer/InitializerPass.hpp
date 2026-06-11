@@ -2,6 +2,7 @@
 
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "TaffoInfo/TaffoInitInfo.hpp"
+#include "TypeDispatcher.hpp"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/PassManager.h>
@@ -21,6 +22,7 @@ public:
 
 private:
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  tda::TypeDispatcher& dispatcher = tda::TypeDispatcher::getInstance();
   TaffoInitInfo taffoInitInfo;
   std::list<llvm::Value*> infoPropagationQueue;
   llvm::SmallPtrSet<llvm::Function*, 2> annotatedFunctions;

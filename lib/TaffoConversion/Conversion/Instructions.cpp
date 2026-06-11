@@ -40,7 +40,7 @@ Value* ConversionPass::convertInstruction(Instruction* inst) {
   };
   std::string sanitizedName = sanitizeValueName(inst);
 
-  ConversionType *forcedType =
+  ConversionType* forcedType =
     taffoConvInfo.getValueConvInfo(inst)->isTypeForced() ? taffoConvInfo.getNewOrOldType(inst) : nullptr;
 
   Value* res = unsupported;
@@ -109,7 +109,8 @@ Value* ConversionPass::convertInstruction(Instruction* inst) {
 
   if (forcedType) {
     LLVM_DEBUG(log().logln("Forcing type", Logger::Yellow));
-    Instruction* cnv = cast<Instruction>(getConvertedOperand(res, *forcedType, cast<Instruction>(res)->getNextNode(), ConvTypePolicy::ForceHint, nullptr));
+    Instruction* cnv = cast<Instruction>(
+      getConvertedOperand(res, *forcedType, cast<Instruction>(res)->getNextNode(), ConvTypePolicy::ForceHint, nullptr));
     res = cnv;
     setConversionResultInfo(res, inst, forcedType);
   }
@@ -129,7 +130,7 @@ Value* ConversionPass::convertAlloca(AllocaInst* alloca) {
     return alloca;
   }
 
-  Type* newAllocatedLLVMType = convType->toTransparentType()->getPointedType()->toLLVMType();
+  Type* newAllocatedLLVMType = const_cast<Type*>(convType->toTransparentType()->getPointedType()->toLLVMType());
 
   Value* arraySizeValue = alloca->getArraySize();
   Align align = alloca->getAlign();
@@ -161,7 +162,7 @@ Value* ConversionPass::convertLoad(LoadInst* load) {
 
   ConversionType* newPtrOperandConvType = taffoConvInfo.getNewOrOldType(newPtrOperand);
   const TransparentType* newType = newPtrOperandConvType->toTransparentType()->getPointedType();
-  Type* newLLVMType = newType->toLLVMType();
+  Type* newLLVMType = const_cast<Type*>(newType->toLLVMType());
   std::unique_ptr<ConversionType> newConvType = newPtrOperandConvType->clone(*newType);
 
   /*if (load->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || MetadataManager::isCudaKernel(m,
@@ -207,7 +208,7 @@ Value* ConversionPass::convertStore(StoreInst* store) {
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
-  TransparentType* valueOperandType = taffoInfo.getTransparentType(*valueOperand);
+  const TransparentType* valueOperandType = taffoInfo.getTransparentType(*valueOperand);
   auto valueOperandConvType = taffoConvInfo.getNewOrOldType(newPointerOperand)->clone(*valueOperandType);
   newValueOperand = getConvertedOperand(newValueOperand, *valueOperandConvType, nullptr, ConvTypePolicy::ForceHint);
 
@@ -261,7 +262,9 @@ Value* ConversionPass::convertGep(GetElementPtrInst* gep) {
 
   IRBuilder<NoFolder> builder(gep);
   Value* res = builder.CreateInBoundsGEP(
-    newPointerOperandConvType->toTransparentType()->getPointedType()->toLLVMType(), newPointerOperand, newIndices);
+    const_cast<Type*>(newPointerOperandConvType->toTransparentType()->getPointedType()->toLLVMType()),
+    newPointerOperand,
+    newIndices);
 
   setConversionResultInfo(res, gep, resConvType.get());
   return res;
@@ -322,7 +325,7 @@ Value* ConversionPass::convertPhi(PHINode* phi) {
   /* if we have to do a type change, create a new phi node. The new type is for
    * sure that of a fixed point value; because the original type was a float
    * and thus all of its incoming values were floats */
-  PHINode* res = PHINode::Create(newConvType->toLLVMType(), phi->getNumIncomingValues());
+  PHINode* res = PHINode::Create(const_cast<Type*>(newConvType->toLLVMType()), phi->getNumIncomingValues());
   for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
     Value* incomingValue = phi->getIncomingValue(i);
     BasicBlock* incomingBB = phi->getIncomingBlock(i);
@@ -541,7 +544,7 @@ Value* ConversionPass::convertCast(CastInst* cast) {
   // - [Trunc,ZExt,SExt] are handled as a fallback case, not here
   // - [PtrToInt,IntToPtr,BitCast,AddrSpaceCast] might cause errors
 
-  TransparentType* type = taffoInfo.getOrCreateTransparentType(*cast);
+  const TransparentType* type = taffoInfo.getOrCreateTransparentType(*cast);
   ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(cast);
 
   Value* operand = cast->getOperand(0);
@@ -562,8 +565,8 @@ Value* ConversionPass::convertCast(CastInst* cast) {
 
   IRBuilder<NoFolder> builder(cast->getNextNode());
   if (auto* bc = dyn_cast<BitCastInst>(cast)) {
-    TransparentType* newType = convType->toTransparentType();
-    Type* newLLVMType = newType->toLLVMType();
+    const TransparentType* newType = convType->toTransparentType();
+    Type* newLLVMType = const_cast<Type*>(newType->toLLVMType());
     if (newOperand)
       return builder.CreateBitCast(newOperand, newLLVMType);
     else
@@ -579,7 +582,7 @@ Value* ConversionPass::convertCast(CastInst* cast) {
       return getConvertedOperand(operand, *convType, cast, ConvTypePolicy::ForceHint);
   }
   else {
-    TransparentType* newOperandType = taffoInfo.getTransparentType(*newOperand);
+    const TransparentType* newOperandType = taffoInfo.getTransparentType(*newOperand);
     /* sitofp, uitofp */
     if (cast->getOpcode() == Instruction::SIToFP)
       return genConvertConvToConv(
@@ -858,7 +861,7 @@ Value* ConversionPass::convertFMul(Instruction* inst, const ConversionScalarType
 
 Value* ConversionPass::convertFDiv(Instruction* inst, const ConversionScalarType& convType) {
   Logger& logger = log();
-  TransparentType* type = taffoInfo.getTransparentType(*inst);
+  const TransparentType* type = taffoInfo.getTransparentType(*inst);
 
   // TODO: fix by using HintOverRange when it is actually implemented
   if (convType.isFixedPoint()) {
@@ -1013,7 +1016,7 @@ Value* ConversionPass::fallback(Instruction* inst) {
   for (Value* operand : inst->operands()) {
     Value* newOperand = operand;
     if (taffoConvInfo.hasValueConvInfo(operand)) {
-      TransparentType* operandType = taffoInfo.getTransparentType(*operand);
+      const TransparentType* operandType = taffoInfo.getTransparentType(*operand);
       std::unique_ptr<ConversionType> operandConvType = ConversionTypeFactory::create(*operandType);
       newOperand = getConvertedOperand(operand, *operandConvType, inst, ConvTypePolicy::ForceHint);
       if (newOperand != operand)

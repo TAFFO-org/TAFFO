@@ -8,7 +8,7 @@ using namespace taffo;
 ValueConvInfo* TaffoConvInfo::createValueConvInfo(Value* value, const ConversionType* oldConvType) {
   auto iter = valueConvInfo.find(value);
   assert(iter == valueConvInfo.end() && "value already has valueConvInfo!");
-  TransparentType* type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+  const TransparentType* type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   bool isConstant = isa<Constant>(value) && !isa<GlobalVariable>(value) && !isa<Function>(value);
   bool isForced =
     TaffoInfo::getInstance().hasValueInfo(*value) && TaffoInfo::getInstance().getValueInfo(*value)->isForced();

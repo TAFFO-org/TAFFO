@@ -2,6 +2,8 @@
 
 #include "TransparentType.hpp"
 
+#include <llvm/IR/LLVMContext.h>
+
 #include <nlohmann/json.hpp>
 #include <sstream>
 
@@ -53,6 +55,6 @@ json serialize(const tda::TransparentType& t);
 json serialize(const tda::TransparentPointerType& t);
 json serialize(const tda::TransparentArrayType& t);
 json serialize(const tda::TransparentStructType& t);
-std::unique_ptr<tda::TransparentType> deserialize(const json& j);
+const tda::TransparentType* deserialize(const json& j, llvm::LLVMContext* llvmContext);
 
 } // namespace taffo

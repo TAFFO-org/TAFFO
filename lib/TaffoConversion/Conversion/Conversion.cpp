@@ -26,10 +26,10 @@ using namespace taffo;
 
 Value* unsupported = (Value*) &unsupported;
 
-Value* ConversionPass::createPlaceholder(Type* type, BasicBlock* where, StringRef name) const {
+Value* ConversionPass::createPlaceholder(const Type* type, BasicBlock* where, StringRef name) const {
   IRBuilder<NoFolder> builder(where, where->getFirstInsertionPt());
-  AllocaInst* alloca = builder.CreateAlloca(type);
-  return builder.CreateLoad(type, alloca, name);
+  AllocaInst* alloca = builder.CreateAlloca(const_cast<Type*>(type));
+  return builder.CreateLoad(const_cast<Type*>(type), alloca, name);
 }
 
 void ConversionPass::performConversion(const std::vector<Value*>& queue) {
@@ -100,7 +100,7 @@ ValueConvInfo* ConversionPass::setConversionResultInfoCommon(Value* resultValue,
   if (oldValue != resultValue) {
     if (taffoInfo.hasValueInfo(*oldValue))
       taffoInfo.setValueInfo(*resultValue, taffoInfo.getValueInfo(*oldValue));
-    taffoInfo.setTransparentType(*resultValue, resultConvType->toTransparentType()->clone());
+    taffoInfo.setTransparentType(*resultValue, resultConvType->toTransparentType());
     // If missing, create valueConvInfo with the same oldType as oldConvType but adapted to the new transparent type
     resConvInfo = taffoConvInfo.getOrCreateValueConvInfo(resultValue, oldConvType);
   }
@@ -225,10 +225,10 @@ Value* ConversionPass::genConvertConvToConv(Value* src,
     insertionPoint = getFirstInsertionPointAfter(inst);
   assert(insertionPoint && "insertionPoint required");
 
-  TransparentType* srcType = srcConvType.toTransparentType();
-  TransparentType* dstType = dstConvType.toTransparentType();
-  Type* srcLLVMType = srcType->toLLVMType();
-  Type* dstLLVMType = dstType->toLLVMType();
+  const TransparentType* srcType = srcConvType.toTransparentType();
+  const TransparentType* dstType = dstConvType.toTransparentType();
+  const Type* srcLLVMType = srcType->toLLVMType();
+  const Type* dstLLVMType = dstType->toLLVMType();
   IRBuilder<NoFolder> builder(insertionPoint);
 
   if (srcConvType.isFixedPoint() && dstConvType.isFloatingPoint())
@@ -249,9 +249,9 @@ Value* ConversionPass::genConvertConvToConv(Value* src,
 
     Value* res;
     if (srcBits < dstBits) // Extension needed
-      res = builder.CreateFPExt(src, dstLLVMType);
+      res = builder.CreateFPExt(src, const_cast<Type*>(dstLLVMType));
     else                   // Truncation needed
-      res = builder.CreateFPTrunc(src, dstLLVMType);
+      res = builder.CreateFPTrunc(src, const_cast<Type*>(dstLLVMType));
 
     LLVM_DEBUG(logger << res << "\n");
     setConversionResultInfo(res, src, &dstConvType);
@@ -278,9 +278,9 @@ Value* ConversionPass::genConvertConvToConv(Value* src,
   auto genSizeChange = [&](Value* value) -> Value* {
     Value* res;
     if (srcConvType.isSigned())
-      res = builder.CreateSExtOrTrunc(value, dstLLVMType);
+      res = builder.CreateSExtOrTrunc(value, const_cast<Type*>(dstLLVMType));
     else
-      res = builder.CreateZExtOrTrunc(value, dstLLVMType);
+      res = builder.CreateZExtOrTrunc(value, const_cast<Type*>(dstLLVMType));
     LLVM_DEBUG(
       if (res != value)
         logger << "changed size from " << srcBits << " to " << dstBits << " bits\n";);
@@ -319,9 +319,16 @@ Value* ConversionPass::genConvertConvToConv(Value* src,
 Value* ConversionPass::genConvertFloatToConv(Value* src,
                                              const ConversionScalarType& dstConvType,
                                              Instruction* insertionPoint) {
+  if (!src->getType()->isFloatingPointTy()) {
+    llvm::errs() << "\n[TAFFO-DEBUG] genConvertFloatToConv Type Mismatch!\n"
+                 << "  LLVM Value: " << *src << "\n"
+                 << "  LLVM Type : " << *(src->getType()) << "\n"
+                 << "  DstConvType Map: " << dstConvType.toString() << "\n";
+  }
+
   assert(src->getType()->isFloatingPointTy() && "src must be a float scalar");
   ConversionType* srcConvType = taffoConvInfo.getOrCreateCurrentType(src);
-  TransparentType* srcType = srcConvType->toTransparentType();
+  const TransparentType* srcType = srcConvType->toTransparentType();
 
   Logger& logger = log();
   auto indenter = logger.getIndenter();
@@ -342,18 +349,20 @@ Value* ConversionPass::genConvertFloatToConv(Value* src,
 
   IRBuilder<NoFolder> builder(insertionPoint);
   Type* srcLLVMType = src->getType();
-  TransparentType* dstType = dstConvType.toTransparentType();
-  Type* destLLVMType = dstType->toLLVMType();
+  const TransparentType* dstType = dstConvType.toTransparentType();
+  const Type* destLLVMType = dstType->toLLVMType();
 
   if (dstConvType.isFixedPoint()) {
     Value* res;
     if (auto* siToFpInst = dyn_cast<SIToFPInst>(src)) {
       Value* intOperand = siToFpInst->getOperand(0);
-      res = builder.CreateShl(builder.CreateIntCast(intOperand, destLLVMType, true), dstConvType.getFractionalBits());
+      res = builder.CreateShl(builder.CreateIntCast(intOperand, const_cast<Type*>(destLLVMType), true),
+                              dstConvType.getFractionalBits());
     }
     else if (auto* uiToFpInst = dyn_cast<UIToFPInst>(src)) {
       Value* intOperand = uiToFpInst->getOperand(0);
-      res = builder.CreateShl(builder.CreateIntCast(intOperand, destLLVMType, false), dstConvType.getFractionalBits());
+      res = builder.CreateShl(builder.CreateIntCast(intOperand, const_cast<Type*>(destLLVMType), false),
+                              dstConvType.getFractionalBits());
     }
     else {
       double exp = pow(2.0, dstConvType.getFractionalBits());
@@ -367,9 +376,9 @@ Value* ConversionPass::genConvertFloatToConv(Value* src,
       }
       Value* intermediateValue = builder.CreateFMul(ConstantFP::get(sanitizedFloat->getType(), exp), sanitizedFloat);
       if (dstConvType.isSigned())
-        res = builder.CreateFPToSI(intermediateValue, destLLVMType);
+        res = builder.CreateFPToSI(intermediateValue, const_cast<Type*>(destLLVMType));
       else
-        res = builder.CreateFPToUI(intermediateValue, destLLVMType);
+        res = builder.CreateFPToUI(intermediateValue, const_cast<Type*>(destLLVMType));
     }
     setConversionResultInfo(res, src, &dstConvType);
     return res;
@@ -386,9 +395,9 @@ Value* ConversionPass::genConvertFloatToConv(Value* src,
 
     Value* res;
     if (srcBits < dstBits) // Extension needed
-      res = builder.CreateFPExt(src, destLLVMType);
+      res = builder.CreateFPExt(src, const_cast<Type*>(destLLVMType));
     else                   // Truncation needed
-      res = builder.CreateFPTrunc(src, destLLVMType);
+      res = builder.CreateFPTrunc(src, const_cast<Type*>(destLLVMType));
     setConversionResultInfo(res, src, &dstConvType);
     return res;
   }
@@ -399,9 +408,9 @@ Value* ConversionPass::genConvertFloatToConv(Value* src,
 Value* ConversionPass::genConvertConvToFloat(Value* src,
                                              const ConversionScalarType& srcConvType,
                                              const ConversionScalarType& dstConvType) {
-  auto* srcType = srcConvType.toTransparentType();
-  auto* dstType = dstConvType.toTransparentType();
-  Type* dstLLVMType = dstType->toLLVMType();
+  const auto* srcType = srcConvType.toTransparentType();
+  const auto* dstType = dstConvType.toTransparentType();
+  const Type* dstLLVMType = dstType->toLLVMType();
   assert(!srcType->isPointerTT() && !dstType->isPointerTT() && "src and dst cannot be pointers");
 
   Logger& logger = log();
@@ -428,9 +437,9 @@ Value* ConversionPass::genConvertConvToFloat(Value* src,
       IRBuilder<NoFolder> builder(getFirstInsertionPointAfter(src));
       Value* res;
       if (srcBits < dstBits) // Extension needed
-        res = builder.CreateFPExt(src, dstLLVMType);
+        res = builder.CreateFPExt(src, const_cast<Type*>(dstLLVMType));
       else                   // Truncation needed
-        res = builder.CreateFPTrunc(src, dstLLVMType);
+        res = builder.CreateFPTrunc(src, const_cast<Type*>(dstLLVMType));
       setConversionResultInfo(res, src, &dstConvType);
       return res;
     }
@@ -444,9 +453,9 @@ Value* ConversionPass::genConvertConvToFloat(Value* src,
 
       Value* res;
       if (srcBits < dstBits) // Extension needed
-        res = ConstantExpr::getCast(Instruction::FPExt, constant, dstLLVMType);
+        res = ConstantExpr::getCast(Instruction::FPExt, constant, const_cast<Type*>(dstLLVMType));
       else                   // Truncation needed
-        res = ConstantExpr::getCast(Instruction::FPTrunc, constant, dstLLVMType);
+        res = ConstantExpr::getCast(Instruction::FPTrunc, constant, const_cast<Type*>(dstLLVMType));
       return res;
 
       /* TODO check this code and use constant folding also here? see constants below
@@ -480,8 +489,8 @@ Value* ConversionPass::genConvertConvToFloat(Value* src,
     double exp = pow(2.0, srcConvType.getFractionalBits());
     if (exp == 1.0) {
       LLVM_DEBUG(log() << "optimizing conversion removing division by one\n");
-      Value* res =
-        srcConvType.isSigned() ? builder.CreateSIToFP(src, dstLLVMType) : builder.CreateUIToFP(src, dstLLVMType);
+      Value* res = srcConvType.isSigned() ? builder.CreateSIToFP(src, const_cast<Type*>(dstLLVMType))
+                                          : builder.CreateUIToFP(src, const_cast<Type*>(dstLLVMType));
       setConversionResultInfo(res, src, &dstConvType);
       return res;
     }
@@ -495,12 +504,13 @@ Value* ConversionPass::genConvertConvToFloat(Value* src,
       Type* tmpLLVMType = Type::getFloatTy(src->getContext());
       Value* floatTmp =
         srcConvType.isSigned() ? builder.CreateSIToFP(src, tmpLLVMType) : builder.CreateUIToFP(src, tmpLLVMType);
-      res = builder.CreateFPTrunc(builder.CreateFDiv(floatTmp, ConstantFP::get(tmpLLVMType, exp)), dstLLVMType);
+      res = builder.CreateFPTrunc(builder.CreateFDiv(floatTmp, ConstantFP::get(tmpLLVMType, exp)),
+                                  const_cast<Type*>(dstLLVMType));
     }
     else {
-      Value* floatTmp =
-        srcConvType.isSigned() ? builder.CreateSIToFP(src, dstLLVMType) : builder.CreateUIToFP(src, dstLLVMType);
-      res = builder.CreateFDiv(floatTmp, ConstantFP::get(dstLLVMType, exp));
+      Value* floatTmp = srcConvType.isSigned() ? builder.CreateSIToFP(src, const_cast<Type*>(dstLLVMType))
+                                               : builder.CreateUIToFP(src, const_cast<Type*>(dstLLVMType));
+      res = builder.CreateFDiv(floatTmp, ConstantFP::get(const_cast<Type*>(dstLLVMType), exp));
     }
     setConversionResultInfo(res, src, &dstConvType);
     return res;
@@ -516,7 +526,8 @@ Value* ConversionPass::genConvertConvToFloat(Value* src,
       ConstantFoldBinaryOpOperands(Instruction::FDiv, floatTmp, ConstantFP::get(tmpType, exp), *dataLayout);
     assert(doubleRes && "ConstantFoldBinaryOpOperands failed");
     LLVM_DEBUG(log() << "ConstantFoldBinaryOpOperands returned " << *doubleRes << "\n");
-    Constant* res = ConstantFoldCastOperand(Instruction::FPTrunc, doubleRes, dstLLVMType, *dataLayout);
+    Constant* res =
+      ConstantFoldCastOperand(Instruction::FPTrunc, doubleRes, const_cast<Type*>(dstLLVMType), *dataLayout);
     assert(res && "Constant folding failed");
     LLVM_DEBUG(log() << "ConstantFoldCastInstruction returned " << *res << "\n");
     setConversionResultInfo(res, src, &dstConvType);

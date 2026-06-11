@@ -25,6 +25,7 @@ cl::opt<bool> cudaKernelMode("cudakern", cl::desc("Allows cloning of Cuda kernel
 
 PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[InitializerPass]", Logger::Magenta));
+  dispatcher.registerModule(m);
   taffoInfo.initializeFromFile(TYPE_DEDUCER_TAFFO_INFO, m);
 
   if (openCLKernelMode) {
@@ -61,6 +62,7 @@ PreservedAnalyses InitializerPass::run(Module& m, ModuleAnalysisManager&) {
   saveValueWeights();
 
   taffoInfo.dumpToFile(INITIALIZER_TAFFO_INFO, m);
+  dispatcher.unregisterModule(m);
   LLVM_DEBUG(log().logln("[End of InitializerPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
@@ -281,7 +283,7 @@ void InitializerPass::cloneFunctionForCall(CallBase* call) {
   // Lambda to copy TransparentType and ValueInitInfo from src value to dst value
   auto copyInfo = [this](const Value* src, Value* dst) {
     if (taffoInfo.hasTransparentType(*src))
-      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src)->clone());
+      taffoInfo.setTransparentType(*dst, taffoInfo.getTransparentType(*src));
     if (taffoInfo.hasValueInfo(*src))
       taffoInfo.setValueInfo(*dst, taffoInfo.getValueInfo(*src)->clone());
     if (taffoInitInfo.hasValueInitInfo(src)) {

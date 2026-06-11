@@ -61,11 +61,11 @@ static void propagateTaffoInfo(Value& src, Value& dst) {
       logger.log("to:   ").logValueln(&dst););
   }
   if (taffoInfo.hasTransparentType(src)) {
-    TransparentType* srcType = taffoInfo.getTransparentType(src);
+    const TransparentType* srcType = taffoInfo.getTransparentType(src);
     const TransparentType* dstType = srcType;
     if (src.getType()->isPointerTy() and !dst.getType()->isPointerTy())
       dstType = dstType->getPointedType();
-    taffoInfo.setTransparentType(dst, dstType->clone());
+    taffoInfo.setTransparentType(dst, dstType);
     LLVM_DEBUG(
       Logger& logger = log();
       auto indenter = logger.getIndenter();
@@ -364,7 +364,7 @@ static void removeIntrinsicUsers(AllocaInst* AI) {
 }
 
 // llvm code used for isKnownNonZero
-static const Instruction *safeCxtI(const Value *V, const Instruction *CxtI) {
+static const Instruction* safeCxtI(const Value* V, const Instruction* CxtI) {
   // If we've been provided with a context instruction, then use that (provided
   // it has been inserted).
   if (CxtI && CxtI->getParent())
@@ -440,22 +440,16 @@ static bool rewriteSingleStoreAlloca(
     // that information when we erase this Load. So we preserve
     // it with an assume.
 
-
 #if (LLVM_VERSION_MAJOR == 17) || (LLVM_VERSION_MAJOR == 18)
-      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
-          && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
-                addAssumeNonNull(AC, LI);
+    if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
+      addAssumeNonNull(AC, LI);
 #elif (LLVM_VERSION_MAJOR >= 19)
-      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
-          && !isKnownNonZero(ReplVal,
-                             SimplifyQuery(DL, &DT, AC,
-                                           safeCxtI(ReplVal, LI),
-                                           true), 0))
-                addAssumeNonNull(AC, LI);
+    if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
+        && !isKnownNonZero(ReplVal, SimplifyQuery(DL, &DT, AC, safeCxtI(ReplVal, LI), true), 0))
+      addAssumeNonNull(AC, LI);
 #else
 #error unsupported llvm version
 #endif
-
 
     propagateTaffoInfo(*LI, *ReplVal);
     LI->replaceAllUsesWith(ReplVal);
@@ -553,24 +547,16 @@ static bool promoteSingleBlockAlloca(AllocaInst* AI,
       // information when we erase it. So we preserve it with an assume.
       Value* ReplVal = std::prev(I)->second->getOperand(0);
 
-
 #if (LLVM_VERSION_MAJOR == 17) || (LLVM_VERSION_MAJOR == 18)
-      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
-          && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
-                addAssumeNonNull(AC, LI);
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(ReplVal, DL, 0, AC, LI, &DT))
+        addAssumeNonNull(AC, LI);
 #elif (LLVM_VERSION_MAJOR >= 19)
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
-          && !isKnownNonZero(ReplVal,
-                             SimplifyQuery(DL, &DT, AC,
-                                           safeCxtI(ReplVal, LI),
-                                           true), 0))
-                addAssumeNonNull(AC, LI);
+          && !isKnownNonZero(ReplVal, SimplifyQuery(DL, &DT, AC, safeCxtI(ReplVal, LI), true), 0))
+        addAssumeNonNull(AC, LI);
 #else
-#error unsupported llvm version        
+#error unsupported llvm version
 #endif
-
-
-
 
       // If the replacement value is the load, this must occur in unreachable
       // code.
@@ -1023,20 +1009,16 @@ NextIteration:
       // it with an assume.
 
 #if (LLVM_VERSION_MAJOR == 17) || (LLVM_VERSION_MAJOR == 18)
-      if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
-          && !isKnownNonZero(V, SQ.DL, 0, AC, LI, &DT))
-                addAssumeNonNull(AC, LI);
+      if (AC && LI->getMetadata(LLVMContext::MD_nonnull) && !isKnownNonZero(V, SQ.DL, 0, AC, LI, &DT))
+        addAssumeNonNull(AC, LI);
 #elif (LLVM_VERSION_MAJOR >= 19)
       if (AC && LI->getMetadata(LLVMContext::MD_nonnull)
-          && !isKnownNonZero(V,
-                             SimplifyQuery(SQ.DL, &DT, AC,
-                                           safeCxtI(V, LI),
-                                           true), 0))
-                addAssumeNonNull(AC, LI);
+          && !isKnownNonZero(V, SimplifyQuery(SQ.DL, &DT, AC, safeCxtI(V, LI), true), 0))
+        addAssumeNonNull(AC, LI);
 #else
-#error unsupported llvm version        
+#error unsupported llvm version
 #endif
-      
+
       // Anything using the load now uses the current value.
       propagateTaffoInfo(*LI, *V);
       LI->replaceAllUsesWith(V);
