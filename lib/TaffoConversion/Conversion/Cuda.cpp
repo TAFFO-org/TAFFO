@@ -38,7 +38,7 @@ Value* ConversionPass::convertCudaCall(CallBase* C) {
   Value* TheBuffer = C->getArgOperand(BufferArgId);
   if (auto* BC = dyn_cast<BitCastOperator>(TheBuffer))
     TheBuffer = BC->getOperand(0);
-  Value* NewBuffer = convertedValues.at(TheBuffer);
+  Value* NewBuffer = convertedValues.find(TheBuffer)->second;
   if (!NewBuffer || !taffoConvInfo.hasValueConvInfo(NewBuffer)) {
     LLVM_DEBUG(log() << "Buffer argument not converted; trying fallback.");
     return unsupported;

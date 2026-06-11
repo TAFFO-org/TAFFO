@@ -70,7 +70,11 @@ void InitializerPass::readAndRemoveLocalAnnotations(Function& f) {
     if (auto* call = dyn_cast<CallInst>(&inst)) {
       if (!call->getCalledFunction())
         continue;
+#if LLVM_VERSION_MAJOR <= 15
+      if (call->getCalledFunction()->getName().startswith("llvm.var.annotation")) {
+#else
       if (call->getCalledFunction()->getName().starts_with("llvm.var.annotation")) {
+#endif
         bool isStartingPoint = false;
         Value* annotatedValue = inst.getOperand(0);
         Value* annotationValue = inst.getOperand(1);

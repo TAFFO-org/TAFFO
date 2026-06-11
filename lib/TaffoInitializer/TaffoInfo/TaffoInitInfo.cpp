@@ -5,12 +5,14 @@ using namespace llvm;
 using namespace taffo;
 
 ValueInitInfo& TaffoInitInfo::getValueInitInfo(const Value* value) {
-  assert(valueInitInfo.contains(value));
-  return valueInitInfo.find(value)->second;
+  auto it = valueInitInfo.find(value);
+  assert(it != valueInitInfo.end());
+  return it->second;
 }
 
 ValueInitInfo& TaffoInitInfo::getOrCreateValueInitInfo(Value* value) {
-  return valueInitInfo.contains(value) ? valueInitInfo.find(value)->second : createValueInitInfo(value);
+  auto it = valueInitInfo.find(value);
+  return it != valueInitInfo.end() ? valueInitInfo.find(value)->second : createValueInitInfo(value);
 }
 
 ValueInitInfo& TaffoInitInfo::createValueInitInfo(Value* value, unsigned rootDistance) {
@@ -21,4 +23,6 @@ ValueInitInfo& TaffoInitInfo::createValueInitInfo(Value* value, unsigned rootDis
   return valueInitInfo.find(value)->second;
 }
 
-bool TaffoInitInfo::hasValueInitInfo(const Value* value) const { return valueInitInfo.contains(value); }
+bool TaffoInitInfo::hasValueInitInfo(const Value* value) const {
+  return valueInitInfo.find(value) != valueInitInfo.end();
+}

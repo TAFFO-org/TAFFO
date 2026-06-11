@@ -36,4 +36,6 @@ ValueConvInfo* TaffoConvInfo::getValueConvInfo(Value* value) const {
   return iter->getSecond().get();
 }
 
-bool TaffoConvInfo::hasValueConvInfo(const Value* value) const { return valueConvInfo.contains(value); }
+bool TaffoConvInfo::hasValueConvInfo(const Value* value) const {
+  return valueConvInfo.find(value) != valueConvInfo.end();
+}

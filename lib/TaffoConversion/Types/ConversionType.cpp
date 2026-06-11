@@ -67,7 +67,7 @@ std::unique_ptr<ConversionType> ConversionType::getGepConvType(const iterator_ra
     // so only its cardinality matters and not the values themselves
     indicesVector.push_back(constantIndex ? constantIndex->getZExtValue() : 0);
   }
-  return getGepConvType(indicesVector);
+  return getGepConvType(ArrayRef<unsigned> {indicesVector});
 }
 
 ConversionType& ConversionType::operator=(const ConversionType& other) {

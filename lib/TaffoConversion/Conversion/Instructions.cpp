@@ -275,7 +275,7 @@ Value* ConversionPass::convertExtractValue(ExtractValueInst* extractValue) {
     return unsupported;
   IRBuilder<NoFolder> builder(extractValue);
   Value* oldval = extractValue->getAggregateOperand();
-  Value* newval = convertedValues.at(oldval);
+  Value* newval = convertedValues.find(oldval)->second;
   std::unique_ptr<ConversionType> newConvType =
     taffoConvInfo.getNewOrOldType(newval)->getGepConvType(extractValue->getIndices());
   std::vector idxlist(extractValue->indices().begin(), extractValue->indices().end());
@@ -289,7 +289,7 @@ Value* ConversionPass::convertInsertValue(InsertValueInst* insertValue) {
     return unsupported;
   IRBuilder<NoFolder> builder(insertValue);
   Value* oldAggVal = insertValue->getAggregateOperand();
-  Value* newAggVal = convertedValues.at(oldAggVal);
+  Value* newAggVal = convertedValues.find(oldAggVal)->second;
   auto newConvType = taffoConvInfo.getNewOrOldType(newAggVal)->getGepConvType(insertValue->getIndices());
   Value* oldInsertVal = insertValue->getInsertedValueOperand();
   Value* newInsertVal;
@@ -315,7 +315,7 @@ Value* ConversionPass::convertPhi(PHINode* phi) {
       Value* value = phi->getIncomingValue(i);
       if (!hasConvertedValue(value))
         continue;
-      Value* newValue = convertedValues.at(value);
+      Value* newValue = convertedValues.find(value)->second;
       phi->setIncomingValue(i, newValue);
       doneSomething = true;
     }
@@ -347,7 +347,7 @@ Value* ConversionPass::convertSelect(SelectInst* select) {
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
   /* the condition is always a bool (i1) or a vector of bools */
-  Value* newcond = convertedValues.at(select->getCondition());
+  Value* newcond = convertedValues.find(select->getCondition())->second;
   /* otherwise create a new one */
   Value* newtruev = getConvertedOperand(select->getTrueValue(), *newConvType, select, ConvTypePolicy::ForceHint);
   Value* newfalsev = getConvertedOperand(select->getFalseValue(), *newConvType, select, ConvTypePolicy::ForceHint);

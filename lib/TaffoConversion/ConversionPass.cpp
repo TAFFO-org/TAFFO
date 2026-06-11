@@ -438,7 +438,7 @@ void ConversionPass::closePhiLoops() {
   for (auto data : phiNodeInfo) {
     PHINode* origphi = data.first;
     PhiInfo& info = data.second;
-    Value* substphi = convertedValues.at(origphi);
+    Value* substphi = convertedValues.find(origphi)->second;
 
     LLVM_DEBUG(log() << "restoring data flow of phi " << *origphi << "\n");
     if (info.oldPhi != info.newPhi)

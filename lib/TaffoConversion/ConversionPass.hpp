@@ -78,7 +78,9 @@ private:
   llvm::DenseMap<llvm::Function*, llvm::Function*> functionPool;
   llvm::DenseMap<llvm::PHINode*, PhiInfo> phiNodeInfo;
 
-  bool hasConvertedValue(const llvm::Value* value) const { return convertedValues.contains(value); }
+  bool hasConvertedValue(const llvm::Value* value) const {
+    return convertedValues.find(value) != convertedValues.end();
+  }
 
   void buildGlobalConvInfo(llvm::Module& m, llvm::SmallVectorImpl<llvm::Value*>& values);
   void buildLocalConvInfo(llvm::Function& f, llvm::SmallVectorImpl<llvm::Value*>& values, bool argsOnly = false);
@@ -205,7 +207,13 @@ private:
 
   /** Returns if a function is a library function which shall not be cloned.
    *  @param f The function to check */
-  bool isSpecialFunction(const llvm::Function* f) { return f->getName().starts_with("llvm.") || f->empty(); }
+  bool isSpecialFunction(const llvm::Function* f) {
+#if LLVM_VERSION_MAJOR <= 15
+    return f->getName().startswith("llvm.") || f->empty();
+#else
+    return f->getName().starts_with("llvm.") || f->empty();
+#endif
+  }
 
   llvm::Value* getConvertedOperand(llvm::Value* value,
                                    const ConversionType& convType,
