@@ -66,8 +66,8 @@ void InitializerPass::handleKmpcFork(const Module& m, CallBase* call, Function* 
         taffoInfo.createValueInfo(*sharedVarInstr)->disableConversion();
   }
 
-  TransparentType* retType = taffoInfo.getOrCreateTransparentType(*indirectFunction);
-  SmallVector<TransparentType*, 8> argTypes;
+  const TransparentType* retType = taffoInfo.getOrCreateTransparentType(*indirectFunction);
+  SmallVector<const TransparentType*, 8> argTypes;
   // Copy the first two args directly from the function since they are fixed internal OpenMP parameters
   unsigned i = 0;
   for (; i < 2; i++) {
@@ -80,19 +80,21 @@ void InitializerPass::handleKmpcFork(const Module& m, CallBase* call, Function* 
     Value* callArg = call->getArgOperand(i);
     argTypes.push_back(taffoInfo.getOrCreateTransparentType(*callArg));
   }
-  auto argLLVMTypes = llvm::to_vector<8>(map_range(argTypes, [](const auto& t) { return t->toLLVMType(); }));
+  auto retLLVMType = const_cast<Type*>(retType->toLLVMType());
+  auto argLLVMTypes =
+    llvm::to_vector<8>(map_range(argTypes, [](const auto& t) { return const_cast<Type*>(t->toLLVMType()); }));
 
   // Create the new function with the parsed types and signature
-  FunctionType* trampolineFunType = FunctionType::get(retType->toLLVMType(), argLLVMTypes, false);
+  FunctionType* trampolineFunType = FunctionType::get(retLLVMType, argLLVMTypes, false);
   Function* trampolineFunction = Function::Create(trampolineFunType,
                                                   indirectFunction->getLinkage(),
                                                   indirectFunction->getName() + "_trampoline",
                                                   indirectFunction->getParent());
 
   // Copy transparent types to the new function
-  taffoInfo.setTransparentType(*trampolineFunction, retType->clone());
+  taffoInfo.setTransparentType(*trampolineFunction, retType);
   for (auto&& [arg, type] : zip(trampolineFunction->args(), argTypes))
-    taffoInfo.setTransparentType(arg, type->clone());
+    taffoInfo.setTransparentType(arg, type);
 
   // Shift back the argument name since the third argument is skipped
   for (unsigned i = 3; i < call->arg_size(); i++)

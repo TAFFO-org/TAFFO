@@ -27,10 +27,10 @@ public:
   virtual ConversionTypeKind getKind() const = 0;
 
   ConversionType(const tda::TransparentType& type)
-  : transparentType(type.clone()) {}
+  : transparentType(&type) {}
 
   ConversionType(const ConversionType& other)
-  : transparentType(other.transparentType->clone()) {}
+  : transparentType(other.transparentType) {}
 
   virtual ~ConversionType() = default;
 
@@ -40,8 +40,8 @@ public:
   virtual bool isFixedPoint() const { return false; }
   virtual bool isFloatingPoint() const { return false; }
 
-  tda::TransparentType* toTransparentType(bool* hasFloats = nullptr) const;
-  llvm::Type* toLLVMType(bool* hasFloats = nullptr) const { return toTransparentType(hasFloats)->toLLVMType(); }
+  const tda::TransparentType* toTransparentType(bool* hasFloats = nullptr) const;
+  const llvm::Type* toLLVMType(bool* hasFloats = nullptr) const { return toTransparentType(hasFloats)->toLLVMType(); }
 
   std::unique_ptr<ConversionType> getGepConvType(llvm::ArrayRef<unsigned> gepIndices) const;
   std::unique_ptr<ConversionType> getGepConvType(llvm::iterator_range<const llvm::Use*> gepIndices) const;
@@ -54,11 +54,11 @@ public:
   virtual std::unique_ptr<ConversionType> clone(const tda::TransparentType& type) const = 0;
 
 protected:
-  std::unique_ptr<tda::TransparentType> transparentType;
+  mutable const tda::TransparentType* transparentType;
   mutable bool recomputedTransparentType = false;
   mutable bool hasFloats = false;
 
-  virtual bool toTransparentTypeHelper(tda::TransparentType& newType) const = 0;
+  virtual bool toTransparentTypeHelper(const tda::TransparentType& newType) const = 0;
 };
 
 class ConversionScalarType : public ConversionType {
@@ -118,7 +118,7 @@ private:
   FloatStandard floatStandard;
 
 protected:
-  bool toTransparentTypeHelper(tda::TransparentType& newType) const override;
+  bool toTransparentTypeHelper(const tda::TransparentType& newType) const override;
 };
 
 class ConversionStructType : public ConversionType {
@@ -155,10 +155,10 @@ public:
   std::string toString() const override;
 
 private:
-  llvm::SmallVector<std::unique_ptr<ConversionType>, 4> fieldTypes;
+  llvm::SmallVector<std::unique_ptr<ConversionType>, 8> fieldTypes;
 
 protected:
-  bool toTransparentTypeHelper(tda::TransparentType& newType) const override;
+  bool toTransparentTypeHelper(const tda::TransparentType& newType) const override;
 };
 
 } // namespace taffo

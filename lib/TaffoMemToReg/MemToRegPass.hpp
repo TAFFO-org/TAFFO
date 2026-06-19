@@ -1,5 +1,8 @@
 #pragma once
 
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "TypeDispatcher.hpp"
+
 #include <llvm/Analysis/AssumptionCache.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/Function.h>
@@ -12,6 +15,9 @@ public:
   llvm::PreservedAnalyses run(llvm::Function& f, llvm::FunctionAnalysisManager& analysisManager);
 
 private:
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  tda::TypeDispatcher& dispatcher = tda::TypeDispatcher::getInstance();
+
   bool promoteMemoryToRegister(llvm::Function& f,
                                llvm::DominatorTree& dominatorTree,
                                llvm::AssumptionCache& assumptionCache);

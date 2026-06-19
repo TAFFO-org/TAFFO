@@ -3,6 +3,7 @@
 #include "AllocationStrategy.hpp"
 #include "Debug/Logger.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
+#include "TypeDispatcher.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/DenseMap.h>
@@ -38,6 +39,7 @@ public:
 
 private:
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  tda::TypeDispatcher& dispatcher = tda::TypeDispatcher::getInstance();
   AllocationStrategy* strategy = nullptr;
 
   /* to not be accessed directly, use valueInfo() */
@@ -59,10 +61,11 @@ private:
                           llvm::Value* value,
                           const tda::TransparentType* transparentType,
                           bool forceEnable);
-  void allocateStructType(std::shared_ptr<StructInfo>& structInfo,
-                          const llvm::Value* value,
-                          const tda::TransparentType* type,
-                          llvm::SmallVector<std::pair<std::shared_ptr<ValueInfo>, tda::TransparentType*>, 8>& queue);
+  void
+  allocateStructType(std::shared_ptr<StructInfo>& structInfo,
+                     const llvm::Value* value,
+                     const tda::TransparentType* type,
+                     llvm::SmallVector<std::pair<std::shared_ptr<ValueInfo>, const tda::TransparentType*>, 8>& queue);
 
   void retrieveBufferID(llvm::Value* V);
 
@@ -71,9 +74,9 @@ private:
   void mergeTypes(const std::vector<llvm::Value*>& vals, const llvm::SmallPtrSetImpl<llvm::Value*>& valset);
   bool mergeTypes(llvm::Value* value1, llvm::Value* value2);
   bool mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
-                  tda::TransparentType* type1,
+                  const tda::TransparentType* type1,
                   std::shared_ptr<ValueInfo> valueInfo2,
-                  tda::TransparentType* type2);
+                  const tda::TransparentType* type2);
   bool mergeTypes(std::shared_ptr<ScalarInfo> scalarInfo1, std::shared_ptr<ScalarInfo> scalarInfo2);
 
   void mergeBufferIDSets();

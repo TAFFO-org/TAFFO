@@ -62,11 +62,11 @@ static void propagateTaffoInfo(Value& src, Value& dst) {
       logger.log("to:   ").logValueln(&dst););
   }
   if (taffoInfo.hasTransparentType(src)) {
-    TransparentType* srcType = taffoInfo.getTransparentType(src);
+    const TransparentType* srcType = taffoInfo.getTransparentType(src);
     const TransparentType* dstType = srcType;
     if (src.getType()->isPointerTy() and !dst.getType()->isPointerTy())
       dstType = dstType->getPointedType();
-    taffoInfo.setTransparentType(dst, dstType->clone());
+    taffoInfo.setTransparentType(dst, dstType);
     LLVM_DEBUG(
       Logger& logger = log();
       auto indenter = logger.getIndenter();

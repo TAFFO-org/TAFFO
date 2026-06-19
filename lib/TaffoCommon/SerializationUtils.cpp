@@ -2,6 +2,9 @@
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "Utils/PrintUtils.hpp"
 
+#include <llvm/ADT/SmallSet.h>
+#include <llvm/ADT/SmallVector.h>
+
 using namespace llvm;
 using namespace tda;
 using namespace taffo;
@@ -38,8 +41,9 @@ json serializeCommon(const TransparentType& type) {
   j["kind"] = "Scalar";
   j["repr"] = type.toString();
   j["unwrappedType"] = nullptr;
-  if (Type* llvmType = type.getLLVMType())
+  if (const Type* llvmType = type.getLLVMType())
     j["unwrappedType"] = toString(llvmType);
+  j["isUnion"] = type.isUnion();
   return j;
 }
 
@@ -78,43 +82,46 @@ json taffo::serialize(const TransparentStructType& structType) {
   return j;
 }
 
-void deserializeCommon(const json& j, TransparentType& type) {
+const TransparentType* taffo::deserialize(const json& j, llvm::LLVMContext* llvmContext) {
+  const TransparentType* type = nullptr;
+
+  const llvm::Type* llvmType = nullptr;
   if (!j["unwrappedType"].is_null())
-    type.setLLVMType(TaffoInfo::getInstance().getType(j["unwrappedType"]));
-  else
-    type.setLLVMType(nullptr);
-}
+    llvmType = TaffoInfo::getInstance().getType(j["unwrappedType"]);
 
-std::unique_ptr<TransparentType> taffo::deserialize(const json& j) {
-  std::unique_ptr<TransparentType> type;
+  const bool isUnion = j["isUnion"];
+
   const std::string kind = j["kind"];
-  if (kind == "Struct")
-    type = std::make_unique<TransparentStructType>();
-  else if (kind == "Array")
-    type = std::make_unique<TransparentArrayType>();
-  else if (kind == "Pointer")
-    type = std::make_unique<TransparentPointerType>();
-  else
-    type = std::make_unique<TransparentType>();
-
-  deserializeCommon(j, *type);
-
-  if (kind == "Struct") {
-    auto* structType = cast<TransparentStructType>(type.get());
-    for (auto& field_j : j["fieldTypes"])
-      structType->addFieldType(deserialize(field_j));
-    if (j.contains("paddingFields"))
-      for (unsigned paddingField : j["paddingFields"])
-        structType->addFieldPadding(paddingField);
-  }
-  else if (kind == "Array") {
-    auto* arrayType = cast<TransparentArrayType>(type.get());
-    arrayType->setElementType(deserialize(j["elementType"]));
+  if (kind == "Scalar") {
+    type = TransparentType::get(llvmContext, llvmType, isUnion);
   }
   else if (kind == "Pointer") {
-    auto* ptrType = cast<TransparentPointerType>(type.get());
+    const TransparentType* pointedType = nullptr;
     if (j.contains("pointedType") && !j["pointedType"].is_null())
-      ptrType->setPointedType(deserialize(j["pointedType"]));
+      pointedType = deserialize(j["pointedType"], llvmContext);
+
+    type = TransparentPointerType::get(llvmContext, pointedType);
+  }
+  else if (kind == "Array") {
+    const TransparentType* elementType = nullptr;
+    if (j.contains("elementType") && !j["elementType"].is_null())
+      elementType = deserialize(j["elementType"], llvmContext);
+
+    type = TransparentArrayType::get(llvmContext, elementType, llvmType);
+  }
+  else if (kind == "Struct") {
+    llvm::SmallVector<const TransparentType*, 8> fieldTypes;
+    for (const auto& field_j : j["fieldTypes"]) {
+      const TransparentType* fieldType = deserialize(field_j, llvmContext);
+      fieldTypes.push_back(fieldType);
+    }
+
+    llvm::SmallSet<unsigned, 8> paddingFields;
+    if (j.contains("paddingFields"))
+      for (unsigned paddingField : j["paddingFields"])
+        paddingFields.insert(paddingField);
+
+    type = TransparentStructType::get(llvmContext, fieldTypes, llvmType, {}, {}, paddingFields);
   }
 
   return type;

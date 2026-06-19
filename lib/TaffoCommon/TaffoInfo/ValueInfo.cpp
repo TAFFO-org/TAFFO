@@ -9,7 +9,7 @@ using namespace tda;
 using namespace taffo;
 
 std::shared_ptr<ValueInfo> ValueInfoFactory::create(Value* value) {
-  TransparentType* type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+  const TransparentType* type = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return create(type);
 }
 

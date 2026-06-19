@@ -1,8 +1,8 @@
 #include "Debug/Logger.hpp"
+#include "ModuleInterpreter.hpp"
 #include "TaffoInfo/TaffoInfo.hpp"
 #include "VRAGlobalStore.hpp"
 #include "ValueRangeAnalysisPass.hpp"
-#include "ModuleInterpreter.hpp"
 
 #include <llvm/Analysis/MemorySSA.h>
 #include <llvm/Support/CommandLine.h>
@@ -18,26 +18,27 @@ using namespace taffo;
 namespace taffo {
 
 cl::opt<bool> PropagateAll("propagate-all",
-                          cl::desc("Propagate ranges for all functions, not only those marked as starting point."),
-                          cl::init(false));
+                           cl::desc("Propagate ranges for all functions, not only those marked as starting point."),
+                           cl::init(false));
 
 cl::opt<unsigned> Unroll("unroll",
-                          cl::desc("Default loop unroll count. Setting this to 0 disables loop unrolling. (Default: 1)"),
-                          cl::value_desc("count"),
-                          cl::init(1U));
+                         cl::desc("Default loop unroll count. Setting this to 0 disables loop unrolling. (Default: 1)"),
+                         cl::value_desc("count"),
+                         cl::init(1U));
 
-cl::opt<unsigned> MaxUnroll("max-unroll",
-                          cl::desc("Max loop unroll count. Setting this to 0 disables loop unrolling. (Default: 256)"),
-                          cl::value_desc("count"),
-                          cl::init(256U));
+cl::opt<unsigned>
+  MaxUnroll("max-unroll",
+            cl::desc("Max loop unroll count. Setting this to 0 disables loop unrolling. (Default: 256)"),
+            cl::value_desc("count"),
+            cl::init(256U));
 
-cl::opt<bool> UseOldVRA("use-old-vra",
-                          cl::desc("Flag this to analyze by using old VRA. (Default: false)"),
-                          cl::init(false));
+cl::opt<bool>
+  UseOldVRA("use-old-vra", cl::desc("Flag this to analyze by using old VRA. (Default: false)"), cl::init(false));
 
-cl::opt<unsigned> MaxPropagation("max-propagation",
-                          cl::desc("Max propagation iterations before stopping (10 is the default, 0 disables the limit)."),
-                          cl::init(10U));
+cl::opt<unsigned>
+  MaxPropagation("max-propagation",
+                 cl::desc("Max propagation iterations before stopping (10 is the default, 0 disables the limit)."),
+                 cl::init(10U));
 
 } // namespace taffo
 
@@ -55,16 +56,14 @@ PreservedAnalyses ValueRangeAnalysisPass::run(Module& M, ModuleAnalysisManager& 
     processModule(CodeInt, M);
     LLVM_DEBUG(log() << "saving results...\n");
     GlobalStore->saveResults(M);
-
-  } else {
+  }
+  else {
     ModuleInterpreter ModInt(M, AM);
     ModInt.interpret();
     ModInt.printRecurrenceSummary(llvm::errs());
   }
 
-
-
-  TaffoInfo::getInstance().dumpToFile(VRA_TAFFO_INFO, M);
+  taffoInfo.dumpToFile(VRA_TAFFO_INFO, M);
   LLVM_DEBUG(log().logln("[End of ValueRangeAnalysisPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }

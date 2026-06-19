@@ -1,4 +1,5 @@
 #include "ConversionType.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
 #include "TransparentType.hpp"
 #include "Utils/PtrCasts.hpp"
 
@@ -27,18 +28,18 @@ std::unique_ptr<ConversionType> ConversionTypeFactory::create(const TransparentT
   return std::make_unique<ConversionScalarType>(type);
 }
 
-TransparentType* ConversionType::toTransparentType(bool* hasFloats) const {
+const TransparentType* ConversionType::toTransparentType(bool* hasFloats) const {
   if (!recomputedTransparentType) {
     recomputedTransparentType = true;
     this->hasFloats = toTransparentTypeHelper(*transparentType);
   }
   if (hasFloats)
     *hasFloats = this->hasFloats;
-  return transparentType.get();
+  return transparentType;
 }
 
 std::unique_ptr<ConversionType> ConversionType::getGepConvType(const ArrayRef<unsigned> gepIndices) const {
-  const TransparentType* resolvedType = transparentType.get();
+  const TransparentType* resolvedType = transparentType;
   const ConversionType* resolvedConvType = this;
   for (unsigned index : gepIndices)
     if (resolvedType->isPointerTT())
@@ -54,7 +55,7 @@ std::unique_ptr<ConversionType> ConversionType::getGepConvType(const ArrayRef<un
 
   if (!resolvedConvType)
     return nullptr;
-  return resolvedConvType->clone(*resolvedType->getPointerToType());
+  return resolvedConvType->clone(*TransparentPointerType::get(resolvedType->getLLVMContext(), resolvedType));
 }
 
 std::unique_ptr<ConversionType> ConversionType::getGepConvType(const iterator_range<const Use*> gepIndices) const {
@@ -72,7 +73,7 @@ std::unique_ptr<ConversionType> ConversionType::getGepConvType(const iterator_ra
 ConversionType& ConversionType::operator=(const ConversionType& other) {
   if (this == &other)
     return *this;
-  transparentType = other.transparentType ? other.transparentType->clone() : nullptr;
+  transparentType = other.transparentType ? other.transparentType : nullptr;
   recomputedTransparentType = other.recomputedTransparentType;
   hasFloats = other.hasFloats;
   return *this;
@@ -87,7 +88,7 @@ ConversionScalarType::ConversionScalarType(const TransparentType& type, bool isS
       curr = currArray->getElementType();
     else if (const auto* currPointer = dyn_cast<TransparentPointerType>(curr))
       curr = currPointer->getPointedType();
-  Type* unwrappedType = curr->getLLVMType();
+  const Type* unwrappedType = curr->getLLVMType();
   if (unwrappedType && unwrappedType->isFloatingPointTy()) {
     bits = 0;
     fractionalBits = 0;
@@ -175,30 +176,52 @@ Type* ConversionScalarType::toScalarLLVMType(LLVMContext& context) const {
   }
 }
 
-bool ConversionScalarType::toTransparentTypeHelper(TransparentType& newType) const {
-  bool hasFloats = false;
+bool ConversionScalarType::toTransparentTypeHelper(const TransparentType& newType) const {
+  // Pointer case
   if (newType.isPointerTT()) {
-    // Pointer case
-    if (!newType.isOpaquePtr())
-      return toTransparentTypeHelper(*newType.getPointedType());
-    return hasFloats;
+    if (newType.isOpaquePtr())
+      return false;
+
+    auto tempConv = std::make_unique<ConversionScalarType>(*this);
+    if (tempConv->toTransparentTypeHelper(*newType.getPointedType())) {
+      const TransparentType* tempConvType = tempConv->transparentType;
+      transparentType = TransparentPointerType::get(tempConvType->getLLVMContext(), tempConvType);
+      return true;
+    }
+    return false;
   }
+
+  // Array case
   if (newType.isArrayTT()) {
-    // Array case
-    auto& arrType = cast<TransparentArrayType>(newType);
-    hasFloats = toTransparentTypeHelper(*arrType.getElementType());
-    newType.setLLVMType(
-      ArrayType::get(arrType.getElementType()->getLLVMType(), newType.getLLVMType()->getArrayNumElements()));
+    const auto& newArrayType = cast<TransparentArrayType>(newType);
+
+    auto elementConv = std::make_unique<ConversionScalarType>(*this);
+    if (elementConv->toTransparentTypeHelper(*(newArrayType.getElementType()))) {
+      transparentType = newArrayType.setElementType(elementConv->transparentType);
+      return true;
+    }
+    return false;
   }
+
+  // Pure Scalar case
   else {
-    // Scalar case
-    Type* unwrapped = newType.getLLVMType();
+    const Type* unwrappedLLVMType = newType.getLLVMType();
+    bool localHasFloats = false;
+
     if (newType.containsFloatingPointType())
-      hasFloats = true;
-    if (!unwrapped->isVoidTy())
-      newType.setLLVMType(toScalarLLVMType(newType.getLLVMType()->getContext()));
+      localHasFloats = true;
+
+    if (!unwrappedLLVMType->isVoidTy()) {
+      const llvm::Type* targetLLVMType = toScalarLLVMType(unwrappedLLVMType->getContext());
+      if (unwrappedLLVMType != targetLLVMType) {
+        transparentType = TransparentType::get(newType.getLLVMContext(), targetLLVMType);
+        if (transparentType->containsFloatingPointType())
+          localHasFloats = true;
+      }
+    }
+
+    return localHasFloats;
   }
-  return hasFloats;
 }
 
 ConversionScalarType& ConversionScalarType::operator=(const ConversionScalarType& other) {
@@ -222,7 +245,7 @@ bool ConversionScalarType::operator==(const ConversionType& other) const {
 
 std::unique_ptr<ConversionType> ConversionScalarType::clone(const TransparentType& type) const {
   auto copy = std::make_unique<ConversionScalarType>(*this);
-  copy->transparentType = type.clone();
+  copy->transparentType = &type;
   return copy;
 }
 
@@ -271,25 +294,43 @@ ConversionStructType::ConversionStructType(const TransparentType& type,
   }
 }
 
-bool ConversionStructType::toTransparentTypeHelper(TransparentType& newType) const {
-  auto* newStructType = cast<TransparentStructType>(newType.getFirstNonPtr());
-  assert(newStructType->getNumFieldTypes() == getNumFieldTypes());
+bool ConversionStructType::toTransparentTypeHelper(const TransparentType& newType) const {
+  if (newType.isPointerTT()) {
+    const TransparentType* pointed = newType.getPointedType();
+    if (toTransparentTypeHelper(*pointed)) {
+      transparentType = TransparentPointerType::get(transparentType->getLLVMContext(), transparentType);
+      return true;
+    }
+    return false;
+  }
 
+  const auto& newStructType = cast<TransparentStructType>(newType);
+  assert(newStructType.getNumFieldTypes() == getNumFieldTypes());
   bool hasFloats = false;
-  SmallVector<Type*, 4> fieldsLLVMTypes;
-  for (unsigned i = 0; i < getNumFieldTypes(); i++) {
-    TransparentType* fieldTransparentType = newStructType->getFieldType(i);
-    ConversionType* fieldType = getFieldType(i);
-    if (fieldType)
-      if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTTOrPtrTo())
-        hasFloats |= fieldType->toTransparentTypeHelper(*fieldTransparentType);
-    fieldsLLVMTypes.push_back(fieldTransparentType->getLLVMType());
+  SmallVector<const TransparentType*, 8> fieldTypes;
+  SmallVector<Type*, 8> fieldLLVMTypes;
+  for (unsigned i = 0; i < getNumFieldTypes(); ++i) {
+    const TransparentType* fieldTransparentType = newStructType.getFieldType(i);
+    ConversionType* fieldConvType = getFieldType(i);
+    if (fieldConvType)
+      if (fieldTransparentType->isFloatingPointTyOrPtrTo() || fieldTransparentType->isStructTTOrPtrTo()) {
+        if (fieldConvType->toTransparentTypeHelper(*fieldTransparentType)) {
+          hasFloats = true;
+          fieldTransparentType = fieldConvType->transparentType;
+        }
+      }
+    fieldTypes.push_back(fieldTransparentType);
+    fieldLLVMTypes.push_back(const_cast<Type*>(fieldTransparentType->getLLVMType()));
   }
+
   if (hasFloats) {
-    newStructType->setLLVMType(StructType::get(newStructType->getLLVMType()->getContext(),
-                                               fieldsLLVMTypes,
-                                               cast<StructType>(newStructType->getLLVMType())->isPacked()));
+    const Type* llvmType = StructType::get(newStructType.getLLVMType()->getContext(),
+                                           fieldLLVMTypes,
+                                           cast<StructType>(newStructType.getLLVMType())->isPacked());
+    const TransparentType* result = TransparentStructType::get(newStructType.getLLVMContext(), fieldTypes, llvmType);
+    transparentType = result;
   }
+
   return hasFloats;
 }
 
@@ -323,7 +364,7 @@ bool ConversionStructType::operator==(const ConversionType& other) const {
 
 std::unique_ptr<ConversionType> ConversionStructType::clone(const TransparentType& type) const {
   auto copy = std::make_unique<ConversionStructType>(*this);
-  copy->transparentType = type.clone();
+  copy->transparentType = &type;
   return copy;
 }
 
