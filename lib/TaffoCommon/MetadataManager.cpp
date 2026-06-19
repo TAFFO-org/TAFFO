@@ -139,7 +139,7 @@ BiMap<std::string, Loop*> MetadataManager::getIdLoopMapping(Module& m) {
   return idLoopMapping;
 }
 
-void MetadataManager::setIdTypeMapping(const BiMap<std::string, Type*>& idTypeMapping, Module& m) {
+void MetadataManager::setIdTypeMapping(const BiMap<std::string, const Type*>& idTypeMapping, Module& m) {
   NamedMDNode* typesListMd = m.getOrInsertNamedMetadata(TAFFO_TYPE_LIST_METADATA);
   typesListMd->clearOperands();
   for (const auto& [id, type] : idTypeMapping) {
@@ -149,14 +149,14 @@ void MetadataManager::setIdTypeMapping(const BiMap<std::string, Type*>& idTypeMa
     if (type->isVoidTy())
       typeMd = MDString::get(ctx, "void");
     else
-      typeMd = ConstantAsMetadata::get(Constant::getNullValue(type));
+      typeMd = ConstantAsMetadata::get(Constant::getNullValue(const_cast<Type*>(type)));
     MDNode* entryMd = MDNode::get(ctx, {idMd, typeMd});
     typesListMd->addOperand(entryMd);
   }
 }
 
-BiMap<std::string, Type*> MetadataManager::getIdTypeMapping(Module& m) {
-  BiMap<std::string, Type*> idTypeMapping;
+BiMap<std::string, const Type*> MetadataManager::getIdTypeMapping(Module& m) {
+  BiMap<std::string, const Type*> idTypeMapping;
   if (NamedMDNode* typesListMd = m.getNamedMetadata(TAFFO_TYPE_LIST_METADATA)) {
     for (MDNode* entryMd : typesListMd->operands()) {
       std::string id = cast<MDString>(entryMd->getOperand(0))->getString().str();

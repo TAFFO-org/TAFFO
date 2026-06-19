@@ -22,7 +22,7 @@ void AnnotationParser::reset() {
 
 bool AnnotationParser::parseAnnotationAndGenValueInfo(const std::string& annotationStr, Value* annotatedValue) {
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
-  TransparentType* type = taffoInfo.getTransparentType(*annotatedValue);
+  const TransparentType* type = taffoInfo.getTransparentType(*annotatedValue);
   reset();
   stringStream = std::istringstream(annotationStr);
 

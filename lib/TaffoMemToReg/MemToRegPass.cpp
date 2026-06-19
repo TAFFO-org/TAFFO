@@ -51,7 +51,8 @@ PreservedAnalyses MemToRegPass::run(Function& f, FunctionAnalysisManager& analys
 
   Module& m = *f.getParent();
   if (!taffoInfoInitialized) {
-    TaffoInfo::getInstance().initializeFromFile(INITIALIZER_TAFFO_INFO, m);
+    dispatcher.registerModule(m);
+    taffoInfo.initializeFromFile(INITIALIZER_TAFFO_INFO, m);
     taffoInfoInitialized = true;
   }
 

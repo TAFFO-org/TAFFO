@@ -6,7 +6,7 @@
 
 namespace taffo {
 
-llvm::Type* getFullyUnwrappedType(llvm::Value* value);
+const llvm::Type* getFullyUnwrappedType(llvm::Value* value);
 
 enum class FixedPointTypeGenError {
   NoError = 0,

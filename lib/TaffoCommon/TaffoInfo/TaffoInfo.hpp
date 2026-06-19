@@ -2,6 +2,7 @@
 
 #include "TaffoCommon/Containers/BiMap.hpp"
 #include "TransparentType.hpp"
+#include "TypeDeductionAnalysis.hpp"
 #include "ValueInfo.hpp"
 
 #include <llvm/Analysis/LoopInfo.h>
@@ -30,9 +31,9 @@ public:
 
   static TaffoInfo& getInstance();
 
-  void setTransparentType(llvm::Value& v, std::unique_ptr<tda::TransparentType> t);
-  tda::TransparentType* getOrCreateTransparentType(llvm::Value& v);
-  tda::TransparentType* getTransparentType(const llvm::Value& v) const;
+  void setTransparentType(llvm::Value& v, const tda::TransparentType* t);
+  const tda::TransparentType* getOrCreateTransparentType(llvm::Value& v);
+  const tda::TransparentType* getTransparentType(const llvm::Value& v) const;
   bool hasTransparentType(const llvm::Value& v);
 
   void addStartingPoint(llvm::Function& f);
@@ -79,7 +80,7 @@ public:
   void setCmpErrorMetadata(llvm::Instruction& i, CmpErrorInfo& compErrorInfo);
   std::shared_ptr<CmpErrorInfo> getCmpError(const llvm::Instruction& i) const;
 
-  llvm::Type* getType(const std::string& typeId) const;
+  const llvm::Type* getType(const std::string& typeId) const;
   const llvm::DataLayout* getDataLayout() const { return dataLayout; }
 
   void eraseValue(llvm::Value* v);
@@ -88,9 +89,10 @@ public:
   void dumpToFile(const std::string& filePath, llvm::Module& m);
   void initialize(llvm::Module& m);
   void initializeFromFile(const std::string& filePath, llvm::Module& m);
+  void initializeFromResult(tda::Result&& result);
 
 private:
-  llvm::DenseMap<llvm::Value*, std::unique_ptr<tda::TransparentType>> transparentTypes;
+  llvm::DenseMap<llvm::Value*, const tda::TransparentType*> transparentTypes;
 
   llvm::SmallVector<llvm::Function*> startingPoints;
   llvm::SmallDenseMap<llvm::CallBase*, llvm::Function*> indirectFunctions;
@@ -114,8 +116,9 @@ private:
 
   BiMap<std::string, llvm::Value*> idValueMapping;
   BiMap<std::string, llvm::Loop*> idLoopMapping;
-  BiMap<std::string, llvm::Type*> idTypeMapping;
+  BiMap<std::string, const llvm::Type*> idTypeMapping;
 
+  llvm::LLVMContext* llvmContext;
   const llvm::DataLayout* dataLayout;
 
   unsigned idCounter;

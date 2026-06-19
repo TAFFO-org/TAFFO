@@ -2,6 +2,7 @@
 #include "MetadataManager.hpp"
 #include "TaffoInfo.hpp"
 #include "TransparentType.hpp"
+#include "TypeDispatcher.hpp"
 #include "Types/TypeUtils.hpp"
 
 #include <llvm/ADT/SmallPtrSet.h>
@@ -19,6 +20,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <utility>
 
 #define DEBUG_TYPE "taffo-common"
 
@@ -33,21 +35,19 @@ TaffoInfo& TaffoInfo::getInstance() {
   return instance;
 }
 
-void TaffoInfo::setTransparentType(Value& v, std::unique_ptr<TransparentType> t) {
-  transparentTypes[&v] = std::move(t);
-}
+void TaffoInfo::setTransparentType(Value& v, const TransparentType* t) { transparentTypes[&v] = t; }
 
-TransparentType* TaffoInfo::getTransparentType(const Value& v) const {
+const TransparentType* TaffoInfo::getTransparentType(const Value& v) const {
   auto iter = transparentTypes.find(&v);
   assert(iter != transparentTypes.end() && "TransparentType not present");
-  return iter->second.get();
+  return iter->second;
 }
 
-TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
+const TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
   auto iter = transparentTypes.find(&v);
   if (iter != transparentTypes.end())
-    return iter->second.get();
-  std::unique_ptr<TransparentType> type = TransparentTypeFactory::createFromValue(&v);
+    return iter->second;
+  const TransparentType* type = TransparentType::get(&v);
   LLVM_DEBUG(
     Logger& logger = log();
     logger.setContextTag(logContextTag);
@@ -58,7 +58,7 @@ TransparentType* TaffoInfo::getOrCreateTransparentType(Value& v) {
     if (type->containsOpaquePtr())
       logger.logln("Warning: the newly created transparentType is opaque", Logger::Red);
     logger.restorePrevContextTag(););
-  return (transparentTypes[&v] = std::move(type)).get();
+  return transparentTypes[&v] = type;
 }
 
 bool TaffoInfo::hasTransparentType(const Value& v) {
@@ -194,7 +194,7 @@ std::shared_ptr<CmpErrorInfo> TaffoInfo::getCmpError(const Instruction& i) const
   return iter != cmpError.end() ? iter->second : nullptr;
 }
 
-Type* TaffoInfo::getType(const std::string& typeId) const {
+const Type* TaffoInfo::getType(const std::string& typeId) const {
   auto iter = idTypeMapping.find(typeId);
   return iter != idTypeMapping.end() ? iter->second : nullptr;
 }
@@ -347,6 +347,7 @@ void TaffoInfo::initialize(Module& m) {
   idValueMapping = MetadataManager::getIdValueMapping(m);
   idLoopMapping = MetadataManager::getIdLoopMapping(m);
   idTypeMapping = MetadataManager::getIdTypeMapping(m);
+  llvmContext = &m.getContext();
   dataLayout = &m.getDataLayout();
   jsonRepresentation.clear();
 
@@ -368,6 +369,18 @@ void TaffoInfo::initializeFromFile(const std::string& filePath, Module& m) {
     Logger& logger = log();
     logger.setContextTag(logContextTag);
     logger.logln("Initialized from file " + filePath);
+    logger.restorePrevContextTag(););
+}
+
+void TaffoInfo::initializeFromResult(tda::Result&& result) {
+  for (auto& [value, deducedTypes] : result.transparentTypes)
+    if (!deducedTypes.empty())
+      setTransparentType(*value, *(deducedTypes.begin()));
+
+  LLVM_DEBUG(
+    Logger& logger = log();
+    logger.setContextTag(logContextTag);
+    logger.logln("Initialized from Result");
     logger.restorePrevContextTag(););
 }
 
@@ -410,8 +423,8 @@ void TaffoInfo::generateTaffoIds() {
   for (Value* value : valueSet) {
     generateTaffoId(value);
 
-    SmallPtrSet<Type*, 4> types = getOrCreateTransparentType(*value)->getContainedLLVMTypes();
-    for (Type* type : types)
+    SmallPtrSet<const Type*, 8> types = getOrCreateTransparentType(*value)->getContainedLLVMTypes();
+    for (const Type* type : types)
       idTypeMapping[toString(type)] = type;
   }
 
@@ -820,7 +833,7 @@ void TaffoInfo::deserialize(const json& j) {
 
     // Deserialize transparentTypes
     if (valueJson.contains("transparentType") && !valueJson["transparentType"].is_null())
-      transparentTypes[val] = taffo::deserialize(valueJson["transparentType"]);
+      transparentTypes[val] = taffo::deserialize(valueJson["transparentType"], llvmContext);
 
     // Deserialize valueWeights
     if (valueJson.contains("weight") && !valueJson["weight"].is_null())

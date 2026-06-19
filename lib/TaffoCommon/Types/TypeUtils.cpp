@@ -10,8 +10,8 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
-Type* taffo::getFullyUnwrappedType(Value* value) {
-  TransparentType* transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
+const Type* taffo::getFullyUnwrappedType(Value* value) {
+  const TransparentType* transparentType = TaffoInfo::getInstance().getOrCreateTransparentType(*value);
   return transparentType->getFullyUnwrappedType()->toLLVMType();
 }
 

@@ -76,7 +76,7 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
   if (!taffoInfo.hasValueInfo(*value))
     return false;
   std::shared_ptr<ValueInfo> valueInfo = taffoInfo.getValueInfo(*value);
-  TransparentType* type = taffoInfo.getTransparentType(*value);
+  const TransparentType* type = taffoInfo.getTransparentType(*value);
 
   if (std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(valueInfo)) {
     if (!scalarInfo->isConversionEnabled() && !isAlwaysConvertible(value)) {

@@ -8,6 +8,7 @@
 #include "TaffoInfo/ValueConvInfo.hpp"
 #include "TransparentType.hpp"
 #include "TypeDeductionAnalysis.hpp"
+#include "TypeDispatcher.hpp"
 #include "Types/ConversionType.hpp"
 
 #include <llvm/ADT/DenseMap.h>
@@ -70,6 +71,7 @@ private:
   };
 
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  tda::TypeDispatcher& dispatcher = tda::TypeDispatcher::getInstance();
   TaffoConvInfo taffoConvInfo;
   const llvm::DataLayout* dataLayout = nullptr;
   llvm::DenseMap<llvm::Value*, llvm::Value*> convertedValues;
@@ -97,7 +99,7 @@ private:
   void cleanup(const std::vector<llvm::Value*>& queue);
   void cleanUpOriginalFunctions(llvm::Module& m);
 
-  using HeapAllocationsVec = std::vector<std::pair<llvm::Instruction*, tda::TransparentType*>>;
+  using HeapAllocationsVec = std::vector<std::pair<llvm::Instruction*, const tda::TransparentType*>>;
   HeapAllocationsVec collectHeapAllocations(llvm::Module& m);
   void adjustSizeOfHeapAllocations(llvm::Module& m,
                                    const HeapAllocationsVec& oldHeapAllocations,
@@ -107,7 +109,7 @@ private:
                                         const tda::TransparentType* newAllocatedType,
                                         llvm::Instruction* insertionPoint) const;
 
-  llvm::Value* createPlaceholder(llvm::Type* type, llvm::BasicBlock* where, llvm::StringRef name) const;
+  llvm::Value* createPlaceholder(const llvm::Type* type, llvm::BasicBlock* where, llvm::StringRef name) const;
 
   void performConversion(const std::vector<llvm::Value*>& queue);
   llvm::Value* convert(llvm::Value* value, std::unique_ptr<ConversionType>* resConvType);
