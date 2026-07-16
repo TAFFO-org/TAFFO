@@ -212,7 +212,7 @@ void InitializerPass::propagateInfo(const ValueInfo* srcInfo,
     // Whole valueInfo copy should not be performed.
     // InitializerPass should be only responsible of setting conversionEnabled,
     // but right now, removing this causes big relative errors in some benchmarks
-    if (!isa<StructInfo>(srcInfo) && !isa<StructInfo>(dstInfo))
+    if (!isa<StructInfo>(srcInfo) && !isa<StructInfo>(dstInfo) && !isa<ArrayInfo>(srcInfo) && !isa<ArrayInfo>(dstInfo))
       dstInfo->copyFrom(*srcInfo);
 
     if (srcInfo->getKind() == dstInfo->getKind())

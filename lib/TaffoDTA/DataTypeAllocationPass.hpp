@@ -59,6 +59,10 @@ private:
                           llvm::Value* value,
                           const tda::TransparentType* transparentType,
                           bool forceEnable);
+  void allocateArrayType(std::shared_ptr<ArrayInfo>& arrayInfo,
+                         llvm::Value* value,
+                         const tda::TransparentType* type,
+                         llvm::SmallVector<std::pair<std::shared_ptr<ValueInfo>, tda::TransparentType*>, 8>& queue);
   void allocateStructType(std::shared_ptr<StructInfo>& structInfo,
                           const llvm::Value* value,
                           const tda::TransparentType* type,
@@ -67,6 +71,8 @@ private:
   void retrieveBufferID(llvm::Value* V);
 
   void sortQueue(std::vector<llvm::Value*>& vals, llvm::SmallPtrSetImpl<llvm::Value*>& valset);
+
+  bool hasDynamicAccess(llvm::Value* v);
 
   void mergeTypes(const std::vector<llvm::Value*>& vals, const llvm::SmallPtrSetImpl<llvm::Value*>& valset);
   bool mergeTypes(llvm::Value* value1, llvm::Value* value2);

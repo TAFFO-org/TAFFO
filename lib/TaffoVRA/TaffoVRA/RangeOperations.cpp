@@ -547,19 +547,42 @@ std::shared_ptr<ValueInfoWithRange> taffo::fillRangeHoles(const std::shared_ptr<
     return copyRange(dst);
   if (!dst || std::isa_ptr<ScalarInfo>(src))
     return copyRange(src);
-  const std::shared_ptr<StructInfo> src_s = std::static_ptr_cast<StructInfo>(src);
-  const std::shared_ptr<StructInfo> dst_s = std::static_ptr_cast<StructInfo>(dst);
-  SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
-  unsigned num_fields = src_s->getNumFields();
-  new_fields.reserve(num_fields);
-  for (unsigned i = 0; i < num_fields; ++i) {
-    if (const std::shared_ptr<PointerInfo> ptr_field = std::dynamic_ptr_cast_or_null<PointerInfo>(src_s->getField(i))) {
-      new_fields.push_back(std::make_shared<PointerInfo>(ptr_field->getPointed()));
+
+  if (std::isa_ptr<StructInfo>(src)) {
+    const std::shared_ptr<StructInfo> src_s = std::static_ptr_cast<StructInfo>(src);
+    const std::shared_ptr<StructInfo> dst_s = std::static_ptr_cast<StructInfo>(dst);
+    SmallVector<std::shared_ptr<ValueInfo>, 4U> new_fields;
+    unsigned num_fields = src_s->getNumFields();
+    new_fields.reserve(num_fields);
+    for (unsigned i = 0; i < num_fields; ++i) {
+      if (const std::shared_ptr<PointerInfo> ptr_field = std::dynamic_ptr_cast_or_null<PointerInfo>(src_s->getField(i))) {
+        new_fields.push_back(std::make_shared<PointerInfo>(ptr_field->getPointed()));
+      }
+      else if (i < dst_s->getNumFields()) {
+        new_fields.push_back(fillRangeHoles(std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(src_s->getField(i)),
+                                            std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(dst_s->getField(i))));
+      }
     }
-    else if (i < dst_s->getNumFields()) {
-      new_fields.push_back(fillRangeHoles(std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(src_s->getField(i)),
-                                          std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(dst_s->getField(i))));
-    }
+    return std::make_shared<StructInfo>(new_fields);
   }
-  return std::make_shared<StructInfo>(new_fields);
+
+  if (std::isa_ptr<ArrayInfo>(src)) {
+    const std::shared_ptr<ArrayInfo> src_a = std::static_ptr_cast<ArrayInfo>(src);
+    const std::shared_ptr<ArrayInfo> dst_a = std::static_ptr_cast<ArrayInfo>(dst);
+    SmallVector<std::shared_ptr<ValueInfo>, 4U> new_elements;
+    unsigned num_elements = src_a->getNumElements();
+    new_elements.reserve(num_elements);
+    for (unsigned i = 0; i < num_elements; ++i) {
+      if (const std::shared_ptr<PointerInfo> ptr_element = std::dynamic_ptr_cast_or_null<PointerInfo>(src_a->getElement(i))) {
+        new_elements.push_back(std::make_shared<PointerInfo>(ptr_element->getPointed()));
+      }
+      else if (dst_a && i < dst_a->getNumElements()) {
+        new_elements.push_back(fillRangeHoles(std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(src_a->getElement(i)),
+                                              std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(dst_a->getElement(i))));
+      }
+    }
+    return std::make_shared<ArrayInfo>(new_elements);
+  }
+
+  return copyRange(src);  // fallback
 }

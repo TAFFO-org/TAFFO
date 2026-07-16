@@ -36,6 +36,24 @@ ValueInfoFactory::create(const TransparentType* type,
     return res;
   }
 
+  // DIAGNOSTICA NELLA FACTORY
+  if (type) {
+     if (type->isArrayTTOrPtrTo()) {
+        llvm::errs() << "DEBUG FACTORY: Found Array type. Attempting creation...\n";
+        auto* arrayType = dyn_cast<TransparentArrayType>(type->getFirstNonPtr());
+        if (arrayType) {
+            unsigned numElements = arrayType->getNumElements();
+            llvm::errs() << "DEBUG FACTORY: Array size is " << numElements << ". Creating ArrayInfo.\n";
+            auto res = std::make_shared<ArrayInfo>(numElements);
+            for (unsigned i = 0; i < numElements; i++)
+                res->setElement(i, create(arrayType->getElementType(), recursionMap));
+            return res;
+        } else {
+            llvm::errs() << "DEBUG FACTORY: Cast to TransparentArrayType failed!\n";
+        }
+     }
+  }
+
   return std::make_shared<ScalarInfo>();
 }
 
@@ -75,17 +93,19 @@ ScalarInfo& ScalarInfo::operator=(const ScalarInfo& other) {
 
 void ScalarInfo::copyFrom(const ValueInfo& other) {
   ValueInfo::copyFrom(other);
-  auto& otherScalar = cast<ScalarInfo>(other);
-  numericType = otherScalar.numericType ? otherScalar.numericType->clone() : nullptr;
-  range = otherScalar.range ? otherScalar.range->clone() : nullptr;
-  error = otherScalar.error ? std::make_shared<double>(*otherScalar.error) : nullptr;
-  conversionEnabled = otherScalar.conversionEnabled;
-  final = otherScalar.final;
+  if (const auto* otherScalar = dyn_cast<ScalarInfo>(&other)) {
+    numericType = otherScalar->numericType ? otherScalar->numericType->clone() : nullptr;
+    range = otherScalar->range ? otherScalar->range->clone() : nullptr;
+    error = otherScalar->error ? std::make_shared<double>(*otherScalar->error) : nullptr;
+    conversionEnabled = otherScalar->conversionEnabled;
+    final = otherScalar->final;
+  }
 }
 
 void ScalarInfo::mergeConversionEnabled(const ValueInfo& other) {
-  const ScalarInfo& otherScalar = cast<ScalarInfo>(other);
-  conversionEnabled |= otherScalar.conversionEnabled;
+  if (const auto* otherScalar = dyn_cast<ScalarInfo>(&other)) {
+    conversionEnabled |= otherScalar->conversionEnabled;
+  };
 }
 
 std::shared_ptr<ValueInfo> ScalarInfo::cloneImpl() const {
@@ -166,6 +186,117 @@ void ScalarInfo::deserialize(const json& j) {
   final = j["final"].get<bool>();
 }
 
+bool ArrayInfo::isConversionEnabled() const {
+  for (const auto& element : elements) {
+    if (element && element->isConversionEnabled())
+      return true;
+  }
+  return false;
+}
+
+void ArrayInfo::disableConversion() {
+  for (const auto& element : elements) {
+    if (element)
+      element->disableConversion();
+  }
+}
+
+void ArrayInfo::copyFrom(const ValueInfo& other) {
+  ValueInfo::copyFrom(other);
+  auto& otherArray = cast<ArrayInfo>(other);
+  assert(getNumElements() == otherArray.getNumElements() && "Copying from arrayInfo with different number of elements");
+  for (auto&& [element, otherElement] : zip(*this, otherArray)) {
+    if (otherElement)
+      if (element)
+        element->copyFrom(*otherElement);
+      else
+        element = otherElement->clone();
+    else
+      element = nullptr;
+  }
+}
+
+void ArrayInfo::mergeConversionEnabled(const ValueInfo& other) {
+  if (const auto* otherArray = dyn_cast<ArrayInfo>(&other)) {
+    assert(getNumElements() == otherArray->getNumElements() && "Different number of elements");
+    for (auto&& [element, otherElement] : zip(*this, *otherArray))
+      if (element && otherElement)
+        element->mergeConversionEnabled(*otherElement);
+  }
+}
+
+std::shared_ptr<ValueInfo> ArrayInfo::cloneImpl() const {
+  SmallVector<std::shared_ptr<ValueInfo>, 4> newElements;
+  for (const auto& element : elements) {
+    newElements.push_back(element ? element->clone() : nullptr);
+  }
+  return std::make_shared<ArrayInfo>(newElements);
+}
+
+std::string ArrayInfo::toString() const {
+  std::stringstream ss;
+  ss << "array(";
+  bool first = true;
+  for (const auto& element : elements) {
+    if (!first)
+      ss << ", ";
+    if (element)
+      ss << element->toString();
+    else
+      ss << "void()";
+    first = false;
+  }
+  ss << ")";
+  return ss.str();
+}
+
+json ArrayInfo::serialize() const {
+  json j;
+  j["kind"] = "ArrayInfo";
+  j.update(ValueInfo::serialize());
+  j["elements"] = json::array();
+  for (const auto& element : elements)
+    if (element)
+      j["elements"].push_back(element->serialize());
+    else
+      j["elements"].push_back(nullptr);
+  return j;
+}
+
+void ArrayInfo::deserialize(const json& j) {
+  ValueInfo::deserialize(j);
+  if (!j.contains("elements") || !j["elements"].is_array())
+    llvm_unreachable("Missing or invalid elements array");
+  elements.clear();
+  for (auto& elementJson : j["elements"]) {
+    if (elementJson.is_null()) {
+      elements.push_back(nullptr);
+    }
+    else if (elementJson.contains("kind")) {
+      std::string elementKind = elementJson["kind"].get<std::string>();
+      if (elementKind == "ScalarInfo") {
+        auto element = std::make_shared<ScalarInfo>(nullptr);
+        element->deserialize(elementJson);
+        elements.push_back(element);
+      }
+      else if (elementKind == "StructInfo") {
+        auto element = std::make_shared<StructInfo>(0);
+        element->deserialize(elementJson);
+        elements.push_back(element);
+      }
+      else if (elementKind == "ArrayInfo") {
+        auto element = std::make_shared<ArrayInfo>(0);
+        element->deserialize(elementJson);
+        elements.push_back(element);
+      }
+      else
+        llvm_unreachable("Unknown kind of ValueInfo in ArrayInfo deserialization");
+    }
+    else
+      llvm_unreachable("Missing kind field in ValueInfo deserialization");
+  }
+}
+
 bool StructInfo::isConversionEnabled() const {
   SmallPtrSet<const StructInfo*, 1> visited;
   return isConversionEnabled(visited);
@@ -230,11 +361,12 @@ void StructInfo::copyFrom(const ValueInfo& other) {
 }
 
 void StructInfo::mergeConversionEnabled(const ValueInfo& other) {
-  const StructInfo& otherStruct = cast<StructInfo>(other);
-  assert(getNumFields() == otherStruct.getNumFields() && "Different number of fields");
-  for (auto&& [field, otherField] : zip(*this, otherStruct))
-    if (field && otherField)
-      field->mergeConversionEnabled(*otherField);
+  if (const auto* otherStruct = dyn_cast<StructInfo>(&other)) {
+    assert(getNumFields() == otherStruct->getNumFields() && "Different number of fields");
+    for (auto&& [field, otherField] : zip(*this, *otherStruct))
+      if (field && otherField)
+        field->mergeConversionEnabled(*otherField);
+  }
 }
 
 ValueInfo* StructInfo::getField(const iterator_range<const Use*> gepIndices) {
@@ -318,6 +450,11 @@ void StructInfo::deserialize(const json& j) {
       }
       else if (fieldKind == "StructInfo") {
         auto field = std::make_shared<StructInfo>(0);
+        field->deserialize(fieldJson);
+        fields.push_back(field);
+      }
+      else if (fieldKind == "ArrayInfo") {
+        auto field = std::make_shared<ArrayInfo>(0);
         field->deserialize(fieldJson);
         fields.push_back(field);
       }

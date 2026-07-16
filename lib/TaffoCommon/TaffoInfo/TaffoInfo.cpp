@@ -814,6 +814,8 @@ void TaffoInfo::deserialize(const json& j) {
         vi = std::make_shared<ScalarInfo>();
       else if (infoKind == "StructInfo")
         vi = std::make_shared<StructInfo>(0);
+      else if (infoKind == "ArrayInfo")
+        vi = std::make_shared<ArrayInfo>(0);
       vi->deserialize(valueJson["info"]);
       valueInfo[val] = vi;
     }

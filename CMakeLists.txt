@@ -9,7 +9,7 @@ set(BUILD_SHARED_LIBS OFF)
 
 include(TaffoOptions)
 include(TaffoFetchDeps)
-include(FindClangFormat)
+# include(FindClangFormat)
 
 find_package(LLVM REQUIRED CONFIG)
 

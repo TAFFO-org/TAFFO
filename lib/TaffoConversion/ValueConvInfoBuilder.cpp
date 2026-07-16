@@ -119,6 +119,22 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
       valueConvInfo->setNewType(std::move(newConvType));
     }
   }
+  else if (std::shared_ptr<ArrayInfo> arrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfo)) {
+    // Verifica se l'array contiene dati convertibili (es. float)
+    // Se non contiene float, non c'è bisogno di convertirlo
+    if (!type->containsFloatingPointType()) {
+        LLVM_DEBUG(logger << "Array non contiene float: salto conversione\n");
+        return false;
+    }
+
+    auto firstElem = std::dynamic_ptr_cast<ScalarInfo>(arrayInfo->getElement(0));
+    if (firstElem && firstElem->numericType) {
+        valueConvInfo->setNewType(std::make_unique<ConversionScalarType>(*type, firstElem->numericType.get()));
+        LLVM_DEBUG(logger << "Array detected: applied Scalar conversion type\n");
+    } else {
+        return false;
+    }
+  }
   else
     llvm_unreachable("Unrecognized valueInfo");
 

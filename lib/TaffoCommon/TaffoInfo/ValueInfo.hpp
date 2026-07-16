@@ -39,6 +39,7 @@ public:
 
   enum ValueInfoKind {
     K_Scalar,
+    K_Array,
     K_Struct,
     K_Pointer,
     K_GetElementPointer
@@ -76,7 +77,7 @@ private:
 class ValueInfoWithRange : public ValueInfo {
 public:
   static bool classof(const ValueInfo* valueInfo) {
-    return valueInfo->getKind() == K_Scalar || valueInfo->getKind() == K_Struct;
+    return valueInfo->getKind() == K_Scalar || valueInfo->getKind() == K_Struct || valueInfo->getKind() == K_Array;
   }
 };
 
@@ -115,6 +116,38 @@ public:
   void deserialize(const json& j) override;
 
 private:
+  std::shared_ptr<ValueInfo> cloneImpl() const override;
+};
+
+class ArrayInfo : public ValueInfoWithRange {
+public:
+  static bool classof(const ValueInfo* valueInfo) { return valueInfo->getKind() == K_Array; }
+
+  ArrayInfo(unsigned numElements) : elements(numElements, nullptr) {}
+  ArrayInfo(const llvm::ArrayRef<std::shared_ptr<ValueInfo>> AInfos) : elements(AInfos.begin(), AInfos.end()) {}
+
+  auto begin() { return elements.begin(); }
+  auto end() { return elements.end(); }
+  auto begin() const { return elements.begin(); }
+  auto end() const { return elements.end(); }
+
+  unsigned getNumElements() const { return elements.size(); }
+  std::shared_ptr<ValueInfo> getElement(unsigned i) { return elements[i]; }
+  void setElement(unsigned i, std::shared_ptr<ValueInfo> element) { elements[i] = std::move(element); }
+
+  ValueInfoKind getKind() const override { return K_Array; }
+  bool isConversionEnabled() const override;
+  void disableConversion() override;
+
+  void copyFrom(const ValueInfo& other) override;
+  void mergeConversionEnabled(const ValueInfo& other) override;
+
+  std::string toString() const override;
+  json serialize() const override;
+  void deserialize(const json& j) override;
+
+private:
+  llvm::SmallVector<std::shared_ptr<ValueInfo>, 4> elements;
   std::shared_ptr<ValueInfo> cloneImpl() const override;
 };
 

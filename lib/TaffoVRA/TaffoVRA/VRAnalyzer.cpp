@@ -476,6 +476,27 @@ std::shared_ptr<Range> VRAnalyzer::getRange(const std::shared_ptr<ValueInfo> VI)
       }
       return summary;
     }
+    case ValueInfo::K_Array: {
+      std::shared_ptr<ArrayInfo> ArrayNode = std::static_ptr_cast<ArrayInfo>(VI);
+      std::shared_ptr<Range> summary = nullptr;
+
+      for (unsigned i = 0; i < ArrayNode->getNumElements(); ++i) {
+        std::shared_ptr<ValueInfo> Element = ArrayNode->getElement(i);
+        const std::shared_ptr<Range> elementRange = getRange(Element);
+        if (!elementRange)
+          continue;
+        if (!summary)
+          summary = elementRange->clone();
+        else
+          summary = summary->join(elementRange);
+      }
+
+      if (!summary) {
+        // fallback: return generic range
+        summary = std::make_shared<Range>(Range::Top());
+      }
+      return summary;
+    }
     case ValueInfo::K_GetElementPointer: {
       return nullptr;
     }
@@ -652,6 +673,14 @@ void VRAnalyzer::handleAllocaInstr(Instruction* I) {
     else
       DerivedRanges[I] = ValueInfoFactory::create(structType);
     LLVM_DEBUG(Logger->logInfoln("struct"));
+  }
+  else if (allocatedType->isArrayTTOrPtrTo()) {
+    auto* arrayType = cast<TransparentArrayType>(allocatedType->getFirstNonPtr());
+    if (inputValueInfo && std::isa_ptr<ArrayInfo>(inputValueInfo))
+      DerivedRanges[I] = inputValueInfo->clone();
+    else
+      DerivedRanges[I] = ValueInfoFactory::create(arrayType);
+    LLVM_DEBUG(Logger->logInfoln("array"));
   }
   else {
     if (inputValueInfo && std::isa_ptr<ScalarInfo>(inputValueInfo))
@@ -883,7 +912,7 @@ std::shared_ptr<Range> VRAnalyzer::fetchRange(const Value* v) {
 
 std::shared_ptr<ValueInfoWithRange> VRAnalyzer::fetchRangeNode(const Value* v) {
   if (const std::shared_ptr<ValueInfoWithRange> Derived = VRAStore::fetchRangeNode(v)) {
-    if (std::isa_ptr<StructInfo>(Derived)) {
+    if (std::isa_ptr<StructInfo>(Derived) || std::isa_ptr<ArrayInfo>(Derived)) {
       if (auto InputRange = getGlobalStore()->getUserInput(v)) {
         // fill null input_range fields with corresponding derived fields
         return fillRangeHoles(Derived, InputRange->clone<ValueInfoWithRange>());
@@ -1658,11 +1687,17 @@ std::shared_ptr<Range> VRAnalyzer::getRRJoinedRange(RangedRecurrence* RR, u_int6
   auto rangeAtZero = RR->at(0);
   auto rangeAtTC = RR->at(TC);
 
-  std::shared_ptr<taffo::Range> joinedRange;
-  if (!rangeAtZero || rangeAtZero == Range::Top().clone()) {
-    joinedRange = rangeAtTC;
-  } else {
-    joinedRange = std::make_shared<Range>(rangeAtZero->join(*rangeAtTC));
+  if (!rangeAtZero && !rangeAtTC) {
+    return std::make_shared<Range>(Range::Top());
   }
-  return joinedRange;
+
+  if (!rangeAtZero || rangeAtZero == Range::Top().clone()) {
+    return rangeAtTC;
+  }
+
+  if (!rangeAtTC) {
+    return rangeAtZero;
+  }
+
+  return std::make_shared<Range>(rangeAtZero->join(*rangeAtTC));
 }

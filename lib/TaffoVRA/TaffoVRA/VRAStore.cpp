@@ -140,6 +140,24 @@ std::shared_ptr<ValueInfo> VRAStore::loadNode(const std::shared_ptr<ValueInfo>& 
       else
         return loadNode(Field, Offset);
     }
+  case ValueInfo::K_Array:
+    if (Offset.empty()) {
+      return valueInfo;
+    }
+    else {
+      std::shared_ptr<ArrayInfo> ArrayNode = std::static_ptr_cast<ArrayInfo>(valueInfo);
+      unsigned index = Offset.back();
+
+      if (index >= ArrayNode->getNumElements())
+        return nullptr; // out of bounds
+
+      std::shared_ptr<ValueInfo> Element = ArrayNode->getElement(index);
+      Offset.pop_back();
+      if (Offset.empty())
+        return Element;
+      else
+        return loadNode(Element, Offset);
+    } 
   case ValueInfo::K_GetElementPointer: {
     std::shared_ptr<GEPInfo> gepInfo = std::static_ptr_cast<GEPInfo>(valueInfo);
     const ArrayRef<unsigned> gepOffset = gepInfo->getOffset();
@@ -172,6 +190,29 @@ std::shared_ptr<ScalarInfo> VRAStore::assignScalarRange(const std::shared_ptr<Va
   else
     return scalarDst;
   return std::make_shared<ScalarInfo>(nullptr, unionRange);
+}
+
+void VRAStore::assignArrayNode(const std::shared_ptr<ValueInfo>& dst, const std::shared_ptr<ValueInfo>& src) const {
+  const std::shared_ptr<ArrayInfo> arraySrc = std::dynamic_ptr_cast_or_null<ArrayInfo>(src);
+  std::shared_ptr<ArrayInfo> arrayDst = std::dynamic_ptr_cast_or_null<ArrayInfo>(dst);
+  if (!(arrayDst && arraySrc))
+    return;
+
+  unsigned limit = std::min(arrayDst->getNumElements(), arraySrc->getNumElements());
+  for (unsigned i = 0; i < limit; i++) {
+    std::shared_ptr<ValueInfo> srcElement = arraySrc->getElement(i);
+    if (!srcElement)
+      continue;
+    std::shared_ptr<ValueInfo> dstElement = arrayDst->getElement(i);
+    if (!dstElement)
+      arrayDst->setElement(i, srcElement);
+    else if (std::isa_ptr<StructInfo>(dstElement))
+      assignStructNode(dstElement, srcElement);
+    else if (std::isa_ptr<ArrayInfo>(dstElement))
+      assignArrayNode(dstElement, srcElement);
+    else if (std::shared_ptr<ValueInfo> unionElement = assignScalarRange(dstElement, srcElement))
+      arrayDst->setElement(i, unionElement);
+  }
 }
 
 void VRAStore::assignStructNode(const std::shared_ptr<ValueInfo>& dst, const std::shared_ptr<ValueInfo>& src) const {
@@ -235,6 +276,33 @@ void VRAStore::storeNode(const std::shared_ptr<ValueInfo>& dst,
     }
     break;
   }
+  case ValueInfo::K_Array: {
+    std::shared_ptr<ArrayInfo> arrayDst = std::static_ptr_cast<ArrayInfo>(dst);
+    if (offset.empty())
+      assignArrayNode(arrayDst, src);
+    else if (offset.size() == 1) {
+      unsigned index = offset.front();
+      if (index < arrayDst->getNumElements()) {
+        if (std::shared_ptr<ValueInfo> unionInfo = assignScalarRange(arrayDst->getElement(index), src))
+          arrayDst->setElement(index, unionInfo);
+        else
+          arrayDst->setElement(index, src);
+      }
+    }
+    else {
+      unsigned index = offset.back();
+      if (index < arrayDst->getNumElements()) {
+        std::shared_ptr<ValueInfo> element = arrayDst->getElement(index);
+        if (!element) {
+          element = std::make_shared<ArrayInfo>(0);
+          arrayDst->setElement(index, element);
+        }
+        offset.pop_back();
+        storeNode(element, src, offset);
+      }
+    }
+    break;
+  }
   case ValueInfo::K_Pointer: {
     std::shared_ptr<PointerInfo> pointerDst = std::static_ptr_cast<PointerInfo>(dst);
     if (std::shared_ptr<ValueInfo> unionInfo = assignScalarRange(pointerDst->getPointed(), src))
@@ -269,6 +337,20 @@ std::shared_ptr<ValueInfoWithRange> VRAStore::fetchRange(const std::shared_ptr<V
       return fetchRange(field, offset);
     }
   }
+  case ValueInfo::K_Array: {
+    std::shared_ptr<ArrayInfo> ArrayNode = std::static_ptr_cast<ArrayInfo>(valueInfo);
+    if (offset.empty()) {
+      return ArrayNode;
+    }
+    else {
+      unsigned index = offset.back();
+      if (index >= ArrayNode->getNumElements())
+        return nullptr; // out of bounds
+      std::shared_ptr<ValueInfo> element = ArrayNode->getElement(index);
+      offset.pop_back();
+      return fetchRange(element, offset);
+    }
+  }
   case ValueInfo::K_GetElementPointer: {
     std::shared_ptr<GEPInfo> GEPNode = std::dynamic_ptr_cast<GEPInfo>(valueInfo);
     const ArrayRef<unsigned> GEPOffset = GEPNode->getOffset();
@@ -291,12 +373,19 @@ bool VRAStore::extractGEPOffset(const Type* sourceElementType,
   for (auto indicesIter = indices.begin() + 1; // skip first index
        indicesIter != indices.end();
        indicesIter++) {
-    if (isa<ArrayType>(sourceElementType) || isa<VectorType>(sourceElementType))
+    if (isa<VectorType>(sourceElementType))
       continue;
+
     if (const ConstantInt* intConstant = dyn_cast<ConstantInt>(*indicesIter)) {
       int val = static_cast<int>(intConstant->getSExtValue());
       offset.push_back(val);
-      sourceElementType = cast<StructType>(sourceElementType)->getTypeAtIndex(val);
+
+      if (auto* structType = dyn_cast<StructType>(sourceElementType)) {
+        sourceElementType = structType->getTypeAtIndex(val);
+      } else if (auto* arrayType = dyn_cast<ArrayType>(sourceElementType)) {
+        sourceElementType = arrayType->getElementType();
+      } 
+
       LLVM_DEBUG(log() << val << " ");
     }
     else {
