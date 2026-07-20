@@ -127,13 +127,33 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
         return false;
     }
 
-    auto firstElem = std::dynamic_ptr_cast<ScalarInfo>(arrayInfo->getElement(0));
-    if (firstElem && firstElem->numericType) {
-        valueConvInfo->setNewType(std::make_unique<ConversionScalarType>(*type, firstElem->numericType.get()));
-        LLVM_DEBUG(logger << "Array detected: applied Scalar conversion type\n");
-    } else {
-        return false;
+    bool conversionEnabled = false;
+    std::vector<std::unique_ptr<ConversionType>> elementTypes;
+
+    // Controlliamo elemento per elemento se c'è una conversione abilitata (es. da annotazione)
+    for (unsigned i = 0; i < arrayInfo->getNumElements(); i++) {
+      auto elemInfo = arrayInfo->getElement(i);
+      if (auto scalarElem = std::dynamic_ptr_cast<ScalarInfo>(elemInfo)) {
+        if (scalarElem->isConversionEnabled() && scalarElem->numericType) {
+          conversionEnabled = true;
+          elementTypes.push_back(std::make_unique<ConversionScalarType>(*cast<TransparentArrayType>(type->getFirstNonPtr())->getElementType(), scalarElem->numericType.get()));
+        } else {
+          elementTypes.push_back(ConversionTypeFactory::create(*cast<TransparentArrayType>(type->getFirstNonPtr())->getElementType()));
+        }
+      } else {
+        elementTypes.push_back(ConversionTypeFactory::create(*cast<TransparentArrayType>(type->getFirstNonPtr())->getElementType()));
+      }
     }
+
+    // SE L'UTENTE NON HA ANNOTATO L'ARRAY, NON FORZARE LA CONVERSIONE!
+    if (!conversionEnabled && !isAlwaysConvertible(value)) {
+      LLVM_DEBUG(logger << "Array conversion not enabled by annotations: skipping\n");
+      return false;
+    }
+
+    auto newConvType = std::make_unique<ConversionArrayType>(*type, elementTypes);
+    valueConvInfo->setNewType(std::move(newConvType));
+    valueConvInfo->enableConversion();
   }
   else
     llvm_unreachable("Unrecognized valueInfo");

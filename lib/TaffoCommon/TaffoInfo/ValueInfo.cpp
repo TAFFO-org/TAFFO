@@ -21,37 +21,45 @@ std::shared_ptr<ValueInfo> ValueInfoFactory::create(const TransparentType* type)
 std::shared_ptr<ValueInfo>
 ValueInfoFactory::create(const TransparentType* type,
                          std::unordered_map<const TransparentType*, std::shared_ptr<StructInfo>>& recursionMap) {
+
+  if (!type)
+    return std::make_shared<ScalarInfo>();
+
   auto iter = recursionMap.find(type);
   if (iter != recursionMap.end())
     return iter->second;
 
+  // Gestione esplicita dei puntatori tramite PointerInfo per preservare 
+  // la gerarchia ed evitare conflitti di dimensioni tra array e sotto-array.
+  // if (type->isPointerTT()) {
+  //   const TransparentType* pointeeType = type->getPointedType();
+  //   auto pointedInfo = create(pointeeType, recursionMap);
+  //   auto ptrInfo = std::make_shared<PointerInfo>(pointedInfo);
+  //   return ptrInfo;
+  // }
+
+  // Gestione struct
   if (type->isStructTTOrPtrTo()) {
     auto* structType = cast<TransparentStructType>(type->getFirstNonPtr());
     unsigned numFields = structType->getNumFieldTypes();
-    SmallVector<std::shared_ptr<ValueInfo>, 4> fields;
-    auto res = std::make_shared<StructInfo>(StructInfo(numFields));
+    auto res = std::make_shared<StructInfo>(numFields);
     recursionMap.insert({structType, res});
     for (unsigned i = 0; i < numFields; i++)
       res->setField(i, create(structType->getFieldType(i), recursionMap));
     return res;
   }
 
-  // DIAGNOSTICA NELLA FACTORY
-  if (type) {
-     if (type->isArrayTTOrPtrTo()) {
-        llvm::errs() << "DEBUG FACTORY: Found Array type. Attempting creation...\n";
-        auto* arrayType = dyn_cast<TransparentArrayType>(type->getFirstNonPtr());
-        if (arrayType) {
-            unsigned numElements = arrayType->getNumElements();
-            llvm::errs() << "DEBUG FACTORY: Array size is " << numElements << ". Creating ArrayInfo.\n";
-            auto res = std::make_shared<ArrayInfo>(numElements);
-            for (unsigned i = 0; i < numElements; i++)
-                res->setElement(i, create(arrayType->getElementType(), recursionMap));
-            return res;
-        } else {
-            llvm::errs() << "DEBUG FACTORY: Cast to TransparentArrayType failed!\n";
-        }
-     }
+  // Gestione degli array multidimensionali o monodimensionali
+  if (type->isArrayTTOrPtrTo()) {
+    auto* arrayType = dyn_cast<TransparentArrayType>(type->getFirstNonPtr());
+    if (arrayType) {
+      unsigned numElements = arrayType->getNumElements();
+      auto res = std::make_shared<ArrayInfo>(numElements);
+      for (unsigned i = 0; i < numElements; i++) {
+        res->setElement(i, create(arrayType->getElementType(), recursionMap));
+      }
+      return res;
+    }
   }
 
   return std::make_shared<ScalarInfo>();
