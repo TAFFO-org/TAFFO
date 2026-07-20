@@ -82,6 +82,16 @@ public:
         Result.append("}");
         return Result;
       }
+      case ValueInfo::K_Array: {
+        std::shared_ptr<ArrayInfo> ArrayNode = std::static_ptr_cast<ArrayInfo>(Range);
+        std::string Result("[ ");
+        for (const std::shared_ptr<ValueInfo>& Element : *ArrayNode) {
+          Result.append(toString(Element));
+          Result.append(", ");
+        }
+        Result.append("]");
+        return Result;
+      }
       case ValueInfo::K_GetElementPointer: {
         return "GEPNode";
       }

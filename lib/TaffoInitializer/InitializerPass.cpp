@@ -166,6 +166,43 @@ void InitializerPass::propagateInfo(Value* value, Value* user) {
       }
       LLVM_DEBUG(log() << "propagating info to value struct field based on user gep");
     }
+    else if (auto* srcArrayInfo = dyn_cast<ArrayInfo>(srcInfo)) {
+      SmallVector<unsigned, 4> indices;
+      for (Value* idxVal : userGep->indices()) {
+        if (auto* ci = dyn_cast<ConstantInt>(idxVal)) {
+          indices.push_back(ci->getZExtValue());
+        } else {
+          indices.push_back(0);
+        }
+      }
+
+      ValueInfo* curr = srcArrayInfo;
+      bool first = true;
+      for (unsigned idx : indices) {
+        if (first) {
+          first = false;
+          if (idx == 0) 
+            continue; // Corretto: doppio uguale ==
+        }
+        if (auto* arr = dyn_cast<ArrayInfo>(curr)) {
+          if (idx < arr->getNumElements()) {
+            curr = arr->getElement(idx).get();
+          } else {
+            curr = nullptr;
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+
+      if (curr) {
+        srcInfo = curr;
+        LLVM_DEBUG(log() << "propagating info to value array element based on user gep");
+      } else {
+        return;
+      }
+    }
   }
   else if (auto* store = dyn_cast<StoreInst>(user)) {
     // Choose as dst the store operand different from src value

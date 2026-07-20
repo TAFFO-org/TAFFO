@@ -139,10 +139,21 @@ struct VRAFunctionInfo {
     VRAFunctionInfo(): F(nullptr) {}
     VRAFunctionInfo(llvm::Function* F, llvm::ModuleAnalysisManager& MAM): F(F) {
         auto& FAM = MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(*F->getParent()).getManager();
+
+        if(F->isDeclaration())
+            return;
+
         LI = &(FAM.getResult<llvm::LoopAnalysis>(*F));
         DT = &(FAM.getResult<llvm::DominatorTreeAnalysis>(*F));
         SE = &(FAM.getResult<llvm::ScalarEvolutionAnalysis>(*F));
-        MSSA = &(FAM.getResult<llvm::MemorySSAAnalysis>(*F).getMSSA());
+
+        if(auto* MSSAResult = FAM.getCachedResult<llvm::MemorySSAAnalysis>(*F))
+            MSSA = &(MSSAResult->getMSSA());
+        else {
+            auto*mssaRes = &FAM.getResult<llvm::MemorySSAAnalysis>(*F);
+            if(mssaRes)
+                MSSA = &mssaRes->getMSSA();
+        }
     }
 
     void addRecurrenceInfo(VRARecurrenceInfo RI) {

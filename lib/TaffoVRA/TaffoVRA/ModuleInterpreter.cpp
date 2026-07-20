@@ -1706,7 +1706,7 @@ bool ModuleInterpreter::isAffineRecurrence(VRARecurrenceInfo& VRI) {
 
         // CASE loop extra beyond IV: for (k) A[i] = A[i] + C
         int maxDistance = 0;
-        const llvm::Loop* maxD_L;
+        const llvm::Loop* maxD_L = nullptr;
         auto IVs = getInductionFromLoad(VRI.loadJunction, VFI.LI);
         for (auto IV : IVs) {
           auto IV_Loop = VFI.LI->getLoopFor(llvm::dyn_cast<llvm::Instruction>(IV)->getParent());
@@ -2265,7 +2265,7 @@ bool ModuleInterpreter::isGeometricRecurrence(VRARecurrenceInfo& VRI) {
 
       // CASE loop extra beyond IV: for (k) A[i] = A[i] * C
       int maxDistance = 0;
-      const llvm::Loop* maxD_L;
+      const llvm::Loop* maxD_L = nullptr;
       auto IVs = getInductionFromLoad(VRI.loadJunction, VFI.LI);
       for (auto IV : IVs) {
         auto IV_Loop = VFI.LI->getLoopFor(llvm::dyn_cast<llvm::Instruction>(IV)->getParent());
