@@ -3,7 +3,7 @@ cmake_policy(SET CMP0077 NEW)
 cmake_policy(SET CMP0079 NEW)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(Taffo)
+project(TaffoLLVM)
 
 set(BUILD_SHARED_LIBS OFF)
 
