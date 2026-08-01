@@ -210,6 +210,9 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
           if (!inst.getType()->isVoidTy())
             UserInput[&inst] = structInfo;
         }
+        else if (auto arrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfo)) {
+          UserInput[&inst] = arrayInfo;
+        }
       }
     }
 

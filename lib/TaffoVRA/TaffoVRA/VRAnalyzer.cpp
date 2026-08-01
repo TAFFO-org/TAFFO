@@ -702,49 +702,43 @@ void VRAnalyzer::handleStoreInstr(const Instruction* I) {
     return;
 
   std::shared_ptr<ValueInfo> AddressNode = getNode(AddressParam);
-
-  // --- RANGE PER SCRITTURE DINAMICHE ---
-  bool isDynamic = false;
-  if (auto GEP = dyn_cast<GEPOperator>(AddressParam)) {
-    if (!GEP->hasAllConstantIndices()) isDynamic = true;
-  }
-
-  if (isDynamic) {
+  if (!AddressNode) {
     if (const Value* Base = getBaseMemoryObject(AddressParam)) {
-      std::shared_ptr<ValueInfo> BaseNode = getNode(Base);
-      std::shared_ptr<ValueInfo> BaseLoaded = loadNode(BaseNode);
-      if (std::shared_ptr<ArrayInfo> ArrayNode = std::dynamic_ptr_cast_or_null<ArrayInfo>(BaseLoaded)) {
-        std::shared_ptr<Range> valRange = fetchRange(ValueParam);
-        if (valRange) {
-          for (unsigned i = 0; i < ArrayNode->getNumElements(); ++i) {
-            std::shared_ptr<ValueInfo> el = ArrayNode->getElement(i);
-            std::shared_ptr<ValueInfo> valNode = std::make_shared<ScalarInfo>(nullptr, valRange);
-            if (el) {
-              ArrayNode->setElement(i, assignScalarRange(el, valNode));
-            } else {
-              ArrayNode->setElement(i, valNode);
-            }
-          }
-        }
-      }
+      AddressNode = getNode(Base);
     }
   }
 
-  std::shared_ptr<ValueInfo> ValueNode = getNode(ValueParam);
+  if (const Value* Base = getBaseMemoryObject(AddressParam)) {
+    if (auto ArrayNode = std::dynamic_ptr_cast_or_null<ArrayInfo>(loadNode(getNode(Base)))) {
+      std::shared_ptr<Range> valRange = fetchRange(ValueParam);
+      if (!valRange) valRange = getRange(getNode(ValueParam));
+      
+      if (valRange) {
+        for (unsigned i = 0; i < ArrayNode->getNumElements(); ++i) {
+          std::shared_ptr<ValueInfo> el = ArrayNode->getElement(i);
+          std::shared_ptr<ValueInfo> valNode = std::make_shared<ScalarInfo>(nullptr, valRange);
+          if (el) {
+            ArrayNode->setElement(i, assignScalarRange(el, valNode));
+          } else {
+            ArrayNode->setElement(i, valNode);
+          }
+        }
+      }
+      return; 
+    }
+  }
 
+  // Comportamento originale per gli scalari
+  std::shared_ptr<ValueInfo> ValueNode = getNode(ValueParam);
   const std::shared_ptr<Range> oldValueRange = getRange(ValueNode);
   const std::shared_ptr<Range> oldPointedRange = getRange(loadNode(AddressNode));
 
   if (!ValueNode && !ValueParam->getType()->isPointerTy())
     ValueNode = fetchRangeNode(I);
 
-  // Mirror recurrence handling: materialize a scalar node carrying the value
-  // range we are about to store so the base pointer receives tightened bounds.
   if (!ValueParam->getType()->isPointerTy()) {
     std::shared_ptr<Range> currentRange = getRange(ValueNode);
-    if (!currentRange) {
-      currentRange = fetchRange(ValueParam);
-    }
+    if (!currentRange) currentRange = fetchRange(ValueParam);
       
     if (oldPointedRange && currentRange) {
       currentRange = currentRange->join(oldPointedRange);
@@ -769,20 +763,18 @@ void VRAnalyzer::handleLoadInstr(Instruction* I) {
   const Value* PointerOp = Load->getPointerOperand();
 
   std::shared_ptr<ValueInfo> AddressNode = getNode(PointerOp);
+  if (!AddressNode) {
+    if (const Value* Base = getBaseMemoryObject(PointerOp)) {
+      AddressNode = getNode(Base);
+    }
+  }
+
   std::shared_ptr<ValueInfo> Loaded = loadNode(AddressNode);
   std::shared_ptr<ScalarInfo> Scalar = std::dynamic_ptr_cast_or_null<ScalarInfo>(Loaded);
 
-  // --- RANGE PER ACCESSI DINAMICI ---
-  bool isDynamic = false;
-  if (auto GEP = dyn_cast<GEPOperator>(PointerOp)) {
-    if (!GEP->hasAllConstantIndices()) isDynamic = true;
-  }
-
-  if (isDynamic) {
+  if (!Scalar) {
     if (const Value* Base = getBaseMemoryObject(PointerOp)) {
-      std::shared_ptr<ValueInfo> BaseNode = getNode(Base);
-      std::shared_ptr<ValueInfo> BaseLoaded = loadNode(BaseNode);
-      if (std::shared_ptr<ArrayInfo> ArrayNode = std::dynamic_ptr_cast_or_null<ArrayInfo>(BaseLoaded)) {
+      if (auto ArrayNode = std::dynamic_ptr_cast_or_null<ArrayInfo>(loadNode(getNode(Base)))) {
         std::shared_ptr<Range> summaryRange = getRange(ArrayNode);
         if (!summaryRange) {
           summaryRange = std::make_shared<Range>(Range::Top());
@@ -800,7 +792,7 @@ void VRAnalyzer::handleLoadInstr(Instruction* I) {
       recurrenceRange = ModInt->getLastStoredRange(Base);
   }
 
-  // Ora questo blocco gestirà anche i tuoi array dinamici
+  // Comportamento originale MemorySSA
   if (Scalar) {
     llvm::MemorySSAAnalysis::Result *SSARes;
     if (CodeInt) {
@@ -844,28 +836,19 @@ void VRAnalyzer::handleGEPInstr(const Instruction* I) {
     LLVM_DEBUG(Logger->logInfoln("has node"));
     return;
   }
-
+  
   SmallVector<unsigned, 1> Offset;
-  // Proviamo a estrarre l'offset
   bool success = extractGEPOffset(
         gepInst->getSourceElementType(), iterator_range(gepInst->idx_begin(), gepInst->idx_end()), Offset);
 
-  // Se non riusciamo a estrarre un offset perfetto (indice variabile, 
-  // struct complessa, array inlinato passati per parametro), 
-  // DTA ha comunque vitale bisogno di un GEPInfo per non spezzare il type system.
   if (!success) {
     Offset.clear();
-    // Approssimiamo all'indice 0 (tanto in TAFFO gli array vengono omogeneizzati a un solo tipo)
     for (auto it = gepInst->idx_begin() + 1; it != gepInst->idx_end(); ++it) {
       Offset.push_back(0);
     }
   }
 
-  // Costruiamo il nodo GEP e lo colleghiamo al puntatore base
   std::shared_ptr<ValueInfo> BaseNode = getNode(gepInst->getPointerOperand());
-  
-  // Se la base non ha un nodo tracciato, proviamo a risalire alla memoria root 
-  // (es. utile quando passiamo puntatori alle funzioni inlinate)
   if (!BaseNode) {
     if (const Value* RootBase = getBaseMemoryObject(gepInst->getPointerOperand())) {
       BaseNode = getNode(RootBase);
@@ -983,16 +966,108 @@ std::shared_ptr<Range> VRAnalyzer::fetchRange(const Value* v) {
     if (const std::shared_ptr<ScalarInfo> InputScalar = std::dynamic_ptr_cast<ScalarInfo>(InputRange))
       return InputScalar->range;
 
+  if (const ConstantFP* CFP = dyn_cast<ConstantFP>(v)) {
+    double val = CFP->getValueAPF().convertToDouble();
+    return std::make_shared<Range>(val, val);
+  }
+  if (const ConstantInt* CI = dyn_cast<ConstantInt>(v)) {
+    double val = static_cast<double>(CI->getSExtValue());
+    return std::make_shared<Range>(val, val);
+  }
+
+  if (auto node = getNode(v)) {
+    if (auto scalarInfo = std::dynamic_ptr_cast_or_null<ScalarInfo>(node)) {
+      return scalarInfo->range;
+    }
+  }
+
   return nullptr;
+}
+
+static std::shared_ptr<ValueInfoWithRange> safeMergeRanges(
+    std::shared_ptr<ValueInfoWithRange> derived,
+    std::shared_ptr<ValueInfoWithRange> input) 
+{
+  if (!derived) return input;
+  if (!input) return derived;
+
+  // Se sono entrambi scalari, uniamo i range
+  if (derived->getKind() == ValueInfo::K_Scalar && input->getKind() == ValueInfo::K_Scalar) {
+    auto d_scal = std::static_pointer_cast<ScalarInfo>(derived);
+    auto i_scal = std::static_pointer_cast<ScalarInfo>(input);
+    auto res = std::static_pointer_cast<ScalarInfo>(d_scal->clone());
+    if (d_scal->range && i_scal->range) res->range = d_scal->range->join(i_scal->range);
+    else if (i_scal->range) res->range = i_scal->range->clone();
+    return res;
+  }
+  // Se sono entrambi array, iteriamo ricorsivamente
+  else if (derived->getKind() == ValueInfo::K_Array && input->getKind() == ValueInfo::K_Array) {
+    auto d_arr = std::static_pointer_cast<ArrayInfo>(derived);
+    auto i_arr = std::static_pointer_cast<ArrayInfo>(input);
+    auto res = std::make_shared<ArrayInfo>(d_arr->getNumElements());
+    unsigned min_len = std::min(d_arr->getNumElements(), i_arr->getNumElements());
+    
+    for (unsigned i = 0; i < min_len; ++i) {
+      auto d_el = std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(d_arr->getElement(i));
+      auto i_el = std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(i_arr->getElement(i));
+      res->setElement(i, safeMergeRanges(d_el, i_el));
+    }
+    for (unsigned i = min_len; i < d_arr->getNumElements(); ++i) {
+      if (d_arr->getElement(i)) res->setElement(i, d_arr->getElement(i)->clone());
+    }
+    return res;
+  }
+  // Se sono struct, iteriamo sui campi
+  else if (derived->getKind() == ValueInfo::K_Struct && input->getKind() == ValueInfo::K_Struct) {
+    auto d_str = std::static_pointer_cast<StructInfo>(derived);
+    auto i_str = std::static_pointer_cast<StructInfo>(input);
+    auto res = std::make_shared<StructInfo>(d_str->getNumFields());
+    unsigned min_len = std::min(d_str->getNumFields(), i_str->getNumFields());
+    
+    for (unsigned i = 0; i < min_len; ++i) {
+      auto d_fld = std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(d_str->getField(i));
+      auto i_fld = std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(i_str->getField(i));
+      res->setField(i, safeMergeRanges(d_fld, i_fld));
+    }
+    return res;
+  }
+  // Se TAFFO ha capito che è un aggregato (Array/Struct), ma l'utente ha
+  // annotato un semplice "scalar", spalmiamo quel range su tutte le foglie
+  else if (input->getKind() == ValueInfo::K_Scalar) {
+    auto i_scal = std::static_pointer_cast<ScalarInfo>(input);
+    auto res = derived->clone<ValueInfoWithRange>();
+    
+    std::function<void(std::shared_ptr<ValueInfo>)> smear = [&](std::shared_ptr<ValueInfo> node) {
+      if (!node) return;
+      if (node->getKind() == ValueInfo::K_Scalar) {
+        auto s = std::static_pointer_cast<ScalarInfo>(node);
+        if (s->range && i_scal->range) s->range = s->range->join(i_scal->range);
+        else if (i_scal->range) s->range = i_scal->range->clone();
+      } else if (node->getKind() == ValueInfo::K_Array) {
+        auto a = std::static_pointer_cast<ArrayInfo>(node);
+        for(unsigned i=0; i<a->getNumElements(); ++i) smear(a->getElement(i));
+      } else if (node->getKind() == ValueInfo::K_Struct) {
+        auto s = std::static_pointer_cast<StructInfo>(node);
+        for(unsigned i=0; i<s->getNumFields(); ++i) smear(s->getField(i));
+      } else if (node->getKind() == ValueInfo::K_Pointer) {
+        auto p = std::static_pointer_cast<PointerInfo>(node);
+        smear(p->getPointed());
+      }
+    };
+    
+    smear(res);
+    return res;
+  }
+  
+  // Fallback sicuro se i tipi sono incompatibili (es. Pointer vs Array)
+  return derived->clone<ValueInfoWithRange>();
 }
 
 std::shared_ptr<ValueInfoWithRange> VRAnalyzer::fetchRangeNode(const Value* v) {
   if (const std::shared_ptr<ValueInfoWithRange> Derived = VRAStore::fetchRangeNode(v)) {
-    if (std::isa_ptr<StructInfo>(Derived) || std::isa_ptr<ArrayInfo>(Derived)) {
-      if (auto InputRange = getGlobalStore()->getUserInput(v)) {
-        // fill null input_range fields with corresponding derived fields
-        return fillRangeHoles(Derived, InputRange->clone<ValueInfoWithRange>());
-      }
+    if (auto InputRange = getGlobalStore()->getUserInput(v)) {
+      // Usiamo il bypass sicuro invece di fillRangeHoles
+      return safeMergeRanges(Derived, InputRange->clone<ValueInfoWithRange>());
     }
     return Derived;
   }
