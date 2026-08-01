@@ -24,6 +24,9 @@ void VRAStore::convexMerge(const VRAStore& other) {
         assignStructNode(currentInfo, otherValueInfo);
         //finalInfo = currentInfo;
       }
+      else if (std::isa_ptr<ArrayInfo>(currentInfo)) {
+        assignArrayNode(currentInfo, otherValueInfo);
+      }
       else if (std::shared_ptr<ScalarInfo> unionInfo = assignScalarRange(currentInfo, otherValueInfo)) {
         DerivedRanges[value] = unionInfo;
         //finalInfo = unionInfo;
@@ -370,9 +373,22 @@ bool VRAStore::extractGEPOffset(const Type* sourceElementType,
                                 SmallVectorImpl<unsigned>& offset) const {
   assert(sourceElementType != nullptr);
   LLVM_DEBUG(log() << "indices: ");
-  for (auto indicesIter = indices.begin() + 1; // skip first index
-       indicesIter != indices.end();
-       indicesIter++) {
+
+  auto indicesIter = indices.begin();
+  
+  if (const ConstantInt* intConstant = dyn_cast<ConstantInt>(*indicesIter)) {
+    int val = static_cast<int>(intConstant->getSExtValue());
+    if (val != 0) {
+      offset.push_back(val);
+    }
+  } else {
+    LLVM_DEBUG(Logger->logErrorln("Index of GEP not constant"));
+    return false;
+  }
+  
+  indicesIter++; // Passiamo agli indici strutturali
+  
+  for (; indicesIter != indices.end(); indicesIter++) {
     if (isa<VectorType>(sourceElementType))
       continue;
 
@@ -385,7 +401,6 @@ bool VRAStore::extractGEPOffset(const Type* sourceElementType,
       } else if (auto* arrayType = dyn_cast<ArrayType>(sourceElementType)) {
         sourceElementType = arrayType->getElementType();
       } 
-
       LLVM_DEBUG(log() << val << " ");
     }
     else {

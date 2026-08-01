@@ -702,6 +702,34 @@ void VRAnalyzer::handleStoreInstr(const Instruction* I) {
     return;
 
   std::shared_ptr<ValueInfo> AddressNode = getNode(AddressParam);
+
+  // --- RANGE PER SCRITTURE DINAMICHE ---
+  bool isDynamic = false;
+  if (auto GEP = dyn_cast<GEPOperator>(AddressParam)) {
+    if (!GEP->hasAllConstantIndices()) isDynamic = true;
+  }
+
+  if (isDynamic) {
+    if (const Value* Base = getBaseMemoryObject(AddressParam)) {
+      std::shared_ptr<ValueInfo> BaseNode = getNode(Base);
+      std::shared_ptr<ValueInfo> BaseLoaded = loadNode(BaseNode);
+      if (std::shared_ptr<ArrayInfo> ArrayNode = std::dynamic_ptr_cast_or_null<ArrayInfo>(BaseLoaded)) {
+        std::shared_ptr<Range> valRange = fetchRange(ValueParam);
+        if (valRange) {
+          for (unsigned i = 0; i < ArrayNode->getNumElements(); ++i) {
+            std::shared_ptr<ValueInfo> el = ArrayNode->getElement(i);
+            std::shared_ptr<ValueInfo> valNode = std::make_shared<ScalarInfo>(nullptr, valRange);
+            if (el) {
+              ArrayNode->setElement(i, assignScalarRange(el, valNode));
+            } else {
+              ArrayNode->setElement(i, valNode);
+            }
+          }
+        }
+      }
+    }
+  }
+
   std::shared_ptr<ValueInfo> ValueNode = getNode(ValueParam);
 
   const std::shared_ptr<Range> oldValueRange = getRange(ValueNode);
@@ -740,7 +768,31 @@ void VRAnalyzer::handleLoadInstr(Instruction* I) {
   LLVM_DEBUG(Logger->logInstruction(I));
   const Value* PointerOp = Load->getPointerOperand();
 
-  std::shared_ptr<ValueInfo> Loaded = loadNode(getNode(PointerOp));
+  std::shared_ptr<ValueInfo> AddressNode = getNode(PointerOp);
+  std::shared_ptr<ValueInfo> Loaded = loadNode(AddressNode);
+  std::shared_ptr<ScalarInfo> Scalar = std::dynamic_ptr_cast_or_null<ScalarInfo>(Loaded);
+
+  // --- RANGE PER ACCESSI DINAMICI ---
+  bool isDynamic = false;
+  if (auto GEP = dyn_cast<GEPOperator>(PointerOp)) {
+    if (!GEP->hasAllConstantIndices()) isDynamic = true;
+  }
+
+  if (isDynamic) {
+    if (const Value* Base = getBaseMemoryObject(PointerOp)) {
+      std::shared_ptr<ValueInfo> BaseNode = getNode(Base);
+      std::shared_ptr<ValueInfo> BaseLoaded = loadNode(BaseNode);
+      if (std::shared_ptr<ArrayInfo> ArrayNode = std::dynamic_ptr_cast_or_null<ArrayInfo>(BaseLoaded)) {
+        std::shared_ptr<Range> summaryRange = getRange(ArrayNode);
+        if (!summaryRange) {
+          summaryRange = std::make_shared<Range>(Range::Top());
+        }
+        if (Load->getType()->isSingleValueType()) {
+          Scalar = std::make_shared<ScalarInfo>(nullptr, summaryRange);
+        }
+      }
+    }
+  }
 
   std::shared_ptr<Range> recurrenceRange = nullptr;
   if (ModInt) {
@@ -748,7 +800,8 @@ void VRAnalyzer::handleLoadInstr(Instruction* I) {
       recurrenceRange = ModInt->getLastStoredRange(Base);
   }
 
-  if (std::shared_ptr<ScalarInfo> Scalar = std::dynamic_ptr_cast_or_null<ScalarInfo>(Loaded)) {
+  // Ora questo blocco gestirà anche i tuoi array dinamici
+  if (Scalar) {
     llvm::MemorySSAAnalysis::Result *SSARes;
     if (CodeInt) {
       auto& FAM = CodeInt->getMAM().getResult<FunctionAnalysisManagerModuleProxy>(*I->getFunction()->getParent()).getManager();
@@ -791,12 +844,35 @@ void VRAnalyzer::handleGEPInstr(const Instruction* I) {
     LLVM_DEBUG(Logger->logInfoln("has node"));
     return;
   }
+
   SmallVector<unsigned, 1> Offset;
-  if (!extractGEPOffset(
-        gepInst->getSourceElementType(), iterator_range(gepInst->idx_begin(), gepInst->idx_end()), Offset)) {
-    return;
+  // Proviamo a estrarre l'offset
+  bool success = extractGEPOffset(
+        gepInst->getSourceElementType(), iterator_range(gepInst->idx_begin(), gepInst->idx_end()), Offset);
+
+  // Se non riusciamo a estrarre un offset perfetto (indice variabile, 
+  // struct complessa, array inlinato passati per parametro), 
+  // DTA ha comunque vitale bisogno di un GEPInfo per non spezzare il type system.
+  if (!success) {
+    Offset.clear();
+    // Approssimiamo all'indice 0 (tanto in TAFFO gli array vengono omogeneizzati a un solo tipo)
+    for (auto it = gepInst->idx_begin() + 1; it != gepInst->idx_end(); ++it) {
+      Offset.push_back(0);
+    }
   }
-  Node = std::make_shared<GEPInfo>(getNode(gepInst->getPointerOperand()), Offset);
+
+  // Costruiamo il nodo GEP e lo colleghiamo al puntatore base
+  std::shared_ptr<ValueInfo> BaseNode = getNode(gepInst->getPointerOperand());
+  
+  // Se la base non ha un nodo tracciato, proviamo a risalire alla memoria root 
+  // (es. utile quando passiamo puntatori alle funzioni inlinate)
+  if (!BaseNode) {
+    if (const Value* RootBase = getBaseMemoryObject(gepInst->getPointerOperand())) {
+      BaseNode = getNode(RootBase);
+    }
+  }
+
+  Node = std::make_shared<GEPInfo>(BaseNode, Offset);
   setNode(I, Node);
 }
 

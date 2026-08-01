@@ -306,10 +306,18 @@ void VRAGlobalStore::updateValueInfo(const std::shared_ptr<ValueInfo>& valueInfo
       for (unsigned i = 0; i < arrayInfo->getNumElements(); i++) {
         if (newElementsIter == newArrayInfo->end())
           break;
-        if (std::shared_ptr<ValueInfo> element = arrayInfo->getElement(i))
-          updateValueInfo(element, fetchRange(*newElementsIter));
-        else
-          arrayInfo->setElement(i, fetchRange(*newElementsIter));
+        std::shared_ptr<ValueInfo> element = arrayInfo->getElement(i);
+        std::shared_ptr<ValueInfo> srcElement = *newElementsIter;
+        
+        if (element && srcElement) {
+          if (std::isa_ptr<ArrayInfo>(element) && std::isa_ptr<ArrayInfo>(srcElement)) {
+            updateValueInfo(element, std::static_ptr_cast<ValueInfoWithRange>(srcElement));
+          } else {
+            updateValueInfo(element, fetchRange(srcElement));
+          }
+        } else if (srcElement) {
+          arrayInfo->setElement(i, srcElement);
+        }
         newElementsIter++;
       }
     }
