@@ -185,12 +185,22 @@ Value* ConversionPass::getConvertedOperand(Value* value,
 
   LLVM_DEBUG(log() << "value must be converted: converting now\n");
 
-  if (auto* constant = dyn_cast<Constant>(value))
+if (auto* constant = dyn_cast<Constant>(value))
     return convertConstant(constant, convType, policy, resConvType);
 
-  auto* scalarCurrentConvType = cast<ConversionScalarType>(currentConvType);
+  // --- SAFEGUARD: Safely check if both types are scalar before casting ---
+  if (!currentConvType || currentConvType->getKind() != ConversionType::K_Scalar || convType.getKind() != ConversionType::K_Scalar) {
+    LLVM_DEBUG(log() << "Non-scalar conversion type encountered, bypassing scalar conversion.\n");
+    if (resConvType && currentConvType)
+      *resConvType = currentConvType->clone();
+    return value;
+  }
+  // ----------------------------------------------------------------------
+
+  auto& scalarCurrentConvType = cast<ConversionScalarType>(*currentConvType);
   auto& scalarConvType = cast<ConversionScalarType>(convType);
-  Value* res = genConvertConvToConv(value, *scalarCurrentConvType, scalarConvType, policy, insertionPoint);
+
+  Value* res = genConvertConvToConv(value, scalarCurrentConvType, scalarConvType, policy, insertionPoint);
   const auto* newConvType = taffoConvInfo.getNewOrOldType<ConversionScalarType>(res);
   if (*newConvType != scalarConvType && policy == ConvTypePolicy::ForceHint) {
     LLVM_DEBUG(log() << "forcing hint type\n");
@@ -209,6 +219,16 @@ Value* ConversionPass::genConvertConvToConv(Value* src,
                                             Instruction* insertionPoint) {
   if (srcConvType == dstConvType)
     return src;
+
+  // 1. Bypass pointers safely
+  if (src->getType()->isPointerTy()) {
+    return src;
+  }
+
+  // 2. Intercept Fixed-Point to Floating-Point conversions immediately 
+  // (prevents evaluating .getBits() on float types)
+  if (srcConvType.isFixedPoint() && dstConvType.isFloatingPoint())
+    return genConvertConvToFloat(src, srcConvType, dstConvType);
 
   Logger& logger = log();
   auto indenter = logger.getIndenter();

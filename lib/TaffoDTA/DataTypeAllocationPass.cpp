@@ -169,6 +169,8 @@ bool DataTypeAllocationPass::allocateType(Value* value) {
       skippedAll &= !allocateScalarType(scalarInfo, value, transparentType, forceEnableConv);
     else if (std::shared_ptr<StructInfo> structInfo = dynamic_ptr_cast<StructInfo>(valueInfo))
       allocateStructType(structInfo, value, transparentType, queue);
+    else if (std::shared_ptr<ArrayInfo> arrayInfo = dynamic_ptr_cast<ArrayInfo>(valueInfo))
+      allocateArrayType(arrayInfo, value, transparentType, queue);
     else
       llvm_unreachable("Unknown valueInfo kind");
   }
@@ -203,6 +205,71 @@ bool DataTypeAllocationPass::allocateScalarType(std::shared_ptr<ScalarInfo>& sca
 
   return strategy->apply(scalarInfo, value);
 }
+
+void DataTypeAllocationPass::allocateArrayType(std::shared_ptr<ArrayInfo>& arrayInfo,
+                                          Value* value,
+                                          const TransparentType* type,
+                                          SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8>& queue) {
+  if (type->isOpaquePtr())
+    return;
+  if (!type->isArrayTTOrPtrTo()) {
+    llvm_unreachable("Non-conforming ArrayInfo.");
+  }
+  // Se l'array non è stato annotato con un range o è "disabled", non toccarlo!
+  if (taffoInfo.hasValueInfo(*value)) {
+    auto vInfo = taffoInfo.getValueInfo(*value);
+    if (!vInfo->isConversionEnabled()) {
+        LLVM_DEBUG(log() << "Array conversion disabled, skipping.\n");
+        return;
+    }
+  }
+
+  auto arrayType = cast<TransparentArrayType>(type->getFirstNonPtr());
+  unsigned numElements = arrayInfo->getNumElements();
+  bool isDynamic = hasDynamicAccess(value);
+
+  if (isDynamic) {
+    LLVM_DEBUG(log() << "value has dynamic access: homogenizing\n");
+
+    double globalMax = 0.0;
+    double globalMin = 0.0;
+    bool conversionEnabled = false;
+
+    for (unsigned i = 0; i < numElements; i++) {
+      if (auto elem = std::dynamic_ptr_cast<ScalarInfo>(arrayInfo->getElement(i))) {
+        if (elem->range) {
+          globalMax = std::max(globalMax, elem->range->max);
+          globalMin = std::min(globalMin, elem->range->min);
+        }
+        conversionEnabled |= elem->conversionEnabled;
+      }
+    }
+
+    auto unifiedScalar = std::make_shared<ScalarInfo>();
+    unifiedScalar->range = std::make_shared<Range>(globalMin, globalMax);
+    unifiedScalar->conversionEnabled = conversionEnabled;
+
+    bool success = allocateScalarType(unifiedScalar, value, arrayType->getElementType(), false);
+
+    if (success && unifiedScalar->numericType) {
+      for (unsigned i = 0; i < numElements; i++) {
+        if (auto elem = std::dynamic_ptr_cast<ScalarInfo>(arrayInfo->getElement(i))) {
+          elem->numericType = unifiedScalar->numericType->clone();
+        }
+      }
+      LLVM_DEBUG(log() << "Unified type applied to array: " << unifiedScalar->numericType->toString() << "\n");
+    }
+  }
+  else {
+    LLVM_DEBUG(log() << "Array only has static accesses: allocating to single elements\n");
+
+    for (unsigned i = 0; i < numElements; i++) {
+      if (std::shared_ptr<ValueInfo> element = arrayInfo->getElement(i)) {
+        queue.push_back(std::make_pair(element, arrayType->getElementType()));
+      }
+    }
+  }
+ }
 
 void DataTypeAllocationPass::allocateStructType(
   std::shared_ptr<StructInfo>& structInfo,
@@ -360,6 +427,22 @@ bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
     return false;
   }
 
+  // Array <-> Array (recurse)
+  if (auto arrayInfo1 = std::dynamic_ptr_cast<ArrayInfo>(valueInfo1)) {
+    auto arrayInfo2 = std::dynamic_ptr_cast<ArrayInfo>(valueInfo2);
+    if (!arrayInfo2) {
+      LLVM_DEBUG(logger << "kinds mismatch (array vs non-array): skipping in mergeValueInfos\n");
+      return false;
+    }
+
+    bool changed = false;
+    unsigned n = std::min(arrayInfo1->getNumElements(), arrayInfo2->getNumElements());
+    for (unsigned i = 0; i < n; ++i) {
+      changed |= mergeTypes(arrayInfo1->getElement(i), type1, arrayInfo2->getElement(i), type2);
+    }
+    return changed;
+  }
+
   // Struct <-> Struct (recurse)
   if (auto structInfo1 = std::dynamic_ptr_cast<StructInfo>(valueInfo1)) {
     auto structInfo2 = std::dynamic_ptr_cast<StructInfo>(valueInfo2);
@@ -389,6 +472,22 @@ bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
     return changed;
   }
   llvm_unreachable("Unknown valueInfo kind");
+}
+
+bool DataTypeAllocationPass::hasDynamicAccess(Value* v) {
+  for (User* U : v->users()) {
+    if (auto* gep = dyn_cast<GetElementPtrInst>(U)) {
+      if (!gep->hasAllConstantIndices()) {
+        return true;
+      }
+    }
+    else if (auto* bc = dyn_cast<BitCastInst>(U)) {
+      if (hasDynamicAccess(bc)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ScalarInfo> scalarInfo1,

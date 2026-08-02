@@ -24,6 +24,16 @@ std::unique_ptr<ConversionType> ConversionTypeFactory::create(const TransparentT
       fields.push_back(create(*structType->getFieldType(i)));
     return std::make_unique<ConversionStructType>(type, fields);
   }
+  if (type.isArrayTTOrPtrTo()) {
+    auto* arrayType = cast<TransparentArrayType>(type.getFirstNonPtr());
+    SmallVector<std::unique_ptr<ConversionType>, 4> elements;
+    unsigned numElems = arrayType->getNumElements();
+    elements.reserve(numElems);
+    for (unsigned i = 0; i < numElems; i++) {
+      elements.push_back(create(*arrayType->getElementType()));
+    }
+    return std::make_unique<ConversionArrayType>(type, elements);
+  }
   return std::make_unique<ConversionScalarType>(type);
 }
 
@@ -43,8 +53,13 @@ std::unique_ptr<ConversionType> ConversionType::getGepConvType(const ArrayRef<un
   for (unsigned index : gepIndices)
     if (resolvedType->isPointerTT())
       resolvedType = resolvedType->getPointedType();
-    else if (resolvedType->isArrayTT())
+    else if (resolvedType->isArrayTT()) {
       resolvedType = cast<TransparentArrayType>(resolvedType)->getElementType();
+      if (auto* convArray = dyn_cast<ConversionArrayType>(resolvedConvType))
+        resolvedConvType = convArray->getElementType(index);
+      else
+        resolvedConvType = nullptr;
+    }
     else if (resolvedType->isStructTT()) {
       resolvedType = cast<TransparentStructType>(resolvedType)->getFieldType(index);
       resolvedConvType = cast<ConversionStructType>(resolvedConvType)->getFieldType(index);
@@ -266,6 +281,14 @@ ConversionStructType::ConversionStructType(const TransparentType& type,
       if (conversionEnabled && structFieldConversionEnabled)
         *conversionEnabled = true;
     }
+    else if (std::shared_ptr<ArrayInfo> arrayFieldInfo = std::dynamic_ptr_cast<ArrayInfo>(fieldInfo)) {
+      auto* arrayFieldType = cast<TransparentArrayType>(fieldType->getFirstNonPtr());
+      bool arrayFieldConversionEnabled;
+      fieldTypes.push_back(
+        std::make_unique<ConversionArrayType>(*arrayFieldType, arrayFieldInfo, &arrayFieldConversionEnabled));
+      if (conversionEnabled && arrayFieldConversionEnabled)
+        *conversionEnabled = true;
+    }
     else
       llvm_unreachable("unknown type of valueInfo");
   }
@@ -336,5 +359,126 @@ std::string ConversionStructType::toString() const {
       ss << ',';
   }
   ss << '>';
+  return ss.str();
+}
+
+
+ConversionArrayType::ConversionArrayType(const TransparentType& type,
+                                         const std::shared_ptr<ArrayInfo>& arrayInfo,
+                                         bool* conversionEnabled)
+: ConversionType(type) {
+  if (conversionEnabled)
+    *conversionEnabled = false;
+
+  auto* arrType = cast<TransparentArrayType>(type.getFirstNonPtr());
+  TransparentType* elemTransparentType = arrType->getElementType();
+
+  unsigned numElems = arrType->getNumElements();
+  for (unsigned i = 0; i < numElems; i++) {
+    std::shared_ptr<ValueInfo> elemInfo = (arrayInfo && i < arrayInfo->getNumElements()) ? arrayInfo->getElement(i) : nullptr;
+
+    if (!elemInfo) {
+      elementTypes.push_back(ConversionTypeFactory::create(*elemTransparentType));
+    } else if (std::shared_ptr<ScalarInfo> scalarElemInfo = std::dynamic_ptr_cast<ScalarInfo>(elemInfo)) {
+      if (scalarElemInfo->isConversionEnabled() && scalarElemInfo->numericType) {
+        if (conversionEnabled)
+          *conversionEnabled = true;
+        elementTypes.push_back(std::make_unique<ConversionScalarType>(*elemTransparentType, scalarElemInfo->numericType.get()));
+      } else {
+        elementTypes.push_back(ConversionTypeFactory::create(*elemTransparentType));
+      }
+    } else if (std::shared_ptr<StructInfo> structElemInfo = std::dynamic_ptr_cast<StructInfo>(elemInfo)) {
+      auto* structElemType = cast<TransparentStructType>(elemTransparentType->getFirstNonPtr());
+      bool structConversionEnabled;
+      elementTypes.push_back(std::make_unique<ConversionStructType>(*structElemType, structElemInfo, &structConversionEnabled));
+      if (conversionEnabled && structConversionEnabled)
+        *conversionEnabled = true;
+    } else if (std::shared_ptr<ArrayInfo> arrayElemInfo = std::dynamic_ptr_cast<ArrayInfo>(elemInfo)) {
+      auto* arrayElemType = cast<TransparentArrayType>(elemTransparentType->getFirstNonPtr());
+      bool arrayConversionEnabled;
+      elementTypes.push_back(std::make_unique<ConversionArrayType>(*arrayElemType, arrayElemInfo, &arrayConversionEnabled));
+      if (conversionEnabled && arrayConversionEnabled)
+        *conversionEnabled = true;
+    } else {
+      elementTypes.push_back(ConversionTypeFactory::create(*elemTransparentType));
+    }
+  }
+}
+
+bool ConversionArrayType::toTransparentTypeHelper(TransparentType& newType) const {
+
+  if (newType.isPointerTT()) {
+    // Pointer case
+    if (!newType.isOpaquePtr())
+      return toTransparentTypeHelper(*newType.getPointedType());
+    return false;
+  }
+
+  auto* newArrayType = cast<TransparentArrayType>(newType.getFirstNonPtr());
+  if (!newArrayType) {
+    return false;
+  }
+  assert(newArrayType->getNumElements() == getNumElementTypes());
+
+  bool hasFloats = false;
+  SmallVector<Type*, 4> elementsLLVMTypes;
+  for (unsigned i = 0; i < getNumElementTypes(); i++) {
+    TransparentType* elemTransparentType = newArrayType->getElementType(); // Nota: in LLVM gli array hanno un unico elemento type condiviso, ma la TransparentArrayType gestisce i sotto-oggetti
+    ConversionType* elemConvType = getElementType(i);
+    if (elemConvType) {
+      hasFloats |= elemConvType->toTransparentTypeHelper(*elemTransparentType);
+    }
+    elementsLLVMTypes.push_back(elemTransparentType->getLLVMType());
+  }
+  
+  if (hasFloats) {
+    newArrayType->setLLVMType(ArrayType::get(elementsLLVMTypes[0], getNumElementTypes()));
+  }
+  return hasFloats;
+}
+
+ConversionArrayType& ConversionArrayType::operator=(const ConversionArrayType& other) {
+  if (this == &other)
+    return *this;
+  ConversionType::operator=(other);
+  elementTypes.clear();
+  elementTypes.reserve(other.elementTypes.size());
+  for (const auto& et : other.elementTypes)
+    elementTypes.push_back(et ? et->clone() : nullptr);
+  return *this;
+}
+
+bool ConversionArrayType::operator==(const ConversionType& other) const {
+  if (other.getKind() != K_Array)
+    return false;
+  auto& otherArray = cast<ConversionArrayType>(other);
+  if (elementTypes.size() != otherArray.elementTypes.size())
+    return false;
+  for (size_t i = 0; i < elementTypes.size(); i++) {
+    ConversionType* elemType = elementTypes[i].get();
+    ConversionType* otherElemType = otherArray.elementTypes[i].get();
+    if ((!elemType && otherElemType) || (!otherElemType && elemType))
+      return false;
+    if (elemType && otherElemType && *elemType != *otherElemType)
+      return false;
+  }
+  return true;
+}
+
+std::unique_ptr<ConversionType> ConversionArrayType::clone(const TransparentType& type) const {
+  auto copy = std::make_unique<ConversionArrayType>(*this);
+  copy->transparentType = type.clone();
+  return copy;
+}
+
+std::string ConversionArrayType::toString() const {
+  std::stringstream ss;
+  ss << '[';
+  for (size_t i = 0; i < elementTypes.size(); i++) {
+    ss << elementTypes[i]->toString();
+    if (i != elementTypes.size() - 1)
+      ss << ',';
+  }
+  ss << ']';
   return ss.str();
 }

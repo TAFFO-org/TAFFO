@@ -208,8 +208,15 @@ Value* ConversionPass::convertStore(StoreInst* store) {
   if (valueConvInfo->isConversionDisabled())
     return unsupported;
 
+  ConversionType* baseConvType = taffoConvInfo.getNewOrOldType(newPointerOperand);
   TransparentType* valueOperandType = taffoInfo.getTransparentType(*valueOperand);
-  auto valueOperandConvType = taffoConvInfo.getNewOrOldType(newPointerOperand)->clone(*valueOperandType);
+  auto valueOperandConvType = baseConvType->clone(*valueOperandType);
+
+  if (!valueOperandConvType) {
+    LLVM_DEBUG(log().logln("Cannot determine conversion type for store", Logger::Red));
+    return unsupported;
+  }
+
   newValueOperand = getConvertedOperand(newValueOperand, *valueOperandConvType, nullptr, ConvTypePolicy::ForceHint);
 
   /*if (store->getFunction()->getCallingConv() == CallingConv::SPIR_KERNEL || mdutils::MetadataManager::isCudaKernel(m,

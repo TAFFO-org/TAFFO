@@ -12,6 +12,21 @@ using namespace llvm;
 using namespace tda;
 using namespace taffo;
 
+static std::shared_ptr<ValueInfo> promoteScalarToArray(std::shared_ptr<ValueInfo> scalarNode, const TransparentType* type) {
+  if (!type || !type->isArrayTTOrPtrTo())
+    return scalarNode;
+
+  auto* arrayType = cast<TransparentArrayType>(type->getFirstNonPtr());
+  unsigned numElements = arrayType->getNumElements();
+  auto arrayInfo = std::make_shared<ArrayInfo>(numElements);
+
+  const TransparentType* elementType = arrayType->getElementType();
+  for (unsigned i = 0; i < numElements; i++) {
+    arrayInfo->setElement(i, promoteScalarToArray(scalarNode->clone(), elementType));
+  }
+  return arrayInfo;
+}
+
 #define DEBUG_TYPE "taffo-init"
 
 void AnnotationParser::reset() {
@@ -90,6 +105,21 @@ bool AnnotationParser::parseSyntax(const TransparentType* type) {
     else if (peek("scalar")) {
       if (!parseScalar(valueInfoBuild))
         return false;
+
+      // --- DIAGNOSTICA SICURA ---
+      llvm::errs() << "DEBUG: Parsing scalar...\n";
+      if (type) {
+        llvm::errs() << "DEBUG: Type present. isArray: " 
+                     << (type->isArrayTTOrPtrTo() ? "YES" : "NO") << "\n";
+      } else {
+        llvm::errs() << "DEBUG: Type is NULL\n";
+      }
+      // --------------------------
+
+      if (type && type->isArrayTTOrPtrTo()) {
+        valueInfoBuild = promoteScalarToArray(valueInfoBuild, type);
+        llvm::errs() << "DEBUG: Promotion to ArrayInfo done!\n";
+      }
     }
     else if (peek("bufferid")) {
       std::string buffId;
@@ -247,6 +277,12 @@ bool AnnotationParser::parseStruct(std::shared_ptr<ValueInfo>& thisValueInfo, co
       std::shared_ptr<ValueInfo> tmp;
       if (!parseScalar(tmp))
         return false;
+
+      const TransparentType* fieldType = structType->getFieldType(currentFieldIdx);
+      if (fieldType && fieldType->isArrayTTOrPtrTo()) {
+        tmp = promoteScalarToArray(tmp, fieldType);
+      }
+      
       fields.push_back(tmp);
       currentFieldIdx = nextFieldIdx(currentFieldIdx);
     }

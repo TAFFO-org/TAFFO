@@ -40,6 +40,8 @@ protected:
 
   std::shared_ptr<ScalarInfo> assignScalarRange(const std::shared_ptr<ValueInfo>& dst,
                                                 const std::shared_ptr<ValueInfo>& src) const;
+  
+  void assignArrayNode(const std::shared_ptr<ValueInfo>& dst, const std::shared_ptr<ValueInfo>& src) const;
   void assignStructNode(const std::shared_ptr<ValueInfo>& dst, const std::shared_ptr<ValueInfo>& src) const;
   bool extractGEPOffset(const llvm::Type* sourceElementType,
                         const llvm::iterator_range<llvm::User::const_op_iterator> indices,

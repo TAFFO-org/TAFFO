@@ -119,6 +119,42 @@ bool ConversionPass::buildConvInfo(SmallVectorImpl<Value*>* convQueue, Value* va
       valueConvInfo->setNewType(std::move(newConvType));
     }
   }
+  else if (std::shared_ptr<ArrayInfo> arrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfo)) {
+    // Verifica se l'array contiene dati convertibili (es. float)
+    // Se non contiene float, non c'è bisogno di convertirlo
+    if (!type->containsFloatingPointType()) {
+        LLVM_DEBUG(logger << "Array non contiene float: salto conversione\n");
+        return false;
+    }
+
+    bool conversionEnabled = false;
+    std::vector<std::unique_ptr<ConversionType>> elementTypes;
+
+    // Controlliamo elemento per elemento se c'è una conversione abilitata (es. da annotazione)
+    for (unsigned i = 0; i < arrayInfo->getNumElements(); i++) {
+      auto elemInfo = arrayInfo->getElement(i);
+      if (auto scalarElem = std::dynamic_ptr_cast<ScalarInfo>(elemInfo)) {
+        if (scalarElem->isConversionEnabled() && scalarElem->numericType) {
+          conversionEnabled = true;
+          elementTypes.push_back(std::make_unique<ConversionScalarType>(*cast<TransparentArrayType>(type->getFirstNonPtr())->getElementType(), scalarElem->numericType.get()));
+        } else {
+          elementTypes.push_back(ConversionTypeFactory::create(*cast<TransparentArrayType>(type->getFirstNonPtr())->getElementType()));
+        }
+      } else {
+        elementTypes.push_back(ConversionTypeFactory::create(*cast<TransparentArrayType>(type->getFirstNonPtr())->getElementType()));
+      }
+    }
+
+    // SE L'UTENTE NON HA ANNOTATO L'ARRAY, NON FORZARE LA CONVERSIONE!
+    if (!conversionEnabled && !isAlwaysConvertible(value)) {
+      LLVM_DEBUG(logger << "Array conversion not enabled by annotations: skipping\n");
+      return false;
+    }
+
+    auto newConvType = std::make_unique<ConversionArrayType>(*type, elementTypes);
+    valueConvInfo->setNewType(std::move(newConvType));
+    valueConvInfo->enableConversion();
+  }
   else
     llvm_unreachable("Unrecognized valueInfo");
 

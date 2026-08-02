@@ -122,6 +122,10 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         UserInput[&v] = structInfo;
         DerivedRanges[&v] = structInfo;
       }
+      else if (auto arrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfo)) {
+        UserInput[&v] = arrayInfo;
+        DerivedRanges[&v] = arrayInfo;
+      }
     }
     else if (auto type = taffoInfo.getOrCreateTransparentType(v); type->isStructTTOrPtrTo()) {
       DerivedRanges[&v] = ValueInfoFactory::create(type);
@@ -205,6 +209,9 @@ void VRAGlobalStore::harvestValueInfo(Module& m) {
         else if (auto structInfo = std::dynamic_ptr_cast<StructInfo>(valueInfo)) {
           if (!inst.getType()->isVoidTy())
             UserInput[&inst] = structInfo;
+        }
+        else if (auto arrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfo)) {
+          UserInput[&inst] = arrayInfo;
         }
       }
     }
@@ -293,6 +300,28 @@ void VRAGlobalStore::updateValueInfo(const std::shared_ptr<ValueInfo>& valueInfo
         else
           structInfo->setField(i, fetchRange(*newFieldsIter));
         newFieldsIter++;
+      }
+    }
+  }
+  else if (const auto newArrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfoWithRange)) {
+    if (auto arrayInfo = std::dynamic_ptr_cast<ArrayInfo>(valueInfo)) {
+      auto newElementsIter = newArrayInfo->begin();
+      for (unsigned i = 0; i < arrayInfo->getNumElements(); i++) {
+        if (newElementsIter == newArrayInfo->end())
+          break;
+        std::shared_ptr<ValueInfo> element = arrayInfo->getElement(i);
+        std::shared_ptr<ValueInfo> srcElement = *newElementsIter;
+        
+        if (element && srcElement) {
+          if (std::isa_ptr<ArrayInfo>(element) && std::isa_ptr<ArrayInfo>(srcElement)) {
+            updateValueInfo(element, std::static_ptr_cast<ValueInfoWithRange>(srcElement));
+          } else {
+            updateValueInfo(element, fetchRange(srcElement));
+          }
+        } else if (srcElement) {
+          arrayInfo->setElement(i, srcElement);
+        }
+        newElementsIter++;
       }
     }
   }
@@ -406,20 +435,23 @@ std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant* constan
     }
     if (isa<ArrayType>(zeroAggConstType) || isa<VectorType>(zeroAggConstType)) {
       // arrayType or VectorType
-      return fetchConstant(zeroAggConst->getElementValue(0U));
+      const unsigned num_elements = zeroAggConst->getElementCount().getFixedValue();
+      auto res = std::make_shared<ArrayInfo>(num_elements);
+      for (unsigned i = 0; i < num_elements; i++)
+        res->setElement(i, fetchConstant(zeroAggConst->getElementValue(i)));
+      return res;
     }
     LLVM_DEBUG(Logger->logInfo("Found aggrated zeros which is neither struct neither array neither vector"));
     return nullptr;
   }
   if (const ConstantDataSequential* constSeq = dyn_cast<ConstantDataSequential>(constant)) {
     const unsigned numElements = constSeq->getNumElements();
-    std::shared_ptr<Range> seqRange = nullptr;
+    
+    auto resArray = std::make_shared<ArrayInfo>(numElements);
     for (unsigned i = 0; i < numElements; i++) {
-      std::shared_ptr<Range> otherRange =
-        std::static_ptr_cast<ScalarInfo>(fetchConstant(constSeq->getElementAsConstant(i)))->range;
-      seqRange = getUnionRange(seqRange, otherRange);
+      resArray->setElement(i, fetchConstant(constSeq->getElementAsConstant(i)));
     }
-    return std::make_shared<ScalarInfo>(nullptr, seqRange);
+    return resArray;
   }
   if (isa<ConstantData>(constant)) {
     // FIXME should never happen -- all subcases handled before
@@ -446,14 +478,13 @@ std::shared_ptr<ValueInfo> VRAGlobalStore::fetchConstant(const Constant* constan
       return nullptr;
     }
     // ConstantArray or ConstantVector
-    std::shared_ptr<ValueInfoWithRange> range = nullptr;
-    for (unsigned idx = 0; idx < constAggr->getNumOperands(); idx++) {
-      std::shared_ptr<ValueInfoWithRange> elementRange =
-        std::dynamic_ptr_cast_or_null<ValueInfoWithRange>(fetchConstant(constAggr->getAggregateElement(idx)));
-      range = getUnionRange(range, elementRange);
+    const unsigned numElements = constAggr->getNumOperands();
+    auto resArray = std::make_shared<ArrayInfo>(numElements);
+    for (unsigned i = 0; i < numElements; i++) {
+      std::shared_ptr<ValueInfo> element = fetchConstant(constAggr->getAggregateElement(i));
+      resArray->setElement(i, element);
     }
-    return range;
-    return nullptr;
+    return resArray;
   }
   if (isa<BlockAddress>(constant)) {
     LLVM_DEBUG(Logger->logInfo("Could not fetch range from BlockAddress"));

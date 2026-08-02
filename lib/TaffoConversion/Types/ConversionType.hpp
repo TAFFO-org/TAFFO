@@ -18,10 +18,12 @@ class ConversionType : public tda::Printable {
 public:
   friend class ConversionScalarType;
   friend class ConversionStructType;
+  friend class ConversionArrayType;
 
   enum ConversionTypeKind {
     K_Scalar,
-    K_Struct
+    K_Struct,
+    K_Array
   };
 
   virtual ConversionTypeKind getKind() const = 0;
@@ -116,6 +118,46 @@ private:
   int bits;
   int fractionalBits;
   FloatStandard floatStandard;
+
+protected:
+  bool toTransparentTypeHelper(tda::TransparentType& newType) const override;
+};
+
+class ConversionArrayType : public ConversionType {
+public:
+  static bool classof(const ConversionType* type) { return type->getKind() == K_Array; }
+
+  ConversionTypeKind getKind() const override { return K_Array; }
+
+  ConversionArrayType(const tda::TransparentType& type, const llvm::ArrayRef<std::unique_ptr<ConversionType>>& elements)
+  : ConversionType(type) {
+    assert(type.isArrayTTOrPtrTo());
+    for (const auto& element : elements)
+      elementTypes.push_back(element ? element->clone() : nullptr);
+  }
+
+  ConversionArrayType(const tda::TransparentType& type,
+                      const std::shared_ptr<ArrayInfo>& arrayInfo,
+                      bool* conversionEnabled);
+
+  ConversionArrayType(const ConversionArrayType& other)
+  : ConversionType(other) {
+    for (const auto& element : other.elementTypes)
+      elementTypes.push_back(element ? element->clone() : nullptr);
+  }
+
+  size_t getNumElementTypes() const { return elementTypes.size();}
+  ConversionType* getElementType(unsigned i) const { return elementTypes[i].get(); }
+
+  ConversionArrayType& operator=(const ConversionArrayType& other);
+  bool operator==(const ConversionType& other) const override;
+
+  using ConversionType::clone;
+  std::unique_ptr<ConversionType> clone(const tda::TransparentType& type) const override;
+  std::string toString() const override;
+
+private:
+  llvm::SmallVector<std::unique_ptr<ConversionType>, 4> elementTypes;
 
 protected:
   bool toTransparentTypeHelper(tda::TransparentType& newType) const override;

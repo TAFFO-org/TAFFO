@@ -267,6 +267,12 @@ Constant* ConversionPass::convertConstantExpr(ConstantExpr* constantExpr,
 }
 
 void ConversionPass::convertAPFloat(APFloat floatValue, APSInt& fixedPointValue, const ConversionScalarType& convType) {
+  if (convType.getBits() == 0) {
+    log() << Logger::Red << "Cannot convert APFloat to fixed point with 0 bits\n";
+    fixedPointValue = APSInt(32, true); //fallback
+    return;
+  }
+
   bool precise = false;
 
   APFloat exp(pow(2.0, convType.getFractionalBits()));
@@ -277,8 +283,8 @@ void ConversionPass::convertAPFloat(APFloat floatValue, APSInt& fixedPointValue,
   APFloat::opStatus res = floatValue.convertToInteger(fixedPointValue, APFloat::rmTowardNegative, &precise);
 
   if (res != APFloat::opStatus::opOK) {
-    if (res != APFloat::opStatus::opInexact)
-      llvm_unreachable("APFloat conversion failed");
+    //if (res != APFloat::opStatus::opInexact)
+    //  llvm_unreachable("APFloat conversion failed");
     log() << Logger::Yellow << "imprecise conversion of APFloat\n" << Logger::Reset;
   }
 }
