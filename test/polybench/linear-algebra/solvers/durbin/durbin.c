@@ -22,7 +22,7 @@
 
 /* Array initialization. */
 static void init_array(int n, DATA_TYPE POLYBENCH_1D(r, N, n)) {
-  int i __attribute__((annotate("scalar(range(0.0, " PB_XSTR(N) ") )")));
+  int i;
 
   for (i = 0; i < n; i++)
     r[i] = (DATA_TYPE) (n + 1 - i) / (n * 200.0) + 1.5;
@@ -50,8 +50,8 @@ static void print_array(int n, DATA_TYPE POLYBENCH_1D(y, N, n))
    including the call and return. */
 static void kernel_durbin(int n, DATA_TYPE POLYBENCH_1D(r, N, n), DATA_TYPE POLYBENCH_1D(y, N, n)) {
   DATA_TYPE __attribute__((annotate("scalar()"))) z[N];
-  DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) )"))) alpha;
-  DATA_TYPE __attribute__((annotate("scalar(range(-2, 2) )"))) beta;
+  DATA_TYPE __attribute__((annotate("scalar()"))) alpha;
+  DATA_TYPE __attribute__((annotate("scalar()"))) beta;
   DATA_TYPE __attribute__((annotate("scalar()"))) sum;
 
   int i, k;
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
 
   /* Variable declaration/allocation. */
   POLYBENCH_1D_ARRAY_DECL(r, DATA_TYPE __attribute__((annotate("scalar()"))), N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar(range(-2, 2) )"))), N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE __attribute__((annotate("target('y') scalar()"))), N, n);
 
   /* Initialize array(s). */
   init_array(n, POLYBENCH_ARRAY(r));
