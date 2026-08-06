@@ -1,5 +1,8 @@
 #pragma once
 
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "TypeDispatcher.hpp"
+
 #include <llvm/IR/PassManager.h>
 
 namespace taffo {
@@ -10,6 +13,7 @@ public:
 
 private:
   TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  tda::TypeDispatcher& dispatcher = tda::TypeDispatcher::getInstance();
 };
 
 } // namespace taffo

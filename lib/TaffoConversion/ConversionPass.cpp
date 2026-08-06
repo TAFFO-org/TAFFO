@@ -43,6 +43,7 @@ cl::opt<unsigned> minQuotientFrac("minquotientfrac",
 
 PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[ConversionPass]", Logger::Magenta));
+  dispatcher.registerModule(m);
   taffoInfo.initializeFromFile(DTA_TAFFO_INFO, m);
   dataLayout = &m.getDataLayout();
 
@@ -79,6 +80,7 @@ PreservedAnalyses ConversionPass::run(Module& m, ModuleAnalysisManager&) {
   cleanUpOriginalFunctions(m);
 
   taffoInfo.dumpToFile(CONVERSION_TAFFO_INFO, m);
+  dispatcher.unregisterModule(m);
   LLVM_DEBUG(log().logln("[End of ConversionPass]", Logger::Magenta));
   return PreservedAnalyses::none();
 }
@@ -207,7 +209,7 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
       if (taffoInfo.hasValueInfo(*oldValue))
         taffoInfo.setValueInfo(*newValue, taffoInfo.getValueInfo(*oldValue));
       if (taffoInfo.hasTransparentType(*oldValue))
-        taffoInfo.setTransparentType(*newValue, taffoInfo.getTransparentType(*oldValue)->clone());
+        taffoInfo.setTransparentType(*newValue, taffoInfo.getTransparentType(*oldValue));
     }
     /* CloneFunctionInto also fixes the attributes of the arguments.
      * This is not exactly what we want for OpenCL kernels because the alignment
@@ -222,7 +224,7 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
         Argument* Arg = newF->getArg(ArgId);
         if (!Arg->getType()->isPointerTy())
           continue;
-        Type* ArgTy = getFullyUnwrappedType(Arg);
+        const Type* ArgTy = getFullyUnwrappedType(Arg);
         Align align(ArgTy->getScalarSizeInBits() / 8);
         AttributeSet OldArgAttrs = OldAttrs.getParamAttrs(ArgId);
         AttributeSet NewArgAttrs = OldArgAttrs.addAttributes(
@@ -253,7 +255,7 @@ void ConversionPass::propagateCalls(std::vector<Value*>& convQueue,
           use.set(placeholder);
         }
 
-        taffoInfo.setTransparentType(*placeholder, taffoInfo.getOrCreateTransparentType(oldArg)->clone());
+        taffoInfo.setTransparentType(*placeholder, taffoInfo.getOrCreateTransparentType(oldArg));
         taffoInfo.setValueInfo(*placeholder, taffoInfo.getValueInfo(oldArg)->clone());
 
         ValueConvInfo* placeholderConvInfo = taffoConvInfo.createValueConvInfo(placeholder);
@@ -347,7 +349,7 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
   ConversionType* retConvType = nullptr;
   if (!taffoConvInfo.getValueConvInfo(oldF)->isConversionDisabled()) {
     retConvType = taffoConvInfo.getNewOrOldType(oldF);
-    retLLVMType = retConvType->toLLVMType();
+    retLLVMType = const_cast<Type*>(retConvType->toLLVMType());
   }
 
   std::vector<Type*> argLLVMTypes;
@@ -357,7 +359,7 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
     ConversionType* argConvType = nullptr;
     if (!taffoConvInfo.getValueConvInfo(&oldArg)->isConversionDisabled()) {
       argConvType = taffoConvInfo.getNewOrOldType(&oldArg);
-      newLLVMType = argConvType->toLLVMType();
+      newLLVMType = const_cast<Type*>(argConvType->toLLVMType());
     }
     argLLVMTypes.push_back(newLLVMType);
     argConvTypes.push_back(argConvType);
@@ -398,7 +400,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
   }
 
   PhiInfo info;
-  TransparentType* type = taffoInfo.getTransparentType(*phi);
+  const TransparentType* type = taffoInfo.getTransparentType(*phi);
   ValueConvInfo* phiConvInfo = taffoConvInfo.getValueConvInfo(phi);
 
   info.oldPhi = createPlaceholder(phi->getType(), phi->getParent(), "oldPhi");
@@ -412,7 +414,7 @@ void ConversionPass::openPhiLoop(PHINode* phi) {
   if (!phiConvInfo->isConversionDisabled()) {
     ConversionType* oldConvType = phiConvInfo->getOldType();
     ConversionType* newConvType = phiConvInfo->getNewOrOldType();
-    TransparentType* newType = newConvType->toTransparentType();
+    const TransparentType* newType = newConvType->toTransparentType();
     info.newPhi = createPlaceholder(newType->toLLVMType(), phi->getParent(), "newPhi");
     copyValueInfo(info.newPhi, phi, newType);
     ValueConvInfo* newPhiConvInfo = taffoConvInfo.createValueConvInfo(info.newPhi, oldConvType);
@@ -554,7 +556,7 @@ ConversionPass::HeapAllocationsVec ConversionPass::collectHeapAllocations(Module
     for (auto* user : fun->users())
       if (auto* inst = dyn_cast<Instruction>(user)) {
         if (taffoInfo.hasTransparentType(*inst)) {
-          TransparentType* type = taffoInfo.getTransparentType(*inst);
+          const TransparentType* type = taffoInfo.getTransparentType(*inst);
           auto indenter = logger.getIndenter();
           LLVM_DEBUG(
             logger.log("[Value] ", Logger::Bold).logValueln(inst);
@@ -599,8 +601,8 @@ Value* ConversionPass::adjustHeapAllocationSize(Value* oldSizeValue,
     logger.log("old allocated type: ").logln(*oldAllocatedType, Logger::Cyan);
     logger.log("new allocated type: ").logln(*newAllocatedType, Logger::Cyan););
 
-  unsigned oldSize = dataLayout->getTypeAllocSize(oldAllocatedType->toLLVMType());
-  unsigned newSize = dataLayout->getTypeAllocSize(newAllocatedType->toLLVMType());
+  unsigned oldSize = dataLayout->getTypeAllocSize(const_cast<Type*>(oldAllocatedType->toLLVMType()));
+  unsigned newSize = dataLayout->getTypeAllocSize(const_cast<Type*>(newAllocatedType->toLLVMType()));
 
   if (oldSize == newSize) {
     LLVM_DEBUG(logger << "old type is the same size of new type: doing nothing\n");
@@ -650,9 +652,9 @@ Value* ConversionPass::copyValueInfo(Value* dst, const Value* src, const Transpa
     taffoInfo.setValueInfo(*dst, dstInfo);
   }
   if (dstType)
-    taffoInfo.setTransparentType(*dst, dstType->clone());
+    taffoInfo.setTransparentType(*dst, dstType);
   else
-    taffoInfo.setTransparentType(*dst, TransparentTypeFactory::createFromType(dst->getType()));
+    taffoInfo.setTransparentType(*dst, TransparentType::get(dst));
   return dst;
 }
 

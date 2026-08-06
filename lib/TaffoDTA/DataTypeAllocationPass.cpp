@@ -36,6 +36,7 @@ std::map<DtaStrategyType, std::function<AllocationStrategy*()>> strategyMap = {
 
 PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager&) {
   LLVM_DEBUG(log().logln("[DataTypeAllocationPass]", Logger::Magenta));
+  dispatcher.registerModule(m);
   taffoInfo.initializeFromFile(VRA_TAFFO_INFO, m);
 
   // method that allocate the strategy object, whose methods will be used to apply the strategy
@@ -54,6 +55,7 @@ PreservedAnalyses DataTypeAllocationPass::run(Module& m, ModuleAnalysisManager&)
     taffoInfo.eraseValue(f);
 
   taffoInfo.dumpToFile(DTA_TAFFO_INFO, m);
+  dispatcher.unregisterModule(m);
   LLVM_DEBUG(log().logln("[End of DataTypeAllocationPass]", Logger::Magenta));
   return PreservedAnalyses::all();
 }
@@ -158,8 +160,8 @@ bool DataTypeAllocationPass::allocateType(Value* value) {
     forceEnableConv = true;
 
   bool skippedAll = true;
-  TransparentType* transparentType = taffoInfo.getOrCreateTransparentType(*value);
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8> queue(
+  const TransparentType* transparentType = taffoInfo.getOrCreateTransparentType(*value);
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, const TransparentType*>, 8> queue(
     {std::make_pair(newValueInfo, transparentType)});
 
   while (!queue.empty()) {
@@ -208,7 +210,7 @@ void DataTypeAllocationPass::allocateStructType(
   std::shared_ptr<StructInfo>& structInfo,
   const Value* value,
   const TransparentType* type,
-  SmallVector<std::pair<std::shared_ptr<ValueInfo>, TransparentType*>, 8>& queue) {
+  SmallVector<std::pair<std::shared_ptr<ValueInfo>, const TransparentType*>, 8>& queue) {
   if (type->isOpaquePtr())
     return;
   if (!type->isStructTTOrPtrTo()) {
@@ -346,9 +348,9 @@ bool DataTypeAllocationPass::mergeTypes(Value* value1, Value* value2) {
 }
 
 bool DataTypeAllocationPass::mergeTypes(std::shared_ptr<ValueInfo> valueInfo1,
-                                        TransparentType* type1,
+                                        const TransparentType* type1,
                                         std::shared_ptr<ValueInfo> valueInfo2,
-                                        TransparentType* type2) {
+                                        const TransparentType* type2) {
   Logger& logger = log();
 
   // Scalar <-> Scalar

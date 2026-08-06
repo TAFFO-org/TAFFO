@@ -21,8 +21,8 @@ public:
   static void setIdLoopMapping(const BiMap<std::string, llvm::Loop*>& idLoopMapping, llvm::Module& m);
   static BiMap<std::string, llvm::Loop*> getIdLoopMapping(llvm::Module& m);
 
-  static void setIdTypeMapping(const BiMap<std::string, llvm::Type*>&, llvm::Module& m);
-  static BiMap<std::string, llvm::Type*> getIdTypeMapping(llvm::Module& m);
+  static void setIdTypeMapping(const BiMap<std::string, const llvm::Type*>&, llvm::Module& m);
+  static BiMap<std::string, const llvm::Type*> getIdTypeMapping(llvm::Module& m);
 
   static void getCudaKernels(llvm::Module& m, llvm::SmallVectorImpl<llvm::Function*> kernels);
 };

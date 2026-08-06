@@ -59,7 +59,7 @@ bool FixedPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, Valu
     LLVM_DEBUG(log() << "operands not representable as fixed point with specified constraints\n");
 
   /* We failed, try to keep original type */
-  Type* type = getFullyUnwrappedType(value);
+  const Type* type = getFullyUnwrappedType(value);
   if (type->isFloatingPointTy()) {
     auto res = std::make_shared<FloatingPointInfo>(FloatingPointInfo(type->getTypeID(), greatest));
     scalarInfo->numericType = res;
@@ -157,7 +157,7 @@ bool FloatingPointOnlyStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, V
   }
 
   /* We failed, try to keep original type */
-  Type* type = getFullyUnwrappedType(value);
+  const Type* type = getFullyUnwrappedType(value);
   if (type->isFloatingPointTy()) {
     auto res = std::make_shared<FloatingPointInfo>(FloatingPointInfo(type->getTypeID(), greatest));
     scalarInfo->numericType = res;
@@ -276,7 +276,7 @@ bool FixedFloatingPointStrategy::apply(std::shared_ptr<ScalarInfo>& scalarInfo, 
   }
 
   /* We failed, try to keep original type */
-  Type* Ty = getFullyUnwrappedType(value);
+  const Type* Ty = getFullyUnwrappedType(value);
   if (Ty->isFloatingPointTy()) {
     auto res = std::make_shared<FloatingPointInfo>(FloatingPointInfo(Ty->getTypeID(), greatest));
     scalarInfo->numericType = res;

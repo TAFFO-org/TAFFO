@@ -1,6 +1,8 @@
 #pragma once
 
 #include "CodeInterpreter.hpp"
+#include "TaffoInfo/TaffoInfo.hpp"
+#include "TypeDispatcher.hpp"
 
 #include <llvm/IR/PassManager.h>
 #include <llvm/Support/CommandLine.h>
@@ -21,6 +23,9 @@ public:
   llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& AM);
 
 private:
+  TaffoInfo& taffoInfo = TaffoInfo::getInstance();
+  tda::TypeDispatcher& dispatcher = tda::TypeDispatcher::getInstance();
+
   void processModule(CodeInterpreter& CodeInt, llvm::Module& M);
 };
 
