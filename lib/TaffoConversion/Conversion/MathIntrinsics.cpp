@@ -15,20 +15,59 @@ using namespace taffo;
 enum MathIntrinsicFamily : unsigned {
   Unrecognized = 0,
   FMA,
-  FMulAdd
+  FMulAdd,
+  TANH,
+  RELU,
+  SIGMOID
 };
 
+static bool isExactFunctionOrClone(StringRef name, StringRef baseName) {
+  if (name == baseName)
+    return true;
+
+  if (!name.consume_front(baseName))
+    return false;
+
+  if (!name.consume_front("_clone"))
+    return false;
+
+  if (name.empty())
+    return false;
+
+  for (char c : name)
+    if (c < '0' || c > '9')
+      return false;
+
+  return true;
+}
+
 static MathIntrinsicFamily getMathIntrinsicFamily(Function* F) {
+  if (!F)
+    return Unrecognized;
+
+  StringRef name = F->getName();
+
+  if (isExactFunctionOrClone(name, "tanh") || isExactFunctionOrClone(name, "tanhf")
+      || isExactFunctionOrClone(name, "tanhl") || name == "llvm.tanh.f32" || name == "llvm.tanh.f64")
+    return TANH;
+
+  if (isExactFunctionOrClone(name, "relu") || isExactFunctionOrClone(name, "reluf")
+      || isExactFunctionOrClone(name, "relul"))
+    return RELU;
+
+  if (isExactFunctionOrClone(name, "sigmoid") || isExactFunctionOrClone(name, "sigmoidf")
+      || isExactFunctionOrClone(name, "sigmoidl"))
+    return SIGMOID;
+
   if (F->getIntrinsicID() == Intrinsic::fma)
     return FMA;
-  if (F->getName() == "fma")
+
+  if (name == "fma" || name == "fmal" || name == "fmaf")
     return FMA;
-  if (F->getName() == "fmal")
-    return FMA;
-  if (F->getName() == "fmaf")
-    return FMA;
+
   if (F->getIntrinsicID() == Intrinsic::fmuladd)
     return FMulAdd;
+
   return Unrecognized;
 }
 
@@ -79,6 +118,15 @@ Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
       return res;
     }
     llvm_unreachable("Unknown convType");
+  }
+  else if (family == TANH) {
+    return createTanh(call);
+  }
+  else if (family == RELU) {
+    return createReLU(call);
+  }
+  else if (family == SIGMOID) {
+    return createSigmoid(call);
   }
   llvm_unreachable("Math intrinsic recognized but not handled");
 }

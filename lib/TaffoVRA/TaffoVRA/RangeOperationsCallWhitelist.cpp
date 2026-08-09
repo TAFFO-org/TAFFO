@@ -180,6 +180,31 @@ static std::shared_ptr<Range> handleCallToFMA(const std::list<std::shared_ptr<Ra
   return handleAdd(handleMul(op1, op2), op3);
 }
 
+static std::shared_ptr<Range> handleCallToReLU(const std::list<std::shared_ptr<Range>>& operands) {
+  assert(operands.size() == 1 && "too many operands in function relu");
+  std::shared_ptr<Range> op = operands.front();
+  if (!op)
+    return nullptr;
+
+  // ReLU applica un clamp a zero.
+  double min = std::max(0.0, op->min);
+  double max = std::max(0.0, op->max);
+
+  return std::make_shared<Range>(min, max);
+}
+
+static std::shared_ptr<Range> handleCallToSigmoid(const std::list<std::shared_ptr<Range>>& operands) {
+  assert(operands.size() == 1 && "too many operands in function sigmoid");
+  std::shared_ptr<Range> op = operands.front();
+  if (!op)
+    return nullptr;
+
+  double min = 1.0 / (1.0 + std::exp(-op->min));
+  double max = 1.0 / (1.0 + std::exp(-op->max));
+
+  return std::make_shared<Range>(min, max);
+}
+
 const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
   CMATH_WHITELIST_FUN("ceil", &handleCallToCeil),
   CMATH_WHITELIST_FUN("floor", &handleCallToFloor),
@@ -197,4 +222,9 @@ const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
   CMATH_WHITELIST_FUN("tanh", &handleCallToTanh),
   CMATH_WHITELIST_FUN("rand", &handleCallToRand),
   CMATH_WHITELIST_FUN("fma", &handleCallToFMA),
-  INTRINSIC_WHITELIST_FUN("fmuladd", &handleCallToFMA)};
+  CMATH_WHITELIST_FUN("relu", &handleCallToReLU),
+  {"sigmoid",  &handleCallToSigmoid},
+  {"sigmoidf", &handleCallToSigmoid},
+  {"sigmoidl", &handleCallToSigmoid},
+  INTRINSIC_WHITELIST_FUN("fmuladd", &handleCallToFMA)
+};

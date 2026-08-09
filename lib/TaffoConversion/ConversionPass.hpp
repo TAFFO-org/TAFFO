@@ -196,7 +196,9 @@ private:
 
   bool isSupportedMathIntrinsicFunction(llvm::Function* F);
   llvm::Value* convertMathIntrinsicFunction(llvm::CallBase* call);
-
+  llvm::Value* createTanh(llvm::CallBase* call);
+  llvm::Value* createReLU(llvm::CallBase* call);
+  llvm::Value* createSigmoid(llvm::CallBase* call);
   // Indirect calls
 
   /// Retrieve the indirect calls converted into trampolines and re-use the original indirect functions.
