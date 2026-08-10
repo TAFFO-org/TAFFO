@@ -511,7 +511,6 @@ Value* ConversionPass::createTanh(CallBase* call) {
 }
 
 Value* ConversionPass::createReLU(CallBase* call) {
-
   if (!call || call->arg_empty())
     return unsupported;
 
@@ -541,6 +540,23 @@ Value* ConversionPass::createReLU(CallBase* call) {
     return nullptr;
 
   Value* zero = ConstantInt::get(llvmType, 0);
+
+  /*
+   * Unsigned fixed-point values cannot be negative.
+   * ReLU(x) = x.
+   *
+   * Emit an explicit identity instruction instead of
+   * returning convertedOperand directly, because the
+   * operand may be an LLVM Constant. TAFFO does not
+   * associate newType information with uniqued constants.
+   */
+  if (!newConvType->isSigned()) {
+    Value* result = builder.CreateAdd(convertedOperand, zero, "relu.identity");
+
+    setConversionResultInfo(result, call, newConvType);
+
+    return result;
+  }
 
   Value* isPositive = builder.CreateICmpSGT(convertedOperand, zero, "relu.positive");
 
