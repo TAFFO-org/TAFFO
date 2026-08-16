@@ -18,7 +18,8 @@ enum MathIntrinsicFamily : unsigned {
   FMulAdd,
   TANH,
   RELU,
-  SIGMOID
+  SIGMOID,
+  SWISH
 };
 
 static bool isExactFunctionOrClone(StringRef name, StringRef baseName) {
@@ -58,6 +59,10 @@ static MathIntrinsicFamily getMathIntrinsicFamily(Function* F) {
   if (isExactFunctionOrClone(name, "sigmoid") || isExactFunctionOrClone(name, "sigmoidf")
       || isExactFunctionOrClone(name, "sigmoidl"))
     return SIGMOID;
+
+  if (isExactFunctionOrClone(name, "swish") || isExactFunctionOrClone(name, "swishf")
+      || isExactFunctionOrClone(name, "swishl"))
+    return SWISH;
 
   if (F->getIntrinsicID() == Intrinsic::fma)
     return FMA;
@@ -127,6 +132,9 @@ Value* ConversionPass::convertMathIntrinsicFunction(CallBase* call) {
   }
   else if (family == SIGMOID) {
     return createSigmoid(call);
+  }
+  else if (family == SWISH) {
+    return createSwish(call);
   }
   llvm_unreachable("Math intrinsic recognized but not handled");
 }

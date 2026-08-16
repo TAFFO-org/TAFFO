@@ -185,6 +185,8 @@ static long double evaluateSigmoid(long double x) {
   return expPositive / (1.0L + expPositive);
 }
 
+static long double evaluateSwish(long double x) { return x * evaluateSigmoid(x); }
+
 /*
  * Genera oppure recupera la LUT globale relativa a:
  *
@@ -550,3 +552,5 @@ Value* ConversionPass::createReLU(CallBase* call) {
 }
 
 Value* ConversionPass::createSigmoid(CallBase* call) { return createLUTActivation(call, "sigmoid", evaluateSigmoid); }
+
+Value* ConversionPass::createSwish(CallBase* call) { return createLUTActivation(call, "swish", evaluateSwish); }
