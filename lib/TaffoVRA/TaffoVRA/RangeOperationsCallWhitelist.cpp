@@ -1,6 +1,7 @@
 #include "RangeOperations.hpp"
 #include "RangeOperationsCallWhitelist.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
@@ -205,6 +206,49 @@ static std::shared_ptr<Range> handleCallToSigmoid(const std::list<std::shared_pt
   return std::make_shared<Range>(min, max);
 }
 
+static double evaluateSwish(double x) {
+  if (x == -std::numeric_limits<double>::infinity())
+    return 0.0;
+
+  if (x >= 0.0)
+    return x / (1.0 + std::exp(-x));
+
+  const double expX = std::exp(x);
+
+  return x * expX / (1.0 + expX);
+}
+
+static std::shared_ptr<Range> handleCallToSwish(const std::list<std::shared_ptr<Range>>& operands) {
+
+  assert(operands.size() == 1 && "too many operands in function swish");
+
+  std::shared_ptr<Range> op = operands.front();
+
+  if (!op)
+    return nullptr;
+
+  constexpr double criticalPoint = -1.2784645427610737;
+
+  const double valueAtMin = evaluateSwish(op->min);
+
+  const double valueAtMax = evaluateSwish(op->max);
+
+  double minimum = std::min(valueAtMin, valueAtMax);
+
+  const double maximum = std::max(valueAtMin, valueAtMax);
+
+  /*
+   * Swish is not monotonic.
+   *
+   * It has a unique finite minimum at
+   * x ~= -1.2784645427610737.
+   */
+  if (op->min <= criticalPoint && criticalPoint <= op->max)
+    minimum = std::min(minimum, evaluateSwish(criticalPoint));
+
+  return std::make_shared<Range>(minimum, maximum);
+}
+
 const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
   CMATH_WHITELIST_FUN("ceil", &handleCallToCeil),
   CMATH_WHITELIST_FUN("floor", &handleCallToFloor),
@@ -226,5 +270,8 @@ const std::map<const std::string, map_value_t> taffo::functionWhiteList = {
   {"sigmoid",  &handleCallToSigmoid},
   {"sigmoidf", &handleCallToSigmoid},
   {"sigmoidl", &handleCallToSigmoid},
+  {"swish",    &handleCallToSwish  },
+  {"swishf",   &handleCallToSwish  },
+  {"swishl",   &handleCallToSwish  },
   INTRINSIC_WHITELIST_FUN("fmuladd", &handleCallToFMA)
 };
