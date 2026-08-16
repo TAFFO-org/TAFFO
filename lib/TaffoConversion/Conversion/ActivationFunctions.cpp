@@ -380,9 +380,10 @@ static Value* emitActivationLUTLookup(IRBuilder<NoFolder>& builder,
 
 } // namespace
 
-Value* ConversionPass::createTanh(CallBase* call) {
+Value*
+ConversionPass::createLUTActivation(CallBase* call, StringRef activationName, long double (*evaluator)(long double)) {
 
-  if (!call || call->arg_empty())
+  if (!call || call->arg_empty() || !evaluator)
     return unsupported;
 
   IRBuilder<NoFolder> builder(call);
@@ -395,27 +396,17 @@ Value* ConversionPass::createTanh(CallBase* call) {
 
   /*
    * INPUT TYPE
-   *
-   * Il vecchio branch recuperava il fixed-point
-   * dall'argomento formale della funzione.
    */
   std::unique_ptr<ConversionScalarType> ownedInputType;
 
   if (calledFunction && !calledFunction->arg_empty())
     ownedInputType = makeFixedConversionType(taffoInfo, calledFunction->getArg(0), originalOperand);
 
-  /*
-   * Fallback: FixedPointInfo associato direttamente
-   * all'actual operand.
-   */
   if (!ownedInputType)
     ownedInputType = makeFixedConversionType(taffoInfo, originalOperand, originalOperand);
 
   const ConversionScalarType* inputType = ownedInputType.get();
 
-  /*
-   * Fallback sul ConversionType tradizionale.
-   */
   if (!inputType) {
     const auto* candidate = taffoConvInfo.getNewOrOldType<ConversionScalarType>(originalOperand);
 
@@ -425,15 +416,9 @@ Value* ConversionPass::createTanh(CallBase* call) {
 
   /*
    * OUTPUT TYPE
-   *
-   * Il vecchio branch recuperava il tipo di ritorno
-   * dalla call site.
    */
   std::unique_ptr<ConversionScalarType> ownedOutputType = makeFixedConversionType(taffoInfo, call, call);
 
-  /*
-   * Fallback sull'informazione associata alla funzione.
-   */
   if (!ownedOutputType && calledFunction)
     ownedOutputType = makeFixedConversionType(taffoInfo, calledFunction, call);
 
@@ -447,33 +432,28 @@ Value* ConversionPass::createTanh(CallBase* call) {
   }
 
   if (!inputType) {
-    errs() << "[TANH] unsupported: tipo fixed-point "
-              "dell'input non trovato\n";
+    errs() << "[TAFFO LUT] " << activationName << ": tipo fixed-point dell'input non trovato\n";
 
     return unsupported;
   }
 
   if (!outputType) {
-    errs() << "[TANH] unsupported: tipo fixed-point "
-              "dell'output non trovato\n";
+    errs() << "[TAFFO LUT] " << activationName << ": tipo fixed-point dell'output non trovato\n";
 
     return unsupported;
   }
 
   const int inputBits = inputType->getBits();
-
   const int outputBits = outputType->getBits();
 
   if (inputBits < static_cast<int>(LUT_BITS)) {
-    errs() << "[TANH] unsupported: input con meno "
-              "di 10 bit\n";
+    errs() << "[TAFFO LUT] " << activationName << ": input con meno di 10 bit\n";
 
     return unsupported;
   }
 
   if (outputBits <= 0 || outputBits > 64) {
-    errs() << "[TANH] unsupported: bit-width "
-              "dell'output non supportata\n";
+    errs() << "[TAFFO LUT] " << activationName << ": bit-width dell'output non supportata\n";
 
     return unsupported;
   }
@@ -481,26 +461,26 @@ Value* ConversionPass::createTanh(CallBase* call) {
   Value* fixedOperand = getConvertedOperand(originalOperand, *inputType, call, ConvTypePolicy::ForceHint);
 
   if (!fixedOperand) {
-    errs() << "[TANH] getConvertedOperand "
-              "ha restituito nullptr\n";
+    errs() << "[TAFFO LUT] " << activationName << ": getConvertedOperand ha restituito nullptr\n";
 
     return nullptr;
   }
 
   GlobalVariable* lutVariable =
-    getOrCreateActivationLUT(call->getModule(), context, "tanh", *inputType, *outputType, evaluateTanh);
+    getOrCreateActivationLUT(call->getModule(), context, activationName, *inputType, *outputType, evaluator);
 
   if (!lutVariable) {
-    errs() << "[TANH] impossibile creare la LUT\n";
+    errs() << "[TAFFO LUT] " << activationName << ": impossibile creare la LUT\n";
 
     return nullptr;
   }
 
-  Value* result = emitActivationLUTLookup(builder, fixedOperand, *inputType, lutVariable, "tanh.lut");
+  const std::string instructionPrefix = activationName.str() + ".lut";
+
+  Value* result = emitActivationLUTLookup(builder, fixedOperand, *inputType, lutVariable, instructionPrefix);
 
   if (!result) {
-    errs() << "[TANH] impossibile generare "
-              "il lookup della LUT\n";
+    errs() << "[TAFFO LUT] " << activationName << ": impossibile generare il lookup della LUT\n";
 
     return nullptr;
   }
@@ -509,6 +489,8 @@ Value* ConversionPass::createTanh(CallBase* call) {
 
   return result;
 }
+
+Value* ConversionPass::createTanh(CallBase* call) { return createLUTActivation(call, "tanh", evaluateTanh); }
 
 Value* ConversionPass::createReLU(CallBase* call) {
   if (!call || call->arg_empty())
@@ -567,116 +549,4 @@ Value* ConversionPass::createReLU(CallBase* call) {
   return result;
 }
 
-Value* ConversionPass::createSigmoid(CallBase* call) {
-
-  if (!call || call->arg_empty())
-    return unsupported;
-
-  IRBuilder<NoFolder> builder(call);
-
-  LLVMContext& context = call->getContext();
-
-  Value* originalOperand = call->getArgOperand(0);
-
-  Function* calledFunction = call->getCalledFunction();
-
-  /*
-   * INPUT TYPE
-   */
-  std::unique_ptr<ConversionScalarType> ownedInputType;
-
-  if (calledFunction && !calledFunction->arg_empty())
-    ownedInputType = makeFixedConversionType(taffoInfo, calledFunction->getArg(0), originalOperand);
-
-  if (!ownedInputType)
-    ownedInputType = makeFixedConversionType(taffoInfo, originalOperand, originalOperand);
-
-  const ConversionScalarType* inputType = ownedInputType.get();
-
-  if (!inputType) {
-    const auto* candidate = taffoConvInfo.getNewOrOldType<ConversionScalarType>(originalOperand);
-
-    if (candidate && candidate->isFixedPoint())
-      inputType = candidate;
-  }
-
-  /*
-   * OUTPUT TYPE
-   */
-  std::unique_ptr<ConversionScalarType> ownedOutputType = makeFixedConversionType(taffoInfo, call, call);
-
-  if (!ownedOutputType && calledFunction)
-    ownedOutputType = makeFixedConversionType(taffoInfo, calledFunction, call);
-
-  const ConversionScalarType* outputType = ownedOutputType.get();
-
-  if (!outputType) {
-    const auto* candidate = taffoConvInfo.getNewOrOldType<ConversionScalarType>(call);
-
-    if (candidate && candidate->isFixedPoint())
-      outputType = candidate;
-  }
-
-  if (!inputType) {
-    errs() << "[SIGMOID] unsupported: tipo fixed-point "
-              "dell'input non trovato\n";
-
-    return unsupported;
-  }
-
-  if (!outputType) {
-    errs() << "[SIGMOID] unsupported: tipo fixed-point "
-              "dell'output non trovato\n";
-
-    return unsupported;
-  }
-
-  const int inputBits = inputType->getBits();
-
-  const int outputBits = outputType->getBits();
-
-  if (inputBits < static_cast<int>(LUT_BITS)) {
-    errs() << "[SIGMOID] unsupported: input con meno "
-              "di 10 bit\n";
-
-    return unsupported;
-  }
-
-  if (outputBits <= 0 || outputBits > 64) {
-    errs() << "[SIGMOID] unsupported: bit-width "
-              "dell'output non supportata\n";
-
-    return unsupported;
-  }
-
-  Value* fixedOperand = getConvertedOperand(originalOperand, *inputType, call, ConvTypePolicy::ForceHint);
-
-  if (!fixedOperand) {
-    errs() << "[SIGMOID] getConvertedOperand "
-              "ha restituito nullptr\n";
-
-    return nullptr;
-  }
-
-  GlobalVariable* lutVariable =
-    getOrCreateActivationLUT(call->getModule(), context, "sigmoid", *inputType, *outputType, evaluateSigmoid);
-
-  if (!lutVariable) {
-    errs() << "[SIGMOID] impossibile creare la LUT\n";
-
-    return nullptr;
-  }
-
-  Value* result = emitActivationLUTLookup(builder, fixedOperand, *inputType, lutVariable, "sigmoid.lut");
-
-  if (!result) {
-    errs() << "[SIGMOID] impossibile generare "
-              "il lookup della LUT\n";
-
-    return nullptr;
-  }
-
-  setConversionResultInfo(result, call, outputType);
-
-  return result;
-}
+Value* ConversionPass::createSigmoid(CallBase* call) { return createLUTActivation(call, "sigmoid", evaluateSigmoid); }
