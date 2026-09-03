@@ -356,7 +356,6 @@ Value* ConversionPass::convertSelect(SelectInst* select) {
 }
 
 Value* ConversionPass::convertCall(CallBase* call) {
-
   Function* oldF = call->getCalledFunction();
 
   if (isSupportedOpenCLFunction(oldF))

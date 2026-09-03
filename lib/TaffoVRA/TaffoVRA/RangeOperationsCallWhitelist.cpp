@@ -187,7 +187,7 @@ static std::shared_ptr<Range> handleCallToReLU(const std::list<std::shared_ptr<R
   if (!op)
     return nullptr;
 
-  // ReLU applica un clamp a zero.
+  // ReLU clamps the input range at zero.
   double min = std::max(0.0, op->min);
   double max = std::max(0.0, op->max);
 
