@@ -316,6 +316,13 @@ Function* ConversionPass::createConvertedFunctionForCall(CallBase* call, bool* a
 
   Logger& logger = log();
   auto indenter = logger.getIndenter();
+
+  if (isSupportedMathIntrinsicFunction(oldF)) {
+    LLVM_DEBUG(logger << "supported math function: "
+                         "skipping function cloning\n");
+    return nullptr;
+  }
+
   LLVM_DEBUG(
     logger.logln("[Creating converted function]", Logger::Blue);
     indenter.increaseIndent();

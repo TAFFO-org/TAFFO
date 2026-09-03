@@ -13,6 +13,7 @@
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/Statistic.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instructions.h>
@@ -196,6 +197,14 @@ private:
 
   bool isSupportedMathIntrinsicFunction(llvm::Function* F);
   llvm::Value* convertMathIntrinsicFunction(llvm::CallBase* call);
+
+  llvm::Value*
+  createLUTActivation(llvm::CallBase* call, llvm::StringRef activationName, long double (*evaluator)(long double));
+
+  llvm::Value* createTanh(llvm::CallBase* call);
+  llvm::Value* createReLU(llvm::CallBase* call);
+  llvm::Value* createSigmoid(llvm::CallBase* call);
+  llvm::Value* createSwish(llvm::CallBase* call);
 
   // Indirect calls
 
