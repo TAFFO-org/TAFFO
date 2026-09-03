@@ -245,3 +245,18 @@ The tests can be run with:
 cd test/0_simple
 ./run.py -only relu,sigmoid,swish,tanh
 ```
+
+An additional validator runs the same tests in debug mode and inspects the
+generated VRA metadata and LLVM IR. It checks the expected activation ranges,
+clone-aware recognition, elimination of the original calls, the signed and
+unsigned ReLU paths, and the 10-bit LUT lookup sequence. It also compares all
+1024 entries of each generated LUT with independently evaluated and quantized
+reference values:
+
+```shell
+cd test/0_simple
+./validate_activation_functions.py
+```
+
+To inspect debug artifacts produced by an earlier run without compiling and
+executing the tests again, use `--skip-run`.
