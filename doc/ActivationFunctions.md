@@ -221,6 +221,20 @@ original call.
 - A 1024-entry table trades memory for a low-cost runtime index consisting
   primarily of a shift, truncation, address calculation, and load.
 
+### LLVM 18 validation note
+
+The activation-function implementation was validated with LLVM 18.1.8 in a
+Linux Docker environment. At the `f38995d` base revision, the LLVM 18 build
+required two API-compatibility substitutions in pre-existing code:
+
+- `root->getNameOrAsOperand()` with `tda::toString(root)` in
+  `lib/TaffoConversion/TaffoInfo/ValueConvInfo.cpp`;
+- `oldSizeValue->getNameOrAsOperand()` with `tda::toString(oldSizeValue)` in
+  `lib/TaffoConversion/ConversionPass.cpp`.
+
+These substitutions only affect LLVM value formatting in diagnostic output
+and are unrelated to the activation-function analysis and conversion logic.
+
 ## Regression tests
 
 End-to-end tests are available in:
