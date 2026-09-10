@@ -1,0 +1,540 @@
+#include "../ConversionPass.hpp"
+
+#include <llvm/ADT/APInt.h>
+#include <llvm/ADT/Twine.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/NoFolder.h>
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/raw_ostream.h>
+
+#include <cmath>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+using namespace llvm;
+using namespace tda;
+using namespace taffo;
+
+namespace {
+
+constexpr unsigned LUT_BITS = 10;
+constexpr unsigned LUT_SIZE = 1u << LUT_BITS;
+
+using ActivationEvaluator = long double (*)(long double);
+
+/*
+ * Retrieves the FixedPointInfo produced by TAFFO analyses.
+ * TAFFO is built with -fno-rtti, so the project-specific
+ * std::dynamic_ptr_cast utility performs the required casts.
+ */
+static std::shared_ptr<FixedPointInfo> getFixedPointInfoForValue(TaffoInfo& taffoInfo, Value* value) {
+  if (!value)
+    return nullptr;
+
+  if (!taffoInfo.hasValueInfo(*value))
+    return nullptr;
+
+  std::shared_ptr<ScalarInfo> scalarInfo = std::dynamic_ptr_cast<ScalarInfo>(taffoInfo.getValueInfo(*value));
+
+  if (!scalarInfo)
+    return nullptr;
+
+  if (!scalarInfo->numericType)
+    return nullptr;
+
+  return std::dynamic_ptr_cast<FixedPointInfo>(scalarInfo->numericType);
+}
+
+/*
+ * Builds a fixed-point ConversionScalarType from the
+ * FixedPointInfo produced by DTA.
+ *
+ * infoValue provides the FixedPointInfo, while transparentValue
+ * provides the structure of the original type.
+ */
+static std::unique_ptr<ConversionScalarType>
+makeFixedConversionType(TaffoInfo& taffoInfo, Value* infoValue, Value* transparentValue) {
+  std::shared_ptr<FixedPointInfo> fixedInfo = getFixedPointInfoForValue(taffoInfo, infoValue);
+
+  if (!fixedInfo || !transparentValue)
+    return nullptr;
+
+  TransparentType* transparentType = taffoInfo.getOrCreateTransparentType(*transparentValue);
+
+  if (!transparentType)
+    return nullptr;
+
+  auto result = std::make_unique<ConversionScalarType>(*transparentType, fixedInfo.get());
+
+  if (!result->isFixedPoint())
+    return nullptr;
+
+  return result;
+}
+
+/*
+ * Encodes a fixed-point type in the LUT name.
+ *
+ * Examples:
+ *
+ *   signed, 32 bit, frac=30    -> s32_fp30
+ *   unsigned, 16 bit, frac=15  -> u16_fp15
+ *   signed, 32 bit, frac=-2    -> s32_fm2
+ */
+static std::string encodeFixedType(const ConversionScalarType& type) {
+  std::string result = type.isSigned() ? "s" : "u";
+
+  result += std::to_string(type.getBits());
+
+  const int fractionalBits = type.getFractionalBits();
+
+  if (fractionalBits >= 0) {
+    result += "_fp";
+    result += std::to_string(fractionalBits);
+  }
+  else {
+    result += "_fm";
+    result += std::to_string(-fractionalBits);
+  }
+
+  return result;
+}
+
+/*
+ * Quantizes a real value to the output fixed-point type.
+ * std::floor preserves the rmTowardNegative rounding mode used
+ * by the previous TAFFOMath implementation.
+ */
+static APInt quantizeFixedPoint(long double realValue, const ConversionScalarType& outputType) {
+  const int outputBitsInt = outputType.getBits();
+
+  const unsigned outputBits = static_cast<unsigned>(outputBitsInt);
+
+  const int outputFractionalBits = outputType.getFractionalBits();
+
+  long double scaledValue = std::ldexp(realValue, outputFractionalBits);
+
+  scaledValue = std::floor(scaledValue);
+
+  if (outputType.isSigned()) {
+    /*
+     * Signed raw range:
+     *
+     * [-2^(N-1), 2^(N-1) - 1]
+     */
+    const long double minimumRaw = -std::ldexp(1.0L, outputBitsInt - 1);
+
+    const long double upperExclusive = std::ldexp(1.0L, outputBitsInt - 1);
+
+    if (scaledValue <= minimumRaw)
+      return APInt::getSignedMinValue(outputBits);
+
+    if (scaledValue >= upperExclusive)
+      return APInt::getSignedMaxValue(outputBits);
+
+    const int64_t rawValue = static_cast<int64_t>(scaledValue);
+
+    return APInt(outputBits, static_cast<uint64_t>(rawValue), true);
+  }
+
+  /*
+   * Unsigned raw range:
+   *
+   * [0, 2^N - 1]
+   */
+  if (scaledValue <= 0.0L)
+    return APInt(outputBits, 0, false);
+
+  const long double upperExclusive = std::ldexp(1.0L, outputBitsInt);
+
+  if (scaledValue >= upperExclusive)
+    return APInt::getMaxValue(outputBits);
+
+  const uint64_t rawValue = static_cast<uint64_t>(scaledValue);
+
+  return APInt(outputBits, rawValue, false);
+}
+
+static long double evaluateTanh(long double x) { return std::tanh(x); }
+
+/*
+ * Evaluates sigmoid with numerically stable expressions for
+ * negative and non-negative inputs.
+ */
+static long double evaluateSigmoid(long double x) {
+  if (x >= 0.0L) {
+    const long double expNegative = std::exp(-x);
+
+    return 1.0L / (1.0L + expNegative);
+  }
+
+  const long double expPositive = std::exp(x);
+
+  return expPositive / (1.0L + expPositive);
+}
+
+static long double evaluateSwish(long double x) { return x * evaluateSigmoid(x); }
+
+/*
+ * Creates or retrieves the global LUT identified by:
+ *
+ * - activation name;
+ * - input fixed-point type;
+ * - output fixed-point type;
+ * - LUT size.
+ */
+static GlobalVariable* getOrCreateActivationLUT(Module* module,
+                                                LLVMContext& context,
+                                                StringRef activationName,
+                                                const ConversionScalarType& inputType,
+                                                const ConversionScalarType& outputType,
+                                                ActivationEvaluator evaluator) {
+  if (!module)
+    return nullptr;
+
+  const int inputBitsInt = inputType.getBits();
+
+  const int outputBitsInt = outputType.getBits();
+
+  if (inputBitsInt < static_cast<int>(LUT_BITS))
+    return nullptr;
+
+  if (outputBitsInt <= 0 || outputBitsInt > 64)
+    return nullptr;
+
+  const unsigned inputBits = static_cast<unsigned>(inputBitsInt);
+
+  auto* outputLLVMType = dyn_cast<IntegerType>(outputType.toScalarLLVMType(context));
+
+  if (!outputLLVMType)
+    return nullptr;
+
+  const unsigned shiftAmount = inputBits - LUT_BITS;
+
+  const int internalFractionalBits = inputType.getFractionalBits() - static_cast<int>(shiftAmount);
+
+  const std::string lutName = "__taffo_" + activationName.str() + "_" + encodeFixedType(inputType) + "_to_"
+                            + encodeFixedType(outputType) + "_lut1024";
+
+  ArrayType* lutType = ArrayType::get(outputLLVMType, LUT_SIZE);
+
+  GlobalVariable* lutVariable = module->getNamedGlobal(lutName);
+
+  if (lutVariable) {
+    if (lutVariable->getValueType() != lutType) {
+      errs() << "[TAFFO LUT] global " << lutName << " already exists with an incompatible type\n";
+
+      return nullptr;
+    }
+
+    if (lutVariable->hasInitializer())
+      return lutVariable;
+  }
+
+  /*
+   * Generates the LUT contents at compile time.
+   */
+  std::vector<Constant*> lutValues;
+  lutValues.reserve(LUT_SIZE);
+
+  for (unsigned index = 0; index < LUT_SIZE; ++index) {
+    /*
+     * The index represents the bit pattern of the internal
+     * 10-bit fixed-point type.
+     *
+     * Signed case:
+     *
+     * 0...511     -> 0...511
+     * 512...1023  -> -512...-1
+     */
+    APInt internalPattern(LUT_BITS, index);
+
+    int64_t internalRawValue;
+
+    if (inputType.isSigned())
+      internalRawValue = internalPattern.getSExtValue();
+    else
+      internalRawValue = static_cast<int64_t>(internalPattern.getZExtValue());
+
+    /*
+     * Converts the fixed-point value to a real value:
+     *
+     * realInput =
+     *   internalRawValue *
+     *   2^(-internalFractionalBits)
+     */
+    const long double realInput = std::ldexp(static_cast<long double>(internalRawValue), -internalFractionalBits);
+
+    const long double realOutput = evaluator(realInput);
+
+    const APInt fixedOutput = quantizeFixedPoint(realOutput, outputType);
+
+    lutValues.push_back(ConstantInt::get(context, fixedOutput));
+  }
+
+  Constant* initializer = ConstantArray::get(lutType, lutValues);
+
+  if (!lutVariable) {
+    lutVariable = new GlobalVariable(*module, lutType, true, GlobalValue::InternalLinkage, initializer, lutName);
+  }
+  else {
+    lutVariable->setInitializer(initializer);
+
+    lutVariable->setConstant(true);
+
+    lutVariable->setLinkage(GlobalValue::InternalLinkage);
+  }
+
+  return lutVariable;
+}
+
+/*
+ * The runtime lookup keeps the ten most significant input bits,
+ * interprets them as an unsigned LUT index, and loads the selected
+ * output value.
+ */
+static Value* emitActivationLUTLookup(IRBuilder<NoFolder>& builder,
+                                      Value* fixedOperand,
+                                      const ConversionScalarType& inputType,
+                                      GlobalVariable* lutVariable,
+                                      StringRef instructionPrefix) {
+  if (!fixedOperand || !lutVariable)
+    return nullptr;
+
+  auto* inputLLVMType = dyn_cast<IntegerType>(fixedOperand->getType());
+
+  if (!inputLLVMType)
+    return nullptr;
+
+  const int inputBitsInt = inputType.getBits();
+
+  if (inputBitsInt < static_cast<int>(LUT_BITS))
+    return nullptr;
+
+  const unsigned inputBits = static_cast<unsigned>(inputBitsInt);
+
+  if (inputLLVMType->getBitWidth() != inputBits) {
+    errs() << "[TAFFO LUT] LLVM input width = " << inputLLVMType->getBitWidth()
+           << ", fixed-point width = " << inputBits << "\n";
+
+    return nullptr;
+  }
+
+  const unsigned shiftAmount = inputBits - LUT_BITS;
+
+  Value* reducedOperand = fixedOperand;
+
+  if (shiftAmount > 0) {
+    Value* shiftValue = ConstantInt::get(inputLLVMType, shiftAmount);
+
+    if (inputType.isSigned())
+      reducedOperand = builder.CreateAShr(fixedOperand, shiftValue, Twine(instructionPrefix) + ".shifted");
+    else
+      reducedOperand = builder.CreateLShr(fixedOperand, shiftValue, Twine(instructionPrefix) + ".shifted");
+  }
+
+  IntegerType* indexPatternType = IntegerType::get(fixedOperand->getContext(), LUT_BITS);
+
+  Value* indexPattern = reducedOperand;
+
+  if (inputBits != LUT_BITS)
+    indexPattern = builder.CreateTrunc(reducedOperand, indexPatternType, Twine(instructionPrefix) + ".pattern");
+
+  /*
+   * Reinterprets the bit pattern as an unsigned index:
+   *
+   * i10 1111111111 -> i32 1023
+   */
+  Value* lutIndex = builder.CreateZExt(indexPattern, builder.getInt32Ty(), Twine(instructionPrefix) + ".index");
+
+  auto* lutType = dyn_cast<ArrayType>(lutVariable->getValueType());
+
+  if (!lutType)
+    return nullptr;
+
+  Type* elementType = lutType->getElementType();
+
+  Value* elementPointer =
+    builder.CreateGEP(lutType, lutVariable, {builder.getInt32(0), lutIndex}, Twine(instructionPrefix) + ".gep");
+
+  return builder.CreateLoad(elementType, elementPointer, Twine(instructionPrefix) + ".value");
+}
+
+} // namespace
+
+Value*
+ConversionPass::createLUTActivation(CallBase* call, StringRef activationName, long double (*evaluator)(long double)) {
+
+  if (!call || call->arg_empty() || !evaluator)
+    return unsupported;
+
+  IRBuilder<NoFolder> builder(call);
+
+  LLVMContext& context = call->getContext();
+
+  Value* originalOperand = call->getArgOperand(0);
+
+  Function* calledFunction = call->getCalledFunction();
+
+  /*
+   * INPUT TYPE
+   */
+  std::unique_ptr<ConversionScalarType> ownedInputType;
+
+  if (calledFunction && !calledFunction->arg_empty())
+    ownedInputType = makeFixedConversionType(taffoInfo, calledFunction->getArg(0), originalOperand);
+
+  if (!ownedInputType)
+    ownedInputType = makeFixedConversionType(taffoInfo, originalOperand, originalOperand);
+
+  const ConversionScalarType* inputType = ownedInputType.get();
+
+  if (!inputType) {
+    const auto* candidate = taffoConvInfo.getNewOrOldType<ConversionScalarType>(originalOperand);
+
+    if (candidate && candidate->isFixedPoint())
+      inputType = candidate;
+  }
+
+  /*
+   * OUTPUT TYPE
+   */
+  std::unique_ptr<ConversionScalarType> ownedOutputType = makeFixedConversionType(taffoInfo, call, call);
+
+  if (!ownedOutputType && calledFunction)
+    ownedOutputType = makeFixedConversionType(taffoInfo, calledFunction, call);
+
+  const ConversionScalarType* outputType = ownedOutputType.get();
+
+  if (!outputType) {
+    const auto* candidate = taffoConvInfo.getNewOrOldType<ConversionScalarType>(call);
+
+    if (candidate && candidate->isFixedPoint())
+      outputType = candidate;
+  }
+
+  if (!inputType) {
+    errs() << "[TAFFO LUT] " << activationName << ": fixed-point input type not found\n";
+
+    return unsupported;
+  }
+
+  if (!outputType) {
+    errs() << "[TAFFO LUT] " << activationName << ": fixed-point output type not found\n";
+
+    return unsupported;
+  }
+
+  const int inputBits = inputType->getBits();
+  const int outputBits = outputType->getBits();
+
+  if (inputBits < static_cast<int>(LUT_BITS)) {
+    errs() << "[TAFFO LUT] " << activationName << ": input width is less than 10 bits\n";
+
+    return unsupported;
+  }
+
+  if (outputBits <= 0 || outputBits > 64) {
+    errs() << "[TAFFO LUT] " << activationName << ": unsupported output width\n";
+
+    return unsupported;
+  }
+
+  Value* fixedOperand = getConvertedOperand(originalOperand, *inputType, call, ConvTypePolicy::ForceHint);
+
+  if (!fixedOperand) {
+    errs() << "[TAFFO LUT] " << activationName << ": operand conversion failed\n";
+
+    return nullptr;
+  }
+
+  GlobalVariable* lutVariable =
+    getOrCreateActivationLUT(call->getModule(), context, activationName, *inputType, *outputType, evaluator);
+
+  if (!lutVariable) {
+    errs() << "[TAFFO LUT] " << activationName << ": LUT creation failed\n";
+
+    return nullptr;
+  }
+
+  const std::string instructionPrefix = activationName.str() + ".lut";
+
+  Value* result = emitActivationLUTLookup(builder, fixedOperand, *inputType, lutVariable, instructionPrefix);
+
+  if (!result) {
+    errs() << "[TAFFO LUT] " << activationName << ": LUT lookup generation failed\n";
+
+    return nullptr;
+  }
+
+  setConversionResultInfo(result, call, outputType);
+
+  return result;
+}
+
+Value* ConversionPass::createTanh(CallBase* call) { return createLUTActivation(call, "tanh", evaluateTanh); }
+
+Value* ConversionPass::createReLU(CallBase* call) {
+  if (!call || call->arg_empty())
+    return unsupported;
+
+  IRBuilder<NoFolder> builder(call);
+
+  ValueConvInfo* valueConvInfo = taffoConvInfo.getValueConvInfo(call);
+
+  auto* newConvType = valueConvInfo->getNewOrOldType<ConversionScalarType>();
+
+  if (!newConvType || !newConvType->isFixedPoint()) {
+    errs() << "[RELU] unsupported: fixed-point type not available\n";
+
+    return unsupported;
+  }
+
+  Value* originalOperand = call->getArgOperand(0);
+
+  Value* convertedOperand = getConvertedOperand(originalOperand, *newConvType, call, ConvTypePolicy::ForceHint);
+
+  if (!convertedOperand)
+    return nullptr;
+
+  auto* llvmType = dyn_cast<IntegerType>(convertedOperand->getType());
+
+  if (!llvmType)
+    return nullptr;
+
+  Value* zero = ConstantInt::get(llvmType, 0);
+
+  /*
+   * Unsigned fixed-point values cannot be negative.
+   * ReLU(x) = x.
+   *
+   * Emit an explicit identity instruction instead of
+   * returning convertedOperand directly, because the
+   * operand may be an LLVM Constant. TAFFO does not
+   * associate newType information with uniqued constants.
+   */
+  if (!newConvType->isSigned()) {
+    Value* result = builder.CreateAdd(convertedOperand, zero, "relu.identity");
+
+    setConversionResultInfo(result, call, newConvType);
+
+    return result;
+  }
+
+  Value* isPositive = builder.CreateICmpSGT(convertedOperand, zero, "relu.positive");
+
+  Value* result = builder.CreateSelect(isPositive, convertedOperand, zero, "relu.value");
+
+  setConversionResultInfo(result, call, newConvType);
+
+  return result;
+}
+
+Value* ConversionPass::createSigmoid(CallBase* call) { return createLUTActivation(call, "sigmoid", evaluateSigmoid); }
+
+Value* ConversionPass::createSwish(CallBase* call) { return createLUTActivation(call, "swish", evaluateSwish); }

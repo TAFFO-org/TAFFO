@@ -53,7 +53,11 @@ Modify the application to insert annotations on the appropriate variable declara
 taffo -O3 -o program-taffo program.c
 ```
 
-See the annotation syntax documentation or the examples in `test/0_simple` to get an idea on how to write annotations.
+See the [annotation syntax documentation](doc/AnnotationSyntax.md) or the
+examples in `test/0_simple` to get an idea on how to write annotations.
+Fixed-point conversion of ReLU, tanh, sigmoid, and Swish is described in the
+[activation function documentation](doc/ActivationFunctions.md).
+
 You can also test TAFFO without adding annotations, which will produce the same results as using `clang` as a compiler/linker instead of `taffo`.
 
 Note that there is no `taffo++`; C++ source files are autodetected by the file extension instead.

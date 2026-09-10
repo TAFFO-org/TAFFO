@@ -88,15 +88,46 @@ taffo::handleCastInstruction(const std::shared_ptr<Range> scalar, const unsigned
   return nullptr;
 }
 
+/*
+ * TAFFO may clone functions during initialization, producing names
+ * such as "swish_clone0". For whitelist lookup purposes, a clone
+ * preserves the semantics of the original function.
+ */
+static std::string getOriginalFunctionName(const std::string& function) {
+  const std::string cloneMarker = "_clone";
+  const std::size_t clonePos = function.rfind(cloneMarker);
+
+  if (clonePos == std::string::npos)
+    return function;
+
+  const std::size_t suffixPos = clonePos + cloneMarker.size();
+
+  if (suffixPos == function.size())
+    return function;
+
+  for (std::size_t i = suffixPos; i < function.size(); ++i)
+    if (function[i] < '0' || function[i] > '9')
+      return function;
+
+  return function.substr(0, clonePos);
+}
+
 /** Return true if this function call can be handled by taffo::handleMathCallInstruction */
-bool taffo::isMathCallInstruction(const std::string& function) { return functionWhiteList.count(function); }
+bool taffo::isMathCallInstruction(const std::string& function) {
+  return functionWhiteList.count(getOriginalFunctionName(function));
+}
 
 /** Handle call to known math functions. Return nullptr if unknown */
 std::shared_ptr<Range> taffo::handleMathCallInstruction(const std::list<std::shared_ptr<Range>>& ops,
                                                         const std::string& function) {
-  const auto it = functionWhiteList.find(function);
+
+  const std::string originalFunction = getOriginalFunctionName(function);
+
+  const auto it = functionWhiteList.find(originalFunction);
+
   if (it != functionWhiteList.end())
     return it->second(ops);
+
   return nullptr;
 }
 
